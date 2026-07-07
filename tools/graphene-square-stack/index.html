@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Graphene Square Stack</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #000000;
+      --muted: #334155;
+      --panel-bg: rgba(255, 255, 255, 0.98);
+      --line: rgba(15, 23, 42, 0.1);
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      overflow: hidden;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+    }
+
+    body.panel-open .panel {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .stage {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+
+    canvas {
+      display: block;
+      background: var(--bg);
+      border: none;
+      outline: none;
+      box-shadow: none;
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      touch-action: none;
+      cursor: grab;
+    }
+
+    canvas.dragging {
+      cursor: grabbing;
+    }
+
+    .panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(350px, 85vw);
+      padding: 22px 16px 18px 18px;
+      background: var(--panel-bg);
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      z-index: 9;
+      box-sizing: border-box;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 24px;
+      background: linear-gradient(90deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0));
+      pointer-events: none;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #ffffff;
+      margin-bottom: 10px;
+    }
+
+    .card h2 {
+      margin: 0 0 9px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      font-weight: 700;
+    }
+
+    .sliderrow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0;
+      font-size: 13px;
+      color: #0f172a;
+    }
+
+    .sliderrow input[type="range"] {
+      width: 100%;
+      accent-color: #111827;
+    }
+
+    .checkrow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0 2px;
+      font-size: 13px;
+      color: #0f172a;
+    }
+
+    .value {
+      font-variant-numeric: tabular-nums;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 5px 8px;
+      color: var(--muted);
+      min-width: 44px;
+      text-align: right;
+      font-size: 12px;
+    }
+
+    .panel button {
+      border: 1px solid #0f172a;
+      border-radius: 10px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      width: 100%;
+    }
+
+    .hint {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #475569;
+    }
+
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="view" aria-label="Graphene square layer stack"></canvas>
+  </div>
+
+  <aside class="panel" aria-label="Graphene square controls">
+    <div class="card">
+      <h2>Square Flake</h2>
+      <div class="sliderrow">
+        <label for="sideCells">Size</label>
+        <span id="sideCellsValue" class="value">20 cells/side</span>
+      </div>
+      <input id="sideCells" type="range" min="6" max="40" step="1" value="20" />
+    </div>
+
+    <div class="card">
+      <h2>Stack</h2>
+      <div class="sliderrow">
+        <label for="layerCount">Layers</label>
+        <span id="layerCountValue" class="value">1</span>
+      </div>
+      <input id="layerCount" type="range" min="1" max="10" step="1" value="1" />
+      <div class="checkrow">
+        <label for="chiralTwist">Chiral twist</label>
+        <input id="chiralTwist" type="checkbox" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>View</h2>
+      <div class="sliderrow">
+        <label for="perspective">Perspective</label>
+        <span id="perspectiveValue" class="value">0%</span>
+      </div>
+      <input id="perspective" type="range" min="0" max="100" step="1" value="0" />
+
+      <div class="sliderrow">
+        <label for="lateralSensitivity">Lateral Drag</label>
+        <span id="lateralSensitivityValue" class="value">1.1x</span>
+      </div>
+      <input id="lateralSensitivity" type="range" min="6" max="24" step="1" value="11" />
+
+      <div class="sliderrow">
+        <label for="tilt">Tilt</label>
+        <span id="tiltValue" class="value">0%</span>
+      </div>
+      <input id="tilt" type="range" min="0" max="100" step="1" value="0" />
+    </div>
+
+    <div class="card">
+      <h2>Actions</h2>
+      <button id="resetLayers" type="button">Reset Layer Rotation</button>
+      <p class="hint">Drag on a layer: sideways rotates that layer. Up/down near left/right edges also rotates. Up/down tilts near the structure center. Shift + up/down changes perspective. Mouse wheel zooms in and out.</p>
+      <p id="activeLayer" class="status">Active layer: none</p>
+      <p id="modelStats" class="status"></p>
+    </div>
+  </aside>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("view");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const panel = document.querySelector(".panel");
+      const sideCellsInput = document.getElementById("sideCells");
+      const sideCellsValue = document.getElementById("sideCellsValue");
+      const layerCountInput = document.getElementById("layerCount");
+      const layerCountValue = document.getElementById("layerCountValue");
+      const chiralTwistInput = document.getElementById("chiralTwist");
+      const perspectiveInput = document.getElementById("perspective");
+      const perspectiveValue = document.getElementById("perspectiveValue");
+      const lateralInput = document.getElementById("lateralSensitivity");
+      const lateralValue = document.getElementById("lateralSensitivityValue");
+      const tiltInput = document.getElementById("tilt");
+      const tiltValue = document.getElementById("tiltValue");
+      const resetLayersBtn = document.getElementById("resetLayers");
+      const activeLayerLabel = document.getElementById("activeLayer");
+      const modelStats = document.getElementById("modelStats");
+      let panelOpenTimer = null;
+      let panelPinned = false;
+
+      const NM_TO_SCENE = 140;
+      const CARBON_BOND_NM = 0.142;
+      const LAYER_SPACING_NM = 0.335;
+      const MAX_LAYERS = 10;
+      const DEFAULT_LAYERS = 1;
+      const DEFAULT_SIDE_CELLS = 20;
+      const LAYER_COLORS = [
+        "#000000",
+        "#8b5cf6",
+        "#3b82f6",
+        "#22c55e",
+        "#ef4444",
+        "#f59e0b",
+        "#06b6d4",
+        "#ec4899",
+        "#84cc16",
+        "#64748b"
+      ];
+
+      const A_CC = CARBON_BOND_NM;
+      const A1 = { x: Math.sqrt(3) * A_CC, y: 0 };
+      const A2 = { x: (Math.sqrt(3) / 2) * A_CC, y: 1.5 * A_CC };
+      const BASIS_A = { x: 0, y: 0 };
+      const BASIS_B = { x: 0, y: A_CC };
+      const ARMCHAIR_PHASE_X = (Math.sqrt(3) * A_CC) / 4;
+      const ATOM_DIAMETER_TO_BOND_RATIO = 0.42;
+
+      const state = {
+        dpr: Math.max(1, Math.min(2, window.devicePixelRatio || 1)),
+        width: 0,
+        height: 0,
+        tilt: 0,
+        tiltTarget: 0,
+        perspective: 0,
+        zoom: 1,
+        fov: 920,
+        sideCells: DEFAULT_SIDE_CELLS,
+        layerCount: DEFAULT_LAYERS,
+        chiralTwist: false,
+        layerYaws: new Array(MAX_LAYERS).fill(0),
+        layerYawTargets: new Array(MAX_LAYERS).fill(0),
+        lateralSensitivity: 0.005,
+        dragActive: false,
+        dragLayer: -1,
+        dragLateralLayer: -1,
+        dragLateralSign: 1,
+        dragMode: "none",
+        dragCanTilt: false,
+        dragEdgeSide: 0,
+        dragVerticalRotate: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragYawStart: 0,
+        dragTiltStart: 0,
+        dragPerspectiveStart: 0,
+        layerBounds: [],
+        suppressPanelUntil: 0,
+      };
+
+      const CAMERA_DISTANCE = 880;
+      const PERSPECTIVE_DISTANCE = CAMERA_DISTANCE * 3.2;
+
+      let model = buildModel(state.layerCount);
+
+      function buildModel(layerCount) {
+        const sideCells = state.sideCells;
+        const sideLengthNm = sideCells * A1.x;
+        const halfSide = sideLengthNm * 0.5;
+        const minX = ARMCHAIR_PHASE_X - halfSide;
+        const maxX = ARMCHAIR_PHASE_X + halfSide;
+        const minY = -halfSide;
+        const maxY = halfSide;
+
+        const iExtent = Math.ceil(sideLengthNm / A1.x) + Math.ceil(sideLengthNm / A2.x) + 6;
+        const jExtent = Math.ceil(sideLengthNm / A2.y) + 6;
+
+        const candidateAtoms = [];
+
+        for (let j = -jExtent; j <= jExtent; j += 1) {
+          for (let i = -iExtent; i <= iExtent; i += 1) {
+            const baseX = i * A1.x + j * A2.x;
+            const baseY = i * A1.y + j * A2.y;
+
+            candidateAtoms.push({
+              x: baseX + BASIS_A.x,
+              y: baseY + BASIS_A.y,
+              sub: "A",
+              i,
+              j,
+            });
+
+            candidateAtoms.push({
+              x: baseX + BASIS_B.x,
+              y: baseY + BASIS_B.y,
+              sub: "B",
+              i,
+              j,
+            });
+          }
+        }
+
+        const layerAtoms = candidateAtoms
+          .filter((atom) =>
+            atom.x >= minX &&
+            atom.x <= maxX &&
+            atom.y >= minY &&
+            atom.y <= maxY
+          )
+          .map((atom, id) => ({ ...atom, id }));
+
+        const layerBonds = [];
+
+        const bIndex = new Map();
+        for (const atom of layerAtoms) {
+          if (atom.sub === "B") {
+            bIndex.set(`${atom.i}:${atom.j}`, atom.id);
+          }
+        }
+
+        for (const atom of layerAtoms) {
+          if (atom.sub !== "A") {
+            continue;
+          }
+
+          linkIfExists(layerBonds, atom.id, bIndex.get(`${atom.i}:${atom.j}`));
+          linkIfExists(layerBonds, atom.id, bIndex.get(`${atom.i}:${atom.j - 1}`));
+          linkIfExists(layerBonds, atom.id, bIndex.get(`${atom.i + 1}:${atom.j - 1}`));
+        }
+
+        const atoms = [];
+        const bonds = [];
+        const layerShift = { x: (A1.x + A2.x) / 3, y: (A1.y + A2.y) / 3 };
+        const layerSumX = new Array(layerCount).fill(0);
+        const layerSumY = new Array(layerCount).fill(0);
+        const layerSumZ = new Array(layerCount).fill(0);
+        const layerPoints = new Array(layerCount).fill(0);
+
+        for (let l = 0; l < layerCount; l += 1) {
+          const shiftX = l % 2 === 0 ? 0 : layerShift.x;
+          const shiftY = l % 2 === 0 ? 0 : layerShift.y;
+          const z = (l - (layerCount - 1) / 2) * LAYER_SPACING_NM;
+          const atomOffset = atoms.length;
+
+          for (const atom of layerAtoms) {
+            const ax = atom.x + shiftX;
+            const ay = atom.y + shiftY;
+            atoms.push({ x: ax, y: ay, z, layer: l });
+            layerSumX[l] += ax;
+            layerSumY[l] += ay;
+            layerSumZ[l] += z;
+            layerPoints[l] += 1;
+          }
+
+          for (const [a, b] of layerBonds) {
+            bonds.push([a + atomOffset, b + atomOffset]);
+          }
+        }
+
+        const center = computeCenter(atoms);
+        const pivots = [];
+        for (let l = 0; l < layerCount; l += 1) {
+          pivots.push({
+            x: layerSumX[l] / layerPoints[l],
+            y: layerSumY[l] / layerPoints[l],
+            z: layerSumZ[l] / layerPoints[l],
+          });
+        }
+
+        return { atoms, bonds, center, pivots, layerCount };
+      }
+
+      function linkIfExists(target, a, b) {
+        if (a !== undefined && b !== undefined) {
+          target.push([a, b]);
+        }
+      }
+
+      function computeCenter(atoms) {
+        let sx = 0;
+        let sy = 0;
+        let sz = 0;
+        for (const atom of atoms) {
+          sx += atom.x;
+          sy += atom.y;
+          sz += atom.z;
+        }
+        const n = atoms.length;
+        return { x: sx / n, y: sy / n, z: sz / n };
+      }
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        state.width = rect.width;
+        state.height = rect.height;
+
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+        state.fov = Math.max(620, state.width * 0.95);
+      }
+
+      function toScene(atom) {
+        const x = (atom.x - model.center.x) * NM_TO_SCENE;
+        const y = (atom.y - model.center.y) * NM_TO_SCENE;
+        const z = (atom.z - model.center.z) * NM_TO_SCENE;
+
+        const pivot = model.pivots[atom.layer];
+        const px = (pivot.x - model.center.x) * NM_TO_SCENE;
+        const py = (pivot.y - model.center.y) * NM_TO_SCENE;
+        const ly = state.layerYaws[atom.layer] || 0;
+        const cly = Math.cos(ly);
+        const sly = Math.sin(ly);
+
+        const localX = x - px;
+        const localY = y - py;
+        const rotatedX = localX * cly - localY * sly + px;
+        const rotatedY = localX * sly + localY * cly + py;
+
+        return { x: rotatedX, y: rotatedY, z };
+      }
+
+      function getCameraFrame() {
+        const tiltRad = state.tilt * (Math.PI / 2);
+        const camera = {
+          x: 0,
+          y: Math.cos(tiltRad) * CAMERA_DISTANCE,
+          z: Math.sin(tiltRad) * CAMERA_DISTANCE,
+        };
+        const target = { x: 0, y: 0, z: 0 };
+        const forward = normalizeVec(subVec(target, camera));
+        const right = { x: 1, y: 0, z: 0 };
+        const up = normalizeVec(crossVec(forward, right));
+        return { camera, forward, right, up };
+      }
+
+      function subVec(a, b) {
+        return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+      }
+
+      function crossVec(a, b) {
+        return {
+          x: a.y * b.z - a.z * b.y,
+          y: a.z * b.x - a.x * b.z,
+          z: a.x * b.y - a.y * b.x,
+        };
+      }
+
+      function dotVec(a, b) {
+        return a.x * b.x + a.y * b.y + a.z * b.z;
+      }
+
+      function lengthVec(v) {
+        return Math.hypot(v.x, v.y, v.z);
+      }
+
+      function normalizeVec(v) {
+        const len = Math.max(1e-6, lengthVec(v));
+        return { x: v.x / len, y: v.y / len, z: v.z / len };
+      }
+
+      function project(p3) {
+        const frame = getCameraFrame();
+        const rel = subVec(p3, frame.camera);
+        const xCam = dotVec(rel, frame.right);
+        const yCam = dotVec(rel, frame.up);
+        const zCam = dotVec(rel, frame.forward);
+
+        const safeDepth = Math.max(160, zCam);
+        const perspectiveDepth = Math.max(160, PERSPECTIVE_DISTANCE + (zCam - CAMERA_DISTANCE));
+        const orthoScale = state.fov / CAMERA_DISTANCE;
+        const perspectiveScale = orthoScale * (PERSPECTIVE_DISTANCE / perspectiveDepth);
+        const mixedScale = orthoScale * (1 - state.perspective) + perspectiveScale * state.perspective;
+        const scale = mixedScale * state.zoom;
+        return {
+          x: state.width * 0.5 + xCam * scale,
+          y: state.height * 0.5 - yCam * scale,
+          depth: safeDepth,
+          scale,
+        };
+      }
+
+      function render() {
+        state.tilt += (state.tiltTarget - state.tilt) * 0.2;
+
+        for (let i = 0; i < state.layerCount; i += 1) {
+          state.layerYaws[i] += (state.layerYawTargets[i] - state.layerYaws[i]) * 0.18;
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, state.width, state.height);
+
+        const projected = new Array(model.atoms.length);
+        const layerBounds = new Array(state.layerCount)
+          .fill(null)
+          .map(() => ({ minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }));
+
+        for (let i = 0; i < model.atoms.length; i += 1) {
+          const atom = model.atoms[i];
+          const p3 = toScene(atom);
+          const p2 = project(p3);
+          projected[i] = { ...p2, z: p3.z, layer: atom.layer };
+
+          const b = layerBounds[atom.layer];
+          b.minX = Math.min(b.minX, p2.x);
+          b.maxX = Math.max(b.maxX, p2.x);
+          b.minY = Math.min(b.minY, p2.y);
+          b.maxY = Math.max(b.maxY, p2.y);
+        }
+
+        state.layerBounds = layerBounds;
+
+        ctx.lineCap = "round";
+        for (const [a, b] of model.bonds) {
+          const p = projected[a];
+          const q = projected[b];
+          const width = Math.max(1.0, Math.min(2.0, 1.8 * ((p.scale + q.scale) * 0.5)));
+          const bondVisibility = Math.max(0.08, Math.min(1, ((p.scale + q.scale) * 0.5) * 3.8));
+          const bondColor = LAYER_COLORS[Math.min(LAYER_COLORS.length - 1, p.layer ?? 0)];
+          ctx.globalAlpha = 0.9 * bondVisibility;
+          ctx.strokeStyle = bondColor;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.stroke();
+        }
+
+        const zoomOnlyBondPx = CARBON_BOND_NM * NM_TO_SCENE * (state.fov / CAMERA_DISTANCE) * state.zoom;
+        const atomRadius = zoomOnlyBondPx * ATOM_DIAMETER_TO_BOND_RATIO * 0.5;
+
+        const drawOrder = projected
+          .map((p, idx) => ({ idx, depth: p.depth }))
+          .sort((a, b) => b.depth - a.depth);
+
+        for (const item of drawOrder) {
+          const p = projected[item.idx];
+          const radius = atomRadius;
+          const layerColor = LAYER_COLORS[Math.min(LAYER_COLORS.length - 1, p.layer ?? 0)];
+
+          const grad = ctx.createRadialGradient(
+            p.x - radius * 0.35,
+            p.y - radius * 0.35,
+            radius * 0.2,
+            p.x,
+            p.y,
+            radius * 1.2
+          );
+          grad.addColorStop(0, tintColor(layerColor, 0.35));
+          grad.addColorStop(0.55, tintColor(layerColor, 0.1));
+          grad.addColorStop(1, layerColor);
+
+          const atomVisibility = Math.max(0.12, Math.min(1, p.scale * 4.2));
+          ctx.globalAlpha = atomVisibility;
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.globalAlpha = 1;
+
+        window.grapheneDebug = {
+          layerBounds: state.layerBounds,
+          layerYaws: state.layerYaws.slice(0, state.layerCount),
+          layerYawTargets: state.layerYawTargets.slice(0, state.layerCount),
+        };
+
+        requestAnimationFrame(render);
+      }
+
+      function pointFromEvent(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+
+      function findLayerEdge(point) {
+        const margin = Math.max(28, state.width * 0.08);
+        let hitLayer = -1;
+        let hitDistance = Infinity;
+
+        for (let i = 0; i < state.layerBounds.length; i += 1) {
+          const b = state.layerBounds[i];
+          if (!Number.isFinite(b.minX)) {
+            continue;
+          }
+
+          const visMinX = clamp(b.minX, 0, state.width);
+          const visMaxX = clamp(b.maxX, 0, state.width);
+          const visMinY = clamp(b.minY, 0, state.height);
+          const visMaxY = clamp(b.maxY, 0, state.height);
+
+          const verticalSlack = Math.max(margin, state.height * 0.18);
+          const withinVertical = point.y >= visMinY - verticalSlack && point.y <= visMaxY + verticalSlack;
+          if (!withinVertical) {
+            continue;
+          }
+
+          const edgeDistance = Math.min(Math.abs(point.x - visMinX), Math.abs(point.x - visMaxX));
+          if (edgeDistance <= margin && edgeDistance < hitDistance) {
+            hitDistance = edgeDistance;
+            hitLayer = i;
+          }
+        }
+
+        return hitLayer;
+      }
+
+      function findLayerAtPoint(point) {
+        const margin = Math.max(10, state.width * 0.02);
+        let hitLayer = -1;
+        let bestArea = Infinity;
+
+        for (let i = 0; i < state.layerBounds.length; i += 1) {
+          const b = state.layerBounds[i];
+          if (!Number.isFinite(b.minX)) {
+            continue;
+          }
+
+          const inside =
+            point.x >= b.minX - margin &&
+            point.x <= b.maxX + margin &&
+            point.y >= b.minY - margin &&
+            point.y <= b.maxY + margin;
+
+          if (!inside) {
+            continue;
+          }
+
+          const area = (b.maxX - b.minX) * (b.maxY - b.minY);
+          if (area < bestArea) {
+            bestArea = area;
+            hitLayer = i;
+          }
+        }
+
+        return hitLayer;
+      }
+
+      function isNearStructureCenter(point) {
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        for (const b of state.layerBounds) {
+          if (!Number.isFinite(b.minX) || !Number.isFinite(b.maxX) || !Number.isFinite(b.minY) || !Number.isFinite(b.maxY)) {
+            continue;
+          }
+          minX = Math.min(minX, b.minX);
+          maxX = Math.max(maxX, b.maxX);
+          minY = Math.min(minY, b.minY);
+          maxY = Math.max(maxY, b.maxY);
+        }
+
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+          return true;
+        }
+
+        const centerX = (minX + maxX) * 0.5;
+        const centerY = (minY + maxY) * 0.5;
+        const halfW = (maxX - minX) * 0.5;
+        const halfH = (maxY - minY) * 0.5;
+        const radiusX = Math.max(36, Math.min(halfW * 0.55, state.width * 0.28));
+        const radiusY = Math.max(30, Math.min(halfH * 0.9 + 30, state.height * 0.24));
+        const nx = (point.x - centerX) / radiusX;
+        const ny = (point.y - centerY) / radiusY;
+        return nx * nx + ny * ny <= 1;
+      }
+
+      function getEdgeSide(point, bounds) {
+        if (!bounds) {
+          return 0;
+        }
+        const width = Math.max(1, bounds.maxX - bounds.minX);
+        const edgeBand = Math.max(16, Math.min(width * 0.2, state.width * 0.08));
+        if (point.x <= bounds.minX + edgeBand) {
+          return -1;
+        }
+        if (point.x >= bounds.maxX - edgeBand) {
+          return 1;
+        }
+        return 0;
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        const p = pointFromEvent(e);
+        const targetLayer = findLayerAtPoint(p);
+        state.dragActive = targetLayer >= 0;
+        state.dragLayer = targetLayer;
+
+        if (state.dragActive) {
+          state.dragLateralLayer = targetLayer;
+          const bounds = state.layerBounds[targetLayer];
+          const centerY = bounds ? (bounds.minY + bounds.maxY) * 0.5 : state.height * 0.5;
+          state.dragLateralSign = p.y <= centerY ? 1 : -1;
+          state.dragMode = "pending";
+          state.dragCanTilt = isNearStructureCenter(p);
+          state.dragEdgeSide = getEdgeSide(p, bounds);
+          state.dragVerticalRotate = false;
+          state.dragStartX = p.x;
+          state.dragStartY = p.y;
+          state.dragYawStart = state.layerYawTargets[targetLayer];
+          state.dragTiltStart = state.tiltTarget;
+          state.dragPerspectiveStart = state.perspective;
+          state.suppressPanelUntil = performance.now() + 500;
+          document.body.classList.remove("panel-open");
+          canvas.setPointerCapture(e.pointerId);
+          canvas.classList.add("dragging");
+          activeLayerLabel.textContent = `Active layer: ${state.dragLayer + 1}`;
+        }
+      });
+
+      canvas.addEventListener("pointermove", (e) => {
+        if (!state.dragActive) {
+          return;
+        }
+
+        const p = pointFromEvent(e);
+        const dx = p.x - state.dragStartX;
+        const dy = p.y - state.dragStartY;
+
+        if (state.dragMode === "pending") {
+          const threshold = 6;
+          if (Math.abs(dx) + Math.abs(dy) < threshold) {
+            return;
+          }
+          const verticalDominant = Math.abs(dy) > Math.abs(dx);
+          if (e.shiftKey && verticalDominant) {
+            state.dragMode = "perspective";
+          } else {
+            state.dragVerticalRotate = verticalDominant && state.dragEdgeSide !== 0;
+            state.dragMode = verticalDominant && state.dragCanTilt && state.dragEdgeSide === 0 ? "tilt" : "rotate";
+          }
+        }
+
+        if (state.dragMode === "rotate" && state.dragLateralLayer >= 0) {
+          const rotateDelta = state.dragVerticalRotate ? -dy * state.dragEdgeSide : dx;
+          state.layerYawTargets[state.dragLateralLayer] = state.dragYawStart + rotateDelta * state.lateralSensitivity * state.dragLateralSign;
+          applyChiralTwistFromEndpoint(state.dragLateralLayer);
+        }
+
+        if (state.dragMode === "tilt") {
+          const tiltSensitivity = 0.0025;
+          state.tiltTarget = clamp(state.dragTiltStart - dy * tiltSensitivity, 0, 1);
+        }
+
+        if (state.dragMode === "perspective") {
+          const perspectiveSensitivity = 0.0025;
+          state.perspective = clamp(state.dragPerspectiveStart - dy * perspectiveSensitivity, 0, 1);
+        }
+
+        syncInfo();
+      });
+
+      function endDrag(e) {
+        if (state.dragActive) {
+          canvas.releasePointerCapture(e.pointerId);
+        }
+        state.dragActive = false;
+        state.dragLayer = -1;
+        state.dragLateralLayer = -1;
+        state.dragLateralSign = 1;
+        state.dragMode = "none";
+        state.dragCanTilt = false;
+        state.dragEdgeSide = 0;
+        state.dragVerticalRotate = false;
+        state.dragPerspectiveStart = 0;
+        canvas.classList.remove("dragging");
+        activeLayerLabel.textContent = "Active layer: none";
+      }
+
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", endDrag);
+      canvas.addEventListener("pointerleave", (e) => {
+        if (state.dragActive && (e.buttons & 1) === 0) {
+          endDrag(e);
+        }
+      });
+
+      canvas.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          const factor = Math.exp(-e.deltaY * 0.00045);
+          state.zoom = Math.max(0.2, Math.min(2.4, state.zoom * factor));
+          syncInfo();
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("resize", resize);
+
+      function syncInfo() {
+        sideCellsValue.textContent = `${state.sideCells} cells/side`;
+        layerCountValue.textContent = String(state.layerCount);
+        chiralTwistInput.checked = state.chiralTwist;
+        perspectiveValue.textContent = `${Math.round(state.perspective * 100)}%`;
+        perspectiveInput.value = String(Math.round(state.perspective * 100));
+        lateralValue.textContent = `${(state.lateralSensitivity * 100).toFixed(1)}x`;
+        const tiltPct = Math.round(state.tiltTarget * 100);
+        tiltValue.textContent = `${tiltPct}%`;
+        tiltInput.value = String(tiltPct);
+
+        const atomsPerLayer = Math.round(model.atoms.length / Math.max(1, state.layerCount));
+        modelStats.textContent = `${state.sideCells} cells/side (square cut) | ${atomsPerLayer} atoms/layer | ${model.atoms.length} atoms total | zoom ${state.zoom.toFixed(2)}x`;
+
+        window.grapheneInfo = {
+          unitCellsX: state.sideCells,
+          unitCellsY: state.sideCells,
+          unitCellsPerSide: state.sideCells,
+          sideLengthNm: state.sideCells * A1.x,
+          atomsPerLayer,
+          layers: state.layerCount,
+          totalAtoms: model.atoms.length,
+          perspectiveStrength: state.perspective,
+          tilt: state.tiltTarget,
+          zoom: state.zoom,
+          lateralSensitivity: state.lateralSensitivity,
+          chiralTwist: state.chiralTwist,
+        };
+      }
+
+      function applyChiralTwistFromEndpoint(layerIndex) {
+        if (!state.chiralTwist || state.layerCount < 2) {
+          return;
+        }
+
+        const topLayer = state.layerCount - 1;
+        if (layerIndex !== 0 && layerIndex !== topLayer) {
+          return;
+        }
+
+        const bottomYaw = state.layerYawTargets[0];
+        const topYaw = state.layerYawTargets[topLayer];
+        for (let i = 1; i < topLayer; i += 1) {
+          const t = i / topLayer;
+          state.layerYawTargets[i] = bottomYaw * (1 - t) + topYaw * t;
+        }
+      }
+
+      function rebuildModel() {
+        model = buildModel(state.layerCount);
+        for (let i = 0; i < MAX_LAYERS; i += 1) {
+          state.layerYaws[i] = 0;
+          state.layerYawTargets[i] = 0;
+        }
+        syncInfo();
+      }
+
+      function updatePanelOpen(mouseX, mouseY) {
+        if (panelPinned) {
+          document.body.classList.add("panel-open");
+          return;
+        }
+
+        if (state.dragActive || performance.now() < state.suppressPanelUntil) {
+          document.body.classList.remove("panel-open");
+          return;
+        }
+
+        const nearRightEdge = mouseX >= window.innerWidth * 0.9;
+        const rect = panel.getBoundingClientRect();
+        const overPanel =
+          mouseX >= rect.left &&
+          mouseX <= rect.right &&
+          mouseY >= rect.top &&
+          mouseY <= rect.bottom;
+
+        if (overPanel) {
+          if (panelOpenTimer) {
+            clearTimeout(panelOpenTimer);
+            panelOpenTimer = null;
+          }
+          document.body.classList.add("panel-open");
+          return;
+        }
+
+        if (nearRightEdge) {
+          if (panelOpenTimer) {
+            clearTimeout(panelOpenTimer);
+            panelOpenTimer = null;
+          }
+          document.body.classList.add("panel-open");
+          return;
+        }
+
+        if (panelOpenTimer) {
+          clearTimeout(panelOpenTimer);
+          panelOpenTimer = null;
+        }
+        document.body.classList.remove("panel-open");
+      }
+
+      window.addEventListener("pointermove", (e) => {
+        if (e.buttons !== 0) {
+          if (!panelPinned) {
+            document.body.classList.remove("panel-open");
+          }
+          return;
+        }
+        updatePanelOpen(e.clientX, e.clientY);
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (e.buttons !== 0) {
+          if (!panelPinned) {
+            document.body.classList.remove("panel-open");
+          }
+          return;
+        }
+        updatePanelOpen(e.clientX, e.clientY);
+      });
+
+      window.addEventListener("mouseleave", () => {
+        if (panelOpenTimer) {
+          clearTimeout(panelOpenTimer);
+          panelOpenTimer = null;
+        }
+        if (!panelPinned) {
+          document.body.classList.remove("panel-open");
+        }
+      });
+
+      panel.addEventListener("pointerdown", () => {
+        panelPinned = true;
+        document.body.classList.add("panel-open");
+      });
+
+      window.addEventListener("pointerdown", (e) => {
+        if (panel.contains(e.target)) {
+          return;
+        }
+        panelPinned = false;
+        if (!state.dragActive) {
+          document.body.classList.remove("panel-open");
+        }
+      });
+
+      layerCountInput.addEventListener("input", () => {
+        state.layerCount = Number(layerCountInput.value);
+        rebuildModel();
+      });
+
+      chiralTwistInput.addEventListener("change", () => {
+        state.chiralTwist = chiralTwistInput.checked;
+        if (state.chiralTwist) {
+          applyChiralTwistFromEndpoint(0);
+        }
+        syncInfo();
+      });
+
+      sideCellsInput.addEventListener("input", () => {
+        state.sideCells = Number(sideCellsInput.value);
+        rebuildModel();
+      });
+
+      perspectiveInput.addEventListener("input", () => {
+        state.perspective = Number(perspectiveInput.value) / 100;
+        syncInfo();
+      });
+
+      lateralInput.addEventListener("input", () => {
+        state.lateralSensitivity = Number(lateralInput.value) / 1000;
+        syncInfo();
+      });
+
+      tiltInput.addEventListener("input", () => {
+        state.tiltTarget = Number(tiltInput.value) / 100;
+        state.tilt = state.tiltTarget;
+        syncInfo();
+      });
+
+      resetLayersBtn.addEventListener("click", () => {
+        for (let i = 0; i < state.layerCount; i += 1) {
+          state.layerYawTargets[i] = 0;
+        }
+      });
+
+      resize();
+      syncInfo();
+      render();
+
+      function clamp(v, lo, hi) {
+        return Math.max(lo, Math.min(hi, v));
+      }
+
+      function tintColor(hex, tintAmount) {
+        const rgb = hexToRgb(hex);
+        const mix = (channel) => Math.round(channel + (255 - channel) * tintAmount);
+        return `rgb(${mix(rgb.r)}, ${mix(rgb.g)}, ${mix(rgb.b)})`;
+      }
+
+      function hexToRgb(hex) {
+        const raw = hex.replace("#", "");
+        const value = raw.length === 3 ? raw.split("").map((ch) => ch + ch).join("") : raw;
+        const int = Number.parseInt(value, 16);
+        return {
+          r: (int >> 16) & 255,
+          g: (int >> 8) & 255,
+          b: int & 255,
+        };
+      }
+    })();
+  </script>
+</body>
+</html>

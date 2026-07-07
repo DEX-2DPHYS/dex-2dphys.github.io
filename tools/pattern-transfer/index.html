@@ -1,0 +1,3737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EBL Pattern Transfer Simulator v5</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css"/>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<style>
+:root{--bg:#f8fafc;--panel:#ffffff;--text:#111827;--muted:#6b7280;--accent:#2563eb;--border:#e2e8f0;--radius:10px;--shadow:0 1px 6px rgba(0,0,0,0.06)}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px}
+
+/* 3-column layout */
+.app{display:grid;grid-template-columns:310px 1fr 260px;height:100vh;overflow:hidden}
+@media(max-width:900px){.app{grid-template-columns:280px 1fr 200px}}
+
+/* LEFT: controls */
+.panel{padding:10px 12px;overflow-y:auto;background:var(--panel);border-right:1px solid var(--border)}
+.panel h1{margin:0 0 2px;font-size:17px;letter-spacing:-0.3px}
+.panel .sub{color:var(--muted);font-size:11px;margin-bottom:8px;line-height:1.35}
+.sec{margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;background:var(--bg)}
+.sec h2{margin:0 0 6px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:5px}
+.ctrl{margin-bottom:5px}
+.ctrl label{display:flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;margin-bottom:2px}
+.ctrl label .tip{cursor:help;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--accent);color:#fff;font-size:8px;font-weight:700;flex-shrink:0}
+.ctrl input[type=number],.ctrl select{width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:11.5px}
+.ctrl input[type=range]{width:100%;margin:2px 0}
+.row{display:flex;gap:6px}.row .ctrl{flex:1}
+
+/* Buttons */
+.btn-row{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+button{appearance:none;border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-weight:600;cursor:pointer;font-size:11.5px;background:#fff;color:var(--text);transition:all .12s}
+button:hover{background:#f1f5f9}
+button.primary{background:var(--accent);color:#fff;border-color:#1d4ed8}
+button.primary:hover{filter:brightness(1.08)}
+button.danger{background:#ef4444;color:#fff;border-color:#dc2626}
+button.success{background:#16a34a;color:#fff;border-color:#15803d}
+button:disabled{opacity:.4;cursor:not-allowed}
+.mask-import-label{appearance:none;border:1px solid var(--border);padding:3px 8px;border-radius:6px;font-weight:600;cursor:pointer;font-size:10px;background:#fff;color:var(--text);transition:all .12s;display:inline-flex;align-items:center}
+.mask-import-label:hover{background:#f1f5f9}
+
+/* Status */
+.status-bar{margin:5px 0;padding:5px 8px;border-radius:6px;background:#eff6ff;border:1px solid #bfdbfe;font-size:11px;color:#1e40af;display:flex;align-items:center;gap:5px}
+.status-bar .dot{width:7px;height:7px;border-radius:50%;background:#16a34a;flex-shrink:0}
+.status-bar.active .dot{background:#f59e0b;animation:pulse .8s infinite alternate}
+@keyframes pulse{from{opacity:.4}to{opacity:1}}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:10.5px;margin:5px 0}
+.legend-item{display:flex;align-items:center;gap:3px}
+.swatch{width:12px;height:12px;border-radius:2px;border:1px solid rgba(0,0,0,.12)}
+
+/* CENTER: viz */
+.viz{display:flex;flex-direction:column;overflow:hidden}
+.viz-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--panel);gap:0}
+.viz-tabs button{border:none;border-radius:0;border-bottom:2px solid transparent;padding:6px 14px;font-weight:600;font-size:11.5px;color:var(--muted);background:transparent}
+.viz-tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+.viz-tabs button:hover{color:var(--text);background:#f1f5f9}
+.viz-body{flex:1;position:relative;background:#fff}
+.viz-body canvas{position:absolute;inset:0;width:100%;height:100%}
+.viz-step-label{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:6;display:none;padding:6px 18px;border-radius:6px;background:rgba(255,255,255,.92);color:#0f172a;font-size:26px;font-weight:800;letter-spacing:0;box-shadow:0 2px 12px rgba(15,23,42,.16);pointer-events:none;white-space:nowrap}
+
+/* RIGHT: process flow */
+.flow-panel{padding:10px;overflow-y:auto;background:var(--panel);border-left:1px solid var(--border)}
+.flow-panel h2{margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.flow-step{border:1px solid var(--border);border-radius:8px;padding:6px 8px;margin-bottom:6px;background:var(--bg);position:relative;font-size:11px;line-height:1.4;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.flow-step:hover{border-color:#94a3b8}
+.flow-step.selected{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.18)}
+.flow-step .fs-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:9px;font-weight:700;margin-right:4px;flex-shrink:0}
+.flow-step .fs-title{font-weight:700;font-size:11.5px}
+.flow-step .fs-params{color:var(--muted);margin-top:2px;font-size:10.5px}
+.flow-step .fs-icon{font-size:14px;margin-right:3px}
+.flow-step .fs-actions{display:none;position:absolute;top:4px;right:4px;gap:2px}
+.flow-step.selected .fs-actions{display:flex}
+.fs-actions button{border:none;cursor:pointer;padding:2px 5px;border-radius:4px;font-size:12px;line-height:1;background:transparent}
+.fs-actions button.act-move{color:var(--accent)}
+.fs-actions button.act-move:hover{background:rgba(37,99,235,.12)}
+.fs-actions button.act-del{color:#dc2626}
+.fs-actions button.act-del:hover{background:rgba(220,38,38,.12)}
+.flow-connector{width:2px;height:10px;background:var(--border);margin:0 auto}
+
+/* Tooltip */
+.tooltip-box{display:none;position:fixed;z-index:1000;max-width:280px;padding:8px 12px;border-radius:8px;background:#fff;border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.15);font-size:11.5px;line-height:1.45;color:var(--text)}
+.tooltip-box strong{color:var(--accent)}
+
+/* Dim readout */
+/* Mask editor */
+.mask-wrap{position:relative;width:100%;height:180px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:crosshair;overflow:hidden}
+.mask-wrap canvas{display:block;width:100%;height:100%}
+.mask-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
+.mask-tools label{font-size:11px;font-weight:600;display:flex;align-items:center;gap:2px;cursor:pointer}
+.mask-tools input[type=radio]{margin:0}
+.mask-file-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.mask-info{font-size:10px;color:var(--muted);margin-top:2px}
+.dim{margin-top:4px;font-size:10.5px;color:var(--muted)}
+
+body.player-engine{background:#fff;overflow:hidden}
+body.player-engine .app{display:block;height:100vh;background:#fff}
+body.player-engine .panel,
+body.player-engine .flow-panel,
+body.player-engine .viz-tabs,
+body.player-engine .status-bar,
+body.player-engine #zSliceBar{display:none!important}
+body.player-engine .viz{height:100vh;background:#fff}
+body.player-engine .viz-body{height:100vh;background:#fff}
+body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;background:rgba(255,255,255,.9)}
+</style>
+</head>
+<body>
+
+<div id="tooltip" class="tooltip-box"></div>
+
+<div class="app">
+<!-- ══════════ LEFT PANEL: Controls ══════════ -->
+<div class="panel">
+  <h1>EBL Process Simulator</h1>
+  <div class="sub">Multi-step nanofabrication process designer. Build arbitrary sequences of deposition, lithography, etching and lift-off on a Si/SiO₂ substrate.</div>
+
+  <!-- Substrate -->
+  <div class="sec">
+    <h2 style="cursor:pointer;user-select:none" id="substrateToggle">▶ Substrate</h2>
+    <div id="substrateBody" style="display:none">
+    <div class="row">
+      <div class="ctrl">
+        <label>Si (nm) <span class="tip" data-tip="si-thick">?</span></label>
+        <input id="siNm" type="number" value="200" min="20" max="2000" step="10"/>
+      </div>
+      <div class="ctrl">
+        <label>SiO₂ (nm) <span class="tip" data-tip="ox-thick">?</span></label>
+        <input id="oxNm" type="number" value="80" min="0" max="500" step="5"/>
+      </div>
+      <div class="ctrl">
+        <label>nm/px <span class="tip" data-tip="nm-px">?</span></label>
+        <input id="nmPerPx" type="number" value="2" min="0.2" max="10" step="0.1"/>
+      </div>
+    </div>
+    <div class="row">
+      <div class="ctrl">
+        <label>Width (nm) <span class="tip" data-tip="samp-w">?</span></label>
+        <input id="sampW" type="number" value="300" min="50" max="10000" step="50"/>
+      </div>
+      <div class="ctrl">
+        <label>Depth (nm) <span class="tip" data-tip="samp-d">?</span></label>
+        <input id="sampD" type="number" value="300" min="20" max="5000" step="20"/>
+      </div>
+      <div class="ctrl">
+        <label>3D threads</label>
+        <select id="numWorkers" style="width:56px">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="4">4</option>
+          <option value="8">8</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button id="rebuildBtn" class="primary" style="font-size:11px;padding:4px 8px">Rebuild substrate</button>
+    </div>
+    </div>
+  </div>
+
+  <!-- Mask Design Editor -->
+  <div class="sec">
+    <h2 style="cursor:pointer;user-select:none" id="maskToggle">▶ Mask Design</h2>
+    <div id="maskBody" style="display:none">
+      <div class="mask-wrap">
+        <canvas id="maskCanvas"></canvas>
+      </div>
+      <canvas id="maskDoseBar" style="display:block;width:100%;height:18px;border:1px solid var(--border);border-radius:3px;margin-top:2px" title="X-projection of dose map (what the cross-section will see)"></canvas>
+      <div class="mask-tools">
+        <label><input type="radio" name="maskTool" value="rect" checked/> ▭ Rect</label>
+        <label><input type="radio" name="maskTool" value="circle"/> ● Circle</label>
+        <div class="ctrl" style="flex:1;min-width:80px;margin:0">
+          <label style="margin:0">Dose (µC/cm²)</label>
+          <input id="maskDose" type="number" value="300" min="1" max="10000" step="10" style="padding:2px 4px"/>
+        </div>
+      </div>
+      <div class="btn-row" style="margin:2px 0">
+        <label class="mask-import-label" for="maskImportInput">Import B/W mask</label>
+        <input id="maskImportInput" class="mask-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,.png,.jpg,.jpeg,.webp,.gif,.bmp"/>
+        <button id="maskUndoBtn" style="font-size:10px;padding:3px 8px">↩ Undo</button>
+        <button id="maskResetBtn" class="danger" style="font-size:10px;padding:3px 8px">✕ Reset</button>
+      </div>
+      <div class="mask-info" id="maskInfo">0 shapes</div>
+    </div>
+  </div>
+
+  <!-- Process Step Selector -->
+  <div class="sec">
+    <h2>Add Process Step</h2>
+    <div class="ctrl">
+      <label>Step type</label>
+      <select id="stepType">
+        <option value="deposit">Deposit material</option>
+        <option value="transfer_2d">Transfer 2D material</option>
+        <option value="spinresist">Spin resist</option>
+        <option value="expose">Expose pattern (EBL)</option>
+        <option value="uv_expose">Expose pattern (UV lithography)</option>
+        <option value="develop">Develop resist</option>
+        <option value="descum">Descum (O₂ plasma)</option>
+        <option value="etch_rie">Etch — RIE (anisotropic)</option>
+        <option value="etch_sf6">Etch — anisotropic SF6 (2D flakes)</option>
+        <option value="etch_wet">Etch — Wet / isotropic</option>
+        <option value="liftoff">Lift-off / Strip resist</option>
+      </select>
+    </div>
+
+    <!-- Deposit params -->
+    <div id="p_deposit" class="step-params">
+      <div class="row">
+        <div class="ctrl">
+          <label>Material <span class="tip" data-tip="dep-mat">?</span></label>
+          <select id="depMat">
+            <option value="METAL">Metal (Au, Cr, Al…)</option>
+            <option value="SIO2">SiO₂</option>
+            <option value="POLYSI">Poly-Si</option>
+            <option value="SI3N4">Si₃N₄</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label>Thickness (nm) <span class="tip" data-tip="dep-thick">?</span></label>
+          <input id="depThick" type="number" value="30" min="1" max="500" step="1"/>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>Method <span class="tip" data-tip="dep-method">?</span></label>
+        <select id="depMethod">
+          <option value="directional">Directional (evaporation)</option>
+          <option value="conformal">Conformal (sputtering/CVD)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Transfer 2D material params -->
+    <div id="p_transfer_2d" class="step-params" style="display:none">
+      <div class="ctrl">
+        <label>2D material</label>
+        <select id="transfer2dMat">
+          <option value="GRAPHENE">Graphene (50% gray)</option>
+          <option value="MOS2">MoS₂ (yellow)</option>
+          <option value="HBN_GRAPHENE_HBN">hBN/graphene/hBN stack</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="ctrl">
+          <label>Flake size (nm)</label>
+          <input id="transfer2dSize" type="number" value="140" min="20" max="2000" step="10"/>
+        </div>
+        <div class="ctrl">
+          <label>Layer thickness (nm)</label>
+          <input id="transfer2dThick" type="number" value="1" min="1" max="30" step="1"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spin resist params -->
+    <div id="p_spinresist" class="step-params" style="display:none">
+      <div class="row">
+        <div class="ctrl">
+          <label>Thickness (nm) <span class="tip" data-tip="resist-thick">?</span></label>
+          <input id="resistThick" type="number" value="120" min="5" max="1000" step="5"/>
+        </div>
+        <div class="ctrl">
+          <label>Resist</label>
+          <select id="resistPreset">
+            <option value="PMMA">PMMA (positive)</option>
+            <option value="CSAR">CSAR 62 (positive)</option>
+            <option value="MEDUSA">MEDUSA 82 (negative)</option>
+            <option value="S1813">S1813 (UV, positive)</option>
+            <option value="AZ5214E">AZ5214E (UV, image reversal)</option>
+            <option value="SU8">SU-8 (UV, negative)</option>
+            <option value="MAN2400">ma-N 2400 (UV, negative)</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+      </div>
+      <input id="resistType" type="hidden" value="positive"/>
+      <div style="color:#dc2626;font-weight:600;font-size:11px;margin:6px 0 2px">⚠ Please select resist &amp; development parameters</div>
+      <div class="ctrl">
+        <label>Sidewall angle (°) <span class="tip" data-tip="sidewall">?</span></label>
+        <input id="devSidewall" type="number" value="90" min="60" max="120" step="1"/>
+      </div>
+      <div class="row">
+        <div class="ctrl">
+          <label>Contrast γ <span class="tip" data-tip="contrast">?</span></label>
+          <input id="devContrast" type="number" value="3" min="0.5" max="20" step="0.5"/>
+        </div>
+        <div class="ctrl">
+          <label>Dev. time (s) <span class="tip" data-tip="dev-time">?</span></label>
+          <input id="devTime" type="number" value="60" min="1" max="600" step="5"/>
+        </div>
+      </div>
+      <div class="row">
+        <div class="ctrl">
+          <label>Dark erosion (nm/min) <span class="tip" data-tip="dark-erosion">?</span></label>
+          <input id="devDarkErosion" type="number" value="2" min="0" max="50" step="0.5"/>
+        </div>
+        <div class="ctrl">
+          <label>Clearing dose frac. <span class="tip" data-tip="clear-frac">?</span></label>
+          <input id="devClearFrac" type="number" value="0.5" min="0.05" max="1" step="0.05"/>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>Clearing dose D₁₀₀ (µC/cm²) <span class="tip" data-tip="d100">?</span></label>
+        <input id="devD100" type="number" value="120" min="1" max="5000" step="10"/>
+      </div>
+      <div class="ctrl">
+        <label>Scum / residual (nm) <span class="tip" data-tip="scum">?</span></label>
+        <input id="devScum" type="number" value="0" min="0" max="30" step="0.5"/>
+      </div>
+      <canvas id="contrastPlotResist" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+    </div>
+
+    <!-- Expose params -->
+    <div id="p_expose" class="step-params" style="display:none">
+      <div class="ctrl">
+        <label>Pattern <span class="tip" data-tip="pattern">?</span></label>
+        <select id="expPattern">
+          <option value="grating">Grating (line/space)</option>
+          <option value="single">Single line</option>
+          <option value="iso_trench">Isolated trench</option>
+          <option value="dots">Dot array</option>
+          <option value="blanket">Blanket (full area)</option>
+          <option value="custom">Custom mask</option>
+        </select>
+      </div>
+      <div class="row" id="gratingRow">
+        <div class="ctrl">
+          <label>Pitch (nm) <span class="tip" data-tip="pitch">?</span></label>
+          <input id="expPitch" type="number" value="200" min="10" max="5000" step="10"/>
+        </div>
+        <div class="ctrl">
+          <label>Duty cycle (%) <span class="tip" data-tip="duty">?</span></label>
+          <input id="expDuty" type="number" value="50" min="5" max="95" step="5"/>
+        </div>
+      </div>
+      <div class="ctrl" id="lineWRow">
+        <label>Opening width (nm) <span class="tip" data-tip="linewidth">?</span></label>
+        <input id="expLineW" type="number" value="100" min="5" max="5000" step="5"/>
+      </div>
+      <div class="row" id="dotRow" style="display:none">
+        <div class="ctrl">
+          <label>Dot pitch (nm)</label>
+          <input id="expDotPitch" type="number" value="100" min="20" max="5000" step="10"/>
+        </div>
+        <div class="ctrl">
+          <label>Dot diameter (nm)</label>
+          <input id="expDotDiam" type="number" value="50" min="5" max="2000" step="5"/>
+        </div>
+      </div>
+      <div class="ctrl" id="dotSliceRow" style="display:none">
+        <label>Cross-section Y offset (%) <span class="tip" data-tip="dot-slice">?</span></label>
+        <input id="expDotSlice" type="number" value="0" min="0" max="100" step="5"/>
+      </div>
+      <div class="ctrl">
+        <label>Dose (µC/cm²) <span class="tip" data-tip="exp-dose">?</span></label>
+        <input id="expDose" type="number" value="150" min="1" max="5000" step="10"/>
+      </div>
+      <canvas id="contrastPlotExpose" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+    </div>
+
+    <!-- Develop params -->
+    <div id="p_develop" class="step-params" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Select which resist to develop. Parameters were set during resist deposition.</div>
+      <div class="ctrl">
+        <label>Resist to develop</label>
+        <select id="devResistType">
+          <option value="PMMA">PMMA (positive)</option>
+          <option value="CSAR">CSAR 62 (positive)</option>
+          <option value="MEDUSA">MEDUSA 82 (negative)</option>
+          <option value="S1813">S1813 (UV, positive)</option>
+          <option value="AZ5214E">AZ5214E (UV, image reversal)</option>
+          <option value="SU8">SU-8 (UV, negative)</option>
+          <option value="MAN2400">ma-N 2400 (UV, negative)</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>Developer chemistry</label>
+        <select id="devChem">
+          <option value="MIBK_IPA">MIBK:IPA 1:3</option>
+          <option value="IPA">IPA stop / rinse</option>
+          <option value="MF319">MF-319 / AZ MIF</option>
+          <option value="AZ400K">AZ 400K (diluted)</option>
+          <option value="SU8_DEV">PGMEA (SU-8 developer)</option>
+          <option value="MAD525">ma-D 525</option>
+        </select>
+      </div>
+      <div id="devCompatHint" style="font-size:10.5px;color:var(--muted);margin-top:-1px;margin-bottom:4px">Developer compatibility is advisory only in this simulator version.</div>
+      <div class="ctrl">
+        <label>Dev. time (s) <span class="tip" data-tip="dev-time">?</span></label>
+        <input id="devTimeDev" type="number" value="60" min="1" max="600" step="5"/>
+      </div>
+      <canvas id="contrastPlotDevelop" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+    </div>
+
+    <!-- UV expose params -->
+    <div id="p_uv_expose" class="step-params" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">UV step reuses the same pattern model as EBL exposure, but reports UV-equivalent dose units.</div>
+      <div class="ctrl">
+        <label>Pattern <span class="tip" data-tip="pattern">?</span></label>
+        <select id="uvPattern">
+          <option value="grating">Grating (line/space)</option>
+          <option value="single">Single line</option>
+          <option value="iso_trench">Isolated trench</option>
+          <option value="dots">Dot array</option>
+          <option value="blanket">Blanket (full area)</option>
+          <option value="custom">Custom mask</option>
+        </select>
+      </div>
+      <div class="row" id="uvGratingRow">
+        <div class="ctrl">
+          <label>Pitch (nm)</label>
+          <input id="uvPitch" type="number" value="200" min="10" max="5000" step="10"/>
+        </div>
+        <div class="ctrl">
+          <label>Duty cycle (%)</label>
+          <input id="uvDuty" type="number" value="50" min="5" max="95" step="5"/>
+        </div>
+      </div>
+      <div class="ctrl" id="uvLineWRow">
+        <label>Opening width (nm)</label>
+        <input id="uvLineW" type="number" value="100" min="5" max="5000" step="5"/>
+      </div>
+      <div class="row" id="uvDotRow" style="display:none">
+        <div class="ctrl">
+          <label>Dot pitch (nm)</label>
+          <input id="uvDotPitch" type="number" value="100" min="20" max="5000" step="10"/>
+        </div>
+        <div class="ctrl">
+          <label>Dot diameter (nm)</label>
+          <input id="uvDotDiam" type="number" value="50" min="5" max="2000" step="5"/>
+        </div>
+      </div>
+      <div class="ctrl" id="uvDotSliceRow" style="display:none">
+        <label>Cross-section Y offset (%)</label>
+        <input id="uvDotSlice" type="number" value="0" min="0" max="100" step="5"/>
+      </div>
+      <div class="ctrl">
+        <label>UV-equivalent dose (mJ/cm²)</label>
+        <input id="uvDose" type="number" value="90" min="1" max="5000" step="5"/>
+      </div>
+      <canvas id="contrastPlotUvExpose" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+    </div>
+
+    <!-- RIE etch params -->
+    <div id="p_etch_rie" class="step-params" style="display:none">
+      <div class="ctrl">
+        <label>Target material <span class="tip" data-tip="etch-target">?</span></label>
+        <select id="rieTarget">
+          <option value="SIO2">SiO₂</option>
+          <option value="SI">Si</option>
+          <option value="POLYSI">Poly-Si</option>
+          <option value="SI3N4">Si₃N₄</option>
+          <option value="METAL">Metal</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="ctrl">
+          <label>Etch depth (nm) <span class="tip" data-tip="etch-depth">?</span></label>
+          <input id="rieDepth" type="number" value="80" min="1" max="2000" step="5"/>
+        </div>
+        <div class="ctrl">
+          <label>Resist selectivity <span class="tip" data-tip="selectivity">?</span></label>
+          <input id="rieSelectivity" type="number" value="10" min="1" max="100" step="1"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wet etch params -->
+    <div id="p_etch_wet" class="step-params" style="display:none">
+      <div class="ctrl">
+        <label>Target material</label>
+        <select id="wetTarget">
+          <option value="SIO2">SiO₂</option>
+          <option value="SI">Si</option>
+          <option value="METAL">Metal</option>
+          <option value="SI3N4">Si₃N₄</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label>Etch depth (nm) <span class="tip" data-tip="wet-depth">?</span></label>
+        <input id="wetDepth" type="number" value="50" min="1" max="2000" step="5"/>
+      </div>
+    </div>
+
+    <!-- SF6 etch params -->
+    <div id="p_etch_sf6" class="step-params" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Anisotropic SF6 removes exposed 2D flakes (graphene, MoS₂, hBN) vertically. Resist acts as mask.</div>
+      <div class="ctrl">
+        <label>Etch depth (nm)</label>
+        <input id="sf6Depth" type="number" value="15" min="1" max="200" step="1"/>
+      </div>
+    </div>
+
+    <!-- Lift-off / Strip resist: no extra params -->
+    <div id="p_liftoff" class="step-params" style="display:none">
+      <div style="font-size:11px;color:var(--muted)">Dissolves all resist. Floating layers on top of resist are removed. Metal and other films touching the substrate stay.</div>
+    </div>
+
+    <!-- Descum params -->
+    <div id="p_descum" class="step-params" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">O₂ plasma descum removes thin residual resist (scum) left after development. Isotropic resist etch from exposed surfaces.</div>
+      <div class="row">
+        <div class="ctrl">
+          <label>Descum time (s)</label>
+          <input id="descumTime" type="number" value="15" min="1" max="120" step="1"/>
+        </div>
+        <div class="ctrl">
+          <label>Etch rate (nm/s)</label>
+          <input id="descumRate" type="number" value="0.5" min="0.05" max="5" step="0.05"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button id="execBtn" class="primary">▶ Execute step</button>
+      <button id="undoBtn" disabled>← Undo</button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar">
+    <div class="dot"></div>
+    <span id="statusText">Ready — rebuild substrate then add process steps.</span>
+  </div>
+
+  <!-- Legend + dims -->
+  <div class="legend" id="legend"></div>
+  <div class="dim" id="dimReadout"></div>
+</div>
+
+<!-- ══════════ CENTER: Visualisation ══════════ -->
+<div class="viz">
+  <div class="viz-tabs">
+    <button data-tab="cross">Cross-section</button>
+    <button class="active" data-tab="iso">3D Isometric</button>
+    <button id="perspBtn" data-tab="iso" style="margin-left:auto;font-size:10px;padding:4px 8px;border:1px solid var(--border);border-bottom:none;border-radius:6px 6px 0 0">Perspective: ON</button>
+  </div>
+  <div class="viz-body">
+    <div id="zSliceBar" style="display:none;padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);gap:6px;align-items:center">
+      <label style="white-space:nowrap">Z-slice depth:</label>
+      <input id="zSlice" type="range" min="0" max="100" value="50" style="flex:1;min-width:80px">
+      <span id="zSliceLabel" style="min-width:60px;text-align:right">50%</span>
+    </div>
+    <div id="vizStepLabel" class="viz-step-label"></div>
+    <canvas id="canvas2d" style="display:none"></canvas>
+    <canvas id="canvas3d" style="cursor:grab"></canvas>
+  </div>
+</div>
+
+<!-- ══════════ RIGHT: Process Flow ══════════ -->
+<div class="flow-panel">
+  <h2>Process Flow</h2>
+  <div style="font-size:10px;color:#dc2626;font-weight:600;margin:-4px 0 4px">Select step to change order</div>
+  <div id="flowList" style="overflow-y:auto;max-height:calc(100vh - 200px)"></div>
+  <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+    <button id="exportFlowBtn" style="width:100%;font-size:10.5px">📋 Copy flow to clipboard</button>
+    <button id="exportPdfBtn" style="width:100%;font-size:10.5px">📄 Export process report</button>
+    <button id="exportMovieBtn" style="width:100%;font-size:10.5px">🎬 Export movie</button>
+    <div style="display:flex;gap:4px">
+      <button id="saveFlowBtn" style="flex:1;font-size:10.5px">💾 Save</button>
+      <button id="loadFlowBtn" style="flex:1;font-size:10.5px">📂 Load</button>
+    </div>
+    <div style="display:flex;gap:4px">
+      <button id="exportFileBtn" style="flex:1;font-size:10.5px">⬇ Export .json</button>
+      <button id="importFileBtn" style="flex:1;font-size:10.5px">⬆ Import .json</button>
+      <input id="importFileInput" type="file" accept=".json" style="display:none"/>
+    </div>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button id="replayBtn" style="flex:1;font-size:10.5px">▶ Replay</button>
+      <button id="replayStopBtn" style="flex:0 0 auto;font-size:10.5px;display:none">⏹</button>
+      <label style="font-size:9px;white-space:nowrap">Speed
+        <input id="replaySpeed" type="range" min="200" max="3000" value="1000" step="100" style="width:60px;vertical-align:middle"/>
+      </label>
+    </div>
+  </div>
+  <!-- Save dialog -->
+  <div id="saveDialog" style="display:none;margin-top:6px;padding:6px;border:1px solid var(--border);border-radius:6px;background:#f8fafc">
+    <label style="font-size:10px;font-weight:600">Recipe name</label>
+    <input id="saveFlowName" type="text" placeholder="My process recipe" style="width:100%;font-size:11px;padding:3px 5px;margin:3px 0;border:1px solid var(--border);border-radius:4px"/>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      <button id="saveFlowOk" style="flex:1;font-size:10px" class="primary">Save</button>
+      <button id="saveFlowCancel" style="flex:1;font-size:10px">Cancel</button>
+    </div>
+  </div>
+  <!-- Load dialog -->
+  <div id="loadDialog" style="display:none;margin-top:6px;padding:6px;border:1px solid var(--border);border-radius:6px;background:#f8fafc">
+    <label style="font-size:10px;font-weight:600">Saved recipes</label>
+    <select id="loadFlowSelect" style="width:100%;font-size:11px;margin:3px 0;padding:3px" size="4"></select>
+    <div style="display:flex;gap:4px;margin-top:4px">
+      <button id="loadFlowOk" style="flex:1;font-size:10px" class="primary">Load</button>
+      <button id="loadFlowDel" style="flex:1;font-size:10px">🗑 Delete</button>
+      <button id="loadFlowCancel" style="flex:1;font-size:10px">Cancel</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+
+/* ══════════ Material system ══════════ */
+const M={AIR:0, RESIST:1, RESIST_EXP:2, METAL:3, POLYSI:4, SIO2:5, SI3N4:6, SI:7,
+         PMMA:8, PMMA_EXP:9, CSAR:10, CSAR_EXP:11, MEDUSA:12, MEDUSA_EXP:13,
+         S1813:14, S1813_EXP:15, AZ5214E:16, AZ5214E_EXP:17, SU8:18, SU8_EXP:19, MAN2400:20, MAN2400_EXP:21,
+         GRAPHENE:22, MOS2:23, HBN:24};
+const MAT_NAMES=['Air','Resist','Resist (exposed)','Metal','Poly-Si','SiO₂','Si₃N₄','Si',
+         'PMMA','PMMA (exposed)','CSAR','CSAR (exposed)','MEDUSA','MEDUSA (exposed)',
+         'S1813','S1813 (exposed)','AZ5214E','AZ5214E (exposed)','SU-8','SU-8 (exposed)','ma-N 2400','ma-N 2400 (exposed)',
+         'Graphene','MoS₂','hBN'];
+const MAT_COLOR=[
+  [255,255,255], // AIR
+  [255,170,195], // RESIST pink (generic)
+  [255,120,160], // RESIST_EXP (generic)
+  [180,190,210], // METAL steel
+  [160,140,120], // POLYSI brown
+  [140,210,245], // SIO2 light blue
+  [180,230,180], // SI3N4 light green
+  [70, 80, 95],  // SI dark grey
+  [255,190,160], // PMMA warm peach
+  [235,130,100], // PMMA_EXP darker peach
+  [200,175,240], // CSAR lavender
+  [155,120,210], // CSAR_EXP darker lavender
+  [150,225,210], // MEDUSA mint teal
+  [95,185,170],  // MEDUSA_EXP darker teal
+  [255,236,153], // S1813 pastel yellow
+  [234,196,72],  // S1813_EXP amber
+  [255,214,170], // AZ5214E peach
+  [239,161,95],  // AZ5214E_EXP darker peach
+  [198,255,184], // SU8 light lime
+  [119,209,100], // SU8_EXP green
+  [174,235,214], // ma-N 2400 light aqua
+  [103,197,173], // ma-N 2400 exp
+  [128,128,128], // GRAPHENE
+  [245,220,80],  // MOS2
+  [110,165,255]  // HBN
+];
+const MAT_COLOR_3D=MAT_COLOR.map(c=>({
+  top:c,
+  side:[Math.max(0,c[0]-30),Math.max(0,c[1]-30),Math.max(0,c[2]-30)]
+}));
+
+// Map step-param material names to M enum
+const MAT_MAP={METAL:M.METAL, POLYSI:M.POLYSI, SIO2:M.SIO2, SI3N4:M.SI3N4, SI:M.SI, GRAPHENE:M.GRAPHENE, MOS2:M.MOS2, HBN:M.HBN};
+
+function is2DFlakeMaterial(m){
+  return m===M.GRAPHENE||m===M.MOS2||m===M.HBN;
+}
+
+// Resist type helpers
+function isResist(m){return m===M.RESIST||m===M.RESIST_EXP||m===M.PMMA||m===M.PMMA_EXP||m===M.CSAR||m===M.CSAR_EXP||m===M.MEDUSA||m===M.MEDUSA_EXP||m===M.S1813||m===M.S1813_EXP||m===M.AZ5214E||m===M.AZ5214E_EXP||m===M.SU8||m===M.SU8_EXP||m===M.MAN2400||m===M.MAN2400_EXP;}
+function isResistUnexp(m){return m===M.RESIST||m===M.PMMA||m===M.CSAR||m===M.MEDUSA||m===M.S1813||m===M.AZ5214E||m===M.SU8||m===M.MAN2400;}
+function isResistExp(m){return m===M.RESIST_EXP||m===M.PMMA_EXP||m===M.CSAR_EXP||m===M.MEDUSA_EXP||m===M.S1813_EXP||m===M.AZ5214E_EXP||m===M.SU8_EXP||m===M.MAN2400_EXP;}
+function materialAlpha(m){return isResist(m)?0.64:(m===M.SIO2?0.58:1);}
+function toExposed(m){switch(m){case M.RESIST:return M.RESIST_EXP;case M.PMMA:return M.PMMA_EXP;case M.CSAR:return M.CSAR_EXP;case M.MEDUSA:return M.MEDUSA_EXP;case M.S1813:return M.S1813_EXP;case M.AZ5214E:return M.AZ5214E_EXP;case M.SU8:return M.SU8_EXP;case M.MAN2400:return M.MAN2400_EXP;default:return m;}}
+function toUnexposed(m){switch(m){case M.RESIST_EXP:return M.RESIST;case M.PMMA_EXP:return M.PMMA;case M.CSAR_EXP:return M.CSAR;case M.MEDUSA_EXP:return M.MEDUSA;case M.S1813_EXP:return M.S1813;case M.AZ5214E_EXP:return M.AZ5214E;case M.SU8_EXP:return M.SU8;case M.MAN2400_EXP:return M.MAN2400;default:return m;}}
+const RESIST_MAT_MAP={PMMA:M.PMMA, CSAR:M.CSAR, MEDUSA:M.MEDUSA, S1813:M.S1813, AZ5214E:M.AZ5214E, SU8:M.SU8, MAN2400:M.MAN2400, custom:M.RESIST};
+function resistPresetOf(m){if(m===M.PMMA||m===M.PMMA_EXP)return'PMMA';if(m===M.CSAR||m===M.CSAR_EXP)return'CSAR';if(m===M.MEDUSA||m===M.MEDUSA_EXP)return'MEDUSA';if(m===M.S1813||m===M.S1813_EXP)return'S1813';if(m===M.AZ5214E||m===M.AZ5214E_EXP)return'AZ5214E';if(m===M.SU8||m===M.SU8_EXP)return'SU8';if(m===M.MAN2400||m===M.MAN2400_EXP)return'MAN2400';return'custom';}
+function isResistOfType(m,name){const base=RESIST_MAT_MAP[name];if(!base)return isResist(m);return m===base||m===toExposed(base);}
+
+/* ══════════ Web Worker parallelisation for 3D rendering ══════════ */
+// Flatten MAT_COLOR_3D into typed arrays for efficient transfer
+const matColorTopFlat=new Float32Array(MAT_COLOR_3D.length*3);
+const matColorSideFlat=new Float32Array(MAT_COLOR_3D.length*3);
+const matAlphaFlat=new Float32Array(MAT_COLOR_3D.length);
+for(let i=0;i<MAT_COLOR_3D.length;i++){
+  matColorTopFlat[i*3]=MAT_COLOR_3D[i].top[0];
+  matColorTopFlat[i*3+1]=MAT_COLOR_3D[i].top[1];
+  matColorTopFlat[i*3+2]=MAT_COLOR_3D[i].top[2];
+  matColorSideFlat[i*3]=MAT_COLOR_3D[i].side[0];
+  matColorSideFlat[i*3+1]=MAT_COLOR_3D[i].side[1];
+  matColorSideFlat[i*3+2]=MAT_COLOR_3D[i].side[2];
+  matAlphaFlat[i]=materialAlpha(i);
+}
+
+const WORKER_SRC=`'use strict';
+self.onmessage=function(e){
+  var d=e.data, grid=d.grid, W=d.W, H=d.H;
+  var depth3d=d.depth3d, nSlices=d.nSlices, sS=d.sliceStart, sE=d.sliceEnd;
+  var cosAz=Math.cos(d.azRad), sinAz=Math.sin(d.azRad);
+  var cosEl=Math.cos(d.elRad), sinEl=Math.sin(d.elRad);
+  var camZoom=d.camZoom, useP=d.usePerspective, cw=d.cw, ch=d.ch;
+  var mct=d.matColorTop, mcs=d.matColorSide, ma=d.matAlpha;
+  var WH=W*H;
+  var cx0=W/2, cy0=H/2, cz0=depth3d/2;
+  var sc0=Math.min(cw,ch)/(Math.max(W,H)*1.3)*camZoom;
+  var hwx=cw/2, hwy=ch/2 - ch*0.06;
+  function idx(x,y){return y*W+x;}
+  function proj(x,y,z){
+    var dx=x-cx0,dy=y-cy0,dz=z-cz0;
+    var rx=dx*cosAz+dz*sinAz;
+    var rz=-dx*sinAz+dz*cosAz;
+    var ry=dy*cosEl-rz*sinEl;
+    var rz2=dy*sinEl+rz*cosEl;
+    var sx,sy;
+    if(useP){var fov=600,pz=rz2+fov+depth3d,s=fov/Math.max(pz,1);sx=rx*s;sy=ry*s;}
+    else{sx=rx;sy=ry;}
+    return[hwx+sx*sc0,hwy+sy*sc0,rz2];
+  }
+  var buf=[];
+  function addQ(p0,p1,p2,p3,r,g,b,a){
+    buf.push(p0[0],p0[1],p1[0],p1[1],p2[0],p2[1],p3[0],p3[1],r,g,b,a,(p0[2]+p2[2])/2);
+  }
+  for(var s=sS;s<sE;s++){
+    var z0=s*depth3d/nSlices, z1=(s+1)*depth3d/nSlices;
+    var shade=0.7+0.3*(s/nSlices);
+    var baseOff=(s-sS)*WH;
+    for(var x=0;x<W;x++){
+      var y=0;
+      while(y<H){
+        var m=grid[baseOff+idx(x,y)];
+        if(m===0){y++;continue;}
+        var yEnd=y;
+        while(yEnd<H){
+          var m2=grid[baseOff+idx(x,yEnd)];
+          if(m2!==m)break;yEnd++;
+        }
+        var tr=mct[m*3],tg=mct[m*3+1],tb=mct[m*3+2];
+        var sr=mcs[m*3],sg=mcs[m*3+1],sb=mcs[m*3+2];
+        var al=ma[m];
+        addQ(proj(x,y,z0),proj(x+1,y,z0),proj(x+1,yEnd,z0),proj(x,yEnd,z0),
+          Math.round(tr*shade),Math.round(tg*shade),Math.round(tb*shade),al);
+        var s3=0.55+0.2*(s/nSlices);
+        addQ(proj(x,y,z1),proj(x+1,y,z1),proj(x+1,yEnd,z1),proj(x,yEnd,z1),
+          Math.round(tr*s3),Math.round(tg*s3),Math.round(tb*s3),al);
+        var mA=y>0?grid[baseOff+idx(x,y-1)]:0;
+        if(mA!==m){var s4=Math.min(1,shade*1.15);
+          addQ(proj(x,y,z0),proj(x+1,y,z0),proj(x+1,y,z1),proj(x,y,z1),
+            Math.round(tr*s4),Math.round(tg*s4),Math.round(tb*s4),al);}
+        var mB=yEnd<H?grid[baseOff+idx(x,yEnd)]:0;
+        if(mB!==m)addQ(proj(x,yEnd,z0),proj(x+1,yEnd,z0),proj(x+1,yEnd,z1),proj(x,yEnd,z1),
+          Math.round(sr*shade*0.5),Math.round(sg*shade*0.5),Math.round(sb*shade*0.5),al);
+        var mR=x<W-1?grid[baseOff+idx(x+1,y)]:0;
+        if(x===W-1||mR!==m)addQ(proj(x+1,y,z0),proj(x+1,y,z1),proj(x+1,yEnd,z1),proj(x+1,yEnd,z0),
+          Math.round(sr*shade),Math.round(sg*shade),Math.round(sb*shade),al);
+        var mL=x>0?grid[baseOff+idx(x-1,y)]:0;
+        if(x===0||mL!==m)addQ(proj(x,y,z0),proj(x,y,z1),proj(x,yEnd,z1),proj(x,yEnd,z0),
+          Math.round(sr*shade*0.85),Math.round(sg*shade*0.85),Math.round(sb*shade*0.85),al);
+        y=yEnd;
+      }
+    }
+  }
+  var packed=new Float32Array(buf);
+  self.postMessage({packed:packed},[packed.buffer]);
+};`;
+
+let workerPool=[];
+let numWorkers=1;
+let render3DSeq=0; // render sequence counter for cancellation
+const workerBlob=new Blob([WORKER_SRC],{type:'application/javascript'});
+const workerBlobURL=URL.createObjectURL(workerBlob);
+
+function rebuildWorkerPool(n){
+  workerPool.forEach(w=>w.terminate());
+  workerPool=[];
+  numWorkers=n;
+  for(let i=0;i<n;i++) workerPool.push(new Worker(workerBlobURL));
+}
+rebuildWorkerPool(1);
+
+/* ══════════ Tooltip definitions ══════════ */
+const tips={
+  'si-thick':'<strong>Silicon substrate</strong><br/>Thickness of the Si wafer base (nm). Only top portion shown.',
+  'ox-thick':'<strong>SiO₂ layer</strong><br/>Thermal/deposited oxide on Si. Set 0 for bare Si. Gate oxide: 5–50 nm, field oxide: 100–500 nm.',
+  'nm-px':'<strong>Resolution</strong><br/>Nanometres per pixel. Smaller = finer resolution but narrower field of view.',
+  'dep-mat':'<strong>Deposited material</strong><br/>Choose the thin film material: metal (Au, Cr, Al), SiO₂, poly-Si, or Si₃N₄.',
+  'dep-thick':'<strong>Film thickness</strong><br/>Thickness of deposited film in nm.',
+  'dep-method':'<strong>Deposition method</strong><br/><em>Directional (evaporation):</em> material arrives vertically — no sidewall coating. Good for lift-off.<br/><em>Conformal (sputtering/CVD):</em> coats all surfaces uniformly, including sidewalls.',
+  'resist-thick':'<strong>Resist thickness</strong><br/>Spun resist thickness. For lift-off: use 2–3× metal thickness. For etch mask: thicker = more protection.',
+  'pattern':'<strong>Exposure pattern</strong><br/>The pattern written by the e-beam. For positive resist, exposed areas dissolve during development.',
+  'pitch':'<strong>Grating pitch</strong><br/>Period of the line/space pattern in nm.',
+  'duty':'<strong>Duty cycle</strong><br/>Fraction of pitch that is exposed. 50% = equal lines and spaces.',
+  'linewidth':'<strong>Opening width</strong><br/>Width of the isolated feature in nm.',
+  'sidewall':'<strong>Sidewall angle</strong><br/>Resist sidewall after development. 90° = vertical. &lt;90° = undercut (good for lift-off). &gt;90° = re-entrant. Typical PMMA: 80–88°.',
+  'etch-target':'<strong>Etch target</strong><br/>Which material the RIE chemistry is designed to etch. Other materials etch much slower (selectivity).',
+  'etch-depth':'<strong>Etch depth</strong><br/>Target etch depth in the primary material (nm). Resist consumed:<div class="eq">$t_{\\text{resist consumed}} = d_{\\text{etch}} / S$</div>where $S$ = selectivity. Ensure resist is thicker than this to preserve the mask.',
+  'selectivity':'<strong>Resist selectivity S</strong><br/>Ratio of target etch rate to resist etch rate:<div class="eq">$S = R_{\\text{target}} / R_{\\text{resist}}$</div>Higher S = less resist consumed. CF₄ on SiO₂ with PMMA: S ≈ 5–15.',
+  'wet-depth':'<strong>Wet etch depth</strong><br/>Isotropic etch depth (nm). Since wet etching is isotropic, the lateral undercut equals the etch depth:<div class="eq">$\\text{undercut} = d_{\\text{wet}}$</div>',
+  'samp-w':'<strong>Sample width</strong><br/>Lateral extent of the cross-section in nm. Controls how much of the wafer surface you see (the x-axis of the 2D view).',
+  'samp-d':'<strong>Sample depth</strong><br/>Depth (into the screen) used for the 3D isometric view in nm. Does not affect the 2D cross-section.',
+  'contrast':'<strong>Resist contrast γ</strong><br/>Slope of the normalized thickness vs. log-dose curve in the transition region:<div class="eq">$\\gamma = \\left[\\log_{10}(D_{100}/D_0)\\right]^{-1}$</div>Higher γ = sharper transition (better lithographic performance). PMMA: γ ≈ 2–4; ZEP: γ ≈ 3–5.',
+  'dev-time':'<strong>Development time (s)</strong><br/>Duration in developer. Longer time = deeper clearing, but also more unexposed resist lost (dark erosion):<div class="eq">$T_{\\text{loss}} = R_{\\text{dark}} \\cdot t_{\\text{dev}}$</div>Typical MIBK:IPA for PMMA: 30–90 s.',
+  'dark-erosion':'<strong>Dark erosion rate (nm/min)</strong><br/>Dissolution rate of completely unexposed resist. Controls thickness loss during development:<div class="eq">$T_{\\text{loss}} = R_{\\text{dark}} \\cdot t_{\\text{dev}}$</div>0 = ideal, 1–5 nm/min typical for PMMA in 1:3 MIBK:IPA.',
+  'clear-frac':'<strong>Clearing dose fraction</strong><br/>Fraction of resist thickness at which exposed regions are considered fully cleared. Controls the sharpness of the transition. 0.5 = standard Mack model.',
+  'exp-dose':'<strong>Exposure dose D (µC/cm²)</strong><br/>Area dose delivered by the e-beam. Must exceed D₁₀₀ to fully clear resist in exposed areas. The normalized remaining thickness follows:<div class="eq">$T_r/T_0 = 1 - \\log_{10}(D/D_0)/\\log_{10}(D_{100}/D_0)$</div>',
+  'dot-slice':'<strong>Cross-section Y offset</strong><br/>Where the 2D cross-section cuts through the dot array (0–100% of one pitch period). 0% = through dot centres, 50% = between dot rows. Circular dots shrink as the slice moves off-centre.',
+  'd100':'<strong>Clearing dose D₁₀₀ (µC/cm²)</strong><br/>Dose required to completely remove exposed resist after development. The onset dose D₀ follows from γ:<div class="eq">$D_0 = D_{100} \\cdot 10^{-1/\\gamma}$</div>Typical PMMA: D₁₀₀ ≈ 80–200 µC/cm² (varies with thickness and developer).'
+};
+
+/* Tooltip system */
+const tipEl=$('tooltip');
+document.addEventListener('mouseover',e=>{
+  const t=e.target.closest('.tip');
+  if(!t) return;
+  const key=t.dataset.tip; if(!tips[key]) return;
+  tipEl.innerHTML=tips[key]; tipEl.style.display='block';
+  if(window.renderMathInElement) renderMathInElement(tipEl,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
+  const r=t.getBoundingClientRect();
+  tipEl.style.left=Math.min(r.right+8, window.innerWidth-300)+'px';
+  tipEl.style.top=Math.max(4, r.top-8)+'px';
+});
+document.addEventListener('mouseout',e=>{
+  if(e.target.closest('.tip')) tipEl.style.display='none';
+});
+
+/* ══════════ UI refs ══════════ */
+const siNmEl=$('siNm'), oxNmEl=$('oxNm'), nmPerPxEl=$('nmPerPx');
+const stepTypeEl=$('stepType');
+const canvas2d=$('canvas2d'), canvas3d=$('canvas3d');
+const ctx2d=canvas2d.getContext('2d'), ctx3d=canvas3d.getContext('2d');
+const flowListEl=$('flowList');
+
+/* ══════════ State ══════════ */
+let W=600, H=400, D=1;
+let sampleDepthNm=200;
+let grid=null; // array of D Uint8Array(W*H), one per z-slice (null until buildGrid)
+let nmPx=1;
+let undoStack=[];
+let processFlow=[]; // array of {type, params, snapshot}
+let selectedFlowIdx=-1; // -1 = none selected
+let activeTab='iso';
+let resistStates=[]; // array of {name, type, matId, matExpId, exposed, yTop, yBot, doseMap, doseMaps, devParams}
+// devParams = {contrast, D100, darkErosion, sidewall, scum, clearFrac, devTime, resistThick}
+
+/* ══════════ Step-type param panel switching ══════════ */
+const allParamPanels=['p_deposit','p_transfer_2d','p_spinresist','p_expose','p_uv_expose','p_develop','p_descum','p_etch_rie','p_etch_sf6','p_etch_wet','p_liftoff'];
+function showParamsFor(type){
+  allParamPanels.forEach(id=>{
+    const el=$(id); if(el) el.style.display='none';
+  });
+  const targetPanel=(type==='uv_expose')?'p_uv_expose':'p_'+type;
+  const el=$(targetPanel); if(el) el.style.display='block';
+  if(type==='uv_expose') syncUvExposeToCore();
+  if(type==='spinresist'||type==='expose'||type==='uv_expose'||type==='develop') setTimeout(drawContrastCurve,10);
+  render();
+}
+stepTypeEl.addEventListener('change',()=>showParamsFor(stepTypeEl.value));
+showParamsFor('deposit');
+
+function applyExposurePatternVisibility(prefix){
+  const patternEl=$(prefix+'Pattern');
+  if(!patternEl) return;
+  const v=patternEl.value;
+  const gr=$(prefix==='exp'?'gratingRow':'uvGratingRow');
+  const lw=$(prefix==='exp'?'lineWRow':'uvLineWRow');
+  const dr=$(prefix==='exp'?'dotRow':'uvDotRow');
+  const ds=$(prefix==='exp'?'dotSliceRow':'uvDotSliceRow');
+  if(gr) gr.style.display=(v==='grating')?'flex':'none';
+  if(lw) lw.style.display=(v==='single'||v==='iso_trench')?'block':'none';
+  if(dr) dr.style.display=(v==='dots')?'flex':'none';
+  if(ds) ds.style.display=(v==='dots')?'block':'none';
+  const doseEl=$(prefix==='exp'?'expDose':'uvDose');
+  const doseRow=doseEl?doseEl.parentElement:null;
+  if(doseRow) doseRow.style.display=(v==='custom')?'none':'block';
+  if(v==='custom'){
+    const mb=$('maskBody');
+    if(mb.style.display==='none'){
+      mb.style.display='block';
+      $('maskToggle').textContent='\u25BC Mask Design';
+      fitMaskCanvas();
+    }
+  }
+}
+
+function syncUvExposeToCore(){
+  const map=[['uvPattern','expPattern'],['uvPitch','expPitch'],['uvDuty','expDuty'],['uvLineW','expLineW'],['uvDotPitch','expDotPitch'],['uvDotDiam','expDotDiam'],['uvDotSlice','expDotSlice'],['uvDose','expDose']];
+  map.forEach(([from,to])=>{if($(from)&&$(to)) $(to).value=$(from).value;});
+}
+
+$('expPattern').addEventListener('change',()=>{
+  applyExposurePatternVisibility('exp');
+  render();
+});
+$('uvPattern').addEventListener('change',()=>{
+  applyExposurePatternVisibility('uv');
+  syncUvExposeToCore();
+  render();
+});
+
+['expPitch','expDuty','expLineW','expDotPitch','expDotDiam','expDotSlice','expPattern'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('change',()=>{render(); if($('maskBody').style.display!=='none') drawMask();});
+});
+['uvPitch','uvDuty','uvLineW','uvDotPitch','uvDotDiam','uvDotSlice','uvDose','uvPattern'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('change',()=>{syncUvExposeToCore(); render(); if($('maskBody').style.display!=='none') drawMask();});
+});
+applyExposurePatternVisibility('exp');
+applyExposurePatternVisibility('uv');
+
+/* ══════════ Mask Design Editor ══════════ */
+let maskShapes=[]; // [{type:'rect'|'circle', xNm,yNm,wNm,hNm, dose}]
+let maskUndoStack=[];
+let maskImageDoseMap=null; // {w,h,values,projection,name,fullDose}
+const maskCanvas=$('maskCanvas'), maskCtx=maskCanvas.getContext('2d');
+let maskDragging=false, maskDragStart=null, maskDragCur=null;
+
+function customMaskHasContent(){
+  return maskShapes.length>0 || !!maskImageDoseMap;
+}
+
+function maskContentLabel(){
+  const parts=[];
+  if(maskImageDoseMap) parts.push('image '+(maskImageDoseMap.name||'mask')+', full dose '+Math.round(maskImageDoseMap.fullDose||0));
+  if(maskShapes.length) parts.push(maskShapes.length+' shape'+(maskShapes.length!==1?'s':''));
+  return parts.length?parts.join(' + '):'0 shapes';
+}
+
+function updateMaskInfo(){
+  $('maskInfo').textContent=maskContentLabel();
+}
+
+function rebuildMaskImageProjection(map){
+  if(!map || !map.values) return null;
+  const projection=new Float32Array(map.w);
+  for(let x=0;x<map.w;x++){
+    let v=0;
+    for(let y=0;y<map.h;y++) v=Math.max(v, map.values[y*map.w+x]||0);
+    projection[x]=v;
+  }
+  return projection;
+}
+
+function sampleArrayLinear(arr, n, u){
+  if(!arr || !n) return 0;
+  const x=Math.max(0,Math.min(n-1,u*(n-1)));
+  const x0=Math.floor(x), x1=Math.min(n-1,x0+1);
+  const t=x-x0;
+  return arr[x0]*(1-t)+arr[x1]*t;
+}
+
+function sampleMaskImageDose(xNm,zNm){
+  const map=maskImageDoseMap;
+  if(!map) return 0;
+  const sampleW=parseFloat($('sampW').value)||300;
+  const sampleD=parseFloat($('sampD').value)||300;
+  const u=sampleW>0?xNm/sampleW:0;
+  let norm=0;
+  if(zNm===undefined){
+    norm=sampleArrayLinear(map.projection, map.w, u);
+  } else {
+    const v=sampleD>0?zNm/sampleD:0;
+    const x=Math.max(0,Math.min(map.w-1,u*(map.w-1)));
+    const y=Math.max(0,Math.min(map.h-1,v*(map.h-1)));
+    const x0=Math.floor(x), y0=Math.floor(y);
+    const x1=Math.min(map.w-1,x0+1), y1=Math.min(map.h-1,y0+1);
+    const tx=x-x0, ty=y-y0;
+    const a=map.values[y0*map.w+x0], b=map.values[y0*map.w+x1];
+    const c=map.values[y1*map.w+x0], d=map.values[y1*map.w+x1];
+    norm=(a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty;
+  }
+  return Math.max(0,norm)*(map.fullDose||0);
+}
+
+function encodeMaskImage(map){
+  if(!map) return null;
+  let bytes='';
+  for(let i=0;i<map.values.length;i++) bytes+=String.fromCharCode(Math.max(0,Math.min(255,Math.round(map.values[i]*255))));
+  return {w:map.w,h:map.h,name:map.name||'mask image',fullDose:map.fullDose||0,data:btoa(bytes)};
+}
+
+function restoreMaskImage(encoded){
+  if(!encoded) return null;
+  let values;
+  if(encoded.data){
+    const bytes=atob(encoded.data);
+    values=new Float32Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) values[i]=bytes.charCodeAt(i)/255;
+  } else if(encoded.values){
+    values=new Float32Array(encoded.values);
+  } else {
+    return null;
+  }
+  const map={w:encoded.w,h:encoded.h,values:values,name:encoded.name||'mask image',fullDose:encoded.fullDose||parseFloat($('maskDose').value)||300};
+  map.projection=rebuildMaskImageProjection(map);
+  return map;
+}
+
+function copyMaskImageDoseMap(){
+  return encodeMaskImage(maskImageDoseMap);
+}
+
+function restoreCustomMaskFromParams(params){
+  maskShapes.length=0;
+  if(params && params.maskShapes) params.maskShapes.forEach(s=>maskShapes.push({...s}));
+  maskImageDoseMap=restoreMaskImage(params?params.maskImage:null);
+  updateMaskInfo();
+  drawMask();
+}
+
+// Collapse toggle — Substrate
+$('substrateToggle').addEventListener('click',()=>{
+  const b=$('substrateBody');
+  const open=b.style.display!=='none';
+  b.style.display=open?'none':'block';
+  $('substrateToggle').textContent=open?'▶ Substrate':'▼ Substrate';
+});
+
+// Collapse toggle — Mask Design
+$('maskToggle').addEventListener('click',()=>{
+  const b=$('maskBody');
+  const open=b.style.display!=='none';
+  b.style.display=open?'none':'block';
+  $('maskToggle').textContent=open?'▶ Mask Design':'▼ Mask Design';
+  if(!open) fitMaskCanvas();
+});
+
+function getMaskTool(){
+  return document.querySelector('input[name="maskTool"]:checked')?.value||'rect';
+}
+
+function fitMaskCanvas(){
+  const wrap=maskCanvas.parentElement;
+  const cw=wrap.clientWidth, ch=wrap.clientHeight; // content area (excludes borders)
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  maskCanvas.width=Math.floor(cw*dpr);
+  maskCanvas.height=Math.floor(ch*dpr);
+  maskCanvas.style.width=cw+'px';
+  maskCanvas.style.height=ch+'px';
+  drawMask();
+}
+
+function maskNmToCanvas(xNm,yNm){
+  const cw=maskCanvas.width, ch=maskCanvas.height;
+  const sampleW=parseFloat($('sampW').value)||300;
+  const sampleD=parseFloat($('sampD').value)||300;
+  return {x:xNm/sampleW*cw, y:yNm/sampleD*ch};
+}
+function maskCanvasToNm(cx,cy){
+  const cw=maskCanvas.width, ch=maskCanvas.height;
+  const sampleW=parseFloat($('sampW').value)||300;
+  const sampleD=parseFloat($('sampD').value)||300;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  return {xNm:cx*dpr/cw*sampleW, yNm:cy*dpr/ch*sampleD};
+}
+
+function doseToColor(dose, alpha){
+  // Map dose to a heat color: low=blue, mid=green, high=red
+  const maxD=2000;
+  const t=Math.min(1,Math.max(0,dose/maxD));
+  let r,g,b;
+  if(t<0.5){r=0;g=Math.round(255*t*2);b=Math.round(255*(1-t*2));}
+  else{r=Math.round(255*(t-0.5)*2);g=Math.round(255*(1-(t-0.5)*2));b=0;}
+  return 'rgba('+r+','+g+','+b+','+(alpha||0.5)+')';
+}
+
+function drawMask(previewShape){
+  const cw=maskCanvas.width, ch=maskCanvas.height;
+  const ctx=maskCtx;
+  ctx.clearRect(0,0,cw,ch);
+
+  // Background grid
+  const sampleW=parseFloat($('sampW').value)||300;
+  const sampleD=parseFloat($('sampD').value)||300;
+  ctx.strokeStyle='#e8ecf0';
+  ctx.lineWidth=1;
+  const gridSpacingNm=Math.pow(10,Math.floor(Math.log10(Math.max(sampleW,sampleD)/5)));
+  for(let nm=0;nm<=sampleW;nm+=gridSpacingNm){
+    const p=maskNmToCanvas(nm,0);
+    ctx.beginPath();ctx.moveTo(p.x,0);ctx.lineTo(p.x,ch);ctx.stroke();
+  }
+  for(let nm=0;nm<=sampleD;nm+=gridSpacingNm){
+    const p=maskNmToCanvas(0,nm);
+    ctx.beginPath();ctx.moveTo(0,p.y);ctx.lineTo(cw,p.y);ctx.stroke();
+  }
+
+  // Imported B/W mask image: black = full dose, white = zero dose.
+  if(maskImageDoseMap){
+    const img=ctx.createImageData(cw,ch);
+    const data=img.data;
+    for(let y=0;y<ch;y++){
+      const zNm=(y+0.5)/ch*sampleD;
+      for(let x=0;x<cw;x++){
+        const xNm=(x+0.5)/cw*sampleW;
+        const dose=sampleMaskImageDose(xNm,zNm);
+        const norm=(maskImageDoseMap.fullDose>0)?Math.max(0,Math.min(1,dose/maskImageDoseMap.fullDose)):0;
+        const g=Math.round(255*(1-norm));
+        const p=(y*cw+x)*4;
+        data[p]=g; data[p+1]=g; data[p+2]=g; data[p+3]=220;
+      }
+    }
+    ctx.putImageData(img,0,0);
+    ctx.strokeStyle='rgba(0,0,0,0.35)';
+    ctx.lineWidth=1;
+    ctx.strokeRect(0.5,0.5,cw-1,ch-1);
+  }
+
+  // Draw shapes
+  const allShapes=previewShape?[...maskShapes,previewShape]:maskShapes;
+  for(const s of allShapes){
+    const p0=maskNmToCanvas(s.xNm,s.yNm);
+    const p1=maskNmToCanvas(s.xNm+s.wNm,s.yNm+s.hNm);
+    const sw=p1.x-p0.x, sh=p1.y-p0.y;
+    ctx.fillStyle=doseToColor(s.dose,0.45);
+    ctx.strokeStyle=doseToColor(s.dose,0.9);
+    ctx.lineWidth=2;
+    if(s.type==='rect'){
+      ctx.fillRect(p0.x,p0.y,sw,sh);
+      ctx.strokeRect(p0.x,p0.y,sw,sh);
+    } else {
+      const cx2=p0.x+sw/2, cy2=p0.y+sh/2;
+      const rx=Math.abs(sw)/2, ry=Math.abs(sh)/2;
+      ctx.beginPath();ctx.ellipse(cx2,cy2,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    }
+    // Dose label
+    ctx.fillStyle='#000';
+    ctx.font='bold '+Math.max(9,Math.min(14,Math.abs(sh)*0.3))+'px system-ui';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(s.dose+'',p0.x+sw/2,p0.y+sh/2);
+  }
+
+  // Axis labels
+  ctx.fillStyle='#94a3b8';ctx.font='9px system-ui';ctx.textAlign='left';ctx.textBaseline='top';
+  ctx.fillText('0',2,2);
+  ctx.textAlign='right';
+  ctx.fillText(Math.round(sampleW)+' nm',cw-2,2);
+  ctx.textBaseline='bottom';
+  ctx.fillText(Math.round(sampleD)+' nm',cw-2,ch-2);
+
+  // Draw parametric pattern preview as red outlines (for non-custom patterns)
+  const curPat=$('expPattern').value;
+  if(curPat!=='custom'){
+    ctx.save();
+    ctx.setLineDash([6,4]);
+    ctx.lineWidth=1.5;
+    ctx.strokeStyle='rgba(220,40,40,0.75)';
+    const pxPerNm=1/(sampleW>0?sampleW:1);
+    if(curPat==='grating'){
+      const pitchNm=parseFloat($('expPitch').value)||200;
+      const duty=(parseFloat($('expDuty').value)||50)/100;
+      const openNm=pitchNm*duty;
+      for(let xNm=0;xNm<sampleW;xNm+=pitchNm){
+        const p0=maskNmToCanvas(xNm,0), p1=maskNmToCanvas(xNm+openNm,sampleD);
+        ctx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+      }
+    } else if(curPat==='single'||curPat==='iso_trench'){
+      const wNm=parseFloat($('expLineW').value)||100;
+      const x0=(sampleW-wNm)/2;
+      const p0=maskNmToCanvas(x0,0), p1=maskNmToCanvas(x0+wNm,sampleD);
+      ctx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+    } else if(curPat==='dots'){
+      const pitchNm=parseFloat($('expDotPitch').value)||300;
+      const diamNm=parseFloat($('expDotDiam').value)||80;
+      const r=diamNm/2;
+      for(let yc=pitchNm/2;yc<sampleD;yc+=pitchNm){
+        for(let xc=pitchNm/2;xc<sampleW;xc+=pitchNm){
+          const pc=maskNmToCanvas(xc,yc);
+          const pr=maskNmToCanvas(xc+r,yc+r);
+          const pc0=maskNmToCanvas(xc-r,yc-r);
+          const rxC=(pr.x-pc0.x)/2, ryC=(pr.y-pc0.y)/2;
+          ctx.beginPath();ctx.ellipse(pc.x,pc.y,Math.abs(rxC),Math.abs(ryC),0,0,Math.PI*2);ctx.stroke();
+        }
+      }
+    } else if(curPat==='blanket'){
+      const p0=maskNmToCanvas(0,0), p1=maskNmToCanvas(sampleW,sampleD);
+      ctx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+    }
+    ctx.restore();
+  }
+
+  // Draw dose projection bar
+  drawMaskDoseBar();
+}
+
+/* 1D dose-bar below mask canvas: shows the X-projection that the cross-section will use */
+function drawMaskDoseBar(){
+  const bar=$('maskDoseBar');
+  if(!bar) return;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const bw=bar.clientWidth, bh=bar.clientHeight;
+  bar.width=Math.floor(bw*dpr); bar.height=Math.floor(bh*dpr);
+  bar.style.width=bw+'px'; bar.style.height=bh+'px';
+  const bctx=bar.getContext('2d');
+  bctx.clearRect(0,0,bar.width,bar.height);
+  if(!customMaskHasContent()) return;
+  const sampleW=parseFloat($('sampW').value)||300;
+  // Compute per-pixel dose using nm resolution matching the bar width
+  const N=bar.width;
+  const nmPerBar=sampleW/N;
+  const doses=new Float32Array(N);
+  if(maskImageDoseMap){
+    for(let i=0;i<N;i++){
+      const xNm=(i+0.5)*nmPerBar;
+      doses[i]+=sampleMaskImageDose(xNm, undefined);
+    }
+  }
+  for(const s of maskShapes){
+    const b0=Math.max(0,Math.floor(s.xNm/sampleW*N));
+    const b1=Math.min(N,Math.ceil((s.xNm+s.wNm)/sampleW*N));
+    if(s.type==='rect'){
+      for(let i=b0;i<b1;i++) doses[i]+=s.dose;
+    } else {
+      const cxNm=s.xNm+s.wNm/2, rxNm=s.wNm/2;
+      for(let i=b0;i<b1;i++){
+        const xNm=i*nmPerBar;
+        if(Math.abs(xNm-cxNm)<=rxNm) doses[i]+=s.dose;
+      }
+    }
+  }
+  for(let i=0;i<N;i++){
+    if(doses[i]<=0) continue;
+    bctx.fillStyle=doseToColor(doses[i],0.85);
+    bctx.fillRect(i,0,1,bar.height);
+  }
+  // Label
+  bctx.fillStyle='rgba(0,0,0,0.5)';
+  bctx.font=Math.round(9*dpr)+'px system-ui';
+  bctx.textAlign='left';bctx.textBaseline='middle';
+  bctx.fillText('X dose projection',4*dpr,bar.height/2);
+}
+
+function importMaskImageFile(file){
+  if(!file) return;
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    const maxDim=1024;
+    const scale=Math.min(1, maxDim/Math.max(img.naturalWidth||img.width, img.naturalHeight||img.height));
+    const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
+    const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+    const c=document.createElement('canvas');
+    c.width=w; c.height=h;
+    const cx=c.getContext('2d');
+    cx.fillStyle='#fff';
+    cx.fillRect(0,0,w,h);
+    cx.imageSmoothingEnabled=false;
+    cx.drawImage(img,0,0,w,h);
+    const pixels=cx.getImageData(0,0,w,h).data;
+    const values=new Float32Array(w*h);
+    for(let i=0;i<values.length;i++){
+      const p=i*4;
+      const lum=(pixels[p]*0.299+pixels[p+1]*0.587+pixels[p+2]*0.114)/255;
+      const alpha=pixels[p+3]/255;
+      values[i]=Math.max(0,Math.min(1,(1-lum)*alpha));
+    }
+    maskImageDoseMap={
+      w:w,
+      h:h,
+      values:values,
+      projection:null,
+      name:file.name||'mask image',
+      fullDose:parseFloat($('maskDose').value)||300
+    };
+    maskImageDoseMap.projection=rebuildMaskImageProjection(maskImageDoseMap);
+    URL.revokeObjectURL(url);
+    if($('expPattern').value!=='custom'){
+      $('expPattern').value='custom';
+      $('expPattern').dispatchEvent(new Event('change'));
+    }
+    if($('stepType').value==='uv_expose' && $('uvPattern').value!=='custom'){
+      $('uvPattern').value='custom';
+      $('uvPattern').dispatchEvent(new Event('change'));
+    }
+    updateMaskInfo();
+    drawMask();
+    render();
+    setStatus('Imported B/W mask "'+(file.name||'image')+'": black = '+Math.round(maskImageDoseMap.fullDose)+' dose, white = zero.');
+  };
+  img.onerror=()=>{
+    URL.revokeObjectURL(url);
+    setStatus('Could not import that mask image.');
+  };
+  img.src=url;
+}
+
+$('maskImportInput').addEventListener('change',e=>{
+  const file=e.target.files&&e.target.files[0];
+  e.target.value='';
+  importMaskImageFile(file);
+});
+
+// Mouse handlers for mask drawing
+maskCanvas.addEventListener('mousedown',e=>{
+  maskDragging=true;
+  const rect=maskCanvas.getBoundingClientRect();
+  maskDragStart={x:e.clientX-rect.left, y:e.clientY-rect.top};
+  maskDragCur=maskDragStart;
+});
+maskCanvas.addEventListener('mousemove',e=>{
+  if(!maskDragging) return;
+  const rect=maskCanvas.getBoundingClientRect();
+  maskDragCur={x:e.clientX-rect.left, y:e.clientY-rect.top};
+  const s=maskCanvasToNm(maskDragStart.x,maskDragStart.y);
+  const c=maskCanvasToNm(maskDragCur.x,maskDragCur.y);
+  const dose=parseFloat($('maskDose').value)||300;
+  const preview={type:getMaskTool(), xNm:Math.min(s.xNm,c.xNm), yNm:Math.min(s.yNm,c.yNm),
+    wNm:Math.abs(c.xNm-s.xNm), hNm:Math.abs(c.yNm-s.yNm), dose:dose};
+  drawMask(preview);
+});
+window.addEventListener('mouseup',e=>{
+  if(!maskDragging) return;
+  maskDragging=false;
+  if(!maskDragStart||!maskDragCur) return;
+  const s=maskCanvasToNm(maskDragStart.x,maskDragStart.y);
+  const c=maskCanvasToNm(maskDragCur.x,maskDragCur.y);
+  const wNm=Math.abs(c.xNm-s.xNm), hNm=Math.abs(c.yNm-s.yNm);
+  if(wNm<1||hNm<1){drawMask();return;} // too small, ignore
+  const dose=parseFloat($('maskDose').value)||300;
+  maskShapes.push({type:getMaskTool(), xNm:Math.min(s.xNm,c.xNm), yNm:Math.min(s.yNm,c.yNm), wNm, hNm, dose});
+  updateMaskInfo();
+  // Auto-select custom mask in expose dropdown
+  if($('expPattern').value!=='custom'){
+    $('expPattern').value='custom';
+    $('expPattern').dispatchEvent(new Event('change'));
+  }
+  drawMask();
+  render(); // update main preview
+});
+
+$('maskUndoBtn').addEventListener('click',()=>{
+  if(maskShapes.length){
+    maskUndoStack.push(maskShapes.pop());
+    updateMaskInfo();
+    drawMask(); render();
+  } else if(maskImageDoseMap){
+    maskImageDoseMap=null;
+    updateMaskInfo();
+    drawMask(); render();
+  }
+});
+$('maskResetBtn').addEventListener('click',()=>{
+  maskUndoStack=maskShapes.slice();
+  maskShapes=[];
+  maskImageDoseMap=null;
+  updateMaskInfo();
+  drawMask(); render();
+});
+
+// Redraw mask when sample params change
+['sampW','sampD'].forEach(id=>{
+  $(id).addEventListener('change',()=>{fitMaskCanvas();});
+});
+
+/* ══════════ Contrast curve plot ══════════ */
+function drawContrastCurve(){
+  // Find the visible contrast plot canvas
+    const cv=$('contrastPlotResist')?.offsetParent?$('contrastPlotResist')
+      :$('contrastPlotExpose')?.offsetParent?$('contrastPlotExpose')
+      :$('contrastPlotUvExpose')?.offsetParent?$('contrastPlotUvExpose')
+      :$('contrastPlotDevelop')?.offsetParent?$('contrastPlotDevelop'):null;
+  if(!cv) return;
+  const showDoseLine = (cv.id!=='contrastPlotResist'); // show dose line on expose & develop
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=cv.clientWidth*dpr, h=cv.clientHeight*dpr;
+  cv.width=w; cv.height=h;
+  const cx=cv.getContext('2d');
+  cx.clearRect(0,0,w,h);
+
+  const gamma=Math.max(0.5, parseFloat($('devContrast').value)||3);
+  const D100=Math.max(1, parseFloat($('devD100').value)||120);
+  const activeDoseEl=(cv.id==='contrastPlotUvExpose')?$('uvDose'):$('expDose');
+  const dose=Math.max(1, parseFloat(activeDoseEl.value)||150);
+  const darkRate=Math.max(0, parseFloat($('devDarkErosion').value)||2);
+  const tDev=Math.max(1, parseFloat($('devTime').value)||60);
+  const isNeg=($('resistType').value==='negative');
+  const scumNm=Math.max(0, parseFloat($('devScum').value)||0);
+  const resistThick=parseFloat($('resistThick').value)||120;
+  const scumFrac=resistThick>0?Math.min(0.9, scumNm/resistThick):0;
+  const D0=D100*Math.pow(10,-1/gamma);
+
+  // Plot region
+  const ml=42*dpr, mr=12*dpr, mt=14*dpr, mb=28*dpr;
+  const pw=w-ml-mr, ph=h-mt-mb;
+
+  // Log dose range: from D0*0.3 to D100*3
+  const logMin=Math.log10(Math.max(0.1,D0*0.3));
+  const logMax=Math.log10(D100*(scumFrac>0?10:3));
+  function xOf(logD){return ml+(logD-logMin)/(logMax-logMin)*pw;}
+  function yOf(t){return mt+(1-t)*ph;} // t=1 top, t=0 bottom
+
+  // Grid lines
+  cx.strokeStyle='#e2e8f0'; cx.lineWidth=dpr;
+  // Horizontal: 0, 0.25, 0.5, 0.75, 1.0
+  for(let t=0;t<=1;t+=0.25){
+    cx.beginPath(); cx.moveTo(ml,yOf(t)); cx.lineTo(ml+pw,yOf(t)); cx.stroke();
+  }
+  // Vertical: major log decades
+  const decMin=Math.floor(logMin), decMax=Math.ceil(logMax);
+  for(let d=decMin;d<=decMax;d++){
+    const x=xOf(d);
+    if(x>=ml&&x<=ml+pw){cx.beginPath();cx.moveTo(x,mt);cx.lineTo(x,mt+ph);cx.stroke();}
+  }
+
+  // Axes
+  cx.strokeStyle='#94a3b8'; cx.lineWidth=1.5*dpr;
+  cx.beginPath(); cx.moveTo(ml,mt); cx.lineTo(ml,mt+ph); cx.lineTo(ml+pw,mt+ph); cx.stroke();
+
+  // Contrast curve
+  cx.strokeStyle='#2563eb'; cx.lineWidth=2*dpr;
+  cx.beginPath();
+  const nPts=200;
+  const logD100=Math.log10(D100);
+  for(let i=0;i<=nPts;i++){
+    const logD=logMin+i/nPts*(logMax-logMin);
+    const D=Math.pow(10,logD);
+    let t;
+    if(D<=D0) t=1;
+    else {
+      const tBase=Math.max(0, 1-gamma*(logD-Math.log10(D0)));
+      const scumTail=scumFrac*Math.exp(-6*Math.max(0, logD-logD100));
+      t=Math.max(tBase, scumTail);
+    }
+    // Negative resist: invert — low dose removes, high dose retains
+    if(isNeg) t=1-t;
+    // Apply dark erosion as baseline loss (erodes unexposed/un-crosslinked resist)
+    const darkLoss=darkRate*(tDev/60); // nm
+    const darkFrac=resistThick>0?Math.min(1,darkLoss/resistThick):0;
+    if(isNeg) t=Math.max(0, t-darkFrac*(1-t)); // dark erosion mainly affects low-dose region
+    else t=Math.max(0, t-darkFrac);
+    const x=xOf(logD), y=yOf(t);
+    if(i===0) cx.moveTo(x,y); else cx.lineTo(x,y);
+  }
+  cx.stroke();
+
+  // Scum tail envelope (orange dashed)
+  if(scumFrac>0){
+    cx.strokeStyle='#f59e0b'; cx.lineWidth=dpr; cx.setLineDash([4*dpr,3*dpr]);
+    cx.beginPath();
+    let started=false;
+    for(let i=0;i<=nPts;i++){
+      const logD=logMin+i/nPts*(logMax-logMin);
+      let st=scumFrac*Math.exp(-6*Math.max(0, logD-logD100));
+      if(isNeg) st=1-st;
+      const x=xOf(logD), y=yOf(isNeg?st:st);
+      if(!started){cx.moveTo(x,y);started=true;} else cx.lineTo(x,y);
+    }
+    cx.stroke();
+    cx.setLineDash([]);
+    const scumY=yOf(isNeg?1-scumFrac:scumFrac);
+    cx.fillStyle='#f59e0b'; cx.font=(9*dpr)+'px system-ui'; cx.textAlign='left';
+    cx.fillText('scum '+scumNm.toFixed(1)+' nm',ml+4*dpr,scumY-3*dpr);
+  }
+
+  // D0 marker (blue dotted)
+  cx.strokeStyle='#60a5fa'; cx.lineWidth=dpr; cx.setLineDash([3*dpr,3*dpr]);
+  const xD0=xOf(Math.log10(D0));
+  if(xD0>=ml&&xD0<=ml+pw){
+    cx.beginPath(); cx.moveTo(xD0,mt); cx.lineTo(xD0,mt+ph); cx.stroke();
+  }
+  // D100 marker (blue dotted)
+  const xD100=xOf(Math.log10(D100));
+  if(xD100>=ml&&xD100<=ml+pw){
+    cx.beginPath(); cx.moveTo(xD100,mt); cx.lineTo(xD100,mt+ph); cx.stroke();
+  }
+  cx.setLineDash([]);
+
+  // Selected dose (red dashed) — only on expose & develop panels
+  const xDose=xOf(Math.log10(dose));
+  if(showDoseLine){
+    cx.strokeStyle='#ef4444'; cx.lineWidth=2*dpr; cx.setLineDash([5*dpr,4*dpr]);
+    if(xDose>=ml&&xDose<=ml+pw){
+      cx.beginPath(); cx.moveTo(xDose,mt); cx.lineTo(xDose,mt+ph); cx.stroke();
+    }
+    cx.setLineDash([]);
+  }
+
+  // Labels
+  cx.fillStyle='#374151'; cx.font=(10*dpr)+'px system-ui'; cx.textAlign='center';
+  // X-axis: dose decades
+  for(let d=decMin;d<=decMax;d++){
+    const x=xOf(d);
+    if(x>=ml-5&&x<=ml+pw+5) cx.fillText(Math.pow(10,d).toFixed(d<1?1:0),x,mt+ph+14*dpr);
+  }
+  cx.fillText('Dose (µC/cm²)',ml+pw/2,h-2*dpr);
+  // Y-axis
+  cx.textAlign='right';
+  for(let t=0;t<=1;t+=0.5) cx.fillText(t.toFixed(1),ml-4*dpr,yOf(t)+3*dpr);
+  cx.save(); cx.translate(8*dpr,mt+ph/2); cx.rotate(-Math.PI/2);
+  cx.textAlign='center'; cx.fillText('t/t₀',0,0); cx.restore();
+
+  // D0, D100 labels
+  cx.font='bold '+(9*dpr)+'px system-ui';
+  cx.textAlign='center';
+  if(xD0>=ml&&xD0<=ml+pw){
+    cx.fillStyle='#60a5fa'; cx.fillText(isNeg?'D\u2080 (gel)':'D\u2080',xD0,mt-2*dpr);
+  }
+  if(xD100>=ml&&xD100<=ml+pw){
+    cx.fillStyle='#60a5fa'; cx.fillText(isNeg?'D\u2081\u2080\u2080 (sat)':'D\u2081\u2080\u2080',xD100,mt-2*dpr);
+  }
+  // Dose label
+  if(showDoseLine&&xDose>=ml&&xDose<=ml+pw){
+    cx.fillStyle='#ef4444';
+    cx.fillText(dose+' µC/cm²',Math.min(xDose,ml+pw-30*dpr),mt+12*dpr);
+  }
+}
+
+// Wire contrast curve updates
+['devContrast','devD100','expDose','uvDose','devDarkErosion','devTime','devTimeDev','resistThick','resistType','devScum'].forEach(id=>{
+  const el=$(id); if(el) el.addEventListener('change',drawContrastCurve);
+});
+// Sync devTimeDev ↔ devTime
+$('devTimeDev').addEventListener('change',()=>{$('devTime').value=$('devTimeDev').value; drawContrastCurve();});
+$('devTime').addEventListener('change',()=>{$('devTimeDev').value=$('devTime').value;});
+
+// Resist presets: {type, dose, contrast(γ), D100, darkErosion, sidewall}
+const RESIST_PRESETS={
+  PMMA:    {type:'positive', dose:500, contrast:7,  D100:450, darkErosion:2,  sidewall:90, scum:2,   developers:['MIBK_IPA','IPA']},
+  CSAR:    {type:'positive', dose:300, contrast:5,  D100:250, darkErosion:1.5,sidewall:90, scum:1,   developers:['MIBK_IPA','IPA']},
+  MEDUSA:  {type:'negative', dose:350, contrast:10, D100:300, darkErosion:0.5,sidewall:90, scum:0.5, developers:['MIBK_IPA','IPA']},
+  S1813:   {type:'positive', dose:90,  contrast:2.5,D100:95,  darkErosion:4,  sidewall:90, scum:2,   developers:['MF319','AZ400K']},
+  AZ5214E: {type:'negative', dose:70,  contrast:2.2,D100:85,  darkErosion:3.5,sidewall:90, scum:2,   developers:['AZ400K','MF319']},
+  SU8:     {type:'negative', dose:180, contrast:1.8,D100:220, darkErosion:0.8,sidewall:90, scum:0.5, developers:['SU8_DEV']},
+  MAN2400: {type:'negative', dose:120, contrast:2.1,D100:140, darkErosion:1.2,sidewall:90, scum:1,   developers:['MAD525']}
+};
+
+function refreshDeveloperHint(){
+  const rName=$('devResistType')?.value;
+  const chem=$('devChem')?.value;
+  const hint=$('devCompatHint');
+  if(!hint) return;
+  const preset=RESIST_PRESETS[rName];
+  if(!preset||!preset.developers){
+    hint.textContent='Developer compatibility is advisory only in this simulator version.';
+    hint.style.color='var(--muted)';
+    return;
+  }
+  const ok=preset.developers.includes(chem);
+  if(ok){
+    hint.textContent='Compatible pair: '+rName+' with '+chem+'.';
+    hint.style.color='#166534';
+  } else {
+    hint.textContent='Advisory: '+chem+' is not a common developer for '+rName+'.';
+    hint.style.color='#b45309';
+  }
+}
+
+$('devResistType').addEventListener('change',()=>{
+  const p=RESIST_PRESETS[$('devResistType').value];
+  if(p&&p.developers&&p.developers.length) $('devChem').value=p.developers[0];
+  refreshDeveloperHint();
+});
+$('devChem').addEventListener('change',refreshDeveloperHint);
+$('resistPreset').addEventListener('change',()=>{
+  const key=$('resistPreset').value;
+  const p=RESIST_PRESETS[key];
+  if(!p) return; // 'custom' — leave values as-is
+  $('resistType').value=p.type;
+  $('expDose').value=p.dose;
+  if($('uvDose')) $('uvDose').value=p.dose;
+  $('devContrast').value=p.contrast;
+  $('devD100').value=p.D100;
+  $('devDarkErosion').value=p.darkErosion;
+  $('devSidewall').value=p.sidewall;
+  $('devScum').value=p.scum;
+  if(p.developers&&p.developers.length) $('devChem').value=p.developers[0];
+  refreshDeveloperHint();
+  drawContrastCurve();
+});
+refreshDeveloperHint();
+
+/* ══════════ Tab switching ══════════ */
+document.querySelectorAll('.viz-tabs button[data-tab]').forEach(btn=>{
+  if(btn.id==='perspBtn') return;
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.viz-tabs button[data-tab]').forEach(b=>{if(b.id!=='perspBtn')b.classList.remove('active')});
+    btn.classList.add('active');
+    activeTab=btn.dataset.tab;
+    canvas2d.style.display=activeTab==='cross'?'block':'none';
+    $('zSliceBar').style.display=activeTab==='cross'?'flex':'none';
+    canvas3d.style.display=activeTab==='iso'?'block':'none';
+    render();
+  });
+});
+
+/* ══════════ 3D camera state ══════════ */
+let camAz=30, camEl=25, camZoom=1.0, usePerspective=true;
+$('perspBtn').addEventListener('click',()=>{
+  usePerspective=!usePerspective;
+  $('perspBtn').textContent='Perspective: '+(usePerspective?'ON':'OFF');
+  render();
+});
+
+// Mouse drag rotation
+let dragging=false, dragX=0, dragY=0;
+canvas3d.addEventListener('mousedown',e=>{dragging=true;dragX=e.clientX;dragY=e.clientY;canvas3d.style.cursor='grabbing';});
+window.addEventListener('mousemove',e=>{
+  if(!dragging) return;
+  camAz+=(e.clientX-dragX)*0.5;
+  camEl=Math.max(5,Math.min(85,camEl+(dragY-e.clientY)*0.5));
+  dragX=e.clientX; dragY=e.clientY;
+  render();
+});
+window.addEventListener('mouseup',()=>{dragging=false;canvas3d.style.cursor='grab';});
+canvas3d.addEventListener('wheel',e=>{
+  e.preventDefault();
+  camZoom=Math.max(0.3,Math.min(4,camZoom*(1-e.deltaY*0.001)));
+  render();
+},{passive:false});
+
+/* ── Z-slice slider for cross-section ── */
+if($('zSlice')){
+  $('zSlice').addEventListener('input',()=>{
+    const v=parseFloat($('zSlice').value);
+    $('zSliceLabel').textContent=Math.round(v)+'%';
+    render();
+  });
+}
+
+/* ══════════ Grid helpers ══════════ */
+function idx(x,y){return y*W+x;}
+
+function fitCanvases(){
+  const body=canvas2d.parentElement;
+  const r=body.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  [canvas2d,canvas3d].forEach(c=>{
+    const nw=Math.floor(r.width*dpr);
+    const nh=Math.floor(r.height*dpr);
+    if(c.width!==nw||c.height!==nh){
+      c.width=nw; c.height=nh;
+    }
+    c.style.width=r.width+'px';
+    c.style.height=r.height+'px';
+  });
+}
+const ro=new ResizeObserver(()=>{fitCanvases();render();});
+
+function buildGrid(){
+  nmPx=Math.max(0.2, parseFloat(nmPerPxEl.value)||1);
+  const pxPerNm=1/nmPx;
+  const siPx=Math.max(10, Math.round(parseFloat(siNmEl.value)*pxPerNm));
+  const oxPx=Math.max(0, Math.round(parseFloat(oxNmEl.value)*pxPerNm));
+  const airPx=Math.max(60, Math.round(300*pxPerNm)); // generous air space for multi-layer
+  H=siPx+oxPx+airPx;
+  W=Math.max(50, Math.round((parseFloat($('sampW').value)||500)*pxPerNm));
+  sampleDepthNm=Math.max(20, parseFloat($('sampD').value)||200);
+  const depth3dPx=Math.max(10, Math.round(sampleDepthNm/nmPx));
+  D=Math.min(Math.max(1, Math.floor(depth3dPx)), 60);
+  grid=[];
+  const siTop=H-siPx;
+  const oxTop=siTop-oxPx;
+  for(let z=0;z<D;z++){
+    const sl=new Uint8Array(W*H);
+    for(let y=H-1;y>=siTop;y--) for(let x=0;x<W;x++) sl[idx(x,y)]=M.SI;
+    for(let y=siTop-1;y>=oxTop;y--) for(let x=0;x<W;x++) sl[idx(x,y)]=M.SIO2;
+    grid.push(sl);
+  }
+  undoStack=[];
+  processFlow=[];
+  resistStates=[];
+  $('undoBtn').disabled=true;
+  updateLegend();
+  updateDimensions();
+  renderFlow();
+  setStatus('Substrate built. Add process steps.');
+  render();
+}
+
+function saveUndo(){
+  const rsCopy=resistStates.map(rs=>{
+    const c={...rs, devParams:{...rs.devParams}};
+    if(c.doseMap) c.doseMap=new Float32Array(c.doseMap);
+    if(c.doseMaps) c.doseMaps=c.doseMaps.map(dm=>new Float32Array(dm));
+    return c;
+  });
+  undoStack.push({grid:grid.map(s=>new Uint8Array(s)), D:D, resistStates:rsCopy, flow:processFlow.map(s=>({...s}))});
+  if(undoStack.length>20) undoStack.shift();
+  $('undoBtn').disabled=false;
+}
+
+function doUndo(){
+  if(!undoStack.length) return;
+  const s=undoStack.pop();
+  grid=s.grid; D=s.D; resistStates=s.resistStates; processFlow=s.flow;
+  if(!undoStack.length) $('undoBtn').disabled=true;
+  renderFlow(); render();
+  setStatus('Undone.');
+}
+
+/* ══════════ Surface detection ══════════ */
+function findSurface(z){
+  const g=grid[z!==undefined?z:0];
+  const surf=new Int32Array(W);
+  for(let x=0;x<W;x++){
+    let y=0; while(y<H && g[idx(x,y)]===M.AIR) y++;
+    surf[x]=y;
+  }
+  return surf;
+}
+
+function hasResist(){
+  for(let z=0;z<D;z++){const g=grid[z];for(let i=0;i<W*H;i++) if(isResist(g[i])) return true;}
+  return false;
+}
+
+/* ══════════ Process step implementations ══════════ */
+
+function doDeposit(mat, thickNm, method){
+  const pxPerNm=1/nmPx;
+  const thickPx=Math.max(1,Math.round(thickNm*pxPerNm));
+  const matId=MAT_MAP[mat]||M.METAL;
+
+  if(method==='directional'){
+    for(let z=0;z<D;z++){
+      const g=grid[z];
+      for(let x=0;x<W;x++){
+        let y=0; while(y<H && g[idx(x,y)]===M.AIR) y++;
+        for(let k=0;k<thickPx;k++){
+          const dy=y-1-k;
+          if(dy>=0) g[idx(x,dy)]=matId;
+        }
+      }
+    }
+  } else {
+    for(let layer=0;layer<thickPx;layer++){
+      for(let z=0;z<D;z++){
+        const g=grid[z];
+        const toFill=[];
+        for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+          if(g[idx(x,y)]!==M.AIR) continue;
+          const nb=(
+            (x>0&&g[idx(x-1,y)]!==M.AIR) ||
+            (x<W-1&&g[idx(x+1,y)]!==M.AIR) ||
+            (y>0&&g[idx(x,y-1)]!==M.AIR) ||
+            (y<H-1&&g[idx(x,y+1)]!==M.AIR)
+          );
+          if(nb) toFill.push(idx(x,y));
+        }
+        for(const i of toFill) g[i]=matId;
+      }
+    }
+  }
+}
+
+function doTransfer2DMaterial(material, flakeSizeNm, layerThickNm){
+  const pxPerNm=1/nmPx;
+  const layerPx=Math.max(1, Math.round(layerThickNm*pxPerNm));
+  const centerXNm=(W*nmPx)*0.5;
+  const centerZNm=sampleDepthNm*0.5;
+
+  function depositSquare(matId, sizeNm, thickPx, rotDeg){
+    const half=sizeNm*0.5;
+    const ang=(rotDeg||0)*Math.PI/180;
+    const ca=Math.cos(ang), sa=Math.sin(ang);
+    for(let z=0;z<D;z++){
+      const zNm=(z+0.5)*sampleDepthNm/D;
+      const dz=zNm-centerZNm;
+      const surf=findSurface(z);
+      for(let x=0;x<W;x++){
+        const xNm=(x+0.5)*nmPx;
+        const dx=xNm-centerXNm;
+        const u=dx*ca+dz*sa;
+        const v=-dx*sa+dz*ca;
+        if(Math.abs(u)>half||Math.abs(v)>half) continue;
+        const y=surf[x];
+        for(let k=0;k<thickPx;k++){
+          const dy=y-1-k;
+          if(dy>=0 && grid[z][idx(x,dy)]===M.AIR){
+            grid[z][idx(x,dy)]=matId;
+          }
+        }
+      }
+    }
+  }
+
+  if(material==='GRAPHENE'){
+    depositSquare(M.GRAPHENE, flakeSizeNm, layerPx, 0);
+    return;
+  }
+  if(material==='MOS2'){
+    depositSquare(M.MOS2, flakeSizeNm, layerPx, 0);
+    return;
+  }
+
+  // hBN/graphene/hBN stack: bottom hBN largest, graphene smaller,
+  // top hBN near-bottom size but slightly rotated.
+  const hbnPx=Math.max(1, Math.round(layerPx*1.2));
+  const grPx=Math.max(1, Math.round(layerPx*0.6));
+  depositSquare(M.HBN, flakeSizeNm, hbnPx, 0);
+  depositSquare(M.GRAPHENE, flakeSizeNm*0.84, grPx, 0);
+  depositSquare(M.HBN, flakeSizeNm*0.98, hbnPx, 8);
+}
+
+function doSpinResist(thickNm, type, preset){
+  const pxPerNm=1/nmPx;
+  const resPx=Math.max(1,Math.round(thickNm*pxPerNm));
+  const matId=RESIST_MAT_MAP[preset]||M.RESIST;
+  // Use z=0 for surface detection (uniform across z for spin coating)
+  const surf=findSurface(0);
+  let minSurf=H;
+  for(let x=0;x<W;x++) if(surf[x]<minSurf) minSurf=surf[x];
+  const resistTop=Math.max(0, minSurf-resPx);
+  let maxSurf=0;
+  for(let x=0;x<W;x++) if(surf[x]>maxSurf) maxSurf=surf[x];
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    for(let x=0;x<W;x++){
+      for(let y=resistTop;y<surf[x];y++){
+        if(g[idx(x,y)]===M.AIR) g[idx(x,y)]=matId;
+      }
+    }
+  }
+  resistStates.push({name:preset||'custom', type:type, matId:matId, matExpId:toExposed(matId),
+    exposed:false, yTop:resistTop, yBot:maxSurf, doseMap:null, doseMaps:null,
+    devParams:{contrast:parseFloat($('devContrast').value)||3, D100:parseFloat($('devD100').value)||120,
+      darkErosion:parseFloat($('devDarkErosion').value)||2, sidewall:parseFloat($('devSidewall').value)||90,
+      scum:parseFloat($('devScum').value)||0, clearFrac:parseFloat($('devClearFrac').value)||0.5,
+      devTime:parseFloat($('devTime').value)||60, resistThick:thickNm}});
+}
+
+/* Compute per-column exposure mask. Optional zNm overrides the Y-offset for dots (used by 3D per-slice). */
+function computeExposurePattern(zNm){
+  if(!grid || !grid.length) return null;
+  const pxPerNm=1/nmPx;
+  const pattern=$('expPattern').value;
+  const isExposed=new Uint8Array(W);
+
+  if(pattern==='grating'){
+    const pitchPx=Math.max(1,Math.round((parseFloat($('expPitch').value)||200)*pxPerNm));
+    const openPx=Math.max(1,Math.round(pitchPx*(parseFloat($('expDuty').value)||50)/100));
+    for(let x=0;x<W;x++){
+      const pos=((x%pitchPx)+pitchPx)%pitchPx;
+      isExposed[x]=pos<openPx?1:0;
+    }
+  } else if(pattern==='single'||pattern==='iso_trench'){
+    const wPx=Math.max(1,Math.round((parseFloat($('expLineW').value)||100)*pxPerNm));
+    const x0=Math.floor((W-wPx)/2);
+    for(let x=x0;x<x0+wPx&&x<W;x++) isExposed[x]=1;
+  } else if(pattern==='dots'){
+    // 2D square-periodic circular dots
+    const pitchNm=parseFloat($('expDotPitch').value)||300;
+    const diamNm=parseFloat($('expDotDiam').value)||80;
+    const pitchPx=Math.max(1,Math.round(pitchNm*pxPerNm));
+    const rNm=diamNm/2;
+    // If zNm provided use it directly, otherwise use the UI slider
+    let dzNm;
+    if(zNm!==undefined){
+      const rem=((zNm%pitchNm)+pitchNm)%pitchNm;
+      dzNm=Math.min(rem, pitchNm-rem);
+    } else {
+      const slicePct=parseFloat($('expDotSlice').value)||0;
+      const yOffsetNm=(slicePct/100)*pitchNm;
+      const rem=((yOffsetNm%pitchNm)+pitchNm)%pitchNm;
+      dzNm=Math.min(rem, pitchNm-rem);
+    }
+    const chordHalf=(dzNm<rNm)?Math.sqrt(rNm*rNm-dzNm*dzNm):0;
+    const chordHalfPx=Math.round(chordHalf*pxPerNm);
+    if(chordHalfPx>0){
+      for(let x=0;x<W;x++){
+        const dx=((x%pitchPx)+pitchPx)%pitchPx - pitchPx/2;
+        isExposed[x]=Math.abs(dx)<chordHalfPx?1:0;
+      }
+    }
+  } else if(pattern==='blanket'){
+    isExposed.fill(1);
+  } else if(pattern==='custom'){
+    const doseMap=computeCustomDoseMap(zNm);
+    for(let x=0;x<W;x++) isExposed[x]=doseMap[x]>0?1:0;
+  }
+  return isExposed;
+}
+
+/* Build per-pixel (x-column) dose map from mask shapes.
+   If zNm is provided, only include shapes whose Y-range covers that depth position. */
+function computeCustomDoseMap(zNm){
+  const doseMap=new Float32Array(W);
+  if(!customMaskHasContent()) return doseMap;
+  const pxPerNm=1/nmPx;
+  if(maskImageDoseMap){
+    for(let x=0;x<W;x++){
+      doseMap[x]+=sampleMaskImageDose((x+0.5)*nmPx, zNm);
+    }
+  }
+  for(const s of maskShapes){
+    // Z-filter: shape's Y range in mask editor = depth in 3D
+    if(zNm!==undefined){
+      const zMin=s.yNm, zMax=s.yNm+s.hNm;
+      if(zNm<zMin||zNm>zMax) continue; // shape doesn't cover this z-slice
+    }
+    const x0=Math.max(0,Math.floor(s.xNm*pxPerNm));
+    const x1=Math.min(W,Math.ceil((s.xNm+s.wNm)*pxPerNm));
+    if(s.type==='rect'){
+      for(let x=x0;x<x1;x++) doseMap[x]+=s.dose;
+    } else {
+      // Circle: check 2D distance for elliptical shapes
+      const cxNm=s.xNm+s.wNm/2, cyNm=s.yNm+s.hNm/2;
+      const rxNm=s.wNm/2, ryNm=s.hNm/2;
+      for(let x=x0;x<x1;x++){
+        const xNm=x*nmPx;
+        const dx=(xNm-cxNm)/rxNm;
+        // If zNm provided, also check y-distance for true 2D circle test
+        if(zNm!==undefined){
+          const dy=(zNm-cyNm)/ryNm;
+          if(dx*dx+dy*dy<=1) doseMap[x]+=s.dose;
+        } else {
+          if(Math.abs(dx)<=1) doseMap[x]+=s.dose;
+        }
+      }
+    }
+  }
+  return doseMap;
+}
+
+function doExpose(){
+  if(!hasResist()){setStatus('⚠ No resist to expose!');return false;}
+  const pattern=$('expPattern').value;
+  const uniformDose=parseFloat($('expDose').value)||150;
+
+  // Build new dose contribution for this exposure
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    const zNm=(z+0.5)*sampleDepthNm/D;
+
+    let newDose;
+    if(pattern==='custom'){
+      newDose=computeCustomDoseMap(D>1?zNm:undefined);
+    } else {
+      newDose=new Float32Array(W);
+    }
+
+    const isExposed=(pattern==='dots')?computeExposurePattern(zNm)
+                   :(pattern==='custom')?( ()=>{ const ie=new Uint8Array(W); for(let x=0;x<W;x++) ie[x]=newDose[x]>0?1:0; return ie; })()
+                   :computeExposurePattern();
+    if(!isExposed) return false;
+
+    // Convert all unexposed resist types to their exposed form; accumulate dose per resist state
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      const m=g[idx(x,y)];
+      if(isExposed[x] && isResistUnexp(m)){
+        g[idx(x,y)]=toExposed(m);
+        if(pattern!=='custom') newDose[x]=uniformDose;
+      }
+    }
+
+    // Accumulate dose into each resist state
+    for(const rs of resistStates){
+      // Initialise dose maps on first exposure
+      if(!rs.doseMaps) rs.doseMaps=[];
+      while(rs.doseMaps.length<=z) rs.doseMaps.push(new Float32Array(W));
+      const dm=rs.doseMaps[z];
+      for(let x=0;x<W;x++){
+        // Only accumulate dose where this resist type exists
+        const m=g[idx(x, rs.yTop)]; // quick check — full check below
+        let hasThisResist=false;
+        for(let y=0;y<H;y++){
+          const mv=g[idx(x,y)];
+          if(mv===rs.matExpId||mv===rs.matId){hasThisResist=true;break;}
+        }
+        if(hasThisResist && isExposed[x]) dm[x]+=newDose[x]||uniformDose;
+      }
+    }
+  }
+
+  // Mark all resist states as exposed and set single doseMap from slice 0
+  for(const rs of resistStates){
+    rs.exposed=true;
+    rs.doseMap=(rs.doseMaps&&rs.doseMaps[0])?rs.doseMaps[0]:null;
+  }
+  return true;
+}
+
+function doDevelop(targetResist, sidewallDeg, contrast, devTimeSec, darkErosionNmMin, clearFrac, D100val, scumNm){
+  // Find the resist state for the target resist type
+  const rs=resistStates.find(r=>r.name===targetResist);
+  if(!rs){setStatus('⚠ No '+targetResist+' resist to develop!');return false;}
+  if(!rs.exposed){setStatus('⚠ '+targetResist+' resist not exposed yet!');return false;}
+
+  const matUnexp=rs.matId;
+  const matExp=rs.matExpId;
+  const isPositive = rs.type==='positive';
+  const gamma=Math.max(0.5, contrast||3);
+  const tDev=Math.max(1, devTimeSec||60);
+  const darkRate=Math.max(0, darkErosionNmMin||2);
+  const cf=Math.max(0.05, Math.min(1, clearFrac||0.5));
+  const d100=Math.max(1, D100val||120);
+  const D0=d100*Math.pow(10,-1/gamma);
+  const resistThickNm=rs.devParams.resistThick||120;
+  const scumFrac=resistThickNm>0?Math.min(0.9, Math.max(0, scumNm||0)/resistThickNm):0;
+
+  const darkLossNm = darkRate * (tDev / 60);
+  const darkLossPx = Math.round(darkLossNm / nmPx);
+
+  const doseMapSingle = rs.doseMap;   // Float32Array(W) or null
+  const doseMapsArr   = rs.doseMaps;  // array per z, or null
+
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    const doseMap = (doseMapsArr && doseMapsArr[z]) ? doseMapsArr[z] : doseMapSingle;
+
+    // Convert exposed resist of this type back to unexposed form
+    for(let i=0;i<W*H;i++){
+      if(g[i]===matExp) g[i]=matUnexp;
+    }
+
+    // Dose-dependent removal per column (only for this resist type)
+    const hadRemoval = new Uint8Array(W);
+    for(let x=0;x<W;x++){
+      // Find resist column extent for THIS resist type
+      let topR=-1, botR=-1;
+      for(let y=0;y<H;y++){
+        if(g[idx(x,y)]===matUnexp){if(topR<0)topR=y; botR=y;}
+      }
+      if(topR<0) continue; // no resist of this type in this column
+      const resistH = botR - topR + 1;
+
+      // Get dose for this column
+      const dose = doseMap ? doseMap[x] : 0;
+
+      // Compute remaining thickness fraction using contrast curve
+      let t;
+      if(dose<=0){
+        t=1;
+      } else if(dose<=D0){
+        t=1;
+      } else {
+        const logDose=Math.log10(dose);
+        const tBase=Math.max(0, 1 - gamma*(logDose - Math.log10(D0)));
+        const scumTail=scumFrac*Math.exp(-6*Math.max(0, logDose-Math.log10(d100)));
+        t=Math.max(tBase, scumTail);
+      }
+      // Negative resist: invert (high dose → cross-linked → retained)
+      if(!isPositive) t = 1 - t;
+
+      // Pixels to remove from top of resist column
+      const removePx = Math.round((1 - t) * resistH);
+      if(removePx>0){
+        hadRemoval[x]=1;
+        for(let k=0;k<removePx;k++){
+          g[idx(x, topR+k)]=M.AIR;
+        }
+      }
+    }
+
+    // Dark erosion: thin unexposed resist of this type from the top
+    if(darkLossPx>0){
+      for(let x=0;x<W;x++){
+        if(hadRemoval[x]) continue;
+        let topR=-1, botR=-1;
+        for(let y=0;y<H;y++){
+          if(g[idx(x,y)]===matUnexp){if(topR<0)topR=y; botR=y;}
+        }
+        if(topR<0) continue;
+        const remove=Math.min(darkLossPx, botR-topR+1);
+        for(let k=0;k<remove;k++){
+          g[idx(x,topR+k)]=M.AIR;
+        }
+      }
+    }
+
+    // Sidewall shaping only at development-created edges
+    if(sidewallDeg!==90){
+      const rad=(sidewallDeg-90)*Math.PI/180;
+      const slopePerRow=Math.tan(rad);
+
+      const edges=[];
+      const snap=new Uint8Array(g);
+      for(let x=0;x<W-1;x++){
+        if(!hadRemoval[x] && !hadRemoval[x+1]) continue;
+        for(let y=0;y<H;y++){
+          const a=snap[idx(x,y)], b=snap[idx(x+1,y)];
+          if(!((a===matUnexp && b===M.AIR)||(a===M.AIR && b===matUnexp))) continue;
+          const resistX=(a===matUnexp)?x:x+1;
+          const airDir=(a===matUnexp)?1:-1;
+          let resistTop=y;
+          while(resistTop>0 && snap[idx(resistX,resistTop-1)]===matUnexp) resistTop--;
+          let resistBot=y;
+          while(resistBot<H-1 && snap[idx(resistX,resistBot+1)]===matUnexp) resistBot++;
+          edges.push({resistX, airDir, resistTop, resistBot});
+          y=resistBot;
+        }
+      }
+
+      for(const e of edges){
+        const resistH=e.resistBot-e.resistTop+1;
+        if(sidewallDeg<90){
+          for(let dy=0;dy<resistH;dy++){
+            const rowY=e.resistBot-dy;
+            const shift=Math.round(Math.abs(slopePerRow)*dy);
+            for(let s=0;s<shift&&s<6;s++){
+              const ox2=e.resistX-e.airDir*s;
+              if(ox2>=0&&ox2<W&&rowY>=0&&rowY<H&&g[idx(ox2,rowY)]===matUnexp)
+                g[idx(ox2,rowY)]=M.AIR;
+            }
+          }
+        } else {
+          for(let dy=0;dy<resistH;dy++){
+            const rowY=e.resistTop+dy;
+            const shift=Math.round(Math.abs(slopePerRow)*dy);
+            for(let s=0;s<shift&&s<6;s++){
+              const ox2=e.resistX+e.airDir*(s+1);
+              if(ox2>=0&&ox2<W&&rowY>=0&&rowY<H&&g[idx(ox2,rowY)]===M.AIR)
+                g[idx(ox2,rowY)]=matUnexp;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  rs.exposed=false;
+  return true;
+}
+
+function doEtchRIE(targetMat, depthNm, selectivity){
+  const pxPerNm=1/nmPx;
+  const depthPx=Math.max(1,Math.round(depthNm*pxPerNm));
+  const resistRemovePx=Math.max(0,Math.round(depthPx/selectivity));
+  const matId=MAT_MAP[targetMat]||M.SIO2;
+
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    for(let x=0;x<W;x++){
+      let y=0; while(y<H && g[idx(x,y)]===M.AIR) y++;
+      let resLeft=resistRemovePx, targetLeft=depthPx;
+      while(y<H){
+        const m=g[idx(x,y)];
+        if(isResist(m) && resLeft>0){
+          g[idx(x,y)]=M.AIR; resLeft--; y++;
+        } else if(m===matId && targetLeft>0){
+          g[idx(x,y)]=M.AIR; targetLeft--; y++;
+        } else if(m!==M.AIR && !isResist(m) && m!==matId){
+          break;
+        } else break;
+      }
+    }
+  }
+}
+
+function doEtchWet(targetMat, depthNm){
+  const pxPerNm=1/nmPx;
+  const depthPx=Math.max(1,Math.round(depthNm*pxPerNm));
+  const matId=MAT_MAP[targetMat]||M.SIO2;
+
+  for(let layer=0;layer<depthPx;layer++){
+    let anyRemoved=false;
+    for(let z=0;z<D;z++){
+      const g=grid[z];
+      const toRemove=[];
+      for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+        if(g[idx(x,y)]!==matId) continue;
+        const adj=(
+          (x>0&&g[idx(x-1,y)]===M.AIR)||
+          (x<W-1&&g[idx(x+1,y)]===M.AIR)||
+          (y>0&&g[idx(x,y-1)]===M.AIR)||
+          (y<H-1&&g[idx(x,y+1)]===M.AIR)
+        );
+        if(adj) toRemove.push(idx(x,y));
+      }
+      for(const i of toRemove) g[i]=M.AIR;
+      if(toRemove.length) anyRemoved=true;
+    }
+    if(!anyRemoved) break;
+  }
+}
+
+function doEtchSF6(depthNm){
+  const pxPerNm=1/nmPx;
+  const depthPx=Math.max(1,Math.round(depthNm*pxPerNm));
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    for(let x=0;x<W;x++){
+      let y=0;
+      while(y<H && g[idx(x,y)]===M.AIR) y++;
+      if(y>=H) continue;
+      if(isResist(g[idx(x,y)])) continue;
+      let left=depthPx;
+      while(y<H && left>0){
+        const m=g[idx(x,y)];
+        if(is2DFlakeMaterial(m)){
+          g[idx(x,y)]=M.AIR;
+          left--;
+          y++;
+        } else {
+          break;
+        }
+      }
+    }
+  }
+}
+
+function doLiftoff(){
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    // 1. Remove all resist
+    for(let i=0;i<W*H;i++){
+      if(isResist(g[i])) g[i]=M.AIR;
+    }
+    // 2. Flood-fill from bottom substrate row through all solid material
+    //    to find everything still connected to the bulk.
+    const anchored=new Uint8Array(W*H);
+    const q=[];
+    // Seed from the bottom row (bulk Si)
+    for(let x=0;x<W;x++){
+      const i=idx(x,H-1);
+      if(g[i]!==M.AIR){anchored[i]=1;q.push(x,H-1);}
+    }
+    while(q.length){
+      const x=q.shift(),y=q.shift();
+      for(const[dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx,ny=y+dy;
+        if(nx<0||nx>=W||ny<0||ny>=H) continue;
+        const j=idx(nx,ny);
+        if(!anchored[j]&&g[j]!==M.AIR){anchored[j]=1;q.push(nx,ny);}
+      }
+    }
+    // 3. Remove anything not anchored (floating after resist removal)
+    for(let i=0;i<W*H;i++){
+      if(g[i]!==M.AIR&&!anchored[i]) g[i]=M.AIR;
+    }
+  }
+  resistStates=[];
+}
+
+function doStrip(){
+  for(let z=0;z<D;z++){
+    const g=grid[z];
+    for(let i=0;i<W*H;i++){
+      if(isResist(g[i])) g[i]=M.AIR;
+    }
+  }
+  resistStates=[];
+}
+
+function doDescum(timeSec, rateNmPerSec){
+  /* O₂ plasma descum: isotropically removes resist from all exposed surfaces.
+     Each "layer" iteration peels one pixel of resist that is adjacent to AIR. */
+  const removeNm=timeSec*rateNmPerSec;
+  const removePx=Math.max(1, Math.round(removeNm/nmPx));
+
+  for(let layer=0;layer<removePx;layer++){
+    let anyRemoved=false;
+    for(let z=0;z<D;z++){
+      const g=grid[z];
+      const toRemove=[];
+      for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+        const m=g[idx(x,y)];
+        if(!isResist(m)) continue;
+        const adj=(
+          (x>0   && g[idx(x-1,y)]===M.AIR)||
+          (x<W-1 && g[idx(x+1,y)]===M.AIR)||
+          (y>0   && g[idx(x,y-1)]===M.AIR)||
+          (y<H-1 && g[idx(x,y+1)]===M.AIR)
+        );
+        if(adj) toRemove.push(idx(x,y));
+      }
+      for(const i of toRemove) g[i]=M.AIR;
+      if(toRemove.length) anyRemoved=true;
+    }
+    if(!anyRemoved) break; // no more resist to remove
+  }
+}
+
+/* ══════════ Execute step ══════════ */
+const STEP_ICONS={deposit:'⬇️',transfer_2d:'🧩',spinresist:'🌀',expose:'💡',uv_expose:'🌞',develop:'🧪',descum:'🔥',etch_rie:'⚡',etch_sf6:'🧪',etch_wet:'💧',liftoff:'🔼',strip:'🔼'};
+const STEP_LABELS={deposit:'Deposit',transfer_2d:'Transfer 2D material',spinresist:'Spin Resist',expose:'Expose (EBL)',uv_expose:'Expose (UV)',develop:'Develop',descum:'Descum (O₂)',etch_rie:'RIE Etch',etch_sf6:'SF6 Etch (anisotropic)',etch_wet:'Wet Etch',liftoff:'Lift-off / Strip',strip:'Lift-off / Strip'};
+
+function processStepHeadline(type, params){
+  const p=params||{};
+  switch(type){
+    case 'deposit':{
+      const mat=(MAT_NAMES[MAT_MAP[p.material]]||'material').toLowerCase();
+      return 'Deposit '+mat;
+    }
+    case 'transfer_2d': return 'Transfer 2D material';
+    case 'spinresist': return 'Spin resist';
+    case 'expose': return 'Expose pattern';
+    case 'uv_expose': return 'UV expose';
+    case 'develop': return 'Develop resist';
+    case 'descum': return 'Descum';
+    case 'etch_rie': return 'RIE etch';
+    case 'etch_sf6': return 'SF6 etch';
+    case 'etch_wet': return 'Wet etch';
+    case 'liftoff':
+    case 'strip': return 'Lift-off / strip';
+    default: return STEP_LABELS[type]||type||'Process step';
+  }
+}
+
+function setVizStepLabel(text){
+  const el=$('vizStepLabel');
+  if(!el) return;
+  if(text){
+    el.textContent=text;
+    el.style.display='block';
+  } else {
+    el.textContent='';
+    el.style.display='none';
+  }
+}
+
+function setActiveVizTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.viz-tabs button[data-tab]').forEach(b=>{
+    if(b.id!=='perspBtn') b.classList.toggle('active', b.dataset.tab===tab);
+  });
+  canvas2d.style.display=tab==='cross'?'block':'none';
+  $('zSliceBar').style.display=tab==='cross'?'flex':'none';
+  canvas3d.style.display=tab==='iso'?'block':'none';
+}
+
+function executeStep(){
+  const type=stepTypeEl.value;
+  saveUndo();
+  let params={};
+  let ok=true;
+
+  switch(type){
+    case 'deposit':{
+      const mat=$('depMat').value;
+      const thick=parseFloat($('depThick').value)||30;
+      const method=$('depMethod').value;
+      doDeposit(mat, thick, method);
+      params={material:mat, thickness:thick, method:method};
+      setStatus('Deposited '+thick+' nm '+MAT_NAMES[MAT_MAP[mat]]+' ('+method+').');
+      break;
+    }
+    case 'transfer_2d':{
+      const mat=$('transfer2dMat').value;
+      const size=parseFloat($('transfer2dSize').value)||140;
+      const thick=parseFloat($('transfer2dThick').value)||1;
+      doTransfer2DMaterial(mat, size, thick);
+      params={material:mat, flakeSize:size, layerThick:thick};
+      const label=(mat==='HBN_GRAPHENE_HBN')?'hBN/graphene/hBN stack':MAT_NAMES[MAT_MAP[mat]];
+      setStatus('Transferred '+label+' as square flake ('+size+' nm).');
+      break;
+    }
+    case 'spinresist':{
+      const thick=parseFloat($('resistThick').value)||120;
+      const rtype=$('resistType').value;
+      const rpreset=$('resistPreset').value;
+      const _dose=parseFloat($('expDose').value)||150;
+      const _gamma=parseFloat($('devContrast').value)||3;
+      const _D100=parseFloat($('devD100').value)||120;
+      const _darkEr=parseFloat($('devDarkErosion').value)||2;
+      const _sw=parseFloat($('devSidewall').value)||90;
+      const _scum=parseFloat($('devScum').value)||0;
+      doSpinResist(thick, rtype, rpreset);
+      params={thickness:thick, type:rtype, resist:rpreset, dose:_dose, contrast:_gamma, D100:_D100, darkErosion:_darkEr, sidewall:_sw, scum:_scum};
+      setStatus('Spun '+thick+' nm '+rpreset+' ('+rtype+') resist.');
+      break;
+    }
+    case 'expose':{
+      const pat=$('expPattern').value;
+      const expDoseVal=parseFloat($('expDose').value)||150;
+      const p={pitch:parseFloat($('expPitch').value)||200, duty:parseFloat($('expDuty').value)||50,
+               lineW:parseFloat($('expLineW').value)||100,
+               dotPitch:parseFloat($('expDotPitch').value)||300, dotDiam:parseFloat($('expDotDiam').value)||80,
+               dotSlice:parseFloat($('expDotSlice').value)||0};
+      ok=doExpose();
+      params={pattern:pat, dose:expDoseVal, ...p};
+      if(pat==='custom'){
+        params.maskShapes=maskShapes.map(s=>({...s}));
+        params.maskImage=copyMaskImageDoseMap();
+      }
+      if(ok) setStatus('Exposed pattern: '+pat+(pat==='custom'?' ('+maskContentLabel()+')':' at '+expDoseVal+' \u00b5C/cm\u00b2')+'.');
+      break;
+    }
+    case 'uv_expose':{
+      syncUvExposeToCore();
+      const pat=$('uvPattern').value;
+      const uvDoseVal=parseFloat($('uvDose').value)||90;
+      const p={pitch:parseFloat($('uvPitch').value)||200, duty:parseFloat($('uvDuty').value)||50,
+               lineW:parseFloat($('uvLineW').value)||100,
+               dotPitch:parseFloat($('uvDotPitch').value)||300, dotDiam:parseFloat($('uvDotDiam').value)||80,
+               dotSlice:parseFloat($('uvDotSlice').value)||0};
+      ok=doExpose();
+      params={pattern:pat, dose:uvDoseVal, doseUnit:'mJ/cm²', ...p};
+      if(pat==='custom'){
+        params.maskShapes=maskShapes.map(s=>({...s}));
+        params.maskImage=copyMaskImageDoseMap();
+      }
+      if(ok) setStatus('UV exposed pattern: '+pat+(pat==='custom'?' ('+maskContentLabel()+')':' at '+uvDoseVal+' mJ/cm²')+'.');
+      break;
+    }
+    case 'develop':{
+      const devTarget=$('devResistType').value||'PMMA';
+      const devChem=$('devChem').value;
+      // Find stored resist state for the target
+      const rs=resistStates.find(r=>r.name===devTarget);
+      const dp=rs?rs.devParams:{};
+      const sw=dp.sidewall||90;
+      const gam=dp.contrast||3;
+      const dt=parseFloat($('devTimeDev').value)||dp.devTime||60;
+      const de=dp.darkErosion||2;
+      const cf2=dp.clearFrac||0.5;
+      const d100v=dp.D100||120;
+      const scumV=dp.scum||0;
+      const preset=RESIST_PRESETS[devTarget];
+      const compatOk=!!(preset&&preset.developers&&preset.developers.includes(devChem));
+      ok=doDevelop(devTarget, sw, gam, dt, de, cf2, d100v, scumV);
+      params={targetResist:devTarget, developer:devChem, developerCompatible:compatOk, sidewall:sw, contrast:gam, devTime:dt, darkErosion:de, clearFrac:cf2, D100:d100v, scum:scumV};
+      if(ok){
+        const note=compatOk?'':' Advisory: uncommon chemistry for this resist.';
+        setStatus('Developed '+devTarget+' in '+devChem+': γ='+gam+', '+dt+'s, dark erosion '+de+' nm/min, '+sw+'° walls'+(scumV>0?', scum '+scumV+' nm':'')+'.'+note);
+      }
+      break;
+    }
+    case 'etch_rie':{
+      const tgt=$('rieTarget').value;
+      const depth=parseFloat($('rieDepth').value)||80;
+      const sel=parseFloat($('rieSelectivity').value)||10;
+      doEtchRIE(tgt, depth, sel);
+      params={target:tgt, depth:depth, selectivity:sel};
+      setStatus('RIE etched '+depth+' nm of '+MAT_NAMES[MAT_MAP[tgt]]+'.');
+      break;
+    }
+    case 'etch_wet':{
+      const tgt=$('wetTarget').value;
+      const depth=parseFloat($('wetDepth').value)||50;
+      doEtchWet(tgt, depth);
+      params={target:tgt, depth:depth};
+      setStatus('Wet etched '+depth+' nm of '+MAT_NAMES[MAT_MAP[tgt]]+'.');
+      break;
+    }
+    case 'etch_sf6':{
+      const depth=parseFloat($('sf6Depth').value)||15;
+      doEtchSF6(depth);
+      params={depth:depth};
+      setStatus('Anisotropic SF6 etched exposed 2D materials by '+depth+' nm.');
+      break;
+    }
+    case 'liftoff':{
+      doLiftoff();
+      params={};
+      setStatus('Lift-off / strip complete.');
+      break;
+    }
+    case 'descum':{
+      const dTime=parseFloat($('descumTime').value)||15;
+      const dRate=parseFloat($('descumRate').value)||0.5;
+      doDescum(dTime, dRate);
+      params={time:dTime, rate:dRate};
+      setStatus('Descum: '+(dTime*dRate).toFixed(1)+' nm removed ('+dTime+'s @ '+dRate+' nm/s).');
+      break;
+    }
+  }
+
+  if(!ok){
+    doUndo();
+    return;
+  }
+
+  const entry={type, params, snapshot:makeSnapshot()};
+  if(type==='expose'||type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+  processFlow.push(entry);
+  renderFlow();
+  render();
+}
+
+/* ══════════ Snapshot for flow thumbnails ══════════ */
+function makeSnapshot(){
+  const sw=Math.min(W,200), sh=Math.round(sw*H/W);
+  const c=document.createElement('canvas');
+  c.width=sw; c.height=sh;
+  const cx=c.getContext('2d');
+  const img=cx.createImageData(sw,sh);
+  const d=img.data;
+  const g=grid[Math.floor(D/2)];
+  for(let y=0;y<sh;y++){
+    const gy=Math.floor(y*H/sh);
+    for(let x=0;x<sw;x++){
+      const gx=Math.floor(x*W/sw);
+      const m=g[idx(gx,gy)];
+      const p=(y*sw+x)*4;
+      d[p]=MAT_COLOR[m][0]; d[p+1]=MAT_COLOR[m][1]; d[p+2]=MAT_COLOR[m][2]; d[p+3]=Math.round(255*materialAlpha(m));
+    }
+  }
+  cx.putImageData(img,0,0);
+  return c.toDataURL('image/png');
+}
+
+function makeMaskSnapshot(){
+  try{ drawMask(); return maskCanvas.toDataURL('image/png'); }catch(e){ return ''; }
+}
+
+/* ══════════ Process flow rendering ══════════ */
+function renderFlow(){
+  flowListEl.innerHTML='';
+  {
+    const d=document.createElement('div');
+    d.className='flow-step';
+    d.innerHTML='<span class="fs-num">0</span><span class="fs-title">Substrate</span>'+
+      '<div class="fs-params">Si: '+siNmEl.value+' nm, SiO₂: '+oxNmEl.value+' nm</div>';
+    flowListEl.appendChild(d);
+  }
+  processFlow.forEach((s,i)=>{
+    const conn=document.createElement('div');
+    conn.className='flow-connector';
+    flowListEl.appendChild(conn);
+    const d=document.createElement('div');
+    d.className='flow-step'+(i===selectedFlowIdx?' selected':'');
+    const icon=STEP_ICONS[s.type]||'⚙️';
+    const label=STEP_LABELS[s.type]||s.type;
+    let paramStr=formatParams(s.type, s.params);
+    d.innerHTML='<span class="fs-num">'+(i+1)+'</span><span class="fs-icon">'+icon+'</span><span class="fs-title">'+label+'</span>'+
+      '<div class="fs-actions">'+
+        '<button class="act-move" data-dir="-1" title="Move up">▲</button>'+
+        '<button class="act-move" data-dir="1" title="Move down">▼</button>'+
+        '<button class="act-del" title="Delete step">✕</button>'+
+      '</div>'+
+      '<div class="fs-params">'+paramStr+'</div>';
+    if(s.snapshot){
+      const img=document.createElement('img');
+      img.src=s.snapshot;
+      img.style.cssText='display:block;width:100%;height:40px;border-radius:4px;margin-top:4px;border:1px solid var(--border);image-rendering:pixelated;object-fit:fill';
+      d.appendChild(img);
+    }
+    d.addEventListener('click',e=>{
+      if(e.target.closest('.fs-actions')) return;
+      selectedFlowIdx=(selectedFlowIdx===i)?-1:i;
+      renderFlow();
+    });
+    d.querySelectorAll('.act-move').forEach(btn=>{
+      btn.addEventListener('click',()=>moveFlowStep(i, parseInt(btn.dataset.dir)));
+    });
+    d.querySelector('.act-del').addEventListener('click',()=>deleteFlowStep(i));
+    flowListEl.appendChild(d);
+  });
+  flowListEl.scrollTop=flowListEl.scrollHeight;
+}
+
+function formatParams(type, p){
+  if(!p) return '';
+  switch(type){
+    case 'deposit': return MAT_NAMES[MAT_MAP[p.material]]+', '+p.thickness+' nm, '+p.method;
+    case 'transfer_2d':{
+      const name=p.material==='HBN_GRAPHENE_HBN'?'hBN/graphene/hBN':MAT_NAMES[MAT_MAP[p.material]];
+      return name+', square '+p.flakeSize+' nm';
+    }
+    case 'spinresist': return (p.resist||'resist')+', '+p.thickness+' nm, '+p.type;
+    case 'expose':{
+      if(p.pattern==='grating') return 'grating, pitch '+p.pitch+' nm, duty '+p.duty+'%';
+      if(p.pattern==='single'||p.pattern==='iso_trench') return p.pattern+', width '+p.lineW+' nm';
+      if(p.pattern==='dots') return 'dots, pitch '+p.dotPitch+' nm, ⌀'+p.dotDiam+' nm, slice '+p.dotSlice+'%';
+      if(p.pattern==='custom'){
+        const parts=[];
+        if(p.maskImage) parts.push('imported image');
+        if(p.maskShapes&&p.maskShapes.length) parts.push(p.maskShapes.length+' shape'+(p.maskShapes.length!==1?'s':''));
+        return 'custom mask'+(parts.length?' ('+parts.join(' + ')+')':'');
+      }
+      return p.pattern;
+    }
+    case 'uv_expose':{
+      const base=formatParams('expose', p);
+      return base+(p.dose?(', '+p.dose+' '+(p.doseUnit||'mJ/cm²')):'');
+    }
+    case 'develop': return (p.targetResist||'resist')+', '+(p.developer||'developer')+', γ='+p.contrast+', '+p.devTime+'s, dark '+p.darkErosion+' nm/min, wall '+p.sidewall+'°'+(p.scum>0?', scum '+p.scum+' nm':'');
+    case 'descum': return (p.time*p.rate).toFixed(1)+' nm ('+p.time+'s @ '+p.rate+' nm/s)';
+    case 'etch_rie': return MAT_NAMES[MAT_MAP[p.target]]+', '+p.depth+' nm, sel. '+p.selectivity;
+    case 'etch_sf6': return '2D materials, '+p.depth+' nm anisotropic';
+    case 'etch_wet': return MAT_NAMES[MAT_MAP[p.target]]+', '+p.depth+' nm isotropic';
+    default: return '';
+  }
+}
+
+/* ══════════ Flow step reorder / delete ══════════ */
+function rebuildAndReplay(){
+  /* Rebuild grid from substrate and replay all processFlow steps instantly */
+  const steps=processFlow.map(s=>({type:s.type, params:{...s.params}}));
+  buildGrid();              // resets grid + clears processFlow
+  steps.forEach(s=>{
+    replayStep(s.type, s.params);
+    const entry={type:s.type, params:s.params, snapshot:makeSnapshot()};
+    if(s.type==='expose'||s.type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+    processFlow.push(entry);
+  });
+  renderFlow();
+  render();
+}
+
+function moveFlowStep(idx, dir){
+  const target=idx+dir;
+  if(target<0||target>=processFlow.length) return;
+  const tmp=processFlow[idx];
+  processFlow[idx]=processFlow[target];
+  processFlow[target]=tmp;
+  selectedFlowIdx=target;
+  setStatus('Rebuilding after reorder…');
+  rebuildAndReplay();
+  setStatus('Step moved '+(dir<0?'up':'down')+'.');
+}
+
+function deleteFlowStep(idx){
+  if(idx<0||idx>=processFlow.length) return;
+  processFlow.splice(idx,1);
+  if(selectedFlowIdx>=processFlow.length) selectedFlowIdx=processFlow.length-1;
+  if(processFlow.length===0) selectedFlowIdx=-1;
+  setStatus('Rebuilding after deletion…');
+  rebuildAndReplay();
+  setStatus('Step deleted.');
+}
+
+/* ══════════ Rendering ══════════ */
+function render(){
+  if(!grid || !grid.length) return;
+  if(activeTab==='cross') render2D(); else render3D();
+}
+
+function render2D(){
+  fitCanvases();
+  const c=canvas2d, cx=ctx2d;
+  const cw=c.width, ch=c.height;
+  cx.clearRect(0,0,cw,ch);
+  if(!grid || !grid.length) return;
+  const zSlice=Math.min(Math.max(0,Math.round(($('zSlice')?parseFloat($('zSlice').value):50)/100*(D-1))),D-1);
+  const g=grid[zSlice];
+  const scaleX=cw/W, scaleY=ch/H;
+  const scale=Math.min(scaleX,scaleY)*0.92;
+  const ox=(cw-W*scale)/2, oy=(ch-H*scale)/2 - ch*0.06;
+  const off=document.createElement('canvas');
+  off.width=W; off.height=H;
+  const octx=off.getContext('2d');
+  const img=octx.createImageData(W,H);
+  const d=img.data;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const m=g[idx(x,y)];
+    const p=(y*W+x)*4;
+    d[p]=MAT_COLOR[m][0]; d[p+1]=MAT_COLOR[m][1]; d[p+2]=MAT_COLOR[m][2]; d[p+3]=Math.round(255*materialAlpha(m));
+  }
+  octx.putImageData(img,0,0);
+  cx.imageSmoothingEnabled=false;
+  cx.drawImage(off, ox, oy, W*scale, H*scale);
+
+  /* ── Floating mask overlay preview ── */
+  const curType=$('stepType').value;
+  if((curType==='expose'||curType==='uv_expose') && grid.length){
+    const zNm=(zSlice+0.5)*sampleDepthNm/D;
+    const expPat=$('expPattern').value;
+    let globalTop=H;
+    const rTop=new Int32Array(W).fill(-1);
+    for(let x=0;x<W;x++) for(let y=0;y<H;y++){
+      const m=g[idx(x,y)];
+      if(m!==M.AIR && y<globalTop) globalTop=y;
+      if(isResist(m) && rTop[x]<0) rTop[x]=y;
+    }
+    const gapPx=50/scale;
+    const maskH=6/scale;
+    const maskY=globalTop-gapPx-maskH;
+    const maskBot=globalTop-gapPx;
+    const pxPerNm=1/nmPx;
+
+    cx.save();
+    cx.setLineDash([5,4]);
+    cx.lineWidth=1.5;
+    cx.strokeStyle='rgba(220,40,40,0.85)';
+
+    if(expPat==='custom' && maskImageDoseMap){
+      /* Imported mask: draw the actual grayscale dose slice, not a derived threshold outline. */
+      cx.setLineDash([]);
+      const ry=oy+maskY*scale, rh=Math.max(3,maskH*scale);
+      for(let x=0;x<W;x++){
+        const dose=sampleMaskImageDose((x+0.5)*nmPx,zNm);
+        const norm=(maskImageDoseMap.fullDose>0)?Math.max(0,Math.min(1,dose/maskImageDoseMap.fullDose)):0;
+        const gcol=Math.round(255*(1-norm));
+        cx.fillStyle='rgba('+gcol+','+gcol+','+gcol+',0.88)';
+        cx.fillRect(ox+x*scale,ry,Math.max(1,scale+0.5),rh);
+      }
+      cx.strokeStyle='rgba(0,0,0,0.45)';
+      cx.strokeRect(ox,ry,W*scale,rh);
+    } else if(expPat==='custom' && maskShapes.length){
+      /* Draw actual mask shape outlines for custom pattern */
+      for(const s of maskShapes){
+        // Z-filter: only shapes covering this cross-section depth
+        if(s.type==='rect'){
+          if(zNm<s.yNm||zNm>s.yNm+s.hNm) continue;
+        } else {
+          const cyNm=s.yNm+s.hNm/2, ryNm=s.hNm/2;
+          if(Math.abs(zNm-cyNm)>ryNm) continue;
+        }
+        // Map shape x-range from nm to grid pixels to canvas
+        const x0px=s.xNm*pxPerNm, x1px=(s.xNm+s.wNm)*pxPerNm;
+        const rx=ox+x0px*scale, rw=(x1px-x0px)*scale;
+        const ry=oy+maskY*scale, rh=maskH*scale;
+        cx.strokeRect(rx,ry,rw,rh);
+        // Beam guide lines
+        let yTarget=H;
+        const xi0=Math.max(0,Math.floor(x0px)), xi1=Math.min(W,Math.ceil(x1px));
+        for(let bx=xi0;bx<xi1;bx++) if(rTop[bx]>=0) yTarget=Math.min(yTarget,rTop[bx]);
+        if(yTarget<H){
+          cx.beginPath(); cx.moveTo(rx,oy+maskBot*scale); cx.lineTo(rx,oy+yTarget*scale); cx.stroke();
+          cx.beginPath(); cx.moveTo(rx+rw,oy+maskBot*scale); cx.lineTo(rx+rw,oy+yTarget*scale); cx.stroke();
+        }
+      }
+    } else {
+      /* Standard patterns: outline open regions from exposure pattern */
+      const pat=(expPat==='dots'||expPat==='custom')?computeExposurePattern(zNm):computeExposurePattern();
+      if(pat){
+        let inOpen=false, oStart=0;
+        for(let x=0;x<=W;x++){
+          const open=x<W?pat[x]:0;
+          if(open&&!inOpen){inOpen=true;oStart=x;}
+          if(!open&&inOpen){
+            inOpen=false;
+            const rx=ox+oStart*scale, ry=oy+maskY*scale;
+            const rw=(x-oStart)*scale, rh=maskH*scale;
+            cx.strokeRect(rx,ry,rw,rh);
+            let yTarget=H;
+            for(let bx=oStart;bx<x;bx++) if(rTop[bx]>=0) yTarget=Math.min(yTarget,rTop[bx]);
+            if(yTarget<H){
+              cx.beginPath(); cx.moveTo(rx,oy+maskBot*scale); cx.lineTo(rx,oy+yTarget*scale); cx.stroke();
+              cx.beginPath(); cx.moveTo(rx+rw,oy+maskBot*scale); cx.lineTo(rx+rw,oy+yTarget*scale); cx.stroke();
+            }
+          }
+        }
+      }
+    }
+    cx.restore();
+  }
+
+  cx.fillStyle='rgba(17,24,39,0.6)';
+  cx.font=Math.max(11,Math.round(12*(cw/700)))+'px system-ui';
+  cx.textAlign='center';
+  cx.fillText(Math.round(W*nmPx)+' nm', ox+W*scale/2, oy+H*scale+15);
+  cx.save(); cx.translate(ox-8, oy+H*scale/2); cx.rotate(-Math.PI/2);
+  cx.fillText(Math.round(H*nmPx)+' nm',0,0); cx.restore();
+  if(D>1){
+    cx.fillStyle='rgba(17,24,39,0.5)';
+    cx.font=Math.max(10,Math.round(10*(cw/700)))+'px system-ui';
+    cx.textAlign='right';
+    cx.fillText('Z-slice '+zSlice+'/'+D+' ('+Math.round((zSlice+0.5)*sampleDepthNm/D)+' nm)', ox+W*scale, oy-5);
+  }
+}
+
+function render3D(){
+  fitCanvases();
+  const c=canvas3d, cx=ctx3d;
+  const cw=c.width, ch=c.height;
+  if(numWorkers<=1) cx.clearRect(0,0,cw,ch);
+
+  const azRad=camAz*Math.PI/180, elRad=camEl*Math.PI/180;
+  const cosAz=Math.cos(azRad), sinAz=Math.sin(azRad);
+  const cosEl=Math.cos(elRad), sinEl=Math.sin(elRad);
+
+  const depth3d=Math.max(10, Math.round(sampleDepthNm/nmPx));
+  const nSlices=Math.min(Math.max(1,Math.floor(depth3d)),60);
+
+  const cx0=W/2, cy0=H/2, cz0=depth3d/2;
+
+  function project(x, y, z){
+    const dx=x-cx0, dy=y-cy0, dz=z-cz0;
+    const rx=dx*cosAz+dz*sinAz;
+    const rz=-dx*sinAz+dz*cosAz;
+    const ry=dy*cosEl-rz*sinEl;
+    const rz2=dy*sinEl+rz*cosEl;
+    let sx, sy;
+    if(usePerspective){
+      const fov=600;
+      const pz=rz2+fov+depth3d;
+      const s=fov/Math.max(pz,1);
+      sx=rx*s; sy=ry*s;
+    } else {
+      sx=rx; sy=ry;
+    }
+    const sc=Math.min(cw,ch)/(Math.max(W,H)*1.3)*camZoom;
+    return{sx:cw/2+sx*sc, sy:ch/2+sy*sc - ch*0.06, depth:rz2};
+  }
+
+  const isDots=($('expPattern').value==='dots');
+  const slicePats=[];
+  if(isDots){
+    for(let s=0;s<nSlices;s++){
+      const zMid=(s+0.5)*depth3d/nSlices*nmPx;
+      slicePats.push(computeExposurePattern(zMid));
+    }
+  }
+
+  /* ── shared: paint packed quads onto canvas ── */
+  function paintPacked(packed){
+    const stride=13;
+    const nQ=packed.length/stride;
+    const idx2=new Array(nQ);
+    for(let i=0;i<nQ;i++) idx2[i]=i;
+    idx2.sort((a,b)=>packed[b*stride+12]-packed[a*stride+12]);
+    for(const qi of idx2){
+      const b=qi*stride;
+      cx.beginPath();
+      cx.moveTo(packed[b],packed[b+1]);
+      cx.lineTo(packed[b+2],packed[b+3]);
+      cx.lineTo(packed[b+4],packed[b+5]);
+      cx.lineTo(packed[b+6],packed[b+7]);
+      cx.closePath();
+      cx.fillStyle='rgb('+packed[b+8]+','+packed[b+9]+','+packed[b+10]+')';
+      cx.globalAlpha=packed[b+11];
+      cx.fill();
+    }
+    cx.globalAlpha=1;
+  }
+
+  /* ── shared: mask overlay + labels ── */
+  function drawOverlay(){
+    const curType3d=$('stepType').value;
+    if((curType3d==='expose'||curType3d==='uv_expose') && grid && grid.length){
+      const g0=grid[0];
+      let globalTop3=H;
+      for(let x2=0;x2<W;x2++) for(let y2=0;y2<H;y2++){
+        if(g0[idx(x2,y2)]!==M.AIR && y2<globalTop3){globalTop3=y2;break;}
+      }
+      const gapPx3=40, maskH3=4;
+      const mTop=globalTop3-gapPx3-maskH3, mBot=globalTop3-gapPx3;
+      const isCustom=($('expPattern').value==='custom');
+      const pxPerNm3=1/nmPx;
+      cx.save();
+      cx.setLineDash([4,3]);cx.lineWidth=1.5;cx.strokeStyle='rgba(220,40,40,0.7)';
+
+      if(isCustom && maskImageDoseMap){
+        /* Imported mask: draw the grayscale dose map directly on the floating 3D mask plane. */
+        cx.setLineDash([]);
+        const stepX=Math.max(1,Math.ceil(W/180));
+        const stepS=Math.max(1,Math.ceil(nSlices/90));
+        const maskQuads=[];
+        for(let s=0;s<nSlices;s+=stepS){
+          const s1=Math.min(nSlices,s+stepS);
+          const z0s=s*depth3d/nSlices, z1s=s1*depth3d/nSlices;
+          const zNm=((z0s+z1s)*0.5/depth3d)*sampleDepthNm;
+          for(let x0=0;x0<W;x0+=stepX){
+            const x1=Math.min(W,x0+stepX);
+            const xNm=((x0+x1)*0.5)*nmPx;
+            const dose=sampleMaskImageDose(xNm,zNm);
+            const norm=(maskImageDoseMap.fullDose>0)?Math.max(0,Math.min(1,dose/maskImageDoseMap.fullDose)):0;
+            const gcol=Math.round(255*(1-norm));
+            const p0=project(x0,mTop,z0s), p1=project(x1,mTop,z0s), p2=project(x1,mTop,z1s), p3=project(x0,mTop,z1s);
+            maskQuads.push({pts:[p0,p1,p2,p3], depth:(p0.depth+p2.depth)/2, gray:gcol});
+          }
+        }
+        maskQuads.sort((a,b)=>b.depth-a.depth);
+        for(const q of maskQuads){
+          cx.beginPath();
+          cx.moveTo(q.pts[0].sx,q.pts[0].sy);
+          cx.lineTo(q.pts[1].sx,q.pts[1].sy);
+          cx.lineTo(q.pts[2].sx,q.pts[2].sy);
+          cx.lineTo(q.pts[3].sx,q.pts[3].sy);
+          cx.closePath();
+          cx.fillStyle='rgba('+q.gray+','+q.gray+','+q.gray+',0.82)';
+          cx.fill();
+        }
+        const b0=project(0,mTop,0), b1=project(W,mTop,0), b2=project(W,mTop,depth3d), b3=project(0,mTop,depth3d);
+        cx.strokeStyle='rgba(0,0,0,0.35)';
+        cx.beginPath();cx.moveTo(b0.sx,b0.sy);cx.lineTo(b1.sx,b1.sy);cx.lineTo(b2.sx,b2.sy);cx.lineTo(b3.sx,b3.sy);cx.closePath();cx.stroke();
+      } else if(isCustom && maskShapes.length){
+        /* Draw actual shape outlines in 3D for custom mask */
+        for(const sh of maskShapes){
+          // Map shape Y (depth) to z-slices
+          const zMinPx=sh.yNm/nmPx, zMaxPx=(sh.yNm+sh.hNm)/nmPx;
+          const z0=Math.max(0, zMinPx/sampleDepthNm*nmPx*depth3d/nmPx);
+          // Simpler: shape occupies depth range [sh.yNm, sh.yNm+sh.hNm] in nm
+          // depth3d = total depth in grid-pixels, sampleDepthNm in nm
+          const zStart=sh.yNm/sampleDepthNm*depth3d;
+          const zEnd=(sh.yNm+sh.hNm)/sampleDepthNm*depth3d;
+          const x0px=sh.xNm*pxPerNm3, x1px=(sh.xNm+sh.wNm)*pxPerNm3;
+          if(sh.type==='rect'){
+            const c0=project(x0px,mTop,zStart), c1=project(x1px,mTop,zStart);
+            const c2=project(x1px,mTop,zEnd),   c3=project(x0px,mTop,zEnd);
+            cx.beginPath();cx.moveTo(c0.sx,c0.sy);cx.lineTo(c1.sx,c1.sy);
+            cx.lineTo(c2.sx,c2.sy);cx.lineTo(c3.sx,c3.sy);cx.closePath();cx.stroke();
+          } else {
+            // Ellipse: approximate with polygon
+            const cxNm=sh.xNm+sh.wNm/2, cyNm=sh.yNm+sh.hNm/2;
+            const rxPx=sh.wNm/2*pxPerNm3, ryD=sh.hNm/2/sampleDepthNm*depth3d;
+            const cxPx=cxNm*pxPerNm3, czD=cyNm/sampleDepthNm*depth3d;
+            const nSeg=24;
+            cx.beginPath();
+            for(let i=0;i<=nSeg;i++){
+              const a=i/nSeg*Math.PI*2;
+              const px=cxPx+Math.cos(a)*rxPx;
+              const pz=czD+Math.sin(a)*ryD;
+              const p=project(px,mTop,pz);
+              if(i===0) cx.moveTo(p.sx,p.sy); else cx.lineTo(p.sx,p.sy);
+            }
+            cx.closePath();cx.stroke();
+          }
+        }
+      } else {
+        /* Standard patterns: per-slice open-region outlines */
+        for(let s=0;s<nSlices;s++){
+          const z0s=s*depth3d/nSlices, z1s=(s+1)*depth3d/nSlices;
+          const zMid=(s+0.5)*depth3d/nSlices*nmPx;
+          const pat=(isDots||isCustom)?computeExposurePattern(zMid):computeExposurePattern();
+          if(!pat) continue;
+          let inOpen=false, oStart=0;
+          for(let x2=0;x2<=W;x2++){
+            const open=x2<W?pat[x2]:0;
+            if(open&&!inOpen){inOpen=true;oStart=x2;}
+            if(!open&&inOpen){
+              inOpen=false;
+              const t0=project(oStart,mTop,z0s),t1=project(x2,mTop,z0s),t2=project(x2,mTop,z1s),t3=project(oStart,mTop,z1s);
+              cx.beginPath();cx.moveTo(t0.sx,t0.sy);cx.lineTo(t1.sx,t1.sy);cx.lineTo(t2.sx,t2.sy);cx.lineTo(t3.sx,t3.sy);cx.closePath();
+              cx.stroke();
+            }
+          }
+        }
+      }
+      cx.restore();
+    }
+    cx.fillStyle='rgba(17,24,39,0.5)';
+    cx.font=Math.max(10,Math.round(11*(cw/700)))+'px system-ui';
+    cx.textAlign='center';
+    cx.fillText('Drag to rotate, scroll to zoom', cw/2, ch-8);
+  }
+
+  /* ── Multi-threaded path ── */
+  if(numWorkers>1){
+    const mySeq=++render3DSeq;
+    // Flatten 3D grid for transfer (nSlices slices, each W*H)
+    const flatGrid=new Uint8Array(W*H*nSlices);
+    for(let s=0;s<nSlices;s++){
+      const gi=Math.min(s,D-1);
+      flatGrid.set(grid[gi], s*W*H);
+    }
+    const slicesPerW=Math.ceil(nSlices/numWorkers);
+    const promises=workerPool.map((w,i)=>{
+      const sStart=i*slicesPerW, sEnd=Math.min(sStart+slicesPerW, nSlices);
+      if(sStart>=nSlices) return Promise.resolve(new Float32Array(0));
+      // Extract only the slices this worker needs
+      const wGrid=new Uint8Array(W*H*(sEnd-sStart));
+      for(let s=sStart;s<sEnd;s++){
+        wGrid.set(flatGrid.subarray(s*W*H,(s+1)*W*H), (s-sStart)*W*H);
+      }
+      return new Promise(resolve=>{
+        w.onmessage=e=>resolve(e.data.packed);
+        w.postMessage({
+          grid:wGrid, W:W, H:H, depth3d:depth3d, nSlices:nSlices,
+          sliceStart:sStart, sliceEnd:sEnd,
+          azRad:azRad, elRad:elRad, camZoom:camZoom, usePerspective:usePerspective, cw:cw, ch:ch,
+          matColorTop:matColorTopFlat, matColorSide:matColorSideFlat, matAlpha:matAlphaFlat
+        });
+      });
+    });
+    Promise.all(promises).then(results=>{
+      if(render3DSeq!==mySeq) return;
+      let totalLen=0;
+      for(const p of results) totalLen+=p.length;
+      const merged=new Float32Array(totalLen);
+      let off=0;
+      for(const p of results){merged.set(p,off);off+=p.length;}
+      cx.clearRect(0,0,cw,ch);
+      paintPacked(merged);
+      drawOverlay();
+    });
+    return;
+  }
+
+  /* ── Single-threaded path ── */
+  const quads=[];
+  for(let s=0;s<nSlices;s++){
+    const z0=s*depth3d/nSlices;
+    const z1=(s+1)*depth3d/nSlices;
+    const shade=0.7+0.3*(s/nSlices);
+    const slicePat=isDots?slicePats[s]:null;
+    const gi=Math.min(s,D-1);
+    const g=grid[gi];
+
+    const _dotRS=isDots&&resistStates.length?resistStates[resistStates.length-1]:null;
+    const dotYTop=_dotRS?_dotRS.yTop:-1;
+    const dotYBot=_dotRS?_dotRS.yBot:-1;
+    const dotMatId=_dotRS?_dotRS.matId:M.RESIST;
+    for(let x=0;x<W;x++){
+      let y=0;
+      while(y<H){
+        let m=g[idx(x,y)];
+        if(isDots&&slicePat&&!slicePat[x]){if(y>=dotYTop&&y<dotYBot)m=dotMatId;else if(y<dotYTop)m=M.AIR;}
+        if(m===M.AIR){y++;continue;}
+        let yEnd=y;
+        while(yEnd<H){
+          let m2=g[idx(x,yEnd)];
+          if(isDots&&slicePat&&!slicePat[x]){if(yEnd>=dotYTop&&yEnd<dotYBot)m2=dotMatId;else if(yEnd<dotYTop)m2=M.AIR;}
+          if(m2!==m) break;
+          yEnd++;
+        }
+
+        const tc=MAT_COLOR_3D[m].top;
+        const sc2=MAT_COLOR_3D[m].side;
+        const alpha=materialAlpha(m);
+
+        {
+          const p0=project(x,y,z0),p1=project(x+1,y,z0),p2=project(x+1,yEnd,z0),p3=project(x,yEnd,z0);
+          quads.push({pts:[[p0.sx,p0.sy],[p1.sx,p1.sy],[p2.sx,p2.sy],[p3.sx,p3.sy]],
+            color:[Math.round(tc[0]*shade),Math.round(tc[1]*shade),Math.round(tc[2]*shade)],
+            alpha:alpha, depth:(p0.depth+p2.depth)/2});
+        }
+        {
+          const p0=project(x,y,z1),p1=project(x+1,y,z1),p2=project(x+1,yEnd,z1),p3=project(x,yEnd,z1);
+          const s3=0.55+0.2*(s/nSlices);
+          quads.push({pts:[[p0.sx,p0.sy],[p1.sx,p1.sy],[p2.sx,p2.sy],[p3.sx,p3.sy]],
+            color:[Math.round(tc[0]*s3),Math.round(tc[1]*s3),Math.round(tc[2]*s3)],
+            alpha:alpha, depth:(p0.depth+p2.depth)/2});
+        }
+        {let mAbove=y>0?g[idx(x,y-1)]:M.AIR;
+        if(isDots&&slicePat&&!slicePat[x]){if((y-1)>=dotYTop&&(y-1)<dotYBot)mAbove=dotMatId;else if((y-1)<dotYTop)mAbove=M.AIR;}
+        if(mAbove!==m){
+          const p0=project(x,y,z0),p1=project(x+1,y,z0),p2=project(x+1,y,z1),p3=project(x,y,z1);
+          const s3=Math.min(1,shade*1.15);
+          quads.push({pts:[[p0.sx,p0.sy],[p1.sx,p1.sy],[p2.sx,p2.sy],[p3.sx,p3.sy]],
+            color:[Math.round(tc[0]*s3),Math.round(tc[1]*s3),Math.round(tc[2]*s3)],
+            alpha:alpha, depth:(p0.depth+p2.depth)/2});
+        }}
+        {let mBelow=yEnd<H?g[idx(x,yEnd)]:M.AIR;
+        if(isDots&&slicePat&&!slicePat[x]){if(yEnd>=dotYTop&&yEnd<dotYBot)mBelow=dotMatId;else if(yEnd<dotYTop)mBelow=M.AIR;}
+        if(mBelow!==m){
+          const p0=project(x,yEnd,z0),p1=project(x+1,yEnd,z0),p2=project(x+1,yEnd,z1),p3=project(x,yEnd,z1);
+          quads.push({pts:[[p0.sx,p0.sy],[p1.sx,p1.sy],[p2.sx,p2.sy],[p3.sx,p3.sy]],
+            color:[Math.round(sc2[0]*shade*0.5),Math.round(sc2[1]*shade*0.5),Math.round(sc2[2]*shade*0.5)],
+            alpha:alpha, depth:(p0.depth+p2.depth)/2});
+        }}
+        {let mRight=x<W-1?g[idx(x+1,y)]:M.AIR;
+        if(isDots&&slicePat&&!slicePat[x+1]){if(y>=dotYTop&&y<dotYBot)mRight=dotMatId;else if(y<dotYTop)mRight=M.AIR;}
+        if(x===W-1||mRight!==m){
+          const p0=project(x+1,y,z0),p1=project(x+1,y,z1),p2=project(x+1,yEnd,z1),p3=project(x+1,yEnd,z0);
+          quads.push({pts:[[p0.sx,p0.sy],[p1.sx,p1.sy],[p2.sx,p2.sy],[p3.sx,p3.sy]],
+            color:[Math.round(sc2[0]*shade),Math.round(sc2[1]*shade),Math.round(sc2[2]*shade)],
+            alpha:alpha, depth:(p0.depth+p2.depth)/2});
+        }}
+        {let mLeft=x>0?g[idx(x-1,y)]:M.AIR;
+        if(isDots&&slicePat&&!slicePat[x-1]){if(y>=dotYTop&&y<dotYBot)mLeft=dotMatId;else if(y<dotYTop)mLeft=M.AIR;}
+        if(x===0||mLeft!==m){
+          const p0=project(x,y,z0),p1=project(x,y,z1),p2=project(x,yEnd,z1),p3=project(x,yEnd,z0);
+          quads.push({pts:[[p0.sx,p0.sy],[p1.sx,p1.sy],[p2.sx,p2.sy],[p3.sx,p3.sy]],
+            color:[Math.round(sc2[0]*shade*0.85),Math.round(sc2[1]*shade*0.85),Math.round(sc2[2]*shade*0.85)],
+            alpha:alpha, depth:(p0.depth+p2.depth)/2});
+        }}
+        y=yEnd;
+      }
+    }
+  }
+
+  quads.sort((a,b)=>b.depth-a.depth);
+  for(const q of quads){
+    cx.beginPath();
+    cx.moveTo(q.pts[0][0],q.pts[0][1]);
+    for(let i=1;i<q.pts.length;i++) cx.lineTo(q.pts[i][0],q.pts[i][1]);
+    cx.closePath();
+    cx.fillStyle='rgb('+q.color[0]+','+q.color[1]+','+q.color[2]+')';
+    cx.globalAlpha=q.alpha;
+    cx.fill();
+  }
+  cx.globalAlpha=1;
+  drawOverlay();
+}
+
+/* ══════════ Legend & dimensions ══════════ */
+function updateLegend(){
+  const el=$('legend');
+  el.innerHTML='';
+  [['Air','#ffffff'],['PMMA','#ffbea0'],['PMMA (exp)','#eb8264'],['CSAR','#c8aff0'],['CSAR (exp)','#9b78d2'],['MEDUSA','#96e1d2'],['MEDUSA (exp)','#5fb9aa'],['S1813','#ffec99'],['S1813 (exp)','#eac448'],['AZ5214E','#ffd6aa'],['AZ5214E (exp)','#efa15f'],['SU-8','#c6ffb8'],['SU-8 (exp)','#77d164'],['ma-N 2400','#aeebd6'],['ma-N 2400 (exp)','#67c5ad'],['Graphene','#808080'],['MoS₂','#f5dc50'],['hBN','#6ea5ff'],['Metal','#b4bed2'],['Poly-Si','#a08c78'],['SiO₂','#8cd2f5'],['Si₃N₄','#b4e6b4'],['Si','#46505f']].forEach(([n,c])=>{
+    const d=document.createElement('div');
+    d.className='legend-item';
+    d.innerHTML='<span class="swatch" style="background:'+c+'"></span>'+n;
+    el.appendChild(d);
+  });
+}
+
+function updateDimensions(){
+  $('dimReadout').textContent=W+'×'+H+' px = '+Math.round(W*nmPx)+'×'+Math.round(H*nmPx)+' nm | '+nmPx+' nm/px';
+}
+
+function setStatus(msg, active){
+  $('statusText').textContent=msg;
+  $('statusBar').classList.toggle('active',!!active);
+}
+
+/* ══════════ Copy flow to clipboard ══════════ */
+$('exportFlowBtn').addEventListener('click',()=>{
+  let text='EBL Process Flow\n================\n';
+  text+='Substrate: Si '+siNmEl.value+' nm / SiO\u2082 '+oxNmEl.value+' nm\n\n';
+  processFlow.forEach((s,i)=>{
+    text+=(i+1)+'. '+(STEP_LABELS[s.type]||s.type)+': '+formatParams(s.type,s.params)+'\n';
+  });
+  navigator.clipboard.writeText(text).then(()=>setStatus('Process flow copied to clipboard.'));
+});
+
+/* ══════════ Export Process Report (HTML → print-to-PDF) ══════════ */
+$('exportPdfBtn').addEventListener('click',()=>{
+  if(!processFlow.length){setStatus('⚠ No process steps to export.');return;}
+
+  /* ── Build a standalone printable HTML document ── */
+  const STEP_LABELS_L={deposit:'Deposit',transfer_2d:'Transfer 2D material',spinresist:'Spin Resist',expose:'Expose (EBL)',uv_expose:'Expose (UV)',develop:'Develop',descum:'Descum (O\u2082)',etch_rie:'RIE Etch',etch_sf6:'SF6 Etch (anisotropic)',etch_wet:'Wet Etch',liftoff:'Lift-off / Strip',strip:'Lift-off / Strip'};
+
+  function detailBlock(type,p){
+    if(!p) return '';
+    const rows=[];
+    switch(type){
+      case 'deposit':
+        rows.push(['Material', MAT_NAMES[MAT_MAP[p.material]]]);
+        rows.push(['Thickness', p.thickness+' nm']);
+        rows.push(['Method', p.method==='directional'?'Directional (evaporation)':'Conformal (sputtering/CVD)']);
+        break;
+      case 'transfer_2d':
+        rows.push(['Material', p.material==='HBN_GRAPHENE_HBN'?'hBN/graphene/hBN stack':MAT_NAMES[MAT_MAP[p.material]]]);
+        rows.push(['Flake shape', 'Square']);
+        rows.push(['Flake size', p.flakeSize+' nm']);
+        rows.push(['Layer thickness', p.layerThick+' nm']);
+        break;
+      case 'spinresist':
+        rows.push(['Resist', (p.resist||'custom')]);
+        rows.push(['Tone', p.type]);
+        rows.push(['Thickness', p.thickness+' nm']);
+        if(p.dose) rows.push(['Recommended dose', p.dose+' \u00b5C/cm\u00b2']);
+        if(p.contrast) rows.push(['Contrast \u03b3', p.contrast]);
+        if(p.D100) rows.push(['Clearing dose D\u2081\u2080\u2080', p.D100+' \u00b5C/cm\u00b2']);
+        if(p.darkErosion!=null) rows.push(['Dark erosion', p.darkErosion+' nm/min']);
+        if(p.sidewall) rows.push(['Sidewall angle', p.sidewall+'\u00b0']);
+        break;
+      case 'expose':
+        rows.push(['Pattern', p.pattern]);
+        if(p.pattern==='grating'){rows.push(['Pitch',p.pitch+' nm']);rows.push(['Duty cycle',p.duty+'%']);}
+        if(p.pattern==='single'||p.pattern==='iso_trench') rows.push(['Opening width',p.lineW+' nm']);
+        if(p.pattern==='dots'){rows.push(['Dot pitch',p.dotPitch+' nm']);rows.push(['Dot diameter',p.dotDiam+' nm']);rows.push(['Cross-section Y offset',p.dotSlice+'%']);}
+        if(p.pattern==='custom'&&(p.maskShapes||p.maskImage)){
+          if(p.maskImage) rows.push(['Imported mask', (p.maskImage.name||'image')+'; black = '+Math.round(p.maskImage.fullDose||p.dose||0)+' \u00b5C/cm\u00b2']);
+          if(p.maskShapes&&p.maskShapes.length){
+            rows.push(['Shapes', p.maskShapes.length]);
+            const doses=p.maskShapes.map(s=>s.dose);
+            rows.push(['Shape dose range', Math.min(...doses)+' \u2013 '+Math.max(...doses)+' \u00b5C/cm\u00b2']);
+          }
+        } else { rows.push(['Dose',p.dose+' \u00b5C/cm\u00b2']); }
+        break;
+      case 'uv_expose':
+        rows.push(['Pattern', p.pattern]);
+        if(p.pattern==='grating'){rows.push(['Pitch',p.pitch+' nm']);rows.push(['Duty cycle',p.duty+'%']);}
+        if(p.pattern==='single'||p.pattern==='iso_trench') rows.push(['Opening width',p.lineW+' nm']);
+        if(p.pattern==='dots'){rows.push(['Dot pitch',p.dotPitch+' nm']);rows.push(['Dot diameter',p.dotDiam+' nm']);rows.push(['Cross-section Y offset',p.dotSlice+'%']);}
+        if(p.pattern==='custom'&&(p.maskShapes||p.maskImage)){
+          if(p.maskImage) rows.push(['Imported mask', (p.maskImage.name||'image')+'; black = '+Math.round(p.maskImage.fullDose||p.dose||0)+' mJ/cm\u00b2']);
+          if(p.maskShapes&&p.maskShapes.length){
+            rows.push(['Shapes', p.maskShapes.length]);
+            const doses=p.maskShapes.map(s=>s.dose);
+            rows.push(['Shape dose range', Math.min(...doses)+' \u2013 '+Math.max(...doses)+' mJ/cm\u00b2']);
+          }
+        } else { rows.push(['Dose',p.dose+' '+(p.doseUnit||'mJ/cm\u00b2')]); }
+        break;
+      case 'develop':
+        if(p.targetResist) rows.push(['Target resist', p.targetResist]);
+        if(p.developer) rows.push(['Developer', p.developer]);
+        rows.push(['Contrast \u03b3', p.contrast]);
+        if(p.D100) rows.push(['Clearing dose D\u2081\u2080\u2080', p.D100+' \u00b5C/cm\u00b2']);
+        rows.push(['Dev. time', p.devTime+' s']);
+        rows.push(['Sidewall angle', p.sidewall+'\u00b0']);
+        rows.push(['Dark erosion', p.darkErosion+' nm/min']);
+        rows.push(['Clearing dose frac.', p.clearFrac]);
+        break;
+      case 'etch_rie':
+        rows.push(['Target', MAT_NAMES[MAT_MAP[p.target]]]);
+        rows.push(['Etch depth', p.depth+' nm']);
+        rows.push(['Resist selectivity', p.selectivity+':1']);
+        break;
+      case 'etch_sf6':
+        rows.push(['Target', 'Graphene / MoS₂ / hBN']);
+        rows.push(['Etch depth', p.depth+' nm']);
+        rows.push(['Directionality', 'Anisotropic (vertical)']);
+        break;
+      case 'etch_wet':
+        rows.push(['Target', MAT_NAMES[MAT_MAP[p.target]]]);
+        rows.push(['Etch depth', p.depth+' nm']);
+        break;
+      default: break;
+    }
+    if(!rows.length) return '';
+    return '<table style="border-collapse:collapse;font-size:10pt;margin-top:4px">'+
+      rows.map(r=>'<tr><td style="padding:2px 10px 2px 0;color:#666;white-space:nowrap">'+r[0]+'</td><td style="padding:2px 0;font-weight:600">'+r[1]+'</td></tr>').join('')+'</table>';
+  }
+
+  let stepsHtml='';
+  processFlow.forEach((s,i)=>{
+    const icon=STEP_ICONS[s.type]||'\u2699\ufe0f';
+    const label=STEP_LABELS_L[s.type]||s.type;
+    const img=s.snapshot?'<img src="'+s.snapshot+'" style="width:280px;height:140px;object-fit:fill;image-rendering:pixelated;border:1px solid #ddd;border-radius:4px;flex-shrink:0"/>':'';
+    const maskImg=((s.type==='expose'||s.type==='uv_expose')&&s.maskSnapshot)?'<img src="'+s.maskSnapshot+'" style="max-width:220px;max-height:180px;border:1px solid #ddd;border-radius:4px;margin-top:6px"/><div style="font-size:8pt;color:#666;margin-top:2px">Exposure mask</div>':'';
+    stepsHtml+='<div style="border:1px solid #ddd;border-radius:8px;padding:10px 14px;margin-bottom:10px;background:#fafbfc;page-break-inside:avoid">'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
+        '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:10pt;font-weight:700">'+(i+1)+'</span>'+
+        '<span style="font-size:13pt">'+icon+'</span>'+
+        '<span style="font-size:12pt;font-weight:700">'+label+'</span>'+
+      '</div>'+
+      '<div style="display:flex;align-items:flex-start;gap:12px">'+
+        '<div style="flex:1;min-width:0">'+detailBlock(s.type, s.params)+maskImg+'</div>'+
+        img+
+      '</div>'+
+    '</div>';
+  });
+
+  /* Capture current 3D view for the final illustration */
+  let finalViewHtml='';
+  const vizCanvas=activeTab==='cross'?canvas2d:canvas3d;
+  try{
+    const dataUrl=vizCanvas.toDataURL('image/png');
+    finalViewHtml='<div style="page-break-before:always;margin-top:20px"><h2 style="font-size:14pt;border-bottom:2px solid #2563eb;padding-bottom:4px;margin-bottom:10px">Final Structure</h2>'+
+      '<img src="'+dataUrl+'" style="display:block;max-width:100%;height:auto;border:1px solid #ddd;border-radius:6px"/></div>';
+  }catch(e){}
+
+  const html='<!DOCTYPE html><html><head><meta charset="utf-8"/><title>EBL Process Report</title>'+
+    '<style>@page{size:A4;margin:15mm}body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;font-size:11pt;line-height:1.5;max-width:700px;margin:0 auto;padding:20px}'+
+    'h1{font-size:18pt;margin:0 0 4px;color:#111}h2{font-size:14pt;margin:20px 0 8px;color:#111}'+
+    '.subtitle{color:#666;font-size:10pt;margin-bottom:16px}'+
+    '.substrate{background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:16px}'+
+    '.substrate td{padding:2px 12px 2px 0;font-size:10pt}</style></head><body>'+
+    '<h1>EBL Process Report</h1>'+
+    '<div class="subtitle">Generated '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+' &mdash; EBL Pattern Transfer Simulator</div>'+
+    '<div class="substrate"><strong style="font-size:11pt">Substrate</strong>'+
+      '<table><tr><td>Silicon</td><td><b>'+siNmEl.value+' nm</b></td></tr>'+
+      '<tr><td>SiO\u2082</td><td><b>'+oxNmEl.value+' nm</b></td></tr>'+
+      '<tr><td>Resolution</td><td><b>'+nmPx+' nm/px</b></td></tr>'+
+      '<tr><td>Sample width</td><td><b>'+Math.round(W*nmPx)+' nm ('+W+' px)</b></td></tr>'+
+      '<tr><td>Sample depth</td><td><b>'+Math.round(sampleDepthNm)+' nm</b></td></tr></table></div>'+
+    '<h2 style="border-bottom:2px solid #2563eb;padding-bottom:4px">Process Steps ('+processFlow.length+')</h2>'+
+    stepsHtml+
+    '<div style="margin-top:14px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">'+
+    '<div style="font-size:9pt;font-weight:700;color:#64748b;margin-bottom:4px">Material Legend</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:9pt">'+
+    MAT_NAMES.map((n,i)=>'<span style="display:inline-flex;align-items:center;gap:4px">'+
+      '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #ccc;background:rgb('+MAT_COLOR[i].join(',')+')">&nbsp;</span>'+n+'</span>').join('')+
+    '</div></div>'+
+    finalViewHtml+
+    '</body></html>';
+
+  const win=window.open('','_blank');
+  if(!win){setStatus('\u26a0 Pop-up blocked. Please allow pop-ups for this page.');return;}
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{win.print();},400);
+  setStatus('Process report opened. Use the print dialog to save as PDF.');
+});
+
+/* ══════════ Save / Load / Replay ══════════ */
+const STORAGE_KEY='ebl_ptsim_recipes';
+
+function getRecipes(){
+  const merged={};
+  function readStore(store){
+    try{Object.assign(merged, JSON.parse(store.getItem(STORAGE_KEY))||{});}catch(e){}
+  }
+  readStore(localStorage);
+  try{if(window.parent&&window.parent!==window) readStore(window.parent.localStorage);}catch(e){}
+  return merged;
+}
+function putRecipes(r){
+  const text=JSON.stringify(r);
+  try{localStorage.setItem(STORAGE_KEY, text);}catch(e){}
+  try{if(window.parent&&window.parent!==window) window.parent.localStorage.setItem(STORAGE_KEY, text);}catch(e){}
+}
+
+function buildRecipeData(){
+  return {
+    substrate:{si:parseFloat(siNmEl.value),ox:parseFloat(oxNmEl.value),nmPx:parseFloat(nmPerPxEl.value),
+               w:parseFloat($('sampW').value),d:parseFloat($('sampD').value)},
+    steps:processFlow.map(s=>({type:s.type, params:s.params}))
+  };
+}
+
+// --- Save ---
+$('saveFlowBtn').addEventListener('click',()=>{
+  $('saveDialog').style.display='block';
+  $('loadDialog').style.display='none';
+  $('saveFlowName').focus();
+});
+$('saveFlowCancel').addEventListener('click',()=>{$('saveDialog').style.display='none';});
+$('saveFlowOk').addEventListener('click',()=>{
+  const name=($('saveFlowName').value||'').trim();
+  if(!name){alert('Please enter a recipe name.');return;}
+  if(!processFlow.length){alert('No process steps to save.');return;}
+  const recipes=getRecipes();
+  recipes[name]=buildRecipeData();
+  putRecipes(recipes);
+  $('saveDialog').style.display='none';
+  setStatus('Recipe "'+name+'" saved ('+processFlow.length+' steps).');
+});
+
+// --- Load ---
+function populateLoadList(){
+  const sel=$('loadFlowSelect');
+  sel.innerHTML='';
+  const recipes=getRecipes();
+  Object.keys(recipes).forEach(name=>{
+    const opt=document.createElement('option');
+    opt.value=name;
+    const n=recipes[name].steps?recipes[name].steps.length:0;
+    opt.textContent=name+' ('+n+' steps)';
+    sel.appendChild(opt);
+  });
+}
+$('loadFlowBtn').addEventListener('click',()=>{
+  $('loadDialog').style.display='block';
+  $('saveDialog').style.display='none';
+  populateLoadList();
+});
+$('loadFlowCancel').addEventListener('click',()=>{$('loadDialog').style.display='none';});
+$('loadFlowDel').addEventListener('click',()=>{
+  const sel=$('loadFlowSelect');
+  const name=sel.value;
+  if(!name) return;
+  if(!confirm('Delete recipe "'+name+'"?')) return;
+  const recipes=getRecipes();
+  delete recipes[name];
+  putRecipes(recipes);
+  populateLoadList();
+  setStatus('Recipe "'+name+'" deleted.');
+});
+$('loadFlowOk').addEventListener('click',()=>{
+  const name=$('loadFlowSelect').value;
+  if(!name){alert('Select a recipe.');return;}
+  const recipes=getRecipes();
+  const recipe=recipes[name];
+  if(!recipe){alert('Recipe not found.');return;}
+  $('loadDialog').style.display='none';
+  loadAndReplay(recipe, false);
+});
+
+// --- Replay step from params (sets UI values, calls do* functions) ---
+function replayStep(type, params){
+  let ok=true;
+  switch(type){
+    case 'deposit':
+      doDeposit(params.material, params.thickness, params.method);
+      break;
+    case 'transfer_2d':
+      doTransfer2DMaterial(params.material, params.flakeSize||140, params.layerThick||1);
+      break;
+    case 'spinresist':
+      $('resistThick').value=params.thickness||120;
+      $('resistType').value=params.type||'positive';
+      if(params.contrast) $('devContrast').value=params.contrast;
+      if(params.D100) $('devD100').value=params.D100;
+      if(params.darkErosion!=null) $('devDarkErosion').value=params.darkErosion;
+      if(params.sidewall) $('devSidewall').value=params.sidewall;
+      if(params.dose) $('expDose').value=params.dose;
+      $('devScum').value=params.scum||0;
+      doSpinResist(params.thickness, params.type, params.resist||'custom');
+      break;
+    case 'expose':
+      // Set UI values so computeExposurePattern reads them
+      $('expPattern').value=params.pattern||'grating';
+      $('expPitch').value=params.pitch||200;
+      $('expDuty').value=params.duty||50;
+      $('expLineW').value=params.lineW||100;
+      $('expDotPitch').value=params.dotPitch||300;
+      $('expDotDiam').value=params.dotDiam||80;
+      $('expDotSlice').value=params.dotSlice||0;
+      $('expDose').value=params.dose||150;
+      if(params.pattern==='custom') restoreCustomMaskFromParams(params);
+      ok=doExpose();
+      break;
+    case 'uv_expose':
+      $('uvPattern').value=params.pattern||'grating';
+      $('uvPitch').value=params.pitch||200;
+      $('uvDuty').value=params.duty||50;
+      $('uvLineW').value=params.lineW||100;
+      $('uvDotPitch').value=params.dotPitch||300;
+      $('uvDotDiam').value=params.dotDiam||80;
+      $('uvDotSlice').value=params.dotSlice||0;
+      $('uvDose').value=params.dose||90;
+      applyExposurePatternVisibility('uv');
+      syncUvExposeToCore();
+      if(params.pattern==='custom') restoreCustomMaskFromParams(params);
+      ok=doExpose();
+      break;
+    case 'develop':
+      if(params.developer) $('devChem').value=params.developer;
+      refreshDeveloperHint();
+      ok=doDevelop(params.targetResist||'PMMA', params.sidewall, params.contrast, params.devTime, params.darkErosion, params.clearFrac, params.D100, params.scum||0);
+      break;
+    case 'etch_rie':
+      doEtchRIE(params.target, params.depth, params.selectivity);
+      break;
+    case 'etch_wet':
+      doEtchWet(params.target, params.depth);
+      break;
+    case 'etch_sf6':
+      doEtchSF6(params.depth||15);
+      break;
+    case 'liftoff':
+      doLiftoff();
+      break;
+    case 'strip':
+      doStrip();
+      break;
+    case 'descum':
+      doDescum(params.time||15, params.rate||0.5);
+      break;
+  }
+  return ok;
+}
+
+// --- Load and optionally animate replay ---
+let replayTimer=null;
+let replayRunning=false;
+
+function stopReplay(){
+  if(replayTimer){clearTimeout(replayTimer);replayTimer=null;}
+  replayRunning=false;
+  $('replayStopBtn').style.display='none';
+  $('execBtn').disabled=false;
+  $('rebuildBtn').disabled=false;
+  setVizStepLabel('');
+}
+
+function loadAndReplay(recipe, animate){
+  stopReplay();
+  // Set substrate params
+  siNmEl.value=recipe.substrate.si;
+  oxNmEl.value=recipe.substrate.ox;
+  nmPerPxEl.value=recipe.substrate.nmPx||1;
+  $('sampW').value=recipe.substrate.w||300;
+  $('sampD').value=recipe.substrate.d||300;
+  buildGrid();
+
+  const steps=recipe.steps||[];
+  if(!steps.length){setStatus('Recipe has no steps.');return;}
+
+  if(!animate){
+    // Instant replay: execute all steps immediately
+    steps.forEach((s,i)=>{
+      replayStep(s.type, s.params);
+      const entry={type:s.type, params:s.params, snapshot:makeSnapshot()};
+      if(s.type==='expose'||s.type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+      processFlow.push(entry);
+    });
+    renderFlow();
+    render();
+    setStatus('Loaded recipe ('+steps.length+' steps).');
+    return;
+  }
+
+  // Animated replay
+  replayRunning=true;
+  setActiveVizTab('iso');
+  $('replayStopBtn').style.display='inline-block';
+  $('execBtn').disabled=true;
+  $('rebuildBtn').disabled=true;
+  setVizStepLabel('');
+  let stepIdx=0;
+
+  function nextStep(){
+    if(!replayRunning||stepIdx>=steps.length){
+      stopReplay();
+      setStatus('Replay complete ('+steps.length+' steps).');
+      return;
+    }
+    const s=steps[stepIdx];
+    replayStep(s.type, s.params);
+    setVizStepLabel(processStepHeadline(s.type, s.params));
+    const entry={type:s.type, params:s.params, snapshot:makeSnapshot()};
+    if(s.type==='expose'||s.type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+    processFlow.push(entry);
+    renderFlow();
+    render();
+    setStatus('Replaying step '+(stepIdx+1)+'/'+steps.length+': '+(STEP_LABELS[s.type]||s.type));
+    stepIdx++;
+    const delay=parseInt($('replaySpeed').value)||1000;
+    replayTimer=setTimeout(nextStep, delay);
+  }
+  nextStep();
+}
+
+// --- Replay button: replays current flow OR loaded recipe ---
+$('replayBtn').addEventListener('click',()=>{
+  if(replayRunning){stopReplay();return;}
+  if(!processFlow.length){setStatus('No process steps to replay.');return;}
+  const recipe=buildRecipeData();
+  loadAndReplay(recipe, true);
+});
+$('replayStopBtn').addEventListener('click', stopReplay);
+
+/* ══════════ File export / import ══════════ */
+$('exportFileBtn').addEventListener('click',()=>{
+  if(!processFlow.length){setStatus('⚠ No process steps to export.');return;}
+  const data=buildRecipeData();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='EBL_recipe.json'; a.click();
+  URL.revokeObjectURL(url);
+  setStatus('Recipe exported as JSON file.');
+});
+$('importFileBtn').addEventListener('click',()=>{ $('importFileInput').click(); });
+$('importFileInput').addEventListener('change',e=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    try{
+      const recipe=JSON.parse(reader.result);
+      if(!recipe.substrate||!recipe.steps){alert('Invalid recipe file.');return;}
+      loadAndReplay(recipe, false);
+      setStatus('Imported recipe from "'+file.name+'" ('+recipe.steps.length+' steps).');
+    }catch(err){alert('Error reading recipe: '+err.message);}
+  };
+  reader.readAsText(file);
+  e.target.value='';  // allow reimporting same file
+});
+
+/* ══════════ Movie export ══════════ */
+$('exportMovieBtn').addEventListener('click',()=>{
+  if(!processFlow.length){setStatus('⚠ No process steps to export.');return;}
+  if(replayRunning){setStatus('⚠ Stop replay first.');return;}
+
+  const recipe=buildRecipeData();
+  const steps=recipe.steps||[];
+  if(!steps.length) return;
+
+  // Force 3D tab
+  const prevTab=activeTab;
+  setActiveVizTab('iso');
+
+  // Movie canvas — fixed 1920×1080 with step label below the 3D view.
+  const mw=1920, mh=1080, labelH=86;
+  const mc=document.createElement('canvas');
+  mc.width=mw; mc.height=mh;
+  const mx=mc.getContext('2d');
+
+  // MediaRecorder setup
+  const stream=mc.captureStream(0); // 0 = manual frame push
+  const movieFormats=[
+    {mime:'video/mp4;codecs=avc1.42E01E', ext:'mp4'},
+    {mime:'video/mp4;codecs=h264', ext:'mp4'},
+    {mime:'video/mp4', ext:'mp4'},
+    {mime:'video/webm;codecs=vp9', ext:'webm'},
+    {mime:'video/webm;codecs=vp8', ext:'webm'},
+    {mime:'video/webm', ext:'webm'}
+  ];
+  const movieFormat=movieFormats.find(f=>MediaRecorder.isTypeSupported(f.mime))||{mime:'video/webm', ext:'webm'};
+  const recorder=new MediaRecorder(stream,{mimeType:movieFormat.mime, videoBitsPerSecond:8000000});
+  const chunks=[];
+  recorder.ondataavailable=e=>{if(e.data.size>0) chunks.push(e.data);};
+  recorder.onstop=()=>{
+    const blob=new Blob(chunks,{type:movieFormat.mime.split(';')[0]});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='EBL_process.'+movieFormat.ext;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    setStatus('Movie exported as '+movieFormat.ext.toUpperCase()+' ('+steps.length+' steps).');
+    setVizStepLabel('');
+    setActiveVizTab(prevTab); render();
+  };
+
+  function drawMovieFrame(stepIdx, stepType, stepParams){
+    mx.fillStyle='#ffffff'; mx.fillRect(0,0,mw,mh);
+
+    // Clear headline below the 3D visualisation.
+    const headline=processStepHeadline(stepType, stepParams);
+
+    // Render the 3D view to its canvas, then composite
+    setVizStepLabel(headline);
+    render3D();
+    const sx=canvas3d.width, sy=canvas3d.height;
+    const viewH=mh-labelH;
+    const scale=Math.min(mw/sx, viewH/sy);
+    const dw=sx*scale, dh=sy*scale;
+    const dx=(mw-dw)/2, dy=(viewH-dh)/2;
+    mx.drawImage(canvas3d, 0, 0, sx, sy, dx, dy, dw, dh);
+    mx.fillStyle='#ffffff'; mx.fillRect(0,viewH,mw,labelH);
+    mx.font='bold 54px system-ui';
+    mx.fillStyle='#0f172a';
+    mx.textAlign='center';
+    mx.textBaseline='middle';
+    mx.fillText(headline, mw/2, viewH+labelH/2);
+
+    // Push frame
+    stream.getVideoTracks()[0].requestFrame();
+  }
+
+  // Rebuild grid, then step through with delays for the recorder
+  stopReplay();
+  siNmEl.value=recipe.substrate.si;
+  oxNmEl.value=recipe.substrate.ox;
+  nmPerPxEl.value=recipe.substrate.nmPx||1;
+  $('sampW').value=recipe.substrate.w||300;
+  $('sampD').value=recipe.substrate.d||300;
+  buildGrid();
+
+  // Capture initial substrate frame
+  recorder.start();
+  processFlow.length=0;
+
+  // Draw substrate frame
+  mx.fillStyle='#ffffff'; mx.fillRect(0,0,mw,mh);
+  setVizStepLabel('Substrate');
+  render3D();
+  const sx0=canvas3d.width, sy0=canvas3d.height;
+  const vH0=mh-labelH, sc0=Math.min(mw/sx0,vH0/sy0);
+  mx.drawImage(canvas3d,0,0,sx0,sy0,(mw-sx0*sc0)/2,(vH0-sy0*sc0)/2,sx0*sc0,sy0*sc0);
+  mx.fillStyle='#ffffff'; mx.fillRect(0,vH0,mw,labelH);
+  mx.font='bold 54px system-ui'; mx.fillStyle='#0f172a'; mx.textAlign='center'; mx.textBaseline='middle';
+  mx.fillText('Substrate', mw/2, vH0+labelH/2);
+  stream.getVideoTracks()[0].requestFrame();
+
+  $('execBtn').disabled=true;
+  $('rebuildBtn').disabled=true;
+  setStatus('Recording movie…');
+
+  let stepIdx=0;
+  const holdMs=1500; // how long each frame is held
+
+  function captureNext(){
+    if(stepIdx>=steps.length){
+      // Final hold then stop
+      setTimeout(()=>{
+        recorder.stop();
+        $('execBtn').disabled=false;
+        $('rebuildBtn').disabled=false;
+        setVizStepLabel('');
+        renderFlow(); render();
+      }, holdMs);
+      return;
+    }
+    const s=steps[stepIdx];
+    replayStep(s.type, s.params);
+    const entry={type:s.type, params:s.params, snapshot:makeSnapshot()};
+    if(s.type==='expose'||s.type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+    processFlow.push(entry);
+    renderFlow();
+    drawMovieFrame(stepIdx, s.type, s.params);
+    setStatus('Recording step '+(stepIdx+1)+'/'+steps.length+'…');
+    stepIdx++;
+    setTimeout(captureNext, holdMs);
+  }
+  setTimeout(captureNext, holdMs);
+});
+
+/* ══════════ Wire up buttons ══════════ */
+$('execBtn').addEventListener('click', executeStep);
+$('undoBtn').addEventListener('click', doUndo);
+$('rebuildBtn').addEventListener('click', buildGrid);
+$('numWorkers').addEventListener('change', function(){ rebuildWorkerPool(parseInt(this.value)||4); });
+
+/* ══════════ Lightweight external player API ══════════ */
+const PLAYER_STATE={recipe:null,steps:[],stepIndex:0,name:''};
+
+function cloneRecipeData(recipe){
+  return recipe?JSON.parse(JSON.stringify(recipe)):null;
+}
+
+function setRecipeSubstrate(recipe){
+  siNmEl.value=recipe.substrate.si;
+  oxNmEl.value=recipe.substrate.ox;
+  nmPerPxEl.value=recipe.substrate.nmPx||1;
+  $('sampW').value=recipe.substrate.w||300;
+  $('sampD').value=recipe.substrate.d||300;
+}
+
+function makePlayerStepEntry(s){
+  const entry={type:s.type, params:s.params, snapshot:makeSnapshot()};
+  if(s.type==='expose'||s.type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+  return entry;
+}
+
+function resetPlayerRecipe(){
+  if(!PLAYER_STATE.recipe) return null;
+  stopReplay();
+  setActiveVizTab('iso');
+  setRecipeSubstrate(PLAYER_STATE.recipe);
+  maskShapes=[];
+  maskImageDoseMap=null;
+  updateMaskInfo();
+  buildGrid();
+  processFlow.length=0;
+  PLAYER_STATE.steps=PLAYER_STATE.recipe.steps||[];
+  PLAYER_STATE.stepIndex=0;
+  renderFlow();
+  setVizStepLabel('Substrate');
+  render();
+  return {index:0,total:PLAYER_STATE.steps.length,label:'Substrate',done:PLAYER_STATE.steps.length===0};
+}
+
+function loadPlayerRecipe(nameOrRecipe){
+  let name='';
+  let recipe=null;
+  if(typeof nameOrRecipe==='string'){
+    name=nameOrRecipe;
+    recipe=getRecipes()[name]||null;
+  } else {
+    recipe=nameOrRecipe||null;
+  }
+  if(!recipe||!recipe.substrate||!recipe.steps) return null;
+  PLAYER_STATE.recipe=cloneRecipeData(recipe);
+  PLAYER_STATE.name=name;
+  return resetPlayerRecipe();
+}
+
+function stepPlayerRecipe(){
+  if(!PLAYER_STATE.recipe) return null;
+  if(PLAYER_STATE.stepIndex>=PLAYER_STATE.steps.length){
+    return {index:PLAYER_STATE.stepIndex,total:PLAYER_STATE.steps.length,label:'Complete',done:true};
+  }
+  const s=PLAYER_STATE.steps[PLAYER_STATE.stepIndex];
+  replayStep(s.type,s.params);
+  processFlow.push(makePlayerStepEntry(s));
+  PLAYER_STATE.stepIndex++;
+  renderFlow();
+  const label=processStepHeadline(s.type,s.params);
+  setVizStepLabel(label);
+  render();
+  return {index:PLAYER_STATE.stepIndex,total:PLAYER_STATE.steps.length,label,done:PLAYER_STATE.stepIndex>=PLAYER_STATE.steps.length};
+}
+
+const PatternTransferPlayerAPI={
+  enablePlayerMode(){
+    document.body.classList.add('player-engine');
+    setActiveVizTab('iso');
+    setTimeout(()=>{fitCanvases();render();},50);
+    return true;
+  },
+  getRecipeNames(){return Object.keys(getRecipes()).sort((a,b)=>a.localeCompare(b));},
+  getRecipe(name){return cloneRecipeData(getRecipes()[name]||null);},
+  loadRecipe:loadPlayerRecipe,
+  reset:resetPlayerRecipe,
+  step:stepPlayerRecipe,
+  getState(){
+    return {
+      name:PLAYER_STATE.name,
+      index:PLAYER_STATE.stepIndex,
+      total:PLAYER_STATE.steps.length,
+      hasRecipe:!!PLAYER_STATE.recipe
+    };
+  }
+};
+window.PatternTransferPlayerAPI=PatternTransferPlayerAPI;
+
+window.addEventListener('message',event=>{
+  const msg=event.data;
+  if(!msg||msg.source!=='ProcessPlayer'||!msg.id||!msg.method) return;
+  try{
+    const fn=PatternTransferPlayerAPI[msg.method];
+    if(typeof fn!=='function') throw new Error('Unknown player method: '+msg.method);
+    const result=fn.apply(PatternTransferPlayerAPI,msg.args||[]);
+    event.source.postMessage({source:'ProcessEngine',id:msg.id,result},'*');
+  }catch(err){
+    event.source.postMessage({source:'ProcessEngine',id:msg.id,error:err&&err.message?err.message:String(err)},'*');
+  }
+});
+
+/* ══════════ Init ══════════ */
+buildGrid();
+updateLegend();
+setTimeout(()=>{
+  ro.observe(canvas2d.parentElement);
+  fitCanvases();
+  render();
+},50);
+
+})();
+</script>
+</body>
+</html>

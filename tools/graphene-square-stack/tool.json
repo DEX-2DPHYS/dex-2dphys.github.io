@@ -1,0 +1,9 @@
+{
+  "slug": "graphene-square-stack",
+  "name": "Graphene Square Stack",
+  "description": "Visualise graphene stacked on a square-lattice flake — twist, laterally drag, and view in perspective to see the moiré interference between the hexagonal and square lattices.",
+  "status": "live",
+  "url": "tools/graphene-square-stack/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational", "simulations"]
+}

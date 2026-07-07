@@ -1,0 +1,9 @@
+{
+  "slug": "pattern-transfer",
+  "name": "EBL Pattern Transfer",
+  "description": "Simulate the full pattern-transfer flow in nanofabrication — resist exposure and development (AZ, CSAR, image reversal), deposition and etch steps, and the resulting device cross-section.",
+  "status": "live",
+  "url": "tools/pattern-transfer/index.html",
+  "icon": "device",
+  "tags": ["simulations", "educational", "applications"]
+}

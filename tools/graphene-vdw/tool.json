@@ -1,0 +1,9 @@
+{
+  "slug": "graphene-vdw",
+  "name": "Graphene vdW Visualizer",
+  "description": "3D visualiser of van der Waals interactions in graphene — render the interlayer vdW pair bonds across the lattice with adjustable cutoff, lighting, and perspective.",
+  "status": "live",
+  "url": "tools/graphene-vdw/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational"]
+}

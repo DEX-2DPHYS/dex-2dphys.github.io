@@ -15,6 +15,9 @@
     "graphene-phonons",
     "landau",
     "ebl",
+    "pattern-transfer",
+    "graphene-square-stack",
+    "graphene-vdw",
     "funding",
     "labtcad"
   ]
