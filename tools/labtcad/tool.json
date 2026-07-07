@@ -1,0 +1,9 @@
+{
+  "slug": "labtcad",
+  "name": "LabTCAD",
+  "description": "TCAD-like process & device simulator for micro- and nanofabricated semiconductor structures.",
+  "status": "coming-soon",
+  "url": "",
+  "icon": "device",
+  "tags": ["simulations", "educational", "applications"]
+}

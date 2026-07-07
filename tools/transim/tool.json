@@ -1,0 +1,9 @@
+{
+  "slug": "transim",
+  "name": "TranSim",
+  "description": "Charge-transport simulator — ballistic & diffusive regimes, Hall and four-probe measurements, mobility maps.",
+  "status": "coming-soon",
+  "url": "",
+  "icon": "transport",
+  "tags": ["simulations", "visualisations", "educational"]
+}
