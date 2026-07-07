@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>EBL Toy Monte Carlo — Side-by-Side + DR + CSDA Prefactor (v7)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
 <style>
   :root{ --bg:#fff; --fg:#0f172a; --muted:#64748b; --accent:#2563eb; --border:#e2e8f0; --card:#f8fafc; }
   html,body{height:100%} body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
@@ -42,6 +45,16 @@
   .mini-controls label{font-size:12px;margin:0}
   .mini-controls input[type='range'], .mini-controls select{height:26px}
   .mini-controls .stack{display:flex;align-items:center;gap:6px}
+
+  /* ---- Help tooltips ---- */
+  .help-badge{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:5px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;line-height:1;cursor:help;vertical-align:middle;user-select:none;flex:none}
+  .help-badge:hover,.help-badge:focus{background:#1d4ed8;outline:none}
+  .toolbar .help-badge{vertical-align:baseline}
+  .help-pop{position:fixed;z-index:9999;width:340px;max-width:92vw;max-height:72vh;overflow:auto;background:#fff;color:var(--fg);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 34px rgba(15,23,42,.20);padding:12px 14px;font-size:12.5px;line-height:1.5;opacity:0;pointer-events:none;transition:opacity .12s ease}
+  .help-pop.show{opacity:1;pointer-events:auto}
+  .help-pop .sec{margin:0 0 9px} .help-pop .sec:last-child{margin-bottom:0}
+  .help-pop .lab{display:block;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);margin-bottom:2px}
+  .help-pop .katex{font-size:1.02em} .help-pop .katex-display{margin:.45em 0;overflow-x:auto;overflow-y:hidden}
 </style>
 </head>
 <body>
@@ -526,6 +539,275 @@
     c.drawImage(tracksCanvas,0,0);
     c.drawImage(doseCanvas,tracksCanvas.width,0);
     const a=document.createElement('a'); a.download='toy_mc_ebl_sq_side_by_side_v7.png'; a.href=off.toDataURL('image/png'); a.click();
+  });
+})();
+</script>
+
+<!-- ================= Help content (hidden; cloned into the tooltip on demand) ================= -->
+<div id="helpData" style="display:none">
+
+  <div data-help="material">
+    <div class="sec"><span class="lab">What is this?</span> The target the electrons scatter in — a resist (PMMA) or substrate/metal (Si, GaAs, Au). Each carries an atomic number \(Z\), atomic weight \(A\), and mass density \(\rho\).</div>
+    <div class="sec"><span class="lab">Physics behind</span> Elastic scattering strength grows with \(Z\) (heavy atoms deflect electrons more and backscatter strongly), while penetration falls with density. The continuous-slowing-down (CSDA) range scales as \[ R \approx \frac{K}{p_\text{CSDA}}\,\frac{A\,E^{1.67}}{Z^{0.89}\,\rho}. \]</div>
+    <div class="sec"><span class="lab">How to use it</span> Pick PMMA to mimic resist exposure, or Au to see a strong backscatter halo (the proximity effect). Heavy, dense targets give shallower, wider interaction volumes.</div>
+  </div>
+
+  <div data-help="energy">
+    <div class="sec"><span class="lab">What is this?</span> The primary beam energy \(E_0\) of the incident electrons.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Penetration rises steeply with energy — the Kanaya–Okayama-style range goes as \(R \propto E^{1.67}\). Higher energy also scatters more in the forward direction, since the characteristic screening angle \[ \theta_0 = \frac{k\,Z^{1/3}}{E\,\beta}, \qquad \beta=\sqrt{1-\gamma^{-2}},\ \ \gamma=1+\frac{E}{511\,\text{keV}} \] shrinks as \(E\) grows.</div>
+    <div class="sec"><span class="lab">How to use it</span> 1–200 keV (typical EBL is 10–100 keV). Raise it to bury the interaction volume deeper and spread the long-range proximity dose.</div>
+  </div>
+
+  <div data-help="nparts">
+    <div class="sec"><span class="lab">What is this?</span> The number of Monte-Carlo electron histories actually simulated.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Every trajectory is one random walk; the deposited-energy map is their sum. Statistical noise in each dose cell falls as \[ \sigma \propto \frac{1}{\sqrt{N}}. \] Averaged quantities (backscatter fraction, range) converge as \(N\) increases.</div>
+    <div class="sec"><span class="lab">How to use it</span> 1000 is fast; use 5000–20000 for a smooth heatmap. All \(N\) contribute to the dose, not just the drawn ones.</div>
+  </div>
+
+  <div data-help="nshown">
+    <div class="sec"><span class="lab">What is this?</span> How many trajectories are drawn in the left (track) view.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Purely a visualisation choice — it does not affect the physics or the dose statistics, which always use all \(N\) histories.</div>
+    <div class="sec"><span class="lab">How to use it</span> Keep it small (50–200) so individual paths stay readable; set it to 0 to skip drawing entirely and run faster.</div>
+  </div>
+
+  <div data-help="stepnm">
+    <div class="sec"><span class="lab">What is this?</span> The integration step length \(\Delta s\) taken along each trajectory.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Between elastic collisions the electron moves in straight free flights sampled from an exponential distribution, and energy is lost continuously along the way. Each move advances by \(\min(\Delta s,\ \text{flight})\), and the energy update integrates \[ E(s) = \left(E_0^{1.67} - C\,s\right)^{1/1.67}. \] Smaller \(\Delta s\) resolves the energy loss and curvature more accurately.</div>
+    <div class="sec"><span class="lab">How to use it</span> 1–5 nm is a good balance. Large steps run faster but coarsen the tracks and the dose.</div>
+  </div>
+
+  <div data-help="zmax">
+    <div class="sec"><span class="lab">What is this?</span> The depth (vertical size) of the simulated and plotted domain. It also sets the lateral field of view, locked equal to it.</div>
+    <div class="sec"><span class="lab">Physics behind</span> To capture the whole interaction volume the depth must exceed the CSDA range \(R\); otherwise deep tracks are clipped. The panel warns when depth \(< 1.1\,R\) and suggests \(\approx 1.3\,R\).</div>
+    <div class="sec"><span class="lab">How to use it</span> Follow the suggestion under the controls — set it a little above the CSDA range for the current energy and material.</div>
+  </div>
+
+  <div data-help="fov">
+    <div class="sec"><span class="lab">What is this?</span> The lateral width of the domain. It is locked equal to the depth.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Keeping the horizontal and vertical scales equal (a square domain) shows the interaction volume with no aspect-ratio distortion, so lateral spreading is read off directly.</div>
+    <div class="sec"><span class="lab">How to use it</span> Read-only — change <em>Depth</em> and this follows.</div>
+  </div>
+
+  <div data-help="res">
+    <div class="sec"><span class="lab">What is this?</span> The grid resolution (cells per side) of the deposited-energy histogram.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Dose is binned onto a \(W\times H\) grid with \(W=H=\) this value. Finer grids resolve sharper features but put fewer electrons in each cell, so noise per cell rises (recall \(\sigma\propto 1/\sqrt{N}\)).</div>
+    <div class="sec"><span class="lab">How to use it</span> 128–256 is typical; raise it together with the number of trajectories to keep the map clean.</div>
+  </div>
+
+  <div data-help="elasticMult">
+    <div class="sec"><span class="lab">What is this?</span> A tuning knob that scales how frequently elastic (direction-changing) collisions happen.</div>
+    <div class="sec"><span class="lab">Physics behind</span> It rescales the elastic mean free path \[ \lambda = \frac{\lambda_0\,E^{p}}{Z^{q}\,\rho^{r}}\cdot\frac{1}{m}, \qquad (p,q,r)=(1,\,0.8,\,0.6). \] A larger multiplier \(m\) shortens \(\lambda\), giving more frequent large-angle deflections and more diffusive, backscattered paths.</div>
+    <div class="sec"><span class="lab">How to use it</span> This is a toy-model calibration knob. Increase it to exaggerate scattering and backscatter; decrease it toward ballistic behaviour.</div>
+  </div>
+
+  <div data-help="csdaPref">
+    <div class="sec"><span class="lab">What is this?</span> A prefactor that scales the continuous energy-loss (stopping power).</div>
+    <div class="sec"><span class="lab">Physics behind</span> It multiplies \(dE/ds\), and the range is inversely proportional to it: \[ R \propto \frac{1}{p_\text{CSDA}}. \] The model is tuned so \(p_\text{CSDA}\approx 0.9\) reproduces \(\sim 80\ \mu\text{m}\) at 100 keV in Si.</div>
+    <div class="sec"><span class="lab">How to use it</span> Nudge it to match a known range: larger values shorten the range (shallower volume), smaller values deepen it.</div>
+  </div>
+
+  <div data-help="csdaOnly">
+    <div class="sec"><span class="lab">What is this?</span> Switches off elastic scattering so electrons travel in straight lines (a pure CSDA test).</div>
+    <div class="sec"><span class="lab">Physics behind</span> With no angular deflection, each track is a straight line whose length equals the CSDA range \(R\). This isolates the slowing-down physics from scattering.</div>
+    <div class="sec"><span class="lab">How to use it</span> Enable it to check that the straight-line penetration matches the predicted CSDA range, then turn it off for realistic spreading.</div>
+  </div>
+
+  <div data-help="actions">
+    <div class="sec"><span class="lab">What is this?</span> <strong>Run</strong> starts the Monte-Carlo simulation, <strong>Stop</strong> halts it mid-run, and <strong>Export PNG</strong> saves the two views side by side.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Run launches \(N\) electron histories, accumulating both the drawn trajectories and the deposited-energy grid; the progress bar tracks completion.</div>
+    <div class="sec"><span class="lab">How to use it</span> Adjust the inputs, press Run, and use Stop if a large run is taking too long. Export saves a snapshot for figures.</div>
+  </div>
+
+  <div data-help="statBS">
+    <div class="sec"><span class="lab">What is this?</span> The backscattered fraction — electrons that leave back through the entry surface.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Counted whenever a trajectory returns to \(z<0\). The backscatter coefficient \(\eta\) rises with atomic number \(Z\); these electrons carry energy far from the beam and drive the long-range proximity effect.</div>
+    <div class="sec"><span class="lab">How to use it</span> Compare across materials — Au backscatters far more than PMMA.</div>
+  </div>
+
+  <div data-help="statRange">
+    <div class="sec"><span class="lab">What is this?</span> The mean straight-line distance from entry to each electron's final stopping point, \(\langle\sqrt{x^2+y^2+z^2}\rangle\).</div>
+    <div class="sec"><span class="lab">Physics behind</span> Because of scattering detours this end-to-end distance is generally shorter than the CSDA path length \(R\); the gap grows with more scattering.</div>
+    <div class="sec"><span class="lab">How to use it</span> Watch how it drops below the CSDA range as you increase the elastic multiplier.</div>
+  </div>
+
+  <div data-help="statDepth">
+    <div class="sec"><span class="lab">What is this?</span> The average of each electron's maximum penetration depth in \(z\).</div>
+    <div class="sec"><span class="lab">Physics behind</span> Reflects how deep the interaction volume reaches; it approaches the CSDA range for forward-peaked (high-energy, straight) transport and falls when scattering randomises directions.</div>
+    <div class="sec"><span class="lab">How to use it</span> Use it to check that the chosen <em>Depth</em> is large enough to contain the tracks.</div>
+  </div>
+
+  <div data-help="trackview">
+    <div class="sec"><span class="lab">What is this?</span> The trajectory view — individual electron paths projected onto the \(x\)–\(z\) plane.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Each coloured line is one random walk: straight free flights punctuated by elastic deflections, ending when the electron stops (\(E<0.05\) keV) or backscatters (\(z<0\)). Equal \(x\)/\(z\) scaling shows the true shape of the interaction volume.</div>
+    <div class="sec"><span class="lab">How to use it</span> Read off penetration depth, lateral spread, and backscattering at a glance; limit the number of drawn tracks to keep it legible.</div>
+  </div>
+
+  <div data-help="doseview">
+    <div class="sec"><span class="lab">What is this?</span> The deposited-energy (dose) view — a 2D histogram of energy left in the material.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Each step deposits its energy loss \(dE\) into the grid cell it passes through. This dose \(D(x,z)\) is the physically relevant quantity: it exposes the resist and, via its long tail, produces the proximity effect.</div>
+    <div class="sec"><span class="lab">How to use it</span> Use the controls below to bring out either the bright core or the faint long-range tail.</div>
+  </div>
+
+  <div data-help="cmap">
+    <div class="sec"><span class="lab">What is this?</span> The colour map applied to the normalised dose.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Purely a display transform, mapping dose \(\to\) colour. Perceptually-uniform maps (Viridis, Inferno, Turbo) represent equal dose differences as equal perceived colour differences.</div>
+    <div class="sec"><span class="lab">How to use it</span> Viridis is a safe default; Grayscale is handy for figures or printing.</div>
+  </div>
+
+  <div data-help="cutoff">
+    <div class="sec"><span class="lab">What is this?</span> A lower dose cutoff, set on a logarithmic slider from \(10^{-8}\) up to \(0.95\) of the maximum.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Deposited energy spans many orders of magnitude. Everything below \(D_\text{min}=f\cdot D_\text{max}\) is treated as the floor, which lets you hide noise or reveal the faint backscatter tail.</div>
+    <div class="sec"><span class="lab">How to use it</span> Lower it to expose the long-range proximity dose; raise it to isolate the bright core near the beam.</div>
+  </div>
+
+  <div data-help="topclip">
+    <div class="sec"><span class="lab">What is this?</span> Caps the top of the colour scale at a chosen percentile of the dose values.</div>
+    <div class="sec"><span class="lab">Physics behind</span> A few cells right under the beam can be far brighter than the rest. Clipping the scale at, say, the 99.5th percentile stops those hot spots from saturating the map and washing out structure.</div>
+    <div class="sec"><span class="lab">How to use it</span> Lower the percentile to boost mid-level contrast; raise it toward 100% to keep the true peak.</div>
+  </div>
+
+  <div data-help="gamma">
+    <div class="sec"><span class="lab">What is this?</span> A gamma (tone) curve applied to the normalised dose.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Applies a nonlinear mapping \[ t \mapsto t^{\,1/\gamma},\qquad t\in[0,1], \] which brightens faint features for \(\gamma>1\) and compresses them for \(\gamma<1\).</div>
+    <div class="sec"><span class="lab">How to use it</span> Increase \(\gamma\) to pull up the dim tail; decrease it to emphasise only the strongest dose.</div>
+  </div>
+
+  <div data-help="logColors">
+    <div class="sec"><span class="lab">What is this?</span> Maps colour to the logarithm of the dose instead of a linear scale.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Because dose varies over several decades, a log mapping \(\ (\log D)\ \) shows both the intense core and the weak long-range tail in one image.</div>
+    <div class="sec"><span class="lab">How to use it</span> Turn it on to see the full dynamic range at once; combine with the cutoff to set the floor.</div>
+  </div>
+
+  <div data-help="hardThreshold">
+    <div class="sec"><span class="lab">What is this?</span> Makes everything below the cutoff fully transparent instead of colouring it as the map's zero.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Acts like a binary exposure threshold — a crude analogue of a resist that only clears above a critical dose \(D_\text{min}\).</div>
+    <div class="sec"><span class="lab">How to use it</span> Enable it with the cutoff to visualise which region would be "developed" at a given clearing dose.</div>
+  </div>
+
+  <div data-help="contours">
+    <div class="sec"><span class="lab">What is this?</span> Overlays iso-dose contour lines on the heatmap.</div>
+    <div class="sec"><span class="lab">Physics behind</span> Lines of constant dose \(D(x,z)=\text{const}\) (drawn by marching squares) trace the shape of the exposure — analogous to the developed-resist boundary at a given clearing dose.</div>
+    <div class="sec"><span class="lab">How to use it</span> Turn it on to compare the extent of different dose levels; off for a cleaner image.</div>
+  </div>
+
+</div>
+
+<script>
+/* ---- Help-tooltip engine: adds a "?" badge to each control, shows a
+        physics popup after ~1 s of hover, and renders equations with KaTeX. ---- */
+(function(){
+  const getEl = id => document.getElementById(id);
+  function labelInControl(input){
+    const c = input.closest('.control');
+    return (c && c.querySelector('label')) || input.closest('label') || input.parentElement;
+  }
+  const strongs = document.querySelectorAll('.viz .col .toolbar strong');
+
+  // [help key, function returning the element the badge is appended to]
+  const targets = [
+    ['material',     ()=>labelInControl(getEl('material'))],
+    ['energy',       ()=>labelInControl(getEl('energy'))],
+    ['nparts',       ()=>labelInControl(getEl('nparts'))],
+    ['nshown',       ()=>labelInControl(getEl('nshown'))],
+    ['stepnm',       ()=>labelInControl(getEl('stepnm'))],
+    ['zmax',         ()=>labelInControl(getEl('zmax'))],
+    ['fov',          ()=>labelInControl(getEl('fov'))],
+    ['res',          ()=>labelInControl(getEl('res'))],
+    ['elasticMult',  ()=>labelInControl(getEl('elasticMult'))],
+    ['csdaPref',     ()=>labelInControl(getEl('csdaPref'))],
+    ['csdaOnly',     ()=>getEl('csdaOnly').closest('label')],
+    ['actions',      ()=>getEl('runBtn').closest('.row')],
+    ['statBS',       ()=>getEl('bsStat').closest('.stat').querySelector('.k')],
+    ['statRange',    ()=>getEl('rangeStat').closest('.stat').querySelector('.k')],
+    ['statDepth',    ()=>getEl('depthStat').closest('.stat').querySelector('.k')],
+    ['trackview',    ()=>strongs[0]],
+    ['doseview',     ()=>strongs[1]],
+    ['cmap',         ()=>getEl('cmap').closest('label')],
+    ['cutoff',       ()=>getEl('cutoff').closest('label')],
+    ['topclip',      ()=>getEl('topclip').closest('label')],
+    ['gamma',        ()=>getEl('gamma').closest('label')],
+    ['logColors',    ()=>getEl('logColors').closest('label')],
+    ['hardThreshold',()=>getEl('hardThreshold').closest('label')],
+    ['contours',     ()=>getEl('contours').closest('label')]
+  ];
+
+  const pop = document.createElement('div');
+  pop.className = 'help-pop';
+  document.body.appendChild(pop);
+
+  const rendered = {};            // cache: key -> KaTeX-rendered HTML
+  const dataRoot = getEl('helpData');
+  function contentFor(key){
+    if(rendered[key] !== undefined) return rendered[key];
+    const src = dataRoot.querySelector('[data-help="'+key+'"]');
+    const html = src ? src.innerHTML : '';
+    rendered[key] = html;
+    return html;
+  }
+
+  let showTimer=null, hideTimer=null, mathReady=false;
+
+  function ensureMath(){
+    if(mathReady) return;
+    if(window.renderMathInElement){
+      try{
+        renderMathInElement(pop, {
+          delimiters:[
+            {left:'\\[', right:'\\]', display:true},
+            {left:'\\(', right:'\\)', display:false}
+          ],
+          throwOnError:false
+        });
+        mathReady = true;
+      }catch(e){/* leave raw LaTeX if KaTeX unavailable */}
+    }
+  }
+
+  function place(anchor){
+    const r = anchor.getBoundingClientRect();
+    const pw = pop.offsetWidth, ph = pop.offsetHeight, m = 8;
+    let x = r.right + m;
+    if(x + pw > window.innerWidth - m) x = r.left - pw - m;
+    if(x < m) x = m;
+    let y = r.top;
+    if(y + ph > window.innerHeight - m) y = window.innerHeight - m - ph;
+    if(y < m) y = m;
+    pop.style.left = x + 'px';
+    pop.style.top  = y + 'px';
+  }
+
+  function show(badge){
+    pop.innerHTML = contentFor(badge.dataset.help);
+    mathReady = false;
+    ensureMath();
+    place(badge);
+    pop.classList.add('show');
+  }
+  function hide(){ pop.classList.remove('show'); }
+
+  function attach(badge){
+    badge.addEventListener('mouseenter', ()=>{ clearTimeout(hideTimer); showTimer=setTimeout(()=>show(badge),1000); });
+    badge.addEventListener('mouseleave', ()=>{ clearTimeout(showTimer); hideTimer=setTimeout(hide,250); });
+    badge.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); clearTimeout(showTimer); show(badge); });
+    badge.addEventListener('focus', ()=>show(badge));
+    badge.addEventListener('blur',  ()=>hideTimer=setTimeout(hide,150));
+    badge.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hide(); });
+  }
+  pop.addEventListener('mouseenter', ()=>clearTimeout(hideTimer));
+  pop.addEventListener('mouseleave', ()=>{ hideTimer=setTimeout(hide,250); });
+
+  targets.forEach(([key, resolve])=>{
+    let host; try{ host = resolve(); }catch(e){ host=null; }
+    if(!host || !dataRoot.querySelector('[data-help="'+key+'"]')) return;
+    const badge = document.createElement('span');
+    badge.className = 'help-badge';
+    badge.dataset.help = key;
+    badge.textContent = '?';
+    badge.tabIndex = 0;
+    badge.setAttribute('role','button');
+    badge.setAttribute('aria-label','Help: what is this, the physics, and how to use it');
+    host.appendChild(badge);
+    attach(badge);
   });
 })();
 </script>
