@@ -699,19 +699,89 @@
       `r_c = ${isFinite(rc) ? U.mToUm(rc).toFixed(2) + " µm" : "∞"}`;
   }
 
-  function showHelp(key) {
-    const h = HELP_TEXT[key]; if (!h) return;
-    $("help-title").textContent = key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
-    $("help-what").textContent = h.what;
-    $("help-physics").textContent = h.physics;
-    $("help-how").textContent = h.how;
-    $("help-panel").classList.add("open");
+  /* Floating help popup: opens next to the "?" on ~1s hover (or click/focus). */
+  let helpPop = null, helpShowTimer = null, helpHideTimer = null;
+
+  function ensureHelpPop() {
+    if (helpPop) return helpPop;
+    helpPop = document.createElement("div");
+    helpPop.className = "help-pop";
+    helpPop.innerHTML =
+      '<div class="help-pop-title"></div>' +
+      '<h4>What is this?</h4><p class="hp-what"></p>' +
+      '<h4>Physics</h4><p class="hp-physics"></p>' +
+      '<h4>How to use it</h4><p class="hp-how"></p>';
+    document.body.appendChild(helpPop);
+    helpPop.addEventListener("mouseenter", () => clearTimeout(helpHideTimer));
+    helpPop.addEventListener("mouseleave", () => { helpHideTimer = setTimeout(hideHelp, 200); });
+    return helpPop;
   }
 
+  function positionHelpPop(anchor) {
+    const r = anchor.getBoundingClientRect();
+    const p = helpPop, m = 8;
+    const pw = p.offsetWidth, ph = p.offsetHeight;
+    let x = r.right + m;
+    if (x + pw > window.innerWidth - m) x = r.left - pw - m;
+    if (x < m) x = m;
+    let y = r.top;
+    if (y + ph > window.innerHeight - m) y = window.innerHeight - m - ph;
+    if (y < m) y = m;
+    p.style.left = x + "px";
+    p.style.top = y + "px";
+  }
+
+  function showHelp(key, anchor) {
+    const h = HELP_TEXT[key]; if (!h) return;
+    const p = ensureHelpPop();
+    p.querySelector(".help-pop-title").textContent =
+      key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+    p.querySelector(".hp-what").textContent = h.what;
+    p.querySelector(".hp-physics").textContent = h.physics;
+    p.querySelector(".hp-how").textContent = h.how;
+    if (anchor) positionHelpPop(anchor);
+    p.classList.add("show");
+  }
+
+  function hideHelp() { if (helpPop) helpPop.classList.remove("show"); }
+
   function wireHelpDots() {
-    document.querySelectorAll("[data-help]").forEach((el) =>
-      el.addEventListener("click", () => showHelp(el.dataset.help)));
-    $("help-close").addEventListener("click", () => $("help-panel").classList.remove("open"));
+    ensureHelpPop();
+    document.querySelectorAll("[data-help]").forEach((el) => {
+      el.addEventListener("mouseenter", () => {
+        clearTimeout(helpHideTimer);
+        helpShowTimer = setTimeout(() => showHelp(el.dataset.help, el), 1000);
+      });
+      el.addEventListener("mouseleave", () => {
+        clearTimeout(helpShowTimer);
+        helpHideTimer = setTimeout(hideHelp, 200);
+      });
+      // The "?" badges (not action buttons) also open on click/focus for touch + a11y.
+      if (el.classList.contains("help")) {
+        el.setAttribute("tabindex", "0");
+        el.setAttribute("role", "button");
+        el.setAttribute("aria-label", "Help: what it is, the physics, and how to use it");
+        el.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          clearTimeout(helpShowTimer); showHelp(el.dataset.help, el);
+        });
+        el.addEventListener("focus", () => showHelp(el.dataset.help, el));
+        el.addEventListener("blur", () => { helpHideTimer = setTimeout(hideHelp, 150); });
+        el.addEventListener("keydown", (e) => { if (e.key === "Escape") hideHelp(); });
+      }
+    });
+    // Hide the floating popup on scroll (any panel) or resize — but not while
+    // the user is scrolling inside the popup itself.
+    window.addEventListener("scroll", (e) => {
+      if (helpPop && helpPop.contains(e.target)) return;
+      hideHelp();
+    }, true);
+    window.addEventListener("resize", hideHelp);
+    // Legacy side panel is no longer opened; keep its close button harmless.
+    const closeBtn = $("help-close");
+    if (closeBtn) closeBtn.addEventListener("click", () => {
+      const hp = $("help-panel"); if (hp) hp.classList.remove("open");
+    });
   }
 
   function handleUpload(fileInput, kind) {

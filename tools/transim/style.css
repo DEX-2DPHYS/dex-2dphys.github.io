@@ -52,7 +52,17 @@ input[type="file"] { font-size: 0.72rem; padding: 0.2rem; }
 .contact-row .del { padding: 0.1rem 0.4rem; color: var(--warn); }
 
 .help { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--bg); border: 1px solid var(--border); color: var(--muted); font-size: 0.66rem; cursor: help; }
-.help:hover { color: var(--accent); border-color: var(--accent); }
+.help:hover, .help:focus { color: var(--accent); border-color: var(--accent); outline: none; }
+
+/* Floating help popup (hover the "?") */
+.help-pop { position: fixed; z-index: 9999; width: 320px; max-width: 92vw; max-height: 72vh; overflow: auto;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.45); padding: 0.7rem 0.85rem; font-size: 0.8rem; line-height: 1.5;
+  opacity: 0; pointer-events: none; transition: opacity 0.12s ease; }
+.help-pop.show { opacity: 1; pointer-events: auto; }
+.help-pop .help-pop-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.3rem; }
+.help-pop h4 { color: var(--accent); margin: 0.7rem 0 0.15rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.help-pop p { margin: 0; color: var(--text); font-size: 0.8rem; line-height: 1.5; }
 
 button { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.7rem; cursor: pointer; font-family: inherit; font-size: 0.82rem; }
 button:hover { border-color: var(--accent); }
