@@ -1,0 +1,13 @@
+{
+  "labels": [
+    { "id": "funding",        "name": "Funding",        "description": "Tools tied to funded projects or grant deliverables." },
+    { "id": "visualisations", "name": "Visualisations", "description": "Interactive plots, figures, and visual explorers." },
+    { "id": "simulations",    "name": "Simulations",    "description": "Numerical simulators and models." },
+    { "id": "educational",    "name": "Educational",    "description": "Built for teaching and classroom use." },
+    { "id": "applications",   "name": "Applications",   "description": "Applied / device- and experiment-oriented tools." }
+  ],
+  "tools": [
+    "transim",
+    "labtcad"
+  ]
+}

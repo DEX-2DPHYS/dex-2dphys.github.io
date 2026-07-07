@@ -272,6 +272,78 @@
     a.card:hover .card-cta { gap: .5rem; }
     .card.soon .card-cta { color: var(--text-soft); }
 
+    /* ---- Filter bar ---- */
+    .tools-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+      margin: 2rem 0 1rem;
+    }
+    .tools-head .section-label { margin: 0; }
+    .result-count { font-size: .82rem; color: var(--text-soft); }
+    .filters {
+      display: flex; align-items: center; flex-wrap: wrap; gap: .5rem;
+      margin-bottom: 1.4rem;
+    }
+    .filters .filter-label {
+      font-size: .8rem; color: var(--text-soft); margin-right: .2rem;
+    }
+    .chip {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .32rem .8rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text-soft);
+      font-size: .82rem; font-weight: 600;
+      cursor: pointer;
+      transition: color .15s ease, border-color .15s ease, background .15s ease, transform .1s ease;
+    }
+    .chip:hover { border-color: var(--red); color: var(--text); }
+    .chip:active { transform: scale(.96); }
+    .chip[aria-pressed="true"] {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+    }
+    .chip .chip-count {
+      font-size: .72rem; opacity: .7; font-weight: 700;
+    }
+    .chip-clear {
+      background: transparent; border-color: transparent; color: var(--red);
+      text-decoration: underline;
+    }
+    .chip-clear:hover { border-color: transparent; }
+    .chip-clear[hidden] { display: none; }
+
+    /* Tag pills on cards */
+    .card-tags {
+      display: flex; flex-wrap: wrap; gap: .35rem;
+      margin-top: 1rem;
+    }
+    .tag {
+      font-size: .68rem; font-weight: 600; letter-spacing: .01em;
+      padding: .18rem .5rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--red) 8%, transparent);
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: color .15s ease, border-color .15s ease;
+    }
+    .tag:hover { border-color: var(--red); color: var(--text); }
+    .tag[data-active="true"] {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* Empty / loading states */
+    .grid-state {
+      color: var(--text-soft);
+      font-size: .95rem;
+      padding: 2rem 0;
+    }
+    .grid-state[hidden] { display: none; }
+
     /* ---- About ---- */
     .about { padding: 1rem 0 0; }
     .about h2 {
@@ -339,46 +411,21 @@
 
   <main>
     <div class="wrap">
-      <div class="section-label" id="tools">Tools</div>
-      <div class="grid">
-        <!-- TranSim (placeholder until the tool is copied in) -->
-        <div class="card soon">
-          <span class="badge soon">Coming soon</span>
-          <div class="card-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 12h4l2 6 4-14 2 8h6" />
-            </svg>
-          </div>
-          <h3>TranSim</h3>
-          <p>Charge-transport simulator — ballistic &amp; diffusive regimes, Hall and four-probe measurements, mobility maps.</p>
-          <span class="card-cta">In development</span>
-        </div>
-        <!-- LabTCAD (placeholder) -->
-        <div class="card soon">
-          <span class="badge soon">Coming soon</span>
-          <div class="card-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="14" rx="2" />
-              <path d="M3 9h18M8 4v14M13 13h5M13 16h3" />
-            </svg>
-          </div>
-          <h3>LabTCAD</h3>
-          <p>TCAD-like process &amp; device simulator for micro- and nanofabricated semiconductor structures.</p>
-          <span class="card-cta">In development</span>
-        </div>
-        <!-- Generic placeholder -->
-        <div class="card soon">
-          <span class="badge soon">Coming soon</span>
-          <div class="card-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" />
-            </svg>
-          </div>
-          <h3>More tools</h3>
-          <p>Additional experiments and interactive notes from the 2DPHYS group will appear here.</p>
-          <span class="card-cta">Roadmap</span>
-        </div>
+      <div class="tools-head">
+        <div class="section-label" id="tools">Tools</div>
+        <span class="result-count" id="resultCount"></span>
       </div>
+
+      <div class="filters" id="filters" role="group" aria-label="Filter tools by label">
+        <span class="filter-label">Filter by label:</span>
+        <!-- filter chips injected here -->
+        <button type="button" class="chip chip-clear" id="clearFilters" hidden>Clear</button>
+      </div>
+
+      <div class="grid" id="toolGrid" aria-live="polite"></div>
+      <p class="grid-state" id="gridLoading">Loading tools…</p>
+      <p class="grid-state" id="gridEmpty" hidden>No tools match the selected labels.</p>
+      <p class="grid-state" id="gridError" hidden>Couldn’t load the tool list. Please try again later.</p>
 
       <section class="about" id="about">
         <div class="section-label">About</div>
@@ -396,6 +443,7 @@
   </footer>
 
   <script>
+    /* ---- Theme toggle ---- */
     (function () {
       var root = document.documentElement;
       var stored = null;
@@ -412,6 +460,156 @@
       });
 
       document.getElementById("year").textContent = new Date().getFullYear();
+    })();
+
+    /* ---- Tools + label filtering ---- */
+    (function () {
+      // Inline icon library — tools reference these by the "icon" key in tool.json.
+      var ICONS = {
+        transport: '<path d="M3 12h4l2 6 4-14 2 8h6" />',
+        device: '<rect x="3" y="4" width="18" height="14" rx="2" /><path d="M3 9h18M8 4v14M13 13h5M13 16h3" />',
+        chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />',
+        atom: '<circle cx="12" cy="12" r="1.6" /><ellipse cx="12" cy="12" rx="10" ry="4.2" /><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(60 12 12)" /><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(120 12 12)" />',
+        book: '<path d="M4 5a2 2 0 0 1 2-2h11v16H6a2 2 0 0 0-2 2zM17 3v18" />',
+        more: '<circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" />'
+      };
+      var DEFAULT_ICON = "more";
+
+      var grid = document.getElementById("toolGrid");
+      var filtersEl = document.getElementById("filters");
+      var clearBtn = document.getElementById("clearFilters");
+      var loadingEl = document.getElementById("gridLoading");
+      var emptyEl = document.getElementById("gridEmpty");
+      var errorEl = document.getElementById("gridError");
+      var countEl = document.getElementById("resultCount");
+
+      var labels = [];          // [{id, name, description}]
+      var labelName = {};       // id -> name
+      var tools = [];           // [{slug, name, description, status, url, icon, tags}]
+      var active = new Set();   // selected label ids
+
+      function svg(iconKey) {
+        var inner = ICONS[iconKey] || ICONS[DEFAULT_ICON];
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+               'stroke-linecap="round" stroke-linejoin="round">' + inner + "</svg>";
+      }
+
+      function esc(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function matches(tool) {
+        if (active.size === 0) return true;
+        // OR within the label facet: show a tool if it carries ANY selected label.
+        for (var i = 0; i < tool.tags.length; i++) {
+          if (active.has(tool.tags[i])) return true;
+        }
+        return false;
+      }
+
+      function render() {
+        var visible = tools.filter(matches);
+        grid.innerHTML = "";
+
+        visible.forEach(function (t) {
+          var live = t.status === "live" && t.url;
+          var el = document.createElement(live ? "a" : "div");
+          el.className = "card" + (live ? "" : " soon");
+          if (live) { el.href = t.url; }
+
+          var tagsHtml = t.tags.map(function (id) {
+            return '<button type="button" class="tag" data-tag="' + esc(id) + '"' +
+              (active.has(id) ? ' data-active="true"' : "") +
+              '>' + esc(labelName[id] || id) + "</button>";
+          }).join("");
+
+          el.innerHTML =
+            '<span class="badge ' + (live ? "live" : "soon") + '">' +
+              (live ? "Available" : "Coming soon") + "</span>" +
+            '<div class="card-icon" aria-hidden="true">' + svg(t.icon) + "</div>" +
+            "<h3>" + esc(t.name) + "</h3>" +
+            "<p>" + esc(t.description) + "</p>" +
+            '<div class="card-tags">' + tagsHtml + "</div>" +
+            '<span class="card-cta">' + (live ? "Open tool →" : "In development") + "</span>";
+
+          grid.appendChild(el);
+        });
+
+        // Tag pills toggle the corresponding filter.
+        grid.querySelectorAll(".tag").forEach(function (pill) {
+          pill.addEventListener("click", function (e) {
+            e.preventDefault();
+            toggle(pill.getAttribute("data-tag"));
+          });
+        });
+
+        emptyEl.hidden = visible.length !== 0;
+        countEl.textContent = visible.length +
+          (visible.length === 1 ? " tool" : " tools") +
+          (active.size ? " · filtered" : "");
+        clearBtn.hidden = active.size === 0;
+
+        // Sync chip pressed states + per-label counts.
+        filtersEl.querySelectorAll(".chip[data-tag]").forEach(function (chip) {
+          chip.setAttribute("aria-pressed", active.has(chip.getAttribute("data-tag")) ? "true" : "false");
+        });
+      }
+
+      function toggle(id) {
+        if (active.has(id)) { active.delete(id); } else { active.add(id); }
+        render();
+      }
+
+      function buildChips() {
+        labels.forEach(function (lab) {
+          var n = tools.filter(function (t) { return t.tags.indexOf(lab.id) !== -1; }).length;
+          var chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "chip";
+          chip.setAttribute("data-tag", lab.id);
+          chip.setAttribute("aria-pressed", "false");
+          chip.title = lab.description || lab.name;
+          chip.innerHTML = esc(lab.name) + ' <span class="chip-count">' + n + "</span>";
+          chip.addEventListener("click", function () { toggle(lab.id); });
+          filtersEl.insertBefore(chip, clearBtn);
+        });
+        clearBtn.addEventListener("click", function () { active.clear(); render(); });
+      }
+
+      function fail() {
+        loadingEl.hidden = true;
+        errorEl.hidden = false;
+      }
+
+      function loadJSON(url) {
+        return fetch(url, { cache: "no-cache" }).then(function (r) {
+          if (!r.ok) throw new Error(url + " → " + r.status);
+          return r.json();
+        });
+      }
+
+      loadJSON("tools/manifest.json").then(function (manifest) {
+        labels = manifest.labels || [];
+        labels.forEach(function (l) { labelName[l.id] = l.name; });
+
+        var slugs = manifest.tools || [];
+        return Promise.all(slugs.map(function (slug) {
+          return loadJSON("tools/" + slug + "/tool.json").catch(function (e) {
+            console.warn("Skipping tool", slug, e);
+            return null;
+          });
+        })).then(function (loaded) {
+          tools = loaded.filter(Boolean).map(function (t) {
+            t.tags = Array.isArray(t.tags) ? t.tags : [];
+            return t;
+          });
+          loadingEl.hidden = true;
+          buildChips();
+          render();
+        });
+      }).catch(fail);
     })();
   </script>
 </body>
