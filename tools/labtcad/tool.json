@@ -1,9 +1,11 @@
 {
   "slug": "labtcad",
   "name": "LabTCAD",
-  "description": "TCAD-like process & device simulator for micro- and nanofabricated semiconductor structures.",
+  "description": "TCAD-like process & device simulator for micro- and nanofabricated semiconductor structures — Student and Professional modes, recipe validation, band diagrams.",
   "status": "coming-soon",
   "url": "",
+  "repo": "",
+  "note": "Runs locally today — ships with a FastAPI backend. A browser-only build for the web is planned.",
   "icon": "device",
   "tags": ["simulations", "educational", "applications"]
 }

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Graphene Hybrid FEM / Ballistic Transport Explorer</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">Graphene Hybrid FEM / Ballistic Transport Explorer</div>
+    <div class="top-actions">
+      <button id="toggle-advanced" title="Show or hide advanced numerical settings">Advanced ⚙</button>
+      <button id="export-json" data-help="exportResults">Export JSON</button>
+      <button id="export-png">Export PNG</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT CONTROL PANEL -->
+    <aside class="controls">
+      <section class="group">
+        <h3>Geometry</h3>
+        <label>Width (µm) <span class="help" data-help="deviceWidth">?</span>
+          <input type="number" id="W_um" step="0.5" min="0.2" /></label>
+        <label>Height (µm) <span class="help" data-help="deviceHeight">?</span>
+          <input type="number" id="H_um" step="0.5" min="0.2" /></label>
+      </section>
+
+      <section class="group">
+        <h3>Material</h3>
+        <label>Carrier density n (cm⁻²) <span class="help" data-help="carrierDensity">?</span>
+          <input type="number" id="n_cm2" step="1e11" /></label>
+        <label>Mobility µ (cm²/Vs) <span class="help" data-help="mobility">?</span>
+          <input type="number" id="mu_cm" step="1000" /></label>
+        <label class="check"><input type="checkbox" id="mfpFromMobility" />
+          Mean free path from µ &amp; n <span class="help" data-help="mfpFromMobility">?</span></label>
+        <label>Mean free path ℓ (µm) <span class="help" data-help="meanFreePath">?</span>
+          <input type="number" id="mfp_um" step="0.1" min="0" /></label>
+        <div id="derived" class="derived"></div>
+      </section>
+
+      <section class="group">
+        <h3>Magnetic field</h3>
+        <label>B (T) <span class="help" data-help="magneticField">?</span>
+          <input type="range" id="B" min="-1" max="1" step="0.02" /><span id="B_val" class="rng"></span></label>
+      </section>
+
+      <section class="group">
+        <h3>Bias</h3>
+        <label>Source voltage (V) <span class="help" data-help="sourceVoltage">?</span>
+          <input type="number" id="Vsource" step="1e-3" /></label>
+        <label>Drain voltage (V) <span class="help" data-help="drainVoltage">?</span>
+          <input type="number" id="Vdrain" step="1e-3" /></label>
+      </section>
+
+      <section class="group">
+        <h3>Contacts</h3>
+        <label>Preset layout <span class="help" data-help="contactDefinition">?</span>
+          <select id="contactPreset">
+            <option value="hall_bar">Hall bar (S–D + top/bottom probes)</option>
+            <option value="two_terminal">Two-terminal bar</option>
+            <option value="four_probe">Four-probe (inline)</option>
+            <option value="hall_cross">Hall cross</option>
+          </select></label>
+        <div class="maprow">
+          <label>Draw role <span class="help" data-help="contactRole">?</span>
+            <select id="drawRole"><option value="source">source</option><option value="drain">drain</option><option value="probe">probe</option><option value="absorber">absorber</option></select></label>
+          <label>&nbsp;<button id="draw-contact" title="Toggle drawing: click-drag on the device map to place a contact rectangle anywhere.">✎ Draw on map</button></label>
+        </div>
+        <button id="clear-contacts" title="Remove all contacts.">Clear contacts</button>
+        <div id="contacts-list" class="contacts-list"></div>
+      </section>
+
+      <section class="group">
+        <h3>Scattering</h3>
+        <label>Scattering model <span class="help" data-help="scatteringModel">?</span>
+          <select id="scattering">
+            <option value="isotropic">Isotropic</option>
+            <option value="smallangle">Small-angle</option>
+            <option value="forward">Forward-biased</option>
+            <option value="none">None (ballistic)</option>
+          </select></label>
+        <label>Edge scattering <span class="help" data-help="edgeScattering">?</span>
+          <select id="edge">
+            <option value="specular">Specular</option>
+            <option value="diffuse">Diffuse</option>
+            <option value="mixed">Mixed</option>
+            <option value="absorbing">Absorbing</option>
+          </select></label>
+      </section>
+
+      <section class="group">
+        <h3>Image maps (optional)</h3>
+        <label>Density map <span class="help" data-help="densityMap">?</span>
+          <input type="file" id="densityFile" accept="image/*" /></label>
+        <div class="maprow">
+          <label>min (cm⁻²)<input type="number" id="dmin" value="1e11" /></label>
+          <label>max (cm⁻²)<input type="number" id="dmax" value="5e12" /></label>
+        </div>
+        <label>Mobility map <span class="help" data-help="mobilityMap">?</span>
+          <input type="file" id="mobilityFile" accept="image/*" /></label>
+        <div class="maprow">
+          <label>min<input type="number" id="mmin" value="5000" /></label>
+          <label>max<input type="number" id="mmax" value="100000" /></label>
+        </div>
+        <label>Mobility controls <span class="help" data-help="mobilityMap">?</span>
+          <select id="mobScope"><option value="cond">Conductivity</option><option value="mfp">Mean free path</option><option value="both">Both</option></select></label>
+        <div class="maprow">
+          <label>Channel <span class="help" data-help="mapChannel">?</span>
+            <select id="mapChannel"><option value="lum">Luminance</option><option value="r">R</option><option value="g">G</option><option value="b">B</option></select></label>
+          <label class="check"><input type="checkbox" id="mapInvert" /> Invert <span class="help" data-help="mapInvert">?</span></label>
+        </div>
+        <label>Smooth radius <span class="help" data-help="mapSmooth">?</span>
+          <input type="number" id="mapSmooth" value="0" min="0" max="6" /></label>
+        <label>Contact map <span class="help" data-help="contactMap">?</span>
+          <input type="file" id="contactFile" accept="image/*" /></label>
+      </section>
+
+    </aside>
+
+    <!-- MAIN VISUALIZATION -->
+    <main class="viz">
+      <nav class="tabs">
+        <button class="tab active" data-tab="device">Device map</button>
+        <button class="tab" data-tab="potential">FEM potential</button>
+        <button class="tab" data-tab="current">FEM current</button>
+        <button class="tab" data-tab="trajectories">Trajectories</button>
+        <button class="tab" data-tab="transmission">Transmission</button>
+        <button class="tab" data-tab="validity">Validity</button>
+      </nav>
+      <div class="canvas-wrap"><canvas id="main-canvas"></canvas></div>
+      <div id="colorbar" class="colorbar" style="display:none"></div>
+      <div id="view-info" class="view-info"></div>
+      <div id="table-host" class="table-host"></div>
+
+      <details class="assumptions">
+        <summary>Model assumptions (read me)</summary>
+        <p>This tool uses a <b>semiclassical approximation</b>. It does not solve the Dirac equation and does not include quantum interference, weak localization, universal conductance fluctuations, tunneling, edge-state quantization, or full self-consistent electrostatics.</p>
+        <p>The <b>FEM mode</b> represents local drift-diffusion transport. It is most meaningful when the mean free path is much shorter than the relevant device dimensions. The transverse Hall voltage emerges from the finite-volume boundary conditions and is qualitatively, not quantitatively, exact in v1.</p>
+        <p>The <b>trajectory mode</b> represents semiclassical ballistic or quasi-ballistic transport. It is most meaningful when phase coherence is not dominant and device dimensions exceed the Fermi wavelength.</p>
+        <p>The <b>Landauer–Büttiker</b> conductance in the sweep is the ballistic↔diffusive crossover: the Sharvin (ballistic) resistance from the trajectory transmission added in series with the diffusive (Drude/FEM) resistance, G = 1/(1/G_ball + 1/G_Drude). It reduces to the Sharvin ceiling when ℓ≫L and to the FEM/Drude value when ℓ≪L. A pure trajectory Monte-Carlo cannot reach the deep-diffusive limit (diffusion across the channel needs ~(L/ℓ)² steps), so that limit is supplied analytically via the FEM resistance.</p>
+      </details>
+    </main>
+
+    <!-- RIGHT PANEL: actions, model/numerical params, parameter sweep -->
+    <aside class="rightpanel">
+      <section class="group run">
+        <h3>Actions</h3>
+        <div class="action-grid">
+          <button id="run-fem" class="primary">Run FEM</button>
+          <button id="run-traj" class="primary">Run trajectories</button>
+          <button id="run-hybrid" class="primary">Run hybrid</button>
+          <button id="reset">Reset geometry</button>
+        </div>
+      </section>
+
+      <section class="group">
+        <h3>Model &amp; numerics</h3>
+        <label>Simulation mode <span class="help" data-help="simulationMode">?</span>
+          <select id="mode"><option value="hybrid">Hybrid comparison</option><option value="fem">Diffusive FEM</option><option value="ballistic">Ballistic</option><option value="quasi">Quasi-ballistic</option></select></label>
+        <label>Grid resolution (cells) <span class="help" data-help="gridResolution">?</span>
+          <input type="number" id="res" step="10" min="16" max="300" /></label>
+        <label>Number of trajectories <span class="help" data-help="numTrajectories">?</span>
+          <input type="number" id="nTraj" step="500" min="100" /></label>
+        <label>Random seed <span class="help" data-help="randomSeed">?</span>
+          <input type="number" id="seed" step="1" /></label>
+        <label>FEM max iterations <span class="help" data-help="femIterations">?</span>
+          <input type="number" id="femIter" step="500" /></label>
+        <label>FEM tolerance <span class="help" data-help="femTolerance">?</span>
+          <input type="number" id="femTol" step="1e-8" /></label>
+        <label>Max trajectory steps <span class="help" data-help="maxTrajSteps">?</span>
+          <input type="number" id="maxSteps" step="1000" /></label>
+        <label>Max path length (µm) <span class="help" data-help="maxPathLength">?</span>
+          <input type="number" id="maxPath_um" step="20" min="1" /></label>
+        <label class="check"><input type="checkbox" id="useWorkers" /> Parallelize sweeps (Web Workers) <span class="help" data-help="webWorkers">?</span></label>
+        <label>Worker threads <input type="number" id="workerCount" step="1" min="1" max="32" /></label>
+      </section>
+
+      <section class="group">
+        <h3>Parameter sweep <span class="help" data-help="parameterSweep">?</span></h3>
+        <label>Sweep
+          <select id="sweepType">
+            <option value="vg">G vs V_g</option>
+            <option value="b">G vs B</option>
+            <option value="mfp">G vs ℓ (mean free path)</option>
+            <option value="vgb">G vs V_g &amp; B (2D)</option>
+          </select></label>
+        <div class="sweep-models">
+          <label class="check"><input type="checkbox" id="sweepFem" checked /> FEM (Drude)</label>
+          <label class="check"><input type="checkbox" id="sweepBal" /> Landauer (ball.↔diff.) <span class="help" data-help="landauerCrossover">?</span></label>
+          <label class="check"><input type="checkbox" id="sweepSnap" /> Store field snapshots (scrub) <span class="help" data-help="sweepSnapshots">?</span></label>
+        </div>
+        <label>Trajectory model <span class="help" data-help="landauerCrossover">?</span>
+          <select id="sweepBalMode">
+            <option value="crossover">Crossover → FEM (Sharvin + Drude)</option>
+            <option value="mc">Pure ballistic / MC (no Drude)</option>
+          </select></label>
+        <fieldset id="vg-range" class="sweep-range">
+          <legend>V_g range (V)</legend>
+          <div class="maprow"><label>from<input type="number" id="vgFrom" /></label><label>to<input type="number" id="vgTo" /></label></div>
+          <label>points<input type="number" id="vgN" min="2" max="201" /></label>
+        </fieldset>
+        <fieldset id="b-range" class="sweep-range">
+          <legend>B range (T)</legend>
+          <div class="maprow"><label>from<input type="number" id="bFrom" /></label><label>to<input type="number" id="bTo" /></label></div>
+          <label>points<input type="number" id="bN" min="2" max="201" /></label>
+        </fieldset>
+        <fieldset id="l-range" class="sweep-range">
+          <legend>ℓ range (nm, log-spaced; ℓ swept via mobility at fixed n, B)</legend>
+          <div class="maprow"><label>from<input type="number" id="lFrom" min="0.1" step="1" /></label><label>to<input type="number" id="lTo" min="1" step="100" /></label></div>
+          <label>points<input type="number" id="lN" min="2" max="201" /></label>
+        </fieldset>
+        <label>Measure <span class="help" data-help="sweepMeasure">?</span>
+          <select id="sweepMeasure">
+            <option value="2t">Two-terminal (source–drain)</option>
+            <option value="hall">Hall R_xy (transverse probe pair)</option>
+            <option value="rxx">Longitudinal R_xx (in-line probe pair)</option>
+          </select></label>
+        <label>Plot quantity
+          <select id="sweepQuantity"><option value="G">Conductance G (S)</option><option value="R">Resistance R (Ω)</option></select></label>
+        <details class="gate-model">
+          <summary>Gate model n(V_g)</summary>
+          <div class="maprow"><label>t_ox (nm)<input type="number" id="tox" /></label><label>ε_r<input type="number" id="epsr" step="0.1" /></label></div>
+          <label>Dirac voltage V₀ (V)<input type="number" id="vdirac" step="0.5" /></label>
+          <div id="gate-derived" class="derived"></div>
+        </details>
+        <div class="action-grid">
+          <button id="run-sweep" class="primary">Run sweep</button>
+          <button id="export-sweep">Export CSV</button>
+        </div>
+        <progress id="sweep-progress" max="100" value="0"></progress>
+        <div class="canvas-wrap sweep-wrap"><canvas id="sweep-canvas"></canvas></div>
+        <div id="sweep-info" class="view-info"></div>
+        <div id="sweep-sliders" class="sweep-sliders"></div>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <span id="status">Loading…</span>
+    <pre id="log" class="log"></pre>
+  </footer>
+
+  <!-- Help slide-over panel -->
+  <div id="help-panel" class="help-panel">
+    <div class="help-head"><h3 id="help-title">Help</h3><button id="help-close">×</button></div>
+    <h4>What is this?</h4><p id="help-what"></p>
+    <h4>Physics:</h4><p id="help-physics"></p>
+    <h4>How to use this:</h4><p id="help-how"></p>
+  </div>
+
+  <script src="./physics.js"></script>
+  <script src="./fem_solver.js"></script>
+  <script src="./trajectory_solver.js"></script>
+  <script src="./maps.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

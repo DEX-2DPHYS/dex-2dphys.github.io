@@ -237,13 +237,20 @@
       opacity: 0;
       transition: opacity .22s ease;
     }
-    a.card:hover {
+    .card.live { cursor: pointer; }
+    .card.live:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow-hover);
       border-color: var(--red);
     }
-    a.card:hover::before { opacity: 1; }
+    .card.live:hover::before { opacity: 1; }
     .card.soon { opacity: .86; }
+    .card-note {
+      margin: .7rem 0 0;
+      font-size: .8rem;
+      color: var(--text-soft);
+      font-style: italic;
+    }
     .card-icon {
       width: 44px; height: 44px; border-radius: 11px;
       display: grid; place-items: center;
@@ -268,9 +275,12 @@
     .card-cta {
       margin-top: 1rem; font-size: .88rem; font-weight: 600; color: var(--red);
       display: inline-flex; align-items: center; gap: .3rem;
+      text-decoration: none;
     }
-    a.card:hover .card-cta { gap: .5rem; }
+    a.card-cta:hover { text-decoration: underline; }
+    .card.live:hover .card-cta { gap: .5rem; }
     .card.soon .card-cta { color: var(--text-soft); }
+    .card.soon .card-cta.card-source { color: var(--red); }
 
     /* ---- Filter bar ---- */
     .tools-head {
@@ -515,9 +525,11 @@
 
         visible.forEach(function (t) {
           var live = t.status === "live" && t.url;
-          var el = document.createElement(live ? "a" : "div");
-          el.className = "card" + (live ? "" : " soon");
-          if (live) { el.href = t.url; }
+          // Cards are always <div>s so the interactive tag pills aren't nested
+          // inside a link; live cards get whole-card click via a handler below.
+          var el = document.createElement("div");
+          el.className = "card" + (live ? " live" : " soon");
+          if (live) { el.setAttribute("data-url", t.url); }
 
           var tagsHtml = t.tags.map(function (id) {
             return '<button type="button" class="tag" data-tag="' + esc(id) + '"' +
@@ -525,14 +537,35 @@
               '>' + esc(labelName[id] || id) + "</button>";
           }).join("");
 
+          var noteHtml = t.note ? '<p class="card-note">' + esc(t.note) + "</p>" : "";
+
+          var footHtml;
+          if (live) {
+            footHtml = '<a class="card-cta" href="' + esc(t.url) + '">Open tool →</a>';
+          } else if (t.repo) {
+            footHtml = '<a class="card-cta card-source" href="' + esc(t.repo) +
+              '" target="_blank" rel="noopener">View source →</a>';
+          } else {
+            footHtml = '<span class="card-cta">In development</span>';
+          }
+
           el.innerHTML =
             '<span class="badge ' + (live ? "live" : "soon") + '">' +
               (live ? "Available" : "Coming soon") + "</span>" +
             '<div class="card-icon" aria-hidden="true">' + svg(t.icon) + "</div>" +
             "<h3>" + esc(t.name) + "</h3>" +
             "<p>" + esc(t.description) + "</p>" +
+            noteHtml +
             '<div class="card-tags">' + tagsHtml + "</div>" +
-            '<span class="card-cta">' + (live ? "Open tool →" : "In development") + "</span>";
+            footHtml;
+
+          // Whole-card click opens a live tool, unless a tag pill / link was clicked.
+          if (live) {
+            el.addEventListener("click", function (e) {
+              if (e.target.closest(".tag") || e.target.closest("a")) return;
+              window.location.href = t.url;
+            });
+          }
 
           grid.appendChild(el);
         });
@@ -541,6 +574,7 @@
         grid.querySelectorAll(".tag").forEach(function (pill) {
           pill.addEventListener("click", function (e) {
             e.preventDefault();
+            e.stopPropagation();
             toggle(pill.getAttribute("data-tag"));
           });
         });

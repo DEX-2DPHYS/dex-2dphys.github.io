@@ -1,9 +1,9 @@
 {
   "slug": "transim",
   "name": "TranSim",
-  "description": "Charge-transport simulator — ballistic & diffusive regimes, Hall and four-probe measurements, mobility maps.",
-  "status": "coming-soon",
-  "url": "",
+  "description": "Hybrid FEM + ballistic transport explorer for 2D graphene devices — Hall & four-probe measurements, mobility maps, tunable mean free path and magnetic field.",
+  "status": "live",
+  "url": "tools/transim/TransportSimulator.html",
   "icon": "transport",
   "tags": ["simulations", "visualisations", "educational"]
 }
