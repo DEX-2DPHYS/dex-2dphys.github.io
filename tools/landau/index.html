@@ -45,7 +45,11 @@
   .tipbox { display:none; position:absolute; right:calc(100% + 9px); top:50%; transform:translateY(-50%); width:248px; background:#fff; border:1px solid var(--border); border-radius:9px; padding:9px 11px; font-size:11px; line-height:1.52; color:var(--text); z-index:300; box-shadow:0 6px 24px rgba(0,0,0,0.14); pointer-events:none; white-space:normal; }
   .tipbox b { color:var(--accent); display:block; margin-bottom:3px; }
   .tipbox code { font-family:var(--mono); font-size:10px; background:#f1f5f9; border-radius:3px; padding:1px 4px; display:block; margin:2px 0; }
-  .tipwrap:hover .tipbox { display:block; }
+  /* In-panel .tipbox stays hidden and is used only as a content source; the
+     visible tooltip is #tipPop, appended to <body> so it escapes the right
+     panel's overflow/transform clipping and is never hidden under the panels. */
+  #tipPop { position:fixed; right:auto; top:auto; transform:none; display:none; z-index:9999; pointer-events:none; }
+  #tipPop.show { display:block; }
 </style>
 </head>
 <body>
@@ -530,6 +534,55 @@ var fanSetup=setupCanvas(ui.fanCanvas,function(w,h){state.fanSize={w:w,h:h};});
 var trajCtx=trajSetup.ctx,landauCtx=landauSetup.ctx,qheCtx=qheSetup.ctx,fanCtx=fanSetup.ctx;
 window.addEventListener("resize",function(){trajSetup.resize();landauSetup.resize();qheSetup.resize();fanSetup.resize();state.fanCache.key="";resetTrail();});
 wireUI();resetTrail();requestAnimationFrame(animate);
+</script>
+<script>
+/* Tooltip popup rendered at <body> level so it is never clipped by the right
+   control panel (which has overflow + transform, trapping absolute/fixed kids). */
+(function () {
+  var pop = document.createElement("div");
+  pop.className = "tipbox";   // reuse .tipbox / .tipbox b / .tipbox code styling
+  pop.id = "tipPop";
+  document.body.appendChild(pop);
+  var current = null;
+
+  function hide() { pop.classList.remove("show"); current = null; }
+
+  function show(wrap) {
+    var src = wrap.querySelector(".tipbox");
+    if (!src) return;
+    var icon = wrap.querySelector(".tipicon") || wrap;
+    pop.innerHTML = src.innerHTML;
+    pop.classList.add("show");
+    var r = icon.getBoundingClientRect();
+    var bw = pop.offsetWidth, bh = pop.offsetHeight, m = 8;
+    var left = r.left - bw - 9;                 // prefer opening to the left, over the plots
+    if (left < m) left = r.right + 9;           // no room? open to the right of the icon
+    if (left + bw > window.innerWidth - m) left = Math.max(m, window.innerWidth - m - bw);
+    var top = r.top + r.height / 2 - bh / 2;    // vertically centred on the icon
+    if (top < m) top = m;
+    if (top + bh > window.innerHeight - m) top = window.innerHeight - m - bh;
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+    current = wrap;
+  }
+
+  function wire(w) {
+    w.addEventListener("mouseenter", function () { show(w); });
+    w.addEventListener("mouseleave", hide);
+    var icon = w.querySelector(".tipicon");
+    if (icon) {
+      icon.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        if (current === w) hide(); else show(w);
+      });
+    }
+  }
+
+  document.querySelectorAll(".tipwrap").forEach(wire);
+  // Keep it anchored: hide on any scroll/resize rather than let it drift.
+  window.addEventListener("scroll", hide, true);
+  window.addEventListener("resize", hide);
+})();
 </script>
 </body>
 </html>
