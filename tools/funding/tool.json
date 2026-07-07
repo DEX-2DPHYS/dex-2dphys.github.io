@@ -1,0 +1,10 @@
+{
+  "slug": "funding",
+  "name": "Funding Radar",
+  "description": "Interactive deadline timeline and reference table of funding calls (Novo Nordisk, DFF, Villum, ERC, EU/EIC, DNRF, and more) for physics &amp; materials researchers — filter by career stage and priority.",
+  "status": "live",
+  "url": "tools/funding/",
+  "embed": "tools/funding/index.html",
+  "icon": "chart",
+  "tags": ["funding", "visualisations"]
+}

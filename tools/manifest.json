@@ -13,6 +13,9 @@
     "qtm",
     "graphene-bandstructure",
     "graphene-phonons",
+    "landau",
+    "ebl",
+    "funding",
     "labtcad"
   ]
 }

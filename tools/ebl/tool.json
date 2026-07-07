@@ -1,0 +1,9 @@
+{
+  "slug": "ebl",
+  "name": "EBL Monte Carlo",
+  "description": "Toy Monte-Carlo simulator for electron-beam lithography — electron scattering in resist, the dose/proximity response, and the CSDA energy-deposition profile shown side by side.",
+  "status": "live",
+  "url": "tools/ebl/index.html",
+  "icon": "device",
+  "tags": ["simulations", "educational", "applications"]
+}

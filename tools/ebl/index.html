@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EBL Toy Monte Carlo — Side-by-Side + DR + CSDA Prefactor (v7)</title>
+<style>
+  :root{ --bg:#fff; --fg:#0f172a; --muted:#64748b; --accent:#2563eb; --border:#e2e8f0; --card:#f8fafc; }
+  html,body{height:100%} body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .stage{position:relative;width:100vw;height:calc(100vw*9/16);max-height:100vh;overflow:auto;border-bottom:1px solid var(--border)}
+  .app{position:absolute;inset:0;display:grid;grid-template-columns:360px 1fr;grid-template-rows:auto 1fr}
+  .panel{padding:12px;overflow:auto;border-right:1px solid var(--border);background:#fff}
+  .panel h1{margin:0 0 6px 0;font-size:18px}
+  .panel .sub{color:var(--muted);font-size:12px;margin-bottom:10px}
+  .control{margin-bottom:10px}
+  .control label{display:block;font-size:12px;margin-bottom:4px}
+  .control input[type='number'],.control select,.control input[type='range']{width:100%;padding:6px;border:1px solid var(--border);border-radius:8px;background:#fff}
+  .row{display:flex;gap:8px}.row .control{flex:1}
+  button{appearance:none;border:none;background:var(--accent);color:#fff;padding:8px 10px;border-radius:10px;font-weight:600;cursor:pointer}
+  button.secondary{background:#0ea5e9} button.ghost{background:#e2e8f0;color:#111827}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:6px}
+  .stat .k{font-size:11px;color:var(--muted)} .stat .v{font-size:15px;font-weight:700}
+
+  .viz{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:min-content;gap:8px;padding:8px}
+  .col{display:grid;grid-template-rows:auto auto auto;gap:6px;min-width:0}
+  .toolbar{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:#fff}
+  .toolbar .spacer{flex:1}
+
+  .boxSquare{position:relative;width:100%;height:0;padding-top:100%; background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .boxSquare canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+
+  .note{font-size:11px;color:var(--muted);margin-top:4px}
+  .footer{font-size:11px;color:var(--muted);justify-self:end}
+  .warn{color:#b45309;font-size:12px}
+
+  .progress-wrap{display:flex;align-items:center;gap:8px}
+  progress{width:100%;height:12px}
+  .pill{font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:999px;background:var(--card);border:1px solid var(--border)}
+
+  .mini-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .mini-controls label{font-size:12px;margin:0}
+  .mini-controls input[type='range'], .mini-controls select{height:26px}
+  .mini-controls .stack{display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="app">
+    <div class="panel">
+      <h1>EBL Toy Monte Carlo</h1>
+      <div class="sub">Screened Rutherford elastic + CSDA energy loss. Tuned CSDA; elastic nudge; browser-only.</div>
+
+      <div class="row">
+        <div class="control"><label>Material</label>
+          <select id="material">
+            <option value="PMMA">PMMA (ρ=1.19, Z≈6, A≈12)</option>
+            <option value="Si" selected>Si (ρ=2.33, Z=14, A=28.085)</option>
+            <option value="GaAs">GaAs (ρ=5.32, Z≈32, A=72.32)</option>
+            <option value="Au">Au (ρ=19.3, Z=79, A=196.97)</option>
+          </select>
+        </div>
+        <div class="control"><label>Energy (keV)</label><input id="energy" type="number" value="100" min="1" max="200" step="1"></div>
+      </div>
+
+      <div class="row">
+        <div class="control"><label>Trajectories N (simulated)</label><input id="nparts" type="number" value="1000" min="10" max="20000" step="10"></div>
+        <div class="control"><label>Trajectories shown (rendered)</label><input id="nshown" type="number" value="100" min="0" max="5000" step="10"></div>
+      </div>
+
+      <div class="row">
+        <div class="control"><label>Step Δs (nm)</label><input id="stepnm" type="number" value="2" min="0.5" max="100" step="0.5"></div>
+        <div class="control"><label>Depth (µm)</label><input id="zmax" type="number" value="100" min="0.1" max="200" step="0.1"></div>
+      </div>
+
+      <div class="row">
+        <div class="control"><label>Lateral FOV (µm) — locked to Depth</label><input id="fov" type="number" value="100" disabled></div>
+        <div class="control"><label>Heatmap resolution (cells per side)</label><input id="res" type="number" value="192" min="64" max="512" step="32"></div>
+      </div>
+
+      <div class="row">
+        <div class="control">
+          <label>Elastic collision multiplier <span id="elasticVal" class="pill">0.10</span></label>
+          <input type="range" id="elasticMult" min="0.02" max="0.5" step="0.01" value="0.10">
+        </div>
+        <div class="control">
+          <label>CSDA prefactor (× dE/ds) <span id="csdaVal" class="pill">0.90</span></label>
+          <input type="range" id="csdaPref" min="0.5" max="1.5" step="0.01" value="0.90">
+        </div>
+      </div>
+
+      <div class="control">
+        <label><input type="checkbox" id="csdaOnly"> Disable elastic collisions (CSDA straight-line test)</label>
+      </div>
+
+      <div class="row" style="align-items:center;gap:8px">
+        <button id="runBtn">Run</button>
+        <button id="exportBtn" class="secondary">Export PNG</button>
+        <button id="stopBtn" class="ghost">Stop</button>
+      </div>
+
+      <div class="stats" style="margin-top:8px">
+        <div class="stat"><div class="k">Backscattered</div><div class="v" id="bsStat">–</div></div>
+        <div class="stat"><div class="k">Mean range (µm)</div><div class="v" id="rangeStat">–</div></div>
+        <div class="stat"><div class="k">Max depth (µm)</div><div class="v" id="depthStat">–</div></div>
+      </div>
+
+      <div class="note" id="suggestion"></div>
+    </div>
+
+    <div class="viz">
+      <div class="col">
+        <div class="toolbar"><strong>Trajectory view (x–z)</strong><span class="spacer"></span><span class="sub">Equal x/z scaling · square domain</span></div>
+        <div class="boxSquare"><canvas id="tracksCanvas"></canvas></div>
+        <div class="progress-wrap">
+          <progress id="progress" max="1" value="0"></progress>
+          <span id="progressText" class="pill">0%</span>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="toolbar"><strong>Deposited energy view (x–z)</strong><span class="spacer"></span><span class="sub">Dynamic range controls</span></div>
+        <div class="boxSquare"><canvas id="doseCanvas"></canvas></div>
+        <div class="toolbar mini-controls">
+          <label>Colormap
+            <select id="cmap">
+              <option value="viridis">Viridis</option>
+              <option value="inferno">Inferno</option>
+              <option value="turbo">Turbo</option>
+              <option value="gray">Grayscale</option>
+            </select>
+          </label>
+          <label>Lower cutoff (log)
+            <input type="range" id="cutoff" min="0" max="1" step="0.005" value="0.10">
+          </label>
+          <label>Top clip (percentile)
+            <input type="range" id="topclip" min="90" max="100" step="0.1" value="99.5">
+          </label>
+          <label>Gamma
+            <input type="range" id="gamma" min="0.2" max="3" step="0.05" value="1.4">
+          </label>
+          <span class="stack">
+            <label><input type="checkbox" id="logColors"> Log colors</label>
+            <label><input type="checkbox" id="hardThreshold"> Hard threshold</label>
+            <label><input type="checkbox" id="contours" checked> Contours</label>
+          </span>
+          <span class="pill" id="cutoffLabel">Cutoff 1.0e-7×max</span>
+          <span class="pill" id="topclipLabel">Cap @ 99.5%</span>
+          <span class="pill" id="gammaLabel">γ=1.4</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const materials={PMMA:{rho:1.19,Z:6,A:12.0}, Si:{rho:2.33,Z:14,A:28.085}, GaAs:{rho:5.32,Z:32,A:72.32}, Au:{rho:19.3,Z:79,A:196.97}};
+  const el=id=>document.getElementById(id);
+  const materialSel=el('material'), energyKeV=el('energy'), nparts=el('nparts'), stepnm=el('stepnm'), zmax=el('zmax'), res=el('res'), fov=el('fov'), elasticMultEl=el('elasticMult'), csdaOnlyEl=el('csdaOnly'), suggestion=el('suggestion'), nshownEl=el('nshown');
+  const csdaPrefEl=el('csdaPref'), csdaVal=el('csdaVal');
+  const cmapSel=el('cmap'), cutoffEl=el('cutoff'), contoursEl=el('contours'), cutoffLabel=el('cutoffLabel');
+  const topclipEl=el('topclip'), topclipLabel=el('topclipLabel');
+  const gammaEl=el('gamma'), gammaLabel=el('gammaLabel');
+  const logColorsEl=el('logColors'), hardThresholdEl=el('hardThreshold');
+  const runBtn=el('runBtn'), stopBtn=el('stopBtn'), exportBtn=el('exportBtn');
+  const tracksCanvas=el('tracksCanvas'), doseCanvas=el('doseCanvas');
+  const bsStat=el('bsStat'), rangeStat=el('rangeStat'), depthStat=el('depthStat');
+  const progress=el('progress'), progressText=el('progressText'), elasticVal=el('elasticVal');
+
+  let running=false;
+  const DPR = Math.min(window.devicePixelRatio || 1, 1.75);
+
+  // persist last dose for live re-rendering
+  let lastDose = null, lastW = 0, lastH = 0, lastMax = 0;
+
+  function fitCanvas(c){
+    const r=c.getBoundingClientRect();
+    c.width=Math.max(1,Math.floor(r.width*DPR));
+    c.height=Math.max(1,Math.floor(r.height*DPR));
+  }
+  const ro=new ResizeObserver(()=>{fitCanvas(tracksCanvas);fitCanvas(doseCanvas); if(lastDose) requestAnimationFrame(()=>renderDose(lastDose, lastW, lastH, lastMax));});
+  ro.observe(tracksCanvas); ro.observe(doseCanvas); setTimeout(()=>{fitCanvas(tracksCanvas);fitCanvas(doseCanvas);},80);
+
+  // KO tuned to ~80 µm at 100 keV in Si
+  const K_KO=0.0318; // µm
+  function csdaRange_um(EkeV, mat, csdaPref){ return (K_KO/Math.max(csdaPref,1e-6)) * mat.A * Math.pow(EkeV,1.67) / (Math.pow(mat.Z,0.89)*mat.rho); }
+  function energyAfterStep(EkeV, ds_nm, mat, csdaPref){
+    const ds_um=ds_nm*1e-3, Zp=Math.pow(mat.Z,0.89), C=(Zp*mat.rho)/(K_KO*mat.A) * Math.max(csdaPref, 1e-6);
+    const E167=Math.pow(Math.max(EkeV,0),1.67), En=Math.max(E167 - C*ds_um, 0);
+    return Math.pow(En,1/1.67);
+  }
+  function gamma_beta(EkeV){ const g=1+EkeV/511; const b=Math.sqrt(Math.max(0,1-1/(g*g))); return {gamma:g,beta:b}; }
+
+  function meanFreePath_nm(EkeV, mat, mult){
+    const p=1.0, q=0.8, r=0.6, lambda0=4.0;
+    const base = lambda0*Math.pow(Math.max(EkeV,0.1),p)/(Math.pow(mat.Z,q)*Math.pow(mat.rho,r));
+    return base/Math.max(mult, 0.01); // mult >1 → more collisions
+  }
+  function theta0_screen(EkeV, mat){
+    const {beta}=gamma_beta(EkeV);
+    const k=0.11;
+    const val=(k*Math.pow(mat.Z,1/3)/Math.max(EkeV,0.1))/Math.max(beta,0.2);
+    return Math.min(0.8, val);
+  }
+  function sampleRutherfordTheta(theta0, EkeV){
+    const {beta}=gamma_beta(EkeV);
+    while(true){
+      const u=Math.random();
+      const t=theta0*Math.sqrt((1-u)/u);
+      const th=Math.min(t, Math.PI);
+      const mott=Math.max(0,1 - beta*beta*Math.sin(th*0.5)**2);
+      if(Math.random() < Math.sin(th)*mott) return th;
+    }
+  }
+
+  function makeProjectorEqual(ctx, fov_um, depth_um){
+    const W=ctx.canvas.width, H=ctx.canvas.height;
+    const s=Math.min(W/fov_um, H/depth_um);
+    const boxW=s*fov_um, boxH=s*depth_um;
+    const ox=(W-boxW)/2, oy=(H-boxH)/2;
+    return {
+      toPX:(x_um,z_um)=>({x:ox+(x_um+fov_um/2)*s, y:oy+z_um*s}),
+      drawBox:()=>{
+        ctx.save();
+        ctx.strokeStyle='#0f172a'; ctx.lineWidth=1;
+        ctx.strokeRect(Math.floor(ox)+0.5, Math.floor(oy)+0.5, Math.floor(boxW)-1, Math.floor(boxH)-1);
+        ctx.beginPath(); ctx.moveTo(Math.floor(ox)+0.5, Math.floor(oy)+0.5); ctx.lineTo(Math.floor(ox+boxW)-0.5, Math.floor(oy)+0.5); ctx.stroke();
+        const labelY=Math.min(oy+boxH+14, H-4);
+        ctx.fillStyle='#64748b'; ctx.font='12px system-ui,-apple-system,Segoe UI,Roboto'; ctx.textAlign='center';
+        ctx.fillText(`Depth = ${depth_um.toFixed(2)} µm`, ox+boxW/2, labelY);
+        ctx.restore();
+      },
+      scale:s, ox, oy, boxW, boxH
+    };
+  }
+
+  function adviseDepth(EkeV, mat, chosenDepth, csdaPref){
+    const R = csdaRange_um(EkeV, mat, csdaPref);
+    const target = Math.min(200, Math.max(2, 1.3*R));
+    if (chosenDepth < 1.1*R){
+      suggestion.innerHTML = `<span class='warn'>Suggested depth ≈ ${target.toFixed(1)} µm (CSDA range ≈ ${R.toFixed(1)} µm). Current depth may truncate tracks.</span>`;
+    } else { suggestion.textContent = ''; }
+    return {R, target};
+  }
+
+  // Live UI updates
+  elasticMultEl.addEventListener('input', ()=>{ elasticVal.textContent = Number(elasticMultEl.value).toFixed(2); });
+  csdaPrefEl.addEventListener('input', ()=>{ csdaVal.textContent = Number(csdaPrefEl.value).toFixed(2); });
+
+  // Log cutoff mapping: slider s ∈ [0,1] → cutoff ∈ [1e-8, 0.95] in log10 space
+  const CUTOFF_MIN = 1e-8, CUTOFF_MAX = 0.95;
+  function cutoffFromSlider(s){
+    const logMin = Math.log10(CUTOFF_MIN), logMax = Math.log10(CUTOFF_MAX);
+    const logv = logMin*(1-s) + logMax*s;
+    return Math.pow(10, logv);
+  }
+  function updateCutoffLabel(){
+    const c = cutoffFromSlider(parseFloat(cutoffEl.value));
+    let text;
+    if (c < 0.01) {
+      const exp = Math.floor(Math.log10(c));
+      const base = (c / Math.pow(10, exp)).toFixed(1);
+      text = `Cutoff ${base}e${exp}×max`;
+    } else {
+      text = `Cutoff ${(c*100).toFixed(1)}%×max`;
+    }
+    cutoffLabel.textContent = text;
+  }
+  function updateTopclipLabel(){ topclipLabel.textContent = `Cap @ ${parseFloat(topclipEl.value).toFixed(1)}%`; }
+  function updateGammaLabel(){ gammaLabel.textContent = `γ=${parseFloat(gammaEl.value).toFixed(2)}`; }
+  function triggerRepaint(){ if(lastDose){ requestAnimationFrame(()=>renderDose(lastDose, lastW, lastH, lastMax)); } }
+  [cutoffEl, topclipEl, gammaEl].forEach(inp=>inp.addEventListener('input', ()=>{ updateCutoffLabel(); updateTopclipLabel(); updateGammaLabel(); triggerRepaint(); }));
+  [cmapSel, contoursEl, logColorsEl, hardThresholdEl].forEach(inp=>inp.addEventListener('change', triggerRepaint));
+  updateCutoffLabel(); updateTopclipLabel(); updateGammaLabel();
+
+  async function run(){
+    if(running) return; running=true;
+    bsStat.textContent='…'; rangeStat.textContent='…'; depthStat.textContent='…';
+    progress.value=0; progressText.textContent='0%'; 
+
+    const mat=materials[materialSel.value];
+    const E0=parseFloat(energyKeV.value)||30;
+    const N=Math.min(Math.max(parseInt(nparts.value)||600,10),20000);
+    const Nshown = Math.min(Math.max(parseInt(nshownEl.value)||0,0), N);
+    const ds_nm=Math.min(Math.max(parseFloat(stepnm.value)||5,0.5),100);
+    let depth_um=Math.max(parseFloat(zmax.value)||2,0.1);
+    const csdaPref = parseFloat(csdaPrefEl.value)||0.90;
+    const {R: Rcsda} = adviseDepth(E0, mat, depth_um, csdaPref);
+    const fov_um=depth_um; if(fov) fov.value=depth_um;
+    const Rgrid=Math.min(Math.max(parseInt(res.value)||192,64),512);
+    const elasticMult = parseFloat(elasticMultEl.value)||0.10;
+    const csdaOnly = csdaOnlyEl.checked;
+
+    fitCanvas(tracksCanvas); fitCanvas(doseCanvas);
+    const tctx=tracksCanvas.getContext('2d');
+    const dctx=doseCanvas.getContext('2d');
+    tctx.clearRect(0,0,tctx.canvas.width,tctx.canvas.height);
+    dctx.clearRect(0,0,doseCanvas.width,doseCanvas.height);
+
+    const proj=makeProjectorEqual(tctx, fov_um, depth_um);
+    proj.drawBox();
+
+    const W=Rgrid, H=Rgrid;
+    const dose=new Float32Array(W*H);
+    const doseIdx=(x_um,z_um)=>{
+      const ix=Math.floor((x_um+fov_um/2)/fov_um*W);
+      const iz=Math.floor(z_um/depth_um*H);
+      return (ix>=0 && ix<W && iz>=0 && iz<H) ? (iz*W+ix) : -1;
+    };
+
+    const maxSteps = Math.ceil((Math.max(Rcsda, depth_um)*1000)/ds_nm) + 4000;
+
+    let bsCount=0,sumRange=0,sumMaxDepth=0;
+
+    for(let i=0;i<N && running;i++){
+      const draw = i < Nshown;
+      if(draw){ tctx.beginPath(); tctx.lineWidth=1; tctx.strokeStyle=`hsl(${(i*47)%360} 80% 40%)`; }
+      let x=0,y=0,z=0, ux=0,uy=0,uz=1, E=E0, maxDepth=0;
+
+      let lambda_nm = csdaOnly ? 1e12 : meanFreePath_nm(E,mat,elasticMult);
+      let flight_nm = -lambda_nm*Math.log(1-Math.random());
+
+      if(draw){ const p0=proj.toPX(x,z); tctx.moveTo(p0.x,p0.y); }
+
+      for(let steps=0; steps<maxSteps; steps++){
+        const dstep_nm=Math.min(ds_nm,flight_nm);
+        const Enew=energyAfterStep(E,dstep_nm,mat,csdaPref), dE=Math.max(E-Enew,0); E=Enew;
+        const ds_um=dstep_nm*1e-3; x+=ux*ds_um; y+=uy*ds_um; z+=uz*ds_um; flight_nm-=dstep_nm;
+
+        if(z<0){ bsCount++; break; }
+        if(E<0.05){ break; }
+
+        const di=doseIdx(x,z); if(di>=0) dose[di]+=dE;
+        if(draw){
+          if(!(z>depth_um || x<-fov_um/2 || x>fov_um/2)){
+            const p=proj.toPX(x,z); tctx.lineTo(p.x,p.y);
+          }
+        }
+        if(z>maxDepth) maxDepth=z;
+
+        if(!csdaOnly && flight_nm<=1e-6){
+          const th0=theta0_screen(E,mat);
+          const th=sampleRutherfordTheta(th0, E);
+          const ph=Math.random()*2*Math.PI;
+          let vx,vy,vz;
+          if(Math.abs(uz)<0.999){const inv=1/Math.hypot(ux,uy); vx=-uy*inv; vy=ux*inv; vz=0;} else {vx=1;vy=0;vz=0;}
+          const wx=uy*vz-uz*vy, wy=uz*vx-ux*vz, wz=ux*vy-uy*vx;
+          const c=Math.cos(th), s=Math.sin(th), cph=Math.cos(ph), sph=Math.sin(ph);
+          const vxp=vx*cph+wx*sph, vyp=vy*cph+wy*sph, vzp=vz*cph+wz*sph;
+          ux=ux*c+vxp*s; uy=uy*c+vyp*s; uz=uz*c+vzp*s;
+          const invu=1/Math.hypot(ux,uy,uz); ux*=invu; uy*=invu; uz*=invu;
+
+          lambda_nm=meanFreePath_nm(E,mat,elasticMult);
+          flight_nm=-lambda_nm*Math.log(1-Math.random());
+        }
+      }
+      if(draw){ tctx.stroke(); }
+      sumRange+=Math.hypot(x,y,z); sumMaxDepth+=maxDepth;
+
+      if(i%20===0 || i===N-1){
+        const p=(i+1)/Math.max(N,1);
+        progress.value=p;
+        progressText.textContent = Math.round(p*100) + '%';
+        await new Promise(r=>setTimeout(r,0));
+      }
+    }
+
+    // Store dose for live re-rendering
+    let maxDose=0; for(let i=0;i<dose.length;i++) if(dose[i]>maxDose) maxDose=dose[i];
+    lastDose=dose; lastW=W; lastH=H; lastMax=maxDose;
+
+    renderDose(lastDose, lastW, lastH, lastMax);
+    bsStat.textContent = `${bsCount} (${(100*bsCount/Math.max(N,1)).toFixed(1)}%)`;
+    rangeStat.textContent = (sumRange/Math.max(N,1)).toFixed(3);
+    depthStat.textContent = (sumMaxDepth/Math.max(N,1)).toFixed(3);
+    progress.value=1; progressText.textContent='100%';
+    running=false;
+  }
+
+  function percentileCap(arr, capPercent){
+    if(!arr || arr.length===0) return 0;
+    const p = Math.max(0, Math.min(100, capPercent));
+    const k = Math.floor((p/100)*arr.length);
+    const tmp = Array.from(arr);
+    tmp.sort((a,b)=>a-b);
+    return tmp[k];
+  }
+
+  function renderDose(dose, W, H, maxDose){
+    const dctx=doseCanvas.getContext('2d');
+    const off=document.createElement('canvas'); off.width=W; off.height=H;
+    const octx=off.getContext('2d'); const img=octx.createImageData(W,H);
+    const s=parseFloat(cutoffEl.value)||0;
+    const cutoffFrac = cutoffFromSlider(s);
+    const minV = Math.min(maxDose, maxDose*cutoffFrac);
+
+    // Effective max using percentile cap
+    const capP = parseFloat(topclipEl.value)||99.5;
+    const maxEff = Math.max(minV + 1e-12, percentileCap(dose, capP));
+
+    // select colormap
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+    function cmapViridis(t){ const r = 0.280268003 + 0.230519647*t + 0.004381614*t*t - 1.58601546*t*t*t + 1.46518795*t*t*t*t - 0.421977345*t*t*t*t*t;
+      const g = 0.1653689 + 2.199176*t - 4.434385*t*t + 3.35439*t*t*t - 1.06243*t*t*t*t;
+      const b = 0.476902 + 1.0033*t - 2.5635*t*t + 2.236*t*t*t - 0.649*t*t*t*t;
+      return [clamp01(r)*255|0, clamp01(g)*255|0, clamp01(b)*255|0];}
+    function cmapInferno(t){ const r = Math.min(1, Math.max(0, Math.pow(t,0.5)*1.2));
+      const g = Math.min(1, Math.max(0, Math.pow(t,1.2)));
+      const b = Math.min(1, Math.max(0, Math.pow(t,3.0)*0.8));
+      return [(r*255)|0,(g*80)|0,(b*20)|0]; }
+    function cmapTurbo(t){ const a = [0.135,0.132,0.104,0.113,0.133];
+      function T(){ return Math.max(0, Math.min(1, a[0]+a[1]*Math.cos(2*Math.PI*(t+a[2]))+a[3]*Math.cos(4*Math.PI*(t+a[4])))); }
+      const r=T(), g=T(), bl=T(); return [(r*255)|0,(g*255)|0,(bl*255)|0]; }
+    function cmapGray(t){ const v=(t*255)|0; return [v,v,v]; }
+    const cm = {viridis:cmapViridis, inferno:cmapInferno, turbo:cmapTurbo, gray:cmapGray}[cmapSel.value] || cmapViridis;
+
+    const useLog = !!logColorsEl.checked;
+    const gamma = Math.max(0.2, Math.min(3, parseFloat(gammaEl.value)||1));
+    const hard = !!hardThresholdEl.checked;
+    const eps = 1e-12;
+
+    const logMin = Math.log(minV + eps), logMax = Math.log(maxEff + eps);
+    const denomLin = Math.max(1e-12, maxEff - minV);
+    const denomLog = Math.max(1e-12, logMax - logMin);
+
+    for(let j=0;j<H;j++){
+      for(let i=0;i<W;i++){
+        const v=dose[j*W+i];
+        const idx=(j*W+i)*4;
+
+        if(v<=minV){
+          if(hard){
+            img.data[idx  ]=0; img.data[idx+1]=0; img.data[idx+2]=0; img.data[idx+3]=0;
+            continue;
+          } else {
+            const [r0,g0,b0]=cm(0);
+            img.data[idx  ]=r0; img.data[idx+1]=g0; img.data[idx+2]=b0; img.data[idx+3]=255;
+            continue;
+          }
+        }
+
+        let t;
+        if(useLog){ t = (Math.log(v + eps) - logMin)/denomLog; }
+        else{ t = (v - minV)/denomLin; }
+        t = Math.max(0, Math.min(1, t));
+        const tg = Math.pow(t, 1/ gamma);
+
+        const [r,g,b]=cm(tg);
+        img.data[idx  ]=r;
+        img.data[idx+1]=g;
+        img.data[idx+2]=b;
+        img.data[idx+3]=255;
+      }
+    }
+
+    octx.putImageData(img,0,0);
+    const ctx=doseCanvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.clearRect(0,0,doseCanvas.width,doseCanvas.height);
+    ctx.drawImage(off, 0, 0, doseCanvas.width, doseCanvas.height);
+    if(contoursEl.checked){
+      drawContours(ctx, dose, W, H, maxEff, minV);
+    }
+    updateCutoffLabel();
+  }
+
+  function drawContours(ctx, grid, W, H, maxV, minV){
+    const levels=[];
+    const n=7;
+    for(let k=1;k<=n;k++){
+      const f = minV + (maxV-minV) * Math.pow(k/n, 1.2);
+      levels.push(f);
+    }
+    ctx.save();
+    ctx.strokeStyle='rgba(255,255,255,0.9)';
+    ctx.lineWidth=1;
+    ctx.translate(0.5,0.5);
+    for(const L of levels){
+      for(let j=0;j<H-1;j++){
+        for(let i=0;i<W-1;i++){
+          const v0=grid[j*W+i]>=L?1:0;
+          const v1=grid[j*W+i+1]>=L?1:0;
+          const v2=grid[(j+1)*W+i+1]>=L?1:0;
+          const v3=grid[(j+1)*W+i]>=L?1:0;
+          const code=(v0<<3)|(v1<<2)|(v2<<1)|v3;
+          if(code===0||code===15) continue;
+          const fx=(a,b)=> (L-a)/(b-a);
+          const x0=i, x1=i+1, y0=j, y1=j+1;
+          const a=grid[j*W+i], b=grid[j*W+i+1], c=grid[(j+1)*W+i+1], d=grid[(j+1)*W+i];
+          const pts=[];
+          const addTop = ()=>pts.push([x0+fx(a,b), y0]);
+          const addRight=()=>pts.push([x1, y0+fx(b,c)]);
+          const addBottom=()=>pts.push([x0+fx(d,c), y1]);
+          const addLeft =()=>pts.push([x0, y0+fx(a,d)]);
+          switch(code){
+            case 1: case 14: addBottom(); addLeft(); break;
+            case 2: case 13: addRight(); addBottom(); break;
+            case 3: case 12: addRight(); addLeft(); break;
+            case 4: case 11: addTop(); addRight(); break;
+            case 5: addTop(); addLeft(); addRight(); addBottom(); break;
+            case 6: case 9: addTop(); addBottom(); break;
+            case 7: case 8: addTop(); addLeft(); break;
+            case 10: addTop(); addRight(); addBottom(); addLeft(); break;
+          }
+          for(let p=0;p<pts.length; p+=2){
+            const [xA,yA]=pts[p], [xB,yB]=pts[p+1];
+            ctx.beginPath();
+            ctx.moveTo(xA/W*doseCanvas.width, yA/H*doseCanvas.height);
+            ctx.lineTo(xB/W*doseCanvas.width, yB/H*doseCanvas.height);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  runBtn.addEventListener('click', run);
+  stopBtn.addEventListener('click', ()=>{running=false});
+  exportBtn.addEventListener('click', ()=>{
+    fitCanvas(tracksCanvas); fitCanvas(doseCanvas);
+    const w=tracksCanvas.width + doseCanvas.width, h=Math.max(tracksCanvas.height, doseCanvas.height);
+    const off=document.createElement('canvas'); off.width=w; off.height=h;
+    const c=off.getContext('2d'); c.fillStyle='#fff'; c.fillRect(0,0,w,h);
+    c.drawImage(tracksCanvas,0,0);
+    c.drawImage(doseCanvas,tracksCanvas.width,0);
+    const a=document.createElement('a'); a.download='toy_mc_ebl_sq_side_by_side_v7.png'; a.href=off.toDataURL('image/png'); a.click();
+  });
+})();
+</script>
+</body>
+</html>

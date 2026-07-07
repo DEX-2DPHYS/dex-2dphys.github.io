@@ -1,0 +1,9 @@
+{
+  "slug": "landau",
+  "name": "Landau QHE Explorer",
+  "description": "Explore Landau levels and the quantum Hall effect — how a magnetic field quantises the energies of 2D electrons into Landau levels and shapes the Hall and longitudinal conductance.",
+  "status": "live",
+  "url": "tools/landau/index.html",
+  "icon": "chart",
+  "tags": ["simulations", "visualisations", "educational"]
+}

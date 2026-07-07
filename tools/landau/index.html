@@ -1,0 +1,535 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landau QHE Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --border: #d0dae8; --text: #1a2233; --text2: #47566b;
+    --accent: #2563eb; --green: #059669;
+    --font: Arial, Helvetica, "Segoe UI", sans-serif;
+    --mono: "Consolas", "Menlo", monospace;
+  }
+  html, body { width:100%; height:100%; overflow:hidden; background:#fff; font-family:var(--font); font-size:13px; color:var(--text); }
+  .grid { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; width:100vw; height:100vh; }
+  .gpanel { position:relative; background:#fff; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #qheFanCanvas, #landauCanvas, #qheCanvas { cursor:crosshair; }
+  body.panel-open .rpanel { transform:translateX(0); opacity:1; pointer-events:auto; }
+  .rpanel {
+    position:fixed; top:0; right:0; bottom:0; width:min(356px,86vw);
+    background:rgba(255,255,255,0.98); transform:translateX(100%); opacity:0;
+    pointer-events:none; transition:transform 0.2s ease,opacity 0.2s ease;
+    z-index:100; overflow-y:auto; padding:12px 12px 20px; scrollbar-width:thin;
+    border-left:1px solid var(--border); box-shadow:-4px 0 18px rgba(0,0,0,0.07);
+  }
+  .pcard { border:1px solid var(--border); border-radius:9px; padding:10px; background:#fff; margin-bottom:9px; }
+  .pcard h2 { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#64748b; margin-bottom:7px; padding-bottom:5px; border-bottom:1px solid #eef0f4; }
+  .ctrl { margin:5px 0; }
+  .ctrl-label { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text2); margin-bottom:2px; gap:4px; }
+  .ltext { display:flex; align-items:center; gap:4px; flex:1; min-width:0; }
+  .val { font-weight:700; color:var(--green); font-variant-numeric:tabular-nums; font-family:var(--mono); font-size:11px; min-width:72px; text-align:right; flex-shrink:0; }
+  input[type="range"] { width:100%; accent-color:var(--accent); }
+  select { width:100%; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--text); padding:4px 6px; font-size:11px; font-family:var(--font); margin-top:2px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  button { border:none; background:var(--accent); color:#fff; border-radius:7px; padding:7px 10px; font-size:11px; font-weight:700; font-family:var(--font); cursor:pointer; transition:filter 0.15s; width:100%; }
+  button:hover { filter:brightness(1.15); }
+  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  .met { background:#f8fafc; border-radius:6px; padding:4px 6px; }
+  .met .k { font-size:10px; color:var(--text2); }
+  .met .v { font-size:11px; font-weight:700; color:var(--text); word-break:break-all; font-variant-numeric:tabular-nums; }
+  .tipwrap { position:relative; display:inline-flex; align-items:center; }
+  .tipicon { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; background:#dbeafe; color:#1d4ed8; font-size:9px; font-weight:900; cursor:help; flex-shrink:0; user-select:none; line-height:1; }
+  .tipbox { display:none; position:absolute; right:calc(100% + 9px); top:50%; transform:translateY(-50%); width:248px; background:#fff; border:1px solid var(--border); border-radius:9px; padding:9px 11px; font-size:11px; line-height:1.52; color:var(--text); z-index:300; box-shadow:0 6px 24px rgba(0,0,0,0.14); pointer-events:none; white-space:normal; }
+  .tipbox b { color:var(--accent); display:block; margin-bottom:3px; }
+  .tipbox code { font-family:var(--mono); font-size:10px; background:#f1f5f9; border-radius:3px; padding:1px 4px; display:block; margin:2px 0; }
+  .tipwrap:hover .tipbox { display:block; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="gpanel"><canvas id="trajectoryCanvas"></canvas></div>
+  <div class="gpanel"><canvas id="landauCanvas"></canvas></div>
+  <div class="gpanel"><canvas id="qheCanvas"></canvas></div>
+  <div class="gpanel"><canvas id="qheFanCanvas"></canvas></div>
+</div>
+<aside id="rpanel" class="rpanel">
+  <div class="pcard">
+    <h2>Animation</h2>
+    <div class="row2"><button id="playBtn">Sweep B</button><button id="resetBtn">Reset</button></div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Sweep speed (T/s)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Sweep speed</b>Rate at which B sweeps during animation. Does not affect the physics.</span></span>
+        </span><span class="val" id="sweepRateVal"></span></div>
+      <input id="sweepRate" type="range" min="0.05" max="1.8" step="0.01" value="0.45">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Orbit spin speed
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Orbit spin speed</b>Visual speed of the electron dot circling the cyclotron orbit.<code>&#969;&#8336; = eB / m*</code>Set to 0 to freeze the dot.</span></span>
+        </span><span class="val" id="spinSpeedVal"></span></div>
+      <input id="spinSpeed" type="range" min="0" max="1" step="0.01" value="0.5">
+    </div>
+  </div>
+  <div class="pcard">
+    <h2>Physical Inputs</h2>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">B field (T)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Magnetic field B</b>Quantises Dirac electrons into Landau levels:<code>E_n = sgn(n)v_F &#8730;(2e&#8463;B|n|)</code>Higher B &#8594; larger spacing. Drag on the fan map (bottom-right) to set B and n together.</span></span>
+        </span><span class="val" id="bFieldVal"></span></div>
+      <input id="bField" type="range" min="0.08" max="12" step="0.01" value="1.7">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Temperature T (K)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Temperature</b>Thermal Dingle factor:<code>R_T = x / sinh(x)</code><code>x = 2&#960;&#178;k_BT / (&#8463;&#969;_c)</code>Higher T suppresses SdH oscillations.</span></span>
+        </span><span class="val" id="tempVal"></span></div>
+      <input id="tempK" type="range" min="1" max="90" step="0.1" value="14">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">L&#x3c6;(1 K) (&#956;m)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Phase coherence length at 1 K</b>SdH appear when L&#x3c6; &#8805; C (orbit circumference). Model A:<code>L&#x3c6;(T) = L&#x3c6;(1K) / &#8730;T</code>Longer L&#x3c6; &#8594; sharper oscillations at lower B.</span></span>
+        </span><span class="val" id="lphi1kVal"></span></div>
+      <input id="lphi1k" type="range" min="0.2" max="10" step="0.05" value="2.2">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">E_F (meV)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Fermi energy</b>Sets carrier density:<code>n = k_F&#178; / &#960;,  E_F = &#8463;k_F v_F</code>&#961;_xx peaks when E_F sits at the center of a broadened Landau level.</span></span>
+        </span><span class="val" id="fermiVal"></span></div>
+      <input id="fermi" type="range" min="-400" max="400" step="0.2" value="70">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">v_F (10&#8310; m/s)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Fermi velocity</b>Graphene linear (massless Dirac) dispersion:<code>E = &#8463;k v_F,  v_F &#8776; 1.0&#xd7;10&#8310; m/s</code>Affects Landau spacing E_n &#8733; v_F&#8730;(Bn). Substrate or strain can shift v_F by &#177;20%.</span></span>
+        </span><span class="val" id="vFermiVal"></span></div>
+      <input id="vFermi" type="range" min="0.7" max="1.3" step="0.01" value="1.0">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Path history pts
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Trail length</b>Number of stored points for the electron trajectory trail. Purely visual.</span></span>
+        </span><span class="val" id="trailVal"></span></div>
+      <input id="trail" type="range" min="70" max="900" step="1" value="360">
+    </div>
+  </div>
+  <div class="pcard">
+    <h2>QHE Transport</h2>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Fan quantity
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Fan heat-map quantity</b>&#961;_xx (log, longitudinal, including the n=0 neutrality ridge), &#963;_xx (log, conductance), or &#963;_xy (Hall conductance showing &#177;4e&#178;/h plateau steps for graphene).</span></span>
+      </span></div>
+      <select id="fanQuantity">
+        <option value="rhoxx" selected>&#961;_xx  log&#8321;&#8320;(&#937;/&#9633;)</option>
+        <option value="sigxx">&#963;_xx  log&#8321;&#8320;(S/&#9633;)</option>
+        <option value="sigxy">&#963;_xy  (e&#178;/h)</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Dephasing model
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Dephasing model</b>Model A: L&#x3c6; drives orbit coherence; &#964;_q sets Dingle factor. Model B: fully T-dependent coupled &#964;_q(T) and &#964;_&#x3c6;(T) rates for detailed WL/SdH fitting.</span></span>
+      </span></div>
+      <select id="dephaseModel">
+        <option value="modelA" selected>A — L&#x3c6; visual + &#964;_q transport</option>
+        <option value="modelB">B — Coupled T-dep &#964;_q, &#964;_&#x3c6;</option>
+      </select>
+    </div>
+    <div id="modelBRates" style="display:none;">
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="ltext">A_q (1/ps&#183;K)
+          <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Quantum scattering rate A_q</b>Model B:<code>1/&#964;_q(T) = 1/&#964;_q0 + A_q(T&#8722;1)</code>Controls how fast oscillations wash out with T above 1 K.</span></span>
+          </span><span class="val" id="aqRateVal"></span></div>
+        <input id="aqRate" type="range" min="0" max="0.25" step="0.001" value="0.018">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="ltext">A_&#x3c6; (1/ps&#183;K)
+          <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Linear-T dephasing A_&#x3c6;</b>Model B:<code>1/&#964;_&#x3c6;(T) = 1/&#964;_&#x3c6;0 + A_&#x3c6;(T&#8722;1) + B_&#x3c6;(T&#178;&#8722;1)</code>Electron&#8211;electron Nyquist dephasing in 2D gives linear-T contribution.</span></span>
+          </span><span class="val" id="aphiRateVal"></span></div>
+        <input id="aphiRate" type="range" min="0" max="0.60" step="0.002" value="0.08">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="ltext">B_&#x3c6; (1/ps&#183;K&#178;)
+          <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Quadratic-T dephasing B_&#x3c6;</b>Model B quadratic term. Relevant for electron&#8211;phonon dominated dephasing at higher T in clean graphene.</span></span>
+          </span><span class="val" id="bphiRateVal"></span></div>
+        <input id="bphiRate" type="range" min="0" max="0.02" step="0.0001" value="0.0012">
+      </div>
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">Mobility &#956; (m&#178;/Vs)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Mobility &#956;</b>Sets transport lifetime:<code>&#964;_tr = &#956;|E_F| / (ev_F&#178;)</code>LLs resolved when &#969;_c&#964;_tr &gt; 1. Higher &#956; &#8594; sharper QHE plateaux.</span></span>
+        </span><span class="val" id="muVal"></span></div>
+      <input id="mu" type="range" min="0.3" max="20" step="0.1" value="4.0">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">&#964;_q (fs)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Quantum scattering lifetime &#964;_q</b>Dingle factor:<code>R_D = exp(&#8722;&#960; / (&#969;_c &#964;_q))</code>Typically &#964;_q &lt; &#964;_tr. Sets the B threshold above which SdH become visible.</span></span>
+        </span><span class="val" id="tauQfsVal"></span></div>
+      <input id="tauQfs" type="range" min="15" max="500" step="1" value="120">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">&#945; (meV/&#8730;T)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>B-dependent broadening &#945;</b>Landau level linewidth:<code>&#915; = &#945;&#8730;B</code>Disorder-induced broadening that grows with B in the quantum limit.</span></span>
+        </span><span class="val" id="alphaBVal"></span></div>
+      <input id="alphaB" type="range" min="0" max="4" step="0.05" value="1.2">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">&#963;_xx peak (e&#178;/h)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>&#963;_xx peak amplitude</b>Peak conductance per LL in units of e&#178;/h. Each LL in graphene carries 4e&#178;/h (spin &#215; valley). Reduce for disorder-broadened samples.</span></span>
+        </span><span class="val" id="peakE2hVal"></span></div>
+      <input id="peakE2h" type="range" min="0.2" max="2" step="0.05" value="0.85">
+    </div>
+    <div class="ctrl">
+      <div class="ctrl-label"><span class="ltext">n* (10&#185;&#176; cm&#8315;&#178;)
+        <span class="tipwrap"><span class="tipicon">?</span><span class="tipbox"><b>Charge puddle density n*</b>Minimum effective carrier density from disorder. Below n* the system is inhomogeneous near the Dirac point and &#961;_xy saturates. Typical on SiO&#8322;: n* ~ 5&#8211;10 &#215;10&#185;&#176; cm&#8315;&#178;.</span></span>
+        </span><span class="val" id="nStarVal"></span></div>
+      <input id="nStar" type="range" min="0" max="20" step="0.2" value="5.0">
+    </div>
+  </div>
+  <div class="pcard">
+    <h2>Live Metrics</h2>
+    <div class="metrics">
+      <div class="met"><div class="k">&#969;_c (rad/s)</div><div id="mOmega" class="v">-</div></div>
+      <div class="met"><div class="k">r_c (nm)</div><div id="mRadius" class="v">-</div></div>
+      <div class="met"><div class="k">&#955;_F (nm)</div><div id="mLambda" class="v">-</div></div>
+      <div class="met"><div class="k">C (nm)</div><div id="mCirc" class="v">-</div></div>
+      <div class="met"><div class="k">L&#x3c6; (nm)</div><div id="mLphi" class="v">-</div></div>
+      <div class="met"><div class="k">L&#x3c6;/C</div><div id="mCoherence" class="v">-</div></div>
+      <div class="met"><div class="k">n (10&#185;&#178; cm&#8315;&#178;)</div><div id="mDensity" class="v">-</div></div>
+      <div class="met"><div class="k">C/&#955;_F</div><div id="mHalf" class="v">-</div></div>
+      <div class="met"><div class="k">Onsager n_F</div><div id="mWaves" class="v">-</div></div>
+      <div class="met"><div class="k">&#916;E (meV)</div><div id="mDeltaE" class="v">-</div></div>
+      <div class="met"><div class="k">n_F (Landau)</div><div id="mLandau" class="v">-</div></div>
+      <div class="met"><div class="k">SdH amplitude</div><div id="mSdh" class="v">-</div></div>
+      <div class="met"><div class="k">&#961;_xx (&#937;/&#9633;)</div><div id="mRhoxxNow" class="v">-</div></div>
+      <div class="met"><div class="k">|&#961;_xy| (&#937;/&#9633;)</div><div id="mRhoxyNow" class="v">-</div></div>
+    </div>
+  </div>
+</aside>
+<script>
+/* Landau QHE Explorer — inlined JS (from landau2.js), presentation-mode refactor */
+var E_CHARGE=1.602176634e-19,HBAR=1.054571817e-34,H_PLANCK=6.62607015e-34,K_B=1.380649e-23;
+var TWO_PI=2*Math.PI, E2_OVER_H=(E_CHARGE*E_CHARGE)/H_PLANCK;
+var OMEGA_VIS_SCALE=2.5e-13, PX_PER_M=2.5e9, QHE_SAMPLES=260;
+var FAN_L=82,FAN_R=22,FAN_T=36,FAN_B=54;
+var LAN_L=72,LAN_R=20,LAN_T=36,LAN_B=52;
+var QHE_L=82,QHE_R=92,QHE_T=36,QHE_B=54;
+var FAN_N_FIXED=6e16;
+var ui={
+  playBtn:document.getElementById("playBtn"),resetBtn:document.getElementById("resetBtn"),
+  sweepRate:document.getElementById("sweepRate"),sweepRateVal:document.getElementById("sweepRateVal"),
+  spinSpeed:document.getElementById("spinSpeed"),spinSpeedVal:document.getElementById("spinSpeedVal"),
+  bField:document.getElementById("bField"),bFieldVal:document.getElementById("bFieldVal"),
+  tempK:document.getElementById("tempK"),tempVal:document.getElementById("tempVal"),
+  lphi1k:document.getElementById("lphi1k"),lphi1kVal:document.getElementById("lphi1kVal"),
+  fermi:document.getElementById("fermi"),fermiVal:document.getElementById("fermiVal"),
+  vFermi:document.getElementById("vFermi"),vFermiVal:document.getElementById("vFermiVal"),
+  trail:document.getElementById("trail"),trailVal:document.getElementById("trailVal"),
+  fanQuantity:document.getElementById("fanQuantity"),dephaseModel:document.getElementById("dephaseModel"),
+  modelBRates:document.getElementById("modelBRates"),
+  mu:document.getElementById("mu"),muVal:document.getElementById("muVal"),
+  tauQfs:document.getElementById("tauQfs"),tauQfsVal:document.getElementById("tauQfsVal"),
+  alphaB:document.getElementById("alphaB"),alphaBVal:document.getElementById("alphaBVal"),
+  peakE2h:document.getElementById("peakE2h"),peakE2hVal:document.getElementById("peakE2hVal"),
+  nStar:document.getElementById("nStar"),nStarVal:document.getElementById("nStarVal"),
+  aqRate:document.getElementById("aqRate"),aqRateVal:document.getElementById("aqRateVal"),
+  aphiRate:document.getElementById("aphiRate"),aphiRateVal:document.getElementById("aphiRateVal"),
+  bphiRate:document.getElementById("bphiRate"),bphiRateVal:document.getElementById("bphiRateVal"),
+  mOmega:document.getElementById("mOmega"),mRadius:document.getElementById("mRadius"),
+  mLambda:document.getElementById("mLambda"),mCirc:document.getElementById("mCirc"),
+  mLphi:document.getElementById("mLphi"),mCoherence:document.getElementById("mCoherence"),
+  mDensity:document.getElementById("mDensity"),mHalf:document.getElementById("mHalf"),
+  mWaves:document.getElementById("mWaves"),mDeltaE:document.getElementById("mDeltaE"),
+  mLandau:document.getElementById("mLandau"),mSdh:document.getElementById("mSdh"),
+  mRhoxxNow:document.getElementById("mRhoxxNow"),mRhoxyNow:document.getElementById("mRhoxyNow"),
+  trajCanvas:document.getElementById("trajectoryCanvas"),landauCanvas:document.getElementById("landauCanvas"),
+  qheCanvas:document.getElementById("qheCanvas"),fanCanvas:document.getElementById("qheFanCanvas")
+};
+var state={
+  autoplay:false,sweepDir:1,lastTs:0,elapsed:0,fanDragging:false,
+  trajSize:{w:1,h:1},landauSize:{w:1,h:1},qheSize:{w:1,h:1},fanSize:{w:1,h:1},
+  fanPalette:"orange",paletteDot:{x:0,y:0,r:0},rhoRange:{min:null,max:null,next:"min"},
+  fanCache:{key:"",canvas:null,nMinM2:-1,nMaxM2:1,bMin:0,bMax:1,vMin:0,vMax:1,qty:"rhoxx"},
+  traj:{theta:-0.45,pathM:0,trail:[]}
+};
+function clamp(v,lo,hi){return Math.min(hi,Math.max(lo,v));}
+function thermalFactor(x){if(x<1e-5)return 1;if(x>45)return 2*x*Math.exp(-x);return x/Math.sinh(x);}
+function fmtExp(v,d){if(typeof d==="undefined")d=2;if(!isFinite(v))return"-";return v.toExponential(d);}
+function erfApprox(x){var s=(x<0)?-1:1,ax=Math.abs(x),t=1/(1+0.3275911*ax);var y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-ax*ax);return s*y;}
+function normCdf(x){return 0.5*(1+erfApprox(x/Math.SQRT2));}
+function niceTicks(lo,hi,count){if(typeof count==="undefined")count=5;var span=hi-lo;if(!(span>0))return[lo,hi];var raw=span/Math.max(1,count-1),mag=Math.pow(10,Math.floor(Math.log10(raw))),norm=raw/mag,step=mag;if(norm>=7.5)step=10*mag;else if(norm>=3.5)step=5*mag;else if(norm>=1.5)step=2*mag;var ticks=[],first=Math.ceil(lo/step)*step;for(var v=first;v<=hi+1e-12;v+=step)ticks.push(+v.toFixed(10));return ticks.length?ticks:[lo,hi];}
+function heatColour(val,lo,hi,palette){var t=clamp((val-lo)/Math.max(hi-lo,1e-20),0,1);var stops=(palette==="blue")?[[0.00,30,64,175],[0.22,82,143,218],[0.50,255,255,255],[0.78,244,130,116],[1.00,185,28,37]]:[[0.00,0,23,45],[0.12,17,75,139],[0.24,42,130,181],[0.36,107,181,202],[0.48,185,224,234],[0.60,255,247,214],[0.72,255,210,122],[0.84,255,154,74],[0.92,231,91,58],[1.00,183,34,43]];var i=0;while(i<stops.length-1&&t>stops[i+1][0])i++;var s0=stops[i],s1=stops[Math.min(i+1,stops.length-1)],f=(t-s0[0])/Math.max(1e-9,s1[0]-s0[0]);return[Math.round(s0[1]+f*(s1[1]-s0[1])),Math.round(s0[2]+f*(s1[2]-s0[2])),Math.round(s0[3]+f*(s1[3]-s0[3]))];}
+function setupCanvas(canvas,assignSize){var ctx=canvas.getContext("2d");var resize=function(){var r=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));ctx.setTransform(dpr,0,0,dpr,0,0);assignSize(r.width,r.height);};resize();return{ctx:ctx,resize:resize};}
+function readControls(){return{sweepRate:+ui.sweepRate.value,spinSpeed:+ui.spinSpeed.value,bField:+ui.bField.value,tempK:+ui.tempK.value,lphi1kUm:+ui.lphi1k.value,fermiMeV:+ui.fermi.value,vFermiM:+ui.vFermi.value*1e6,trailPts:+ui.trail.value,dephaseModel:ui.dephaseModel.value,mu:+ui.mu.value,tauQfs:+ui.tauQfs.value,alphaBMeV:+ui.alphaB.value,peakE2h:+ui.peakE2h.value,nStar10cm2:+ui.nStar.value,aqRate:+ui.aqRate.value,aphiRate:+ui.aphiRate.value,bphiRate:+ui.bphiRate.value};}
+function bRange(){return{min:+ui.bField.min,max:+ui.bField.max};}
+function landauEJ(n,vF,B){return n<=0?0:vF*Math.sqrt(2*E_CHARGE*HBAR*B*n);}
+function landauEmeV(n,vF,B){return(landauEJ(n,vF,B)/E_CHARGE)*1e3;}
+function computeTau(ctrl,vF){var T=Math.max(ctrl.tempK,1),tauQ1=Math.max(1e-15,ctrl.tauQfs*1e-15),lPhi1=Math.max(1e-12,ctrl.lphi1kUm*1e-6),tauQB=tauQ1,tauPhi;if(ctrl.dephaseModel==="modelB"){var aqSI=Math.max(0,ctrl.aqRate)*1e12,aphiSI=Math.max(0,ctrl.aphiRate)*1e12,bphiSI=Math.max(0,ctrl.bphiRate)*1e12;tauQB=1/(1/tauQ1+aqSI*Math.max(0,T-1));var tP1=lPhi1/Math.max(vF,1e3);tauPhi=1/(1/tP1+aphiSI*Math.max(0,T-1)+bphiSI*Math.max(0,T*T-1));}else{tauPhi=(lPhi1/Math.max(vF,1e3))/Math.sqrt(T);}tauQB=Math.max(1e-15,tauQB);tauPhi=Math.max(1e-15,tauPhi);return{tauQBase:tauQB,tauPhi:tauPhi,lPhi:tauPhi*vF};}
+function physicsAtB(ctrl,B){var efJ=ctrl.fermiMeV*1e-3*E_CHARGE,vF=ctrl.vFermiM,efAbs=Math.max(Math.abs(efJ),1e-30),bAbs=Math.max(Math.abs(B),1e-12),kF=efAbs/(HBAR*vF),pF=HBAR*kF,nM2=(kF*kF)/Math.PI,lamF=TWO_PI/kF,rc=pF/(E_CHARGE*bAbs),circ=TWO_PI*rc,mCyc=efAbs/(vF*vF),wc=(E_CHARGE*bAbs)/mCyc;var tm=computeTau(ctrl,vF),tauTr=Math.max(1e-15,(Math.max(ctrl.mu,0.02)*efAbs)/(E_CHARGE*vF*vF)),tauQE=Math.min(tm.tauQBase,tauTr),lPhi=tm.lPhi,coh=lPhi/circ;var freqT=(HBAR*kF*kF)/(2*E_CHARGE),nF=freqT/bAbs,wavesOrbit=circ/lamF;var xTh=(2*Math.PI*Math.PI*K_B*ctrl.tempK)/(HBAR*wc),rTh=thermalFactor(xTh),rD=Math.exp(-Math.PI/Math.max(wc*tauQE,1e-9)),sdhA=clamp(rTh*rD,0,1);var nBel=Math.max(0,Math.floor(nF)),dEmeV=landauEmeV(nBel+1,vF,bAbs)-landauEmeV(nBel,vF,bAbs);return{efJ:efJ,vF:vF,kF:kF,pF:pF,nM2:nM2,lamF:lamF,rc:rc,circ:circ,mCyc:mCyc,wc:wc,tauQBase:tm.tauQBase,tauQE:tauQE,tauTr:tauTr,tauPhi:tm.tauPhi,lPhi:lPhi,coh:coh,freqT:freqT,nF:nF,wavesOrbit:wavesOrbit,rTh:rTh,rD:rD,sdhA:sdhA,nBel:nBel,dEmeV:dEmeV};}
+function makeQHEParams(ctrl){var tm=computeTau(ctrl,ctrl.vFermiM);return{vF:ctrl.vFermiM,mu:Math.max(ctrl.mu,0.02),tauQB:tm.tauQBase,alphaJ:ctrl.alphaBMeV*1e-3*E_CHARGE,peakAmp:Math.max(0.1,ctrl.peakE2h)*E2_OVER_H,sigMin:5e-7,nStarM2:Math.max(0,ctrl.nStar10cm2)*1e14,T:ctrl.tempK,gamma0:0.35e-3*E_CHARGE};}
+function qheFromDensity(nSigned,B,qp){var bA=Math.max(Math.abs(B),1e-9),sB=(B>=0?1:-1),nRaw=Math.abs(nSigned),nE=Math.max(nRaw,qp.nStarM2,1e8),sN=(nSigned>=0?1:-1),ef=nRaw>0?sN*HBAR*qp.vF*Math.sqrt(Math.PI*nRaw):0,eA=HBAR*qp.vF*Math.sqrt(Math.PI*nE);var tM=Math.max(1e-15,(qp.mu*eA)/(E_CHARGE*qp.vF*qp.vF)),tQE=Math.min(qp.tauQB,tM),gM=HBAR/(2*tM),gQ=HBAR/(2*tQE),gT=1.5*K_B*qp.T,gB=qp.alphaJ*Math.sqrt(bA),g=Math.sqrt(gM*gM+gQ*gQ+gT*gT+gB*gB+qp.gamma0*qp.gamma0);var eCut=eA+8*g,nMx=Math.min(140,Math.max(1,Math.ceil((eCut*eCut)/(2*E_CHARGE*HBAR*bA*qp.vF*qp.vF))));var sxx=qp.sigMin+0.25*qp.peakAmp*Math.exp(-(ef*ef)/(2*g*g)),stair=0.5*Math.tanh(ef/(Math.SQRT2*g));for(var n=1;n<=nMx;n++){var eN=landauEJ(n,qp.vF,bA),d1=ef-eN,d2=ef+eN;sxx+=qp.peakAmp*Math.exp(-(d1*d1)/(2*g*g));sxx+=qp.peakAmp*Math.exp(-(d2*d2)/(2*g*g));stair+=normCdf(d1/g)-normCdf(-d2/g);}var sxy=4*E2_OVER_H*sB*stair,den=sxx*sxx+sxy*sxy+1e-30,rhoxx=sxx/den,llDegM2=4*E_CHARGE*bA/H_PLANCK,n0Width=Math.sqrt(Math.pow(2e13,2)+Math.pow(0.12*llDegM2,2)),n0Ridge=Math.exp(-(nSigned*nSigned)/(2*n0Width*n0Width));rhoxx+=0.35*(1/E2_OVER_H)*n0Ridge;return{sigxx:sxx,sigxy:sxy,rhoxx:rhoxx,rhoxy:-sxy/den};}
+function qheAtB(ctrl,B,phys){var p=phys||physicsAtB(ctrl,B),qp=makeQHEParams(ctrl),nS=((ctrl.fermiMeV>=0)?1:-1)*p.nM2;return qheFromDensity(nS,B,qp);}
+function fanValue(qty,qhe){if(qty==="sigxx")return Math.log10(Math.max(qhe.sigxx,1e-24));if(qty==="sigxy")return qhe.sigxy/E2_OVER_H;return Math.log10(Math.max(qhe.rhoxx,1e-24));}
+function fanLabel(qty){if(qty==="sigxx")return"log10 sigma_xx";if(qty==="sigxy")return"sigma_xy / (e^2/h)";return"log10 rho_xx";}
+function coherenceField(phys){return(TWO_PI*phys.pF)/(E_CHARGE*phys.lPhi);}
+function coherenceText(r){return r>1.2?"coherent":r>0.9?"near onset":"dephased";}
+function updateLabels(ctrl,phys,qhe){
+  ui.modelBRates.style.display=(ctrl.dephaseModel==="modelB")?"grid":"none";
+  ui.sweepRateVal.textContent=ctrl.sweepRate.toFixed(2)+" T/s";
+  ui.spinSpeedVal.textContent=(ctrl.spinSpeed===0)?"stopped":(ctrl.spinSpeed*100).toFixed(0)+"%";
+  ui.bFieldVal.textContent=ctrl.bField.toFixed(2)+" T";ui.tempVal.textContent=ctrl.tempK.toFixed(1)+" K";
+  ui.lphi1kVal.textContent=ctrl.lphi1kUm.toFixed(2)+" \u03bcm";ui.fermiVal.textContent=ctrl.fermiMeV.toFixed(1)+" meV";
+  ui.vFermiVal.textContent=(ctrl.vFermiM/1e6).toFixed(2);ui.trailVal.textContent=""+ctrl.trailPts;
+  ui.muVal.textContent=ctrl.mu.toFixed(2);ui.tauQfsVal.textContent=ctrl.tauQfs.toFixed(0)+" fs";
+  ui.alphaBVal.textContent=ctrl.alphaBMeV.toFixed(2);ui.peakE2hVal.textContent=ctrl.peakE2h.toFixed(2);
+  ui.nStarVal.textContent=ctrl.nStar10cm2.toFixed(1);ui.aqRateVal.textContent=ctrl.aqRate.toFixed(3);
+  ui.aphiRateVal.textContent=ctrl.aphiRate.toFixed(3);ui.bphiRateVal.textContent=ctrl.bphiRate.toFixed(4);
+  var nCm2=phys.nM2/1e4;
+  ui.mOmega.textContent=fmtExp(phys.wc,2)+" rad/s";ui.mRadius.textContent=(phys.rc*1e9).toFixed(1)+" nm";
+  ui.mLambda.textContent=(phys.lamF*1e9).toFixed(2)+" nm";ui.mCirc.textContent=(phys.circ*1e9).toFixed(1)+" nm";
+  ui.mLphi.textContent=(phys.lPhi*1e9).toFixed(1)+" nm";
+  ui.mCoherence.textContent=phys.coh.toFixed(2)+" ("+coherenceText(phys.coh)+")";
+  ui.mDensity.textContent=(nCm2/1e12).toFixed(2);ui.mHalf.textContent=phys.wavesOrbit.toFixed(2)+" (=2n_F)";
+  var nBS=phys.nF,iSc=interferenceScore(phys);
+  var iLbl=(iSc<0.08)?"LL center":(iSc>0.42)?"between LLs":"partial";
+  ui.mWaves.textContent="n_F="+nBS.toFixed(2)+" ("+iLbl+")";
+  ui.mDeltaE.textContent=phys.dEmeV.toFixed(2)+" meV";
+  ui.mLandau.textContent=phys.nBel+" (nF="+phys.nF.toFixed(2)+")";
+  ui.mSdh.textContent=phys.sdhA.toFixed(3)+" (RT="+phys.rTh.toFixed(3)+", RD="+phys.rD.toFixed(3)+")";
+  ui.mRhoxxNow.textContent=qhe.rhoxx.toExponential(2)+" \u03a9/\u25a1";
+  ui.mRhoxyNow.textContent=Math.abs(qhe.rhoxy).toExponential(2)+" \u03a9/\u25a1";
+}
+function resetTrail(){state.traj.theta=-0.45;state.traj.pathM=0;state.traj.trail=[];}
+function trajGeom(phys){var w=state.trajSize.w,h=state.trajSize.h,rPx=clamp(phys.rc*PX_PER_M,18,Math.max(w,h)*2.3);return{w:w,h:h,cx:w*0.38,cy:h*0.56,rPx:rPx,wVis:phys.wc*OMEGA_VIS_SCALE};}
+function advanceTrail(dt,ctrl,phys,g){var carrierSign=(ctrl.fermiMeV>=0)?1:-1;state.traj.theta-=carrierSign*g.wVis*dt*ctrl.spinSpeed;}
+function interferenceScore(phys){var nBS=phys.nF,frac=nBS-Math.round(nBS);return Math.abs(frac);}
+function interferenceColour(phys,alpha){var score=interferenceScore(phys),t=0.5*(1+Math.cos(Math.PI*score/0.5));var r=Math.round(220*(1-t)+16*t),g=Math.round(40*(1-t)+185*t),b=Math.round(40*(1-t)+50*t);return"rgba("+r+","+g+","+b+","+alpha.toFixed(3)+")";}
+var FONT="Arial,Helvetica,sans-serif",TICK_W=1.5,TICK_L=7;
+function drawGridBg(ctx,w,h){ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.strokeStyle="rgba(180,195,215,0.30)";ctx.lineWidth=0.5;var sp=40;for(var x=sp;x<w;x+=sp){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(var y=sp;y<h;y+=sp){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}}
+function drawAxes(ctx,L,T,pW,pH){ctx.strokeStyle="rgba(80,90,110,0.55)";ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(L,T);ctx.lineTo(L,T+pH);ctx.moveTo(L,T+pH);ctx.lineTo(L+pW,T+pH);ctx.moveTo(L+pW,T);ctx.lineTo(L+pW,T+pH);ctx.moveTo(L,T);ctx.lineTo(L+pW,T);ctx.stroke();}
+function drawTrajPanel(ctx,ctrl,phys,g){
+  drawGridBg(ctx,g.w,g.h);
+  ctx.strokeStyle="rgba(120,136,160,0.62)";ctx.lineWidth=1.2;ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.arc(g.cx,g.cy,g.rPx,0,TWO_PI);ctx.stroke();ctx.setLineDash([]);
+  var segs=500,wAmp=clamp(g.rPx*0.14,5,18);
+  function waveR(f){var s=f*phys.circ;return g.rPx+wAmp*Math.sin(Math.PI*s/phys.lamF);}
+  function waveXY(f){var r=waveR(f),angle=f*TWO_PI;return{x:g.cx+r*Math.cos(angle),y:g.cy+r*Math.sin(angle)};}
+  ctx.beginPath();for(var j=0;j<=segs;j++){var p1=waveXY(j/segs);if(j===0)ctx.moveTo(p1.x,p1.y);else ctx.lineTo(p1.x,p1.y);}
+  ctx.strokeStyle="rgba(40,110,220,0.55)";ctx.lineWidth=2.5;ctx.stroke();
+  ctx.beginPath();for(var k=0;k<=segs;k++){var p2=waveXY(1+k/segs);if(k===0)ctx.moveTo(p2.x,p2.y);else ctx.lineTo(p2.x,p2.y);}
+  ctx.strokeStyle=interferenceColour(phys,0.80);ctx.lineWidth=2.5;ctx.stroke();
+  var seamA=waveXY(0),seamB=waveXY(2);
+  ctx.strokeStyle="rgba(0,0,0,0.30)";ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(seamA.x,seamA.y);ctx.lineTo(seamB.x,seamB.y);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="rgba(40,110,220,0.92)";ctx.beginPath();ctx.arc(seamA.x,seamA.y,4.5,0,TWO_PI);ctx.fill();
+  ctx.fillStyle=interferenceColour(phys,0.92);ctx.beginPath();ctx.arc(seamB.x,seamB.y,4.5,0,TWO_PI);ctx.fill();
+  var totalAngle=-state.traj.theta,modAngle=((totalAngle%(2*TWO_PI))+2*TWO_PI)%(2*TWO_PI),dotPt={x:g.cx+g.rPx*Math.cos(modAngle),y:g.cy+g.rPx*Math.sin(modAngle)};
+  ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(dotPt.x,dotPt.y,5,0,TWO_PI);ctx.stroke();
+  ctx.fillStyle="rgba(40,110,220,0.95)";ctx.beginPath();ctx.arc(dotPt.x,dotPt.y,5,0,TWO_PI);ctx.fill();
+  ctx.fillStyle="rgba(20,35,60,0.92)";ctx.font="bold 14px "+FONT;ctx.textAlign="left";ctx.textBaseline="top";
+  ctx.fillText("Bohr-Sommerfeld",10,10);
+}
+function cycleFanQuantity(){
+  var order=["rhoxx","sigxx","sigxy"],idx=order.indexOf(ui.fanQuantity.value);
+  ui.fanQuantity.value=order[(idx+1)%order.length];
+  state.fanCache.key="";
+}
+function toggleFanPalette(){state.fanPalette=(state.fanPalette==="orange")?"blue":"orange";state.fanCache.key="";}
+function rhoRangeText(){var r=state.rhoRange;if(r.min===null&&r.max===null)return"";var a=(r.min===null)?"auto":r.min.toFixed(2),b=(r.max===null)?"auto":r.max.toFixed(2);return" ["+a+".."+b+"]";}
+function fanPanelTitle(){
+  return "Resistivity in x-direction";
+}
+function drawLandauPanel(ctx,ctrl,phys){
+  var w=state.landauSize.w,h=state.landauSize.h,br=bRange();
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);
+  var L=LAN_L,R=LAN_R,T=LAN_T,B_pad=LAN_B,pW=w-L-R,pH=h-T-B_pad;
+  var xB=function(b){return L+((b-br.min)/(br.max-br.min))*pW;};
+  var eTop=Math.max(ctrl.fermiMeV*1.5,landauEmeV(20,ctrl.vFermiM,br.max)*1.1);
+  var yE=function(e){return T+(1-clamp(e/eTop,0,1))*pH;};
+  drawAxes(ctx,L,T,pW,pH);
+  var nMax=18,samp=150;
+  for(var n=0;n<=nMax;n++){ctx.beginPath();for(var ii=0;ii<=samp;ii++){var frac=ii/samp,b=br.min+frac*(br.max-br.min),x=xB(b),y=yE(landauEmeV(n,ctrl.vFermiM,b));if(ii===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.strokeStyle=(n%2===0)?"rgba(37,99,235,0.70)":"rgba(100,150,210,0.55)";ctx.lineWidth=(n===0)?2:1.3;ctx.stroke();}
+  var xN=xB(ctrl.bField);
+  ctx.strokeStyle="rgba(217,119,6,0.9)";ctx.lineWidth=1.4;ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.moveTo(xN,T);ctx.lineTo(xN,T+pH);ctx.stroke();ctx.setLineDash([]);
+  var yEf=yE(ctrl.fermiMeV);
+  ctx.strokeStyle="rgba(220,38,38,0.7)";ctx.lineWidth=1.2;ctx.setLineDash([7,5]);
+  ctx.beginPath();ctx.moveTo(L,yEf);ctx.lineTo(L+pW,yEf);ctx.stroke();ctx.setLineDash([]);
+  var yN0=yE(landauEmeV(phys.nBel,ctrl.vFermiM,ctrl.bField)),yN1=yE(landauEmeV(phys.nBel+1,ctrl.vFermiM,ctrl.bField));
+  ctx.strokeStyle="rgba(5,150,105,0.85)";ctx.fillStyle="#fff";ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(xN,yN0,4.5,0,TWO_PI);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.arc(xN,yN1,4.5,0,TWO_PI);ctx.fill();ctx.stroke();
+  var llLblLeft=xN<L+pW-78,llLblX=llLblLeft?xN+8:xN-8;ctx.fillStyle="#047857";ctx.font="11px "+FONT;ctx.textAlign=llLblLeft?"left":"right";ctx.textBaseline="middle";
+  ctx.fillText("LL "+phys.nBel,llLblX,yN0);ctx.fillText("LL "+(phys.nBel+1),llLblX,yN1);
+  ctx.strokeStyle="rgba(217,119,6,0.85)";ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(xN+48,yN0);ctx.lineTo(xN+48,yN1);ctx.stroke();
+  if(xN>=L&&xN<=L+pW&&yEf>=T&&yEf<=T+pH){ctx.strokeStyle="#991b1b";ctx.lineWidth=2;ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(xN,yEf,7,0,TWO_PI);ctx.fill();ctx.stroke();ctx.fillStyle="#dc2626";ctx.beginPath();ctx.arc(xN,yEf,3.4,0,TWO_PI);ctx.fill();var efLblLeft=xN<L+pW-68,efLblX=efLblLeft?xN+10:xN-10,efLblY=(yEf<T+18)?yEf+13:yEf-14;ctx.fillStyle="#991b1b";ctx.font="bold 12px "+FONT;ctx.textAlign=efLblLeft?"left":"right";ctx.textBaseline="middle";ctx.fillText("E_F",efLblX,efLblY);}
+  ctx.font="14px "+FONT;ctx.textAlign="center";ctx.textBaseline="top";ctx.fillStyle="#334";ctx.strokeStyle="#444";ctx.lineWidth=TICK_W;
+  var bTicks=niceTicks(br.min,br.max,7);
+  for(var bi=0;bi<bTicks.length;bi++){var xt=xB(bTicks[bi]);ctx.beginPath();ctx.moveTo(xt,T+pH);ctx.lineTo(xt,T+pH+TICK_L);ctx.stroke();ctx.beginPath();ctx.moveTo(xt,T);ctx.lineTo(xt,T-TICK_L);ctx.stroke();ctx.fillText(bTicks[bi].toFixed(1),xt,T+pH+8);}
+  ctx.textAlign="right";ctx.textBaseline="middle";
+  var eTicks=niceTicks(0,eTop,5);
+  for(var ei=0;ei<eTicks.length;ei++){var yt=yE(eTicks[ei]);ctx.beginPath();ctx.moveTo(L-TICK_L,yt);ctx.lineTo(L,yt);ctx.stroke();ctx.beginPath();ctx.moveTo(L+pW,yt);ctx.lineTo(L+pW+TICK_L,yt);ctx.stroke();ctx.fillText(eTicks[ei].toFixed(0),L-8,yt);}
+  ctx.font="bold 15px "+FONT;ctx.textAlign="center";ctx.fillStyle="#1a2233";
+  ctx.fillText("B (T)",L+pW/2,h-14);
+  ctx.save();ctx.translate(16,T+pH/2);ctx.rotate(-Math.PI/2);ctx.fillText("E (meV)",0,0);ctx.restore();
+  ctx.font="bold 15px "+FONT;ctx.textAlign="left";ctx.textBaseline="top";
+  ctx.fillText("Landau energy spectrum",6,8);
+}
+function drawQHEPanel(ctx,ctrl,phys){
+  var w=state.qheSize.w,h=state.qheSize.h,br=bRange();
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);
+  var L=QHE_L,R=QHE_R,T_pad=QHE_T,B_pad=QHE_B,pW=w-L-R,pH=h-T_pad-B_pad;
+  var xB=function(b){return L+((b-br.min)/(br.max-br.min))*pW;};
+  var pts=[],rhoMin=Infinity,rhoMax=-Infinity,rxyMax=0;
+  for(var i=0;i<=QHE_SAMPLES;i++){var frac=i/QHE_SAMPLES,b=br.min+frac*(br.max-br.min),q=qheAtB(ctrl,b),ra=Math.abs(q.rhoxy);pts.push({b:b,rhoxx:q.rhoxx,rxyA:ra});if(q.rhoxx<rhoMin)rhoMin=q.rhoxx;if(q.rhoxx>rhoMax)rhoMax=q.rhoxx;if(ra>rxyMax)rxyMax=ra;}
+  var rhoSpan=Math.max(rhoMax-rhoMin,1e-12);rhoMin-=0.02*rhoSpan;rhoMax+=0.06*rhoSpan;
+  var rxyTop=Math.max(rxyMax,1e-12)*1.08;
+  var yRho=function(v){return T_pad+(1-(v-rhoMin)/Math.max(rhoMax-rhoMin,1e-20))*pH;};
+  var yRxy=function(v){return T_pad+(1-v/Math.max(rxyTop,1e-20))*pH;};
+  drawAxes(ctx,L,T_pad,pW,pH);
+  var bCo=coherenceField(phys);
+  if(ctrl.dephaseModel==="modelB"&&bCo>br.min){var xSh=xB(Math.min(bCo,br.max));ctx.fillStyle="rgba(254,205,211,0.35)";ctx.fillRect(L,T_pad,Math.max(0,xSh-L),pH);}
+  ctx.beginPath();for(var k=0;k<pts.length;k++){var xk=xB(pts[k].b),yk=yRho(pts[k].rhoxx);if(k===0)ctx.moveTo(xk,yk);else ctx.lineTo(xk,yk);}ctx.strokeStyle="#000";ctx.lineWidth=2.2;ctx.stroke();
+  ctx.beginPath();for(var m=0;m<pts.length;m++){var xm=xB(pts[m].b),ym=yRxy(pts[m].rxyA);if(m===0)ctx.moveTo(xm,ym);else ctx.lineTo(xm,ym);}ctx.strokeStyle="#dc2626";ctx.lineWidth=2.2;ctx.stroke();
+  var qNow=qheAtB(ctrl,ctrl.bField,phys),xNow=xB(ctrl.bField);
+  ctx.strokeStyle="rgba(217,119,6,0.9)";ctx.lineWidth=1.2;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(xNow,T_pad);ctx.lineTo(xNow,T_pad+pH);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle="#000";ctx.beginPath();ctx.arc(xNow,yRho(qNow.rhoxx),4.5,0,TWO_PI);ctx.fill();
+  ctx.fillStyle="#dc2626";ctx.beginPath();ctx.arc(xNow,yRxy(Math.abs(qNow.rhoxy)),4.5,0,TWO_PI);ctx.fill();
+  ctx.strokeStyle="rgba(0,0,0,0.55)";ctx.lineWidth=1.5;ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(xNow,T_pad+pH,5,0,TWO_PI);ctx.fill();ctx.stroke();
+  ctx.font="14px "+FONT;ctx.fillStyle="#334";ctx.strokeStyle="#444";ctx.lineWidth=TICK_W;ctx.textAlign="center";ctx.textBaseline="top";
+  var bTk=niceTicks(br.min,br.max,7);
+  for(var bi=0;bi<bTk.length;bi++){var xt=xB(bTk[bi]);ctx.beginPath();ctx.moveTo(xt,T_pad+pH);ctx.lineTo(xt,T_pad+pH+TICK_L);ctx.stroke();ctx.beginPath();ctx.moveTo(xt,T_pad);ctx.lineTo(xt,T_pad-TICK_L);ctx.stroke();ctx.fillText(bTk[bi].toFixed(1),xt,T_pad+pH+8);}
+  ctx.textAlign="right";ctx.textBaseline="middle";ctx.fillStyle="#000";ctx.strokeStyle="#444";
+  var rTk=niceTicks(rhoMin,rhoMax,5);
+  for(var ri=0;ri<rTk.length;ri++){var yr=yRho(rTk[ri]);ctx.beginPath();ctx.moveTo(L-TICK_L,yr);ctx.lineTo(L,yr);ctx.stroke();ctx.fillText(rTk[ri].toExponential(1),L-8,yr);}
+  ctx.textAlign="left";ctx.fillStyle="#dc2626";ctx.strokeStyle="#dc2626";
+  var sTk=niceTicks(0,rxyTop,5);
+  for(var si=0;si<sTk.length;si++){var ys=yRxy(sTk[si]);ctx.beginPath();ctx.moveTo(L+pW,ys);ctx.lineTo(L+pW+TICK_L,ys);ctx.stroke();ctx.fillText(sTk[si].toExponential(1),L+pW+8,ys);}
+  ctx.font="bold 15px "+FONT;ctx.fillStyle="#1a2233";ctx.textAlign="center";ctx.fillText("B (T)",L+pW/2,h-14);
+  ctx.save();ctx.translate(16,T_pad+pH/2);ctx.rotate(-Math.PI/2);ctx.fillStyle="#000";ctx.fillText("\u03c1_xx (\u03a9/\u25a1)",0,0);ctx.restore();
+  ctx.save();ctx.translate(L+pW+R-12,T_pad+pH/2);ctx.rotate(Math.PI/2);ctx.fillStyle="#dc2626";ctx.fillText("|\u03c1_xy| (\u03a9/\u25a1)",0,0);ctx.restore();
+  ctx.fillStyle="#1a2233";ctx.font="bold 15px "+FONT;ctx.textAlign="left";ctx.textBaseline="top";
+  ctx.fillText("Quantum Hall Effect Line Scan",6,8);
+}
+function buildFanCache(ctrl,phys,pW,pH){
+  var br=bRange(),qty=ui.fanQuantity.value,nAbs=phys.nM2,nStarM2=Math.max(0,ctrl.nStar10cm2)*1e14;
+  var nMaxM2=FAN_N_FIXED,nMinM2=-FAN_N_FIXED;
+  var rr=state.rhoRange;
+  var key=[qty,state.fanPalette,rr.min===null?"auto":rr.min.toFixed(4),rr.max===null?"auto":rr.max.toFixed(4),ctrl.dephaseModel,br.min.toFixed(4),br.max.toFixed(4),nMaxM2.toExponential(3),ctrl.tempK.toFixed(3),ctrl.vFermiM.toFixed(0),ctrl.mu.toFixed(3),ctrl.tauQfs.toFixed(3),ctrl.aqRate.toFixed(4),ctrl.aphiRate.toFixed(4),ctrl.bphiRate.toFixed(5),ctrl.alphaBMeV.toFixed(3),ctrl.peakE2h.toFixed(3),ctrl.nStar10cm2.toFixed(3),pW,pH].join("|");
+  if(state.fanCache.key===key&&state.fanCache.canvas)return;
+  if(state.fanDragging&&state.fanCache.canvas){state.fanCache.nMinM2=nMinM2;state.fanCache.nMaxM2=nMaxM2;state.fanCache.bMin=br.min;state.fanCache.bMax=br.max;state.fanCache.qty=qty;return;}
+  var gW=240,gH=180,qp=makeQHEParams(ctrl);
+  if(!state.fanCache.canvas)state.fanCache.canvas=document.createElement("canvas");
+  state.fanCache.canvas.width=gW;state.fanCache.canvas.height=gH;
+  var bCtx=state.fanCache.canvas.getContext("2d"),img=bCtx.createImageData(gW,gH),vals=new Float64Array(gW*gH),vMin=Infinity,vMax=-Infinity;
+  for(var y=0;y<gH;y++){var bF=br.max-((br.max-br.min)*y)/Math.max(gH-1,1),row=y*gW;for(var x=0;x<gW;x++){var nS=nMinM2+((nMaxM2-nMinM2)*x)/Math.max(gW-1,1),q=qheFromDensity(nS,bF,qp),v=fanValue(qty,q);vals[row+x]=v;if(v<vMin)vMin=v;if(v>vMax)vMax=v;}}
+  if(qty==="sigxy"){var ma=Math.max(Math.abs(vMin),Math.abs(vMax));vMin=-ma;vMax=ma;}
+  if(qty==="rhoxx"){if(rr.min!==null)vMin=rr.min;if(rr.max!==null)vMax=rr.max;if(!(vMax>vMin)){vMax=vMin+0.01;}}
+  if(!(vMax>vMin)){vMin-=1;vMax+=1;}
+  var palette=(qty==="rhoxx")?state.fanPalette:"orange";
+  for(var ii=0;ii<vals.length;ii++){var c=heatColour(vals[ii],vMin,vMax,palette),j=4*ii;img.data[j]=c[0];img.data[j+1]=c[1];img.data[j+2]=c[2];img.data[j+3]=255;}
+  bCtx.putImageData(img,0,0);
+  state.fanCache.key=key;state.fanCache.nMinM2=nMinM2;state.fanCache.nMaxM2=nMaxM2;state.fanCache.bMin=br.min;state.fanCache.bMax=br.max;state.fanCache.vMin=vMin;state.fanCache.vMax=vMax;state.fanCache.qty=qty;
+}
+function drawFanPanel(ctx,ctrl,phys){
+  var w=state.fanSize.w,h=state.fanSize.h;
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);
+  var L=FAN_L,R=FAN_R,T_pad=FAN_T,B_pad=FAN_B,pW=Math.max(30,w-L-R),pH=Math.max(30,h-T_pad-B_pad);
+  buildFanCache(ctrl,phys,pW,pH);
+  var fc=state.fanCache;
+  var xN=function(n){return L+((n-fc.nMinM2)/Math.max(fc.nMaxM2-fc.nMinM2,1e-24))*pW;};
+  var yB=function(b){return T_pad+((fc.bMax-b)/Math.max(fc.bMax-fc.bMin,1e-24))*pH;};
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(fc.canvas,L,T_pad,pW,pH);ctx.imageSmoothingEnabled=true;
+  var x0=xN(0);
+  if(x0>=L&&x0<=L+pW){ctx.strokeStyle="rgba(255,255,255,0.75)";ctx.lineWidth=1.2;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(x0,T_pad);ctx.lineTo(x0,T_pad+pH);ctx.stroke();ctx.setLineDash([]);}
+  var nNow=((ctrl.fermiMeV>=0)?1:-1)*phys.nM2,xC=clamp(xN(nNow),L,L+pW),yC=clamp(yB(ctrl.bField),T_pad,T_pad+pH);
+  ctx.strokeStyle="rgba(255,255,255,0.9)";ctx.lineWidth=1.4;ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(xC,T_pad);ctx.lineTo(xC,T_pad+pH);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(L,yC);ctx.lineTo(L+pW,yC);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle="rgba(0,0,0,0.6)";ctx.lineWidth=1.5;ctx.fillStyle="#ffffff";ctx.beginPath();ctx.arc(xC,yC,5.5,0,TWO_PI);ctx.fill();ctx.stroke();
+  drawAxes(ctx,L,T_pad,pW,pH);
+  ctx.font="14px "+FONT;ctx.fillStyle="#334";ctx.strokeStyle="#444";ctx.lineWidth=TICK_W;ctx.textAlign="center";ctx.textBaseline="top";
+  var nTk=niceTicks(fc.nMinM2/1e16,fc.nMaxM2/1e16,7);
+  for(var ni=0;ni<nTk.length;ni++){var xTk=xN(nTk[ni]*1e16);ctx.beginPath();ctx.moveTo(xTk,T_pad+pH);ctx.lineTo(xTk,T_pad+pH+TICK_L);ctx.stroke();ctx.beginPath();ctx.moveTo(xTk,T_pad);ctx.lineTo(xTk,T_pad-TICK_L);ctx.stroke();ctx.fillText(nTk[ni].toFixed(1),xTk,T_pad+pH+8);}
+  ctx.textAlign="right";ctx.textBaseline="middle";
+  var bTk=niceTicks(fc.bMin,fc.bMax,5);
+  for(var bi=0;bi<bTk.length;bi++){var yTk=yB(bTk[bi]);ctx.beginPath();ctx.moveTo(L-TICK_L,yTk);ctx.lineTo(L,yTk);ctx.stroke();ctx.beginPath();ctx.moveTo(L+pW,yTk);ctx.lineTo(L+pW+TICK_L,yTk);ctx.stroke();ctx.fillText(bTk[bi].toFixed(1),L-8,yTk);}
+  ctx.font="bold 15px "+FONT;ctx.fillStyle="#1a2233";ctx.textAlign="center";
+  ctx.fillText("n (10\u00b9\u00b2 cm\u207b\u00b2)",L+pW/2,h-14);
+  ctx.save();ctx.translate(16,T_pad+pH/2);ctx.rotate(-Math.PI/2);ctx.fillText("B (T)",0,0);ctx.restore();
+  ctx.textAlign="left";ctx.textBaseline="top";var title=fanPanelTitle();ctx.fillText(title,6,8);
+  var tw=ctx.measureText(title).width,dotX=14+tw,dotY=15,dotR=5;state.paletteDot={x:dotX,y:dotY,r:dotR};
+  var grad=ctx.createLinearGradient(dotX-dotR,dotY,dotX+dotR,dotY);
+  if(state.fanPalette==="blue"){grad.addColorStop(0,"#1e40af");grad.addColorStop(0.5,"#fff");grad.addColorStop(1,"#b91c1c");}else{grad.addColorStop(0,"#0f4c81");grad.addColorStop(0.58,"#fff7d6");grad.addColorStop(1,"#b7222b");}
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(dotX,dotY,dotR,0,TWO_PI);ctx.fill();ctx.strokeStyle="rgba(20,35,60,0.55)";ctx.lineWidth=1;ctx.stroke();
+}
+function animate(ts){
+  if(!state.lastTs)state.lastTs=ts;
+  var dt=clamp((ts-state.lastTs)/1000,0,1/30);state.lastTs=ts;
+  var ctrl=readControls();state.elapsed+=dt*ctrl.spinSpeed;var br=bRange();
+  if(state.autoplay){var nb=ctrl.bField+state.sweepDir*ctrl.sweepRate*dt;if(nb>=br.max){nb=br.max;state.sweepDir=-1;}else if(nb<=br.min){nb=br.min;state.sweepDir=1;}ui.bField.value=nb.toFixed(3);ctrl=readControls();}
+  var phys=physicsAtB(ctrl,ctrl.bField),qhe=qheAtB(ctrl,ctrl.bField,phys);
+  updateLabels(ctrl,phys,qhe);
+  var g=trajGeom(phys);advanceTrail(dt,ctrl,phys,g);
+  drawTrajPanel(trajCtx,ctrl,phys,g);drawLandauPanel(landauCtx,ctrl,phys);drawQHEPanel(qheCtx,ctrl,phys);drawFanPanel(fanCtx,ctrl,phys);
+  requestAnimationFrame(animate);
+}
+// Popup panel
+var rpanel=document.getElementById("rpanel"),panelPinned=false;
+document.addEventListener("mousemove",function(e){if(panelPinned)return;var nearRight=e.clientX>=window.innerWidth*0.94,rect=rpanel.getBoundingClientRect(),overPanel=e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;if(nearRight||overPanel)document.body.classList.add("panel-open");else document.body.classList.remove("panel-open");});
+rpanel.addEventListener("pointerdown",function(){panelPinned=true;});
+document.addEventListener("pointerdown",function(e){if(panelPinned){var rect=rpanel.getBoundingClientRect(),inside=e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom;if(!inside){panelPinned=false;document.body.classList.remove("panel-open");}}});
+// Fan canvas drag: sets n (E_F) and B
+(function(){var dragging=false;
+function handleFan(e){var rect=ui.fanCanvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,fc=state.fanCache;if(!fc.canvas)return;var pW=state.fanSize.w-FAN_L-FAN_R,pH=state.fanSize.h-FAN_T-FAN_B;if(pW<=0||pH<=0)return;var xFrac=clamp((x-FAN_L)/pW,0,1),yFrac=clamp((y-FAN_T)/pH,0,1),nM2=fc.nMinM2+xFrac*(fc.nMaxM2-fc.nMinM2),B=fc.bMax-yFrac*(fc.bMax-fc.bMin);B=clamp(B,+ui.bField.min,+ui.bField.max);var vF=+ui.vFermi.value*1e6,sign=(nM2>=0)?1:-1,eFmeV=sign*(HBAR*Math.sqrt(Math.abs(nM2)*Math.PI)*vF/E_CHARGE)*1e3;eFmeV=clamp(eFmeV,+ui.fermi.min,+ui.fermi.max);ui.fermi.value=eFmeV.toFixed(2);ui.bField.value=B.toFixed(3);}
+function setRhoRangeFromFan(e){var rect=ui.fanCanvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,fc=state.fanCache,pW=state.fanSize.w-FAN_L-FAN_R,pH=state.fanSize.h-FAN_T-FAN_B;if(!fc.canvas||pW<=0||pH<=0||x<FAN_L||x>FAN_L+pW||y<FAN_T||y>FAN_T+pH)return false;var xFrac=clamp((x-FAN_L)/pW,0,1),yFrac=clamp((y-FAN_T)/pH,0,1),nM2=fc.nMinM2+xFrac*(fc.nMaxM2-fc.nMinM2),B=fc.bMax-yFrac*(fc.bMax-fc.bMin),q=qheFromDensity(nM2,B,makeQHEParams(readControls())),v=Math.log10(Math.max(q.rhoxx,1e-24)),r=state.rhoRange;if(r.next==="min"){r.min=v;r.next="max";}else{r.max=v;r.next="min";}if(r.min!==null&&r.max!==null&&r.min>r.max){var tmp=r.min;r.min=r.max;r.max=tmp;}state.fanCache.key="";return true;}
+ui.fanCanvas.addEventListener("mousedown",function(e){
+  var rect=ui.fanCanvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+  if(e.shiftKey&&setRhoRangeFromFan(e))return;
+  var d=state.paletteDot,hitDot=d&&Math.hypot(x-d.x,y-d.y)<=d.r+5;
+  if(hitDot){toggleFanPalette();return;}
+  if(x>=6&&x<=280&&y>=4&&y<=26){cycleFanQuantity();return;}
+  dragging=true;state.fanDragging=true;handleFan(e);
+});
+ui.fanCanvas.addEventListener("mousemove",function(e){
+  var rect=ui.fanCanvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+  var d=state.paletteDot,hitDot=d&&Math.hypot(x-d.x,y-d.y)<=d.r+5;
+  ui.fanCanvas.style.cursor=(hitDot||(x>=6&&x<=280&&y>=4&&y<=26))?"pointer":"crosshair";
+});
+window.addEventListener("mousemove",function(e){if(dragging)handleFan(e);});
+window.addEventListener("mouseup",function(){if(dragging){dragging=false;state.fanDragging=false;state.fanCache.key="";}});
+})();
+// Landau canvas drag: sets B (x) and E_F (y)
+(function(){var dragging=false;
+function handleLandau(e){var rect=ui.landauCanvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,pW=state.landauSize.w-LAN_L-LAN_R,pH=state.landauSize.h-LAN_T-LAN_B;if(pW<=0||pH<=0)return;var br=bRange(),ctrl=readControls(),B=br.min+clamp((x-LAN_L)/pW,0,1)*(br.max-br.min);B=clamp(B,+ui.bField.min,+ui.bField.max);var eTop=Math.max(ctrl.fermiMeV*1.5,landauEmeV(20,ctrl.vFermiM,br.max)*1.1),eFmeV=eTop*(1-clamp((y-LAN_T)/pH,0,1));eFmeV=clamp(eFmeV,+ui.fermi.min,+ui.fermi.max);ui.bField.value=B.toFixed(3);ui.fermi.value=eFmeV.toFixed(2);}
+ui.landauCanvas.addEventListener("mousedown",function(e){dragging=true;handleLandau(e);});
+window.addEventListener("mousemove",function(e){if(dragging)handleLandau(e);});
+window.addEventListener("mouseup",function(){dragging=false;});
+})();
+// QHE canvas drag: sets B (x)
+(function(){var dragging=false;
+function handleQHE(e){var rect=ui.qheCanvas.getBoundingClientRect(),x=e.clientX-rect.left,pW=state.qheSize.w-QHE_L-QHE_R;if(pW<=0)return;var br=bRange(),B=br.min+clamp((x-QHE_L)/pW,0,1)*(br.max-br.min);ui.bField.value=clamp(B,+ui.bField.min,+ui.bField.max).toFixed(3);}
+ui.qheCanvas.addEventListener("mousedown",function(e){dragging=true;handleQHE(e);});
+window.addEventListener("mousemove",function(e){if(dragging)handleQHE(e);});
+window.addEventListener("mouseup",function(){dragging=false;});
+})();
+// Wiring
+function wireUI(){
+  var refresh=function(){var c=readControls(),p=physicsAtB(c,c.bField),q=qheAtB(c,c.bField,p);updateLabels(c,p,q);};
+  var sliders=[ui.sweepRate,ui.spinSpeed,ui.bField,ui.tempK,ui.lphi1k,ui.fermi,ui.vFermi,ui.trail,ui.mu,ui.tauQfs,ui.alphaB,ui.peakE2h,ui.nStar,ui.aqRate,ui.aphiRate,ui.bphiRate];
+  for(var i=0;i<sliders.length;i++)sliders[i].addEventListener("input",refresh);
+  ui.fanQuantity.addEventListener("change",function(){state.fanCache.key="";refresh();});
+  ui.dephaseModel.addEventListener("change",refresh);
+  ui.playBtn.addEventListener("click",function(){state.autoplay=!state.autoplay;ui.playBtn.textContent=state.autoplay?"Pause":"Sweep B";});
+  ui.resetBtn.addEventListener("click",function(){resetTrail();});
+  refresh();
+}
+// Boot
+var trajSetup=setupCanvas(ui.trajCanvas,function(w,h){state.trajSize={w:w,h:h};});
+var landauSetup=setupCanvas(ui.landauCanvas,function(w,h){state.landauSize={w:w,h:h};});
+var qheSetup=setupCanvas(ui.qheCanvas,function(w,h){state.qheSize={w:w,h:h};});
+var fanSetup=setupCanvas(ui.fanCanvas,function(w,h){state.fanSize={w:w,h:h};});
+var trajCtx=trajSetup.ctx,landauCtx=landauSetup.ctx,qheCtx=qheSetup.ctx,fanCtx=fanSetup.ctx;
+window.addEventListener("resize",function(){trajSetup.resize();landauSetup.resize();qheSetup.resize();fanSetup.resize();state.fanCache.key="";resetTrail();});
+wireUI();resetTrail();requestAnimationFrame(animate);
+</script>
+</body>
+</html>
