@@ -8,6 +8,11 @@
   ],
   "tools": [
     "transim",
+    "moire-md",
+    "moire-explorer",
+    "qtm",
+    "graphene-bandstructure",
+    "graphene-phonons",
     "labtcad"
   ]
 }

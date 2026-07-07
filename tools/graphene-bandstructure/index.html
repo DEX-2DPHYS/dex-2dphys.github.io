@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Graphene Tight-Binding Simulation</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root {
+  --bg-color: #f8f9fa;
+  --panel-bg: #ffffff;
+  --text-color: #212529;
+  --text-muted: #6c757d;
+  --border-color: #dee2e6;
+  --accent-color: #0d6efd;
+  --shadow-color: rgba(0, 0, 0, 0.07);
+  --gap: 12px;
+  --vh: 100vh;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: var(--gap);
+  box-sizing: border-box;
+}
+
+header {
+  flex: 0 0 auto;
+  padding-bottom: var(--gap);
+  border-bottom: 1px solid var(--border-color);
+}
+
+h1 {
+  font-size: 1.3rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.controls {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+  margin: var(--gap) 0;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--panel-bg);
+  border-radius: 8px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.control label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.value {
+  font-size: 0.8rem;
+  color: var(--text-color);
+  font-family: monospace;
+}
+
+.grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 65% 35%;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.panel {
+  background-color: var(--panel-bg);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px var(--shadow-color);
+  overflow: hidden;
+}
+
+#plot3d {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.rhs {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.plot {
+  width: 100%;
+  height: 100%;
+}
+
+footer {
+  flex: 0 0 auto;
+  padding-top: var(--gap);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Smaller screens */
+@media (max-width: 1200px) {
+  .controls { grid-template-columns: repeat(2, 1fr); }
+  .grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .rhs { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
+}
+
+@media (max-width: 768px) {
+  .controls { grid-template-columns: 1fr; }
+  .rhs { grid-template-columns: 1fr; grid-template-rows: auto; }
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Graphene Tight-Binding Model</h1></header>
+
+  <div class="controls" role="group" aria-label="Model Controls">
+    <div class="control">
+      <label for="ef">Fermi level (eV)</label>
+      <input id="ef" type="range" min="-3.0" max="3.0" step="0.01" value="0" />
+      <div class="value" id="efv">0.00 eV</div>
+    </div>
+    <div class="control">
+      <label for="mass">Mass Δ (eV)</label>
+      <input id="mass" type="range" min="0.00" max="0.50" step="0.005" value="0.000" />
+      <div class="value" id="massv">0.000 eV</div>
+    </div>
+    <div class="control">
+      <label for="tprime">t′ NNN (eV)</label>
+      <input id="tprime" type="range" min="-0.6" max="0.6" step="0.005" value="0.000" />
+      <div class="value" id="tprimev">0.000 eV</div>
+    </div>
+    <div class="control">
+      <label for="eta">DOS broadening η (eV)</label>
+      <input id="eta" type="range" min="0.005" max="0.200" step="0.005" value="0.030" />
+      <div class="value" id="etav">0.030 eV</div>
+    </div>
+    <div class="control">
+      <label for="elev">Camera elevation</label>
+      <input id="elev" type="range" min="0" max="45" step="1" value="28" />
+      <div class="value" id="elevv">28°</div>
+    </div>
+    <div class="control">
+      <label for="az">Camera azimuth</label>
+      <input id="az" type="range" min="-180" max="180" step="1" value="30" />
+      <div class="value" id="azv">30°</div>
+    </div>
+    <div class="control">
+      <label for="npts">Grid N×N</label>
+      <input id="npts" type="range" min="64" max="192" step="8" value="120" />
+      <div class="value" id="nptsv">120×120</div>
+    </div>
+    <div class="control">
+      <label for="fsToggle">Fermi surface</label>
+      <input id="fsToggle" type="range" min="0" max="1" step="1" value="1" />
+      <div class="value" id="fsTogglev">on</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel"><div id="plot3d" class="plot"></div></div>
+    <div class="rhs">
+      <div class="panel"><div id="plotPath" class="plot"></div></div>
+      <div class="panel"><div id="plotDOS" class="plot"></div></div>
+      <div class="panel"><div id="plotFS" class="plot"></div></div>
+    </div>
+  </div>
+
+  <footer>Model: Nearest-neighbor hopping (t), staggered sublattice potential / mass (Δ), and next-nearest-neighbor hopping (t′).</footer>
+</div>
+
+<script>
+(function(){
+  // Params
+  const P = { a:1.0, t:2.7, n:120, kmax:Math.PI };
+
+  // UI
+  const ui = idMap(['ef','efv','mass','massv','tprime','tprimev','eta','etav','elev','elevv','az','azv','npts','nptsv','fsToggle','fsTogglev']);
+  function idMap(ids){ const o={}; ids.forEach(i=>o[i]=document.getElementById(i)); return o; }
+
+  // Cached grids & precomputed terms
+  let kx=[], ky=[];
+  let E_NNN_term = null, E_NN_term_sq = null;
+  let Eplus=null, Eminus=null, flatPlus=null, flatMinus=null;
+  let pathE1 = null, pathE2 = null; // Cached path energies
+
+  // Helpers
+  const Ky  = a => 4*Math.PI/(3*Math.sqrt(3)*a);
+  const Kx2 = a => 2*Math.PI/(3*a);
+  const Ky2 = a => 2*Math.PI/(3*Math.sqrt(3)*a);
+  const Mx  = a => Math.PI/a, My = a => Math.PI/(Math.sqrt(3)*a);
+
+  // Build k grid
+  function buildGrid(){
+    const {n,kmax} = P;
+    kx = Array.from({length:n},(_,i)=>-kmax + (2*kmax)*i/(n-1));
+    ky = Array.from({length:n},(_,j)=>-kmax + (2*kmax)*j/(n-1));
+  }
+
+  // Precompute geometry-dependent energy terms
+  function precomputeGeometry(){
+    const n=P.n, a=P.a, t_sq=P.t*P.t;
+    E_NNN_term   = Array.from({length:n}, ()=>new Float32Array(n));
+    E_NN_term_sq = Array.from({length:n}, ()=>new Float32Array(n));
+    const diracPoints = [{x:0,y:Ky(a)}, {x:Kx2(a),y:Ky2(a)}, {x:-Kx2(a),y:Ky2(a)}];
+    for(let j=0; j<n; j++){
+      const kyj = ky[j];
+      const c1  = Math.cos(Math.sqrt(3)*kyj*a/2), c1d = Math.cos(Math.sqrt(3)*kyj*a);
+      for(let i=0; i<n; i++){
+        const kxi = kx[i], c2  = Math.cos(3*a*kxi/2);
+        const inside = 1 + 4*c1*c1 + 4*c1*c2;
+        E_NN_term_sq[j][i] = t_sq * (inside > 0 ? inside : 0);
+        E_NNN_term[j][i]   = 2 * (c1d + 2*c2*c1);
+      }
+    }
+    // Enforce exact Dirac points
+    const kmax2 = 2*P.kmax;
+    for(const p of [...diracPoints, ...diracPoints.map(pt => ({x:pt.x, y:-pt.y}))]) {
+        const i = Math.round((p.x + P.kmax)*(n-1)/kmax2);
+        const j = Math.round((p.y + P.kmax)*(n-1)/kmax2);
+        if (i>=0 && i<n && j>=0 && j<n) E_NN_term_sq[j][i] = 0;
+    }
+  }
+
+  // Update bands with current Δ and t′
+  function updateBands(){
+    const n=P.n, d=parseFloat(ui.mass.value), tp=parseFloat(ui.tprime.value), d2=d*d;
+    Eplus  = Array.from({length:n}, ()=>new Float32Array(n));
+    Eminus = Array.from({length:n}, ()=>new Float32Array(n));
+    flatPlus  = new Float32Array(n*n);
+    flatMinus = new Float32Array(n*n);
+    let k=0;
+    for(let j=0; j<n; j++){
+      for(let i=0; i<n; i++){
+        const Ek0 = Math.sqrt(d2 + E_NN_term_sq[j][i]);
+        const e0  = tp * E_NNN_term[j][i];
+        Eplus[j][i] = e0 + Ek0; Eminus[j][i] = e0 - Ek0;
+        flatPlus[k] = Eplus[j][i]; flatMinus[k] = Eminus[j][i]; k++;
+      }
+    }
+  }
+
+  // Plot helpers
+  function plane(nx,ny,val){ const out=new Array(ny); for(let j=0;j<ny;j++) out[j]=new Array(nx).fill(val); return out; }
+  function cam(){ const r=2.3, R=Math.PI/180, elev=parseFloat(ui.elev.value)*R, az=parseFloat(ui.az.value)*R; return { eye:{x:r*Math.cos(elev)*Math.cos(az), y:r*Math.cos(elev)*Math.sin(az), z:r*Math.sin(elev)}, center:{x:0,y:0,z:0}, up:{x:0,y:0,z:1} }; }
+
+  // Build 3D plot
+  function build3D(){
+    const lighting={ambient:0.5,diffuse:0.65,specular:0.25,roughness:0.9,fresnel:0.2};
+    const traces=[
+      {type:'surface',x:kx,y:ky,z:[],name:'Valence',showscale:false,opacity:0.95,colorscale:'Portland',lighting},
+      {type:'surface',x:kx,y:ky,z:[],name:'Conduction',showscale:false,opacity:0.95,colorscale:'Viridis',lighting},
+      {type:'surface',x:kx,y:ky,z:[],name:'E=Ef',showscale:false,opacity:0.18,colorscale:[[0,'#0d6efd'],[1,'#0d6efd']],hoverinfo:'skip'}
+    ];
+    Plotly.newPlot('plot3d', traces, {
+      uirevision:'lock', paper_bgcolor:'transparent',margin:{l:0,r:0,t:24,b:0},
+      scene:{ xaxis:{title:'k_x (1/a)',gridcolor:'#eee',zeroline:false,backgroundcolor:'#fff'},
+              yaxis:{title:'k_y (1/a)',gridcolor:'#eee',zeroline:false,backgroundcolor:'#fff'},
+              zaxis:{title:'E (eV)',  gridcolor:'#eee',zeroline:false,backgroundcolor:'#fff'},
+              camera:cam(), aspectmode:'cube', dragmode:'orbit' },
+      legend:{orientation:'h',x:0.05,y:1, font: {size: 10}}
+    }, {displaylogo:false,responsive:true,scrollZoom:false});
+    update3D();
+  }
+
+  // Update 3D plot data
+  function update3D(){
+    const Ef=parseFloat(ui.ef.value);
+    Plotly.restyle('plot3d', { z:[Eminus, Eplus, plane(P.n,P.n,Ef)] });
+  }
+
+  // Path plot
+  const pathData = { Pth:[], s:[] };
+  function calculatePathEnergies(){
+    const a=P.a, t=P.t, d=parseFloat(ui.mass.value), tp=parseFloat(ui.tprime.value), d2=d*d;
+    const E1=new Float32Array(pathData.Pth.length), E2=new Float32Array(pathData.Pth.length);
+    for(let i=0; i<pathData.Pth.length; i++){
+      const p=pathData.Pth[i], c1=Math.cos(Math.sqrt(3)*p.y*a/2), c1d=Math.cos(Math.sqrt(3)*p.y*a), c2=Math.cos(3*a*p.x/2);
+      const inside=Math.max(1+4*c1*c1+4*c1*c2,0); const e0=2*tp*(c1d+2*c2*c1); const Ek0=Math.sqrt(d2 + (t*t)*inside);
+      E1[i]=e0 - Ek0; E2[i]=e0 + Ek0;
+    }
+    pathE1 = Array.from(E1);
+    pathE2 = Array.from(E2);
+  }
+  function buildPath(){
+    const a=P.a, G={x:0,y:0}, K={x:0,y:Ky(a)}, M={x:Mx(a), y:My(a)}, nseg=70;
+    function seg(A,B,n){ return Array.from({length:n},(_,i)=>({x:A.x+(B.x-A.x)*i/(n-1), y:A.y+(B.y-A.y)*i/(n-1)})); }
+    const Pth=[...seg(G,K,nseg), ...seg(K,M,nseg), ...seg(M,G,nseg)];
+    Pth[nseg-1]={...K}; Pth[2*nseg-1]={...M}; Pth[Pth.length-1]={...G};
+    pathData.Pth = Pth;
+    pathData.s = Array.from({length:Pth.length},(_,i)=>i);
+    const ticks = [0,nseg-1,2*nseg-1,3*nseg-1], ticktext = ['Γ','K','M','Γ'];
+    calculatePathEnergies();
+    const Ef=parseFloat(ui.ef.value);
+    Plotly.newPlot('plotPath', [
+      {type:'scatter',mode:'lines',x:pathData.s,y:pathE1,name:'E−',line:{width:2, color: '#ff7f0e'}},
+      {type:'scatter',mode:'lines',x:pathData.s,y:pathE2,name:'E+',line:{width:2, color: '#1f77b4'}},
+      {type:'scatter',mode:'lines',x:[pathData.s[0],pathData.s[pathData.s.length-1]],y:[Ef,Ef],name:'E<sub>f</sub>',line:{width:1.5,dash:'dot', color: '#2ca02c'}}
+    ], {
+      uirevision:'lock', paper_bgcolor:'transparent', plot_bgcolor:'#ffffff', margin:{l:40,r:10,t:24,b:36},
+      xaxis:{title:'Γ–K–M–Γ',tickmode:'array',tickvals:ticks,ticktext:ticktext,gridcolor:'#eee'},
+      yaxis:{title:'E (eV)',zeroline:false,gridcolor:'#eee'},
+      legend: {y: 1.0, yanchor: 'bottom', x: 1.0, xanchor: 'right', orientation: 'h', font: {size: 10}}
+    }, {displaylogo:false,responsive:true});
+  }
+  function updatePath(){
+    calculatePathEnergies();
+    const Ef=parseFloat(ui.ef.value);
+    Plotly.restyle('plotPath', {y: [pathE1, pathE2, [Ef,Ef]]});
+  }
+
+  // DOS
+  function buildDOS(){
+    const eta=parseFloat(ui.eta.value), Ef=parseFloat(ui.ef.value);
+    const Emin=Math.min(minOf(flatMinus), minOf(flatPlus)), Emax=Math.max(maxOf(flatPlus), maxOf(flatMinus));
+    const NB=320, Es=new Float32Array(NB); for(let i=0;i<NB;i++) Es[i]=Emin+(Emax-Emin)*i/(NB-1);
+    const dos=new Float32Array(NB).fill(0), norm=1/(Math.sqrt(2*Math.PI)*eta);
+    addGauss(dos, Es, flatPlus, eta, norm); addGauss(dos, Es, flatMinus, eta, norm);
+    const scale=1/(P.n*P.n*2); for(let i=0;i<NB;i++) dos[i]*=scale;
+    const ymax = Math.max(...dos) * 1.05;
+    Plotly.react('plotDOS', [
+      {type:'scatter',mode:'lines',x:Array.from(Es),y:Array.from(dos),name:'DOS',line:{width:2, color: '#1f77b4'}},
+      {type:'scatter',mode:'lines',x:[Ef,Ef],y:[0,ymax],name:'E<sub>f</sub>',line:{width:1.5,dash:'dot', color: '#ff7f0e'}}
+    ], {
+      uirevision:'lock', paper_bgcolor:'transparent', plot_bgcolor:'#ffffff', margin:{l:48,r:10,t:24,b:36},
+      xaxis:{title:'E (eV)',gridcolor:'#eee'},
+      yaxis:{title:'DOS (arb.)',zeroline:false,gridcolor:'#eee',range:[0,ymax]},
+      showlegend: false
+    }, {displaylogo:false,responsive:true});
+  }
+  function addGauss(out, Es, arr, eta, norm){ const NB=Es.length; for(let n=0;n<arr.length;n++){ const E=arr[n]; for(let i=0;i<NB;i++){ const x=(Es[i]-E)/eta; out[i]+=norm*Math.exp(-0.5*x*x); } } }
+  const minOf=a=>{ let m=+Infinity; for(let i=0;i<a.length;i++) if(a[i]<m) m=a[i]; return m; };
+  const maxOf=a=>{ let m=-Infinity; for(let i=0;i<a.length;i++) if(a[i]>m) m=a[i]; return m; };
+
+  // Fermi Surface
+  function buildFS(){
+    Plotly.newPlot('plotFS', [
+      {type:'contour',x:kx,y:ky,z:[], contours:{coloring:'lines',start:0,end:0,size:1e-4},line:{width:2, color: '#1f77b4'},showscale:false,name:'E+'},
+      {type:'contour',x:kx,y:ky,z:[],contours:{coloring:'lines',start:0,end:0,size:1e-4},line:{width:2, color: '#ff7f0e'},showscale:false,name:'E−'}
+    ], {
+      uirevision:'lock', paper_bgcolor:'transparent', plot_bgcolor:'#ffffff', margin:{l:40,r:10,t:24,b:36},
+      xaxis:{title:'k_x (1/a)',gridcolor:'#eee'},
+      yaxis:{title:'k_y (1/a)',gridcolor:'#eee',scaleanchor:'x',scaleratio:1},
+      showlegend: false
+    }, {displaylogo:false,responsive:true});
+    updateFS();
+  }
+  function updateFS(){
+    const show = ui.fsToggle.value==='1';
+    ui.fsTogglev.textContent = show ? 'on' : 'off';
+    if(!show){ Plotly.react('plotFS', []); return; }
+    const Ef=parseFloat(ui.ef.value);
+    Plotly.restyle('plotFS', { z: [Eplus, Eminus], 'contours.start':Ef, 'contours.end':Ef, visible: true });
+  }
+
+  // Bind sliders
+  ui.ef.addEventListener('input', ()=>{
+    ui.efv.textContent=parseFloat(ui.ef.value).toFixed(2)+' eV';
+    const Ef = parseFloat(ui.ef.value);
+    Plotly.restyle('plot3d', { z: [Eminus, Eplus, plane(P.n, P.n, Ef)] });
+    Plotly.restyle('plotPath', { y: [pathE1, pathE2, [Ef,Ef]] });
+    Plotly.restyle('plotFS', {'contours.start':Ef, 'contours.end':Ef});
+    Plotly.restyle('plotDOS', { x:[null, [Ef,Ef]] });
+  });
+  ui.ef.addEventListener('change', ()=>{ buildDOS(); });
+
+  function heavyUpdate(){ updateBands(); update3D(); updatePath(); updateFS(); }
+  ui.mass.addEventListener('input', ()=>{ ui.massv.textContent=parseFloat(ui.mass.value).toFixed(3)+' eV'; heavyUpdate(); });
+  ui.mass.addEventListener('change', ()=>{ buildDOS(); });
+  ui.tprime.addEventListener('input', ()=>{ ui.tprimev.textContent=parseFloat(ui.tprime.value).toFixed(3)+' eV'; heavyUpdate(); });
+  ui.tprime.addEventListener('change', ()=>{ buildDOS(); });
+  ui.eta.addEventListener('change', ()=>{ ui.etav.textContent=parseFloat(ui.eta.value).toFixed(3)+' eV'; buildDOS(); });
+  ui.elev.addEventListener('input', ()=>{ ui.elevv.textContent=ui.elev.value+'°'; Plotly.relayout('plot3d', {'scene.camera':cam()}); });
+  ui.az.addEventListener('input',   ()=>{ ui.azv.textContent  =ui.az.value  +'°'; Plotly.relayout('plot3d', {'scene.camera':cam()}); });
+  ui.npts.addEventListener('change', ()=>{
+    P.n = parseInt(ui.npts.value,10);
+    ui.nptsv.textContent = P.n+'×'+P.n;
+    buildAll(true);
+  });
+  ui.fsToggle.addEventListener('change', ()=>{ updateFS(); });
+
+  // Build all
+  function buildAll(first){
+    buildGrid(); precomputeGeometry(); updateBands();
+    if(first){
+      build3D(); buildPath(); buildFS();
+    } else {
+      update3D(); updatePath(); updateFS();
+    }
+    buildDOS();
+  }
+
+  // Init labels
+  const updateLabel = (el,v,u,d) => el.textContent = parseFloat(v).toFixed(d) + u;
+  updateLabel(ui.efv, ui.ef.value, ' eV', 2);
+  updateLabel(ui.massv, ui.mass.value, ' eV', 3);
+  updateLabel(ui.tprimev, ui.tprime.value, ' eV', 3);
+  updateLabel(ui.etav, ui.eta.value, ' eV', 3);
+  ui.elevv.textContent=ui.elev.value+'°';
+  ui.azv.textContent=ui.az.value+'°';
+  ui.nptsv.textContent=P.n+'×'+P.n;
+  ui.fsTogglev.textContent = ui.fsToggle.value === '1' ? 'on' : 'off';
+
+  buildAll(true);
+})();
+</script>
+</body>
+</html>

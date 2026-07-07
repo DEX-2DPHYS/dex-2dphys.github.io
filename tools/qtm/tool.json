@@ -1,0 +1,9 @@
+{
+  "slug": "qtm",
+  "name": "Quantum Twisting Microscope",
+  "description": "Interactive model of a quantum twisting microscope — a twistable van der Waals junction with a live instrument view and tunneling-conductance readout in real and reciprocal space.",
+  "status": "live",
+  "url": "tools/qtm/index.html",
+  "icon": "device",
+  "tags": ["simulations", "visualisations", "educational", "applications"]
+}

@@ -1,0 +1,9 @@
+{
+  "slug": "moire-explorer",
+  "name": "Moiré Explorer",
+  "description": "Interactive twisted-bilayer moiré explorer with an atomic view and coincidence-site-lattice (CSL) analysis — tune twist angle, stacking, and lattice type to visualise how moiré superlattices form.",
+  "status": "live",
+  "url": "tools/moire-explorer/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational", "simulations"]
+}

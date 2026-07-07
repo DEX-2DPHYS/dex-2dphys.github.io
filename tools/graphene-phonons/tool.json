@@ -1,0 +1,9 @@
+{
+  "slug": "graphene-phonons",
+  "name": "Graphene Lattice Vibrations",
+  "description": "Molecular-dynamics visualisation of graphene lattice vibrations and phonons — watch normal modes and thermal motion of the honeycomb lattice in real time.",
+  "status": "live",
+  "url": "tools/graphene-phonons/index.html",
+  "icon": "atom",
+  "tags": ["simulations", "visualisations", "educational"]
+}

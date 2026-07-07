@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Graphene Lattice Vibrations 2</title>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)'], ['$', '$']] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+  :root { --panel: 420px; --accent:#111; }
+  html, body { margin:0; height:100%; background:#fff; color:#111; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+  #app { height:100vh; width:100vw; overflow:hidden; position:relative; }
+  #view { position:relative; background:#fff; width:100%; height:100%; }
+  canvas { display:block; width:100%; height:100%; cursor: crosshair; background:#fff; }
+  #panel {
+    position:fixed;
+    top:0;
+    right:0;
+    padding-top:62px;
+    width:var(--panel);
+    height:100vh;
+    border-left:1px solid #e7e7e7;
+    background:#fff;
+    padding:14px;
+    overflow:auto;
+    box-sizing:border-box;
+    transform:translateX(100%);
+    transition:transform 180ms ease;
+    z-index:20;
+  }
+  #panel.visible { transform:translateX(0); }
+  #panelToggleWrap {
+    position:fixed;
+    top:12px;
+    right:12px;
+    z-index:30;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:4px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 160ms ease;
+  }
+  #panelToggleWrap.hint-visible {
+    opacity:1;
+    pointer-events:auto;
+  }
+  #panelToggle { position:static; opacity:1; pointer-events:auto; }
+  .panelToggleLabel {
+    font-size:11px;
+    font-weight:600;
+    color:#555;
+    letter-spacing:0.03em;
+    text-align:right;
+    padding-right:2px;
+  }
+  #leftPanel {
+    position:fixed;
+    top:0;
+    left:0;
+    width:var(--panel);
+    height:100vh;
+    border-right:1px solid #e7e7e7;
+    background:#fff;
+    padding:14px;
+    padding-top:62px;
+    overflow:hidden;
+    box-sizing:border-box;
+    transform:translateX(-100%);
+    transition:transform 180ms ease;
+    z-index:20;
+  }
+  #leftPanel.visible { transform:translateX(0); }
+  #leftPanelToggleWrap {
+    position:fixed;
+    top:12px;
+    left:12px;
+    z-index:30;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 160ms ease;
+  }
+  #leftPanelToggleWrap.hint-visible {
+    opacity:1;
+    pointer-events:auto;
+  }
+  #leftPanelToggle { position:static; opacity:1; pointer-events:auto; }
+  .leftToggleLabel {
+    font-size:11px;
+    font-weight:600;
+    color:#555;
+    letter-spacing:0.03em;
+    padding-left:2px;
+  }
+  .leftTabs { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+  .leftTabBtn { font-size:12px; padding:7px 8px; }
+  .leftTabBtn.active { border-color:#111; background:#111; color:#fff; }
+  #leftContent {
+    border:1px solid #e7e7e7;
+    border-radius:10px;
+    padding:10px;
+    height:calc(100vh - 190px);
+    overflow:auto;
+    box-sizing:border-box;
+  }
+  .leftPane { display:none; }
+  .leftPane.visible { display:block; }
+  .leftPane h3 { margin:6px 0 8px; }
+  .leftPane p { margin:8px 0; line-height:1.45; }
+  .leftPane ol { margin:8px 0 8px 18px; padding:0; }
+  .leftPane li { margin:6px 0; }
+  .quizQ { margin:10px 0 14px; padding-bottom:8px; border-bottom:1px solid #efefef; }
+  .quizQ:last-child { border-bottom:none; }
+  .quizOptions { display:grid; gap:6px; margin:8px 0; }
+  .quizOption { display:flex; gap:8px; align-items:flex-start; }
+  .quizOption input { margin-top:2px; }
+  .quizReveal { display:none; padding:6px 8px; border-radius:8px; background:#f7f7f7; }
+  .quizReveal.correct { border-left:3px solid #0b7a2f; }
+  .quizReveal.wrong { border-left:3px solid #b42318; }
+  #quizActions { display:flex; gap:8px; margin:10px 0 12px; }
+  #quizScore { font-weight:600; }
+  #controlTip {
+    position:fixed;
+    z-index:100;
+    max-width:420px;
+    padding:10px 12px;
+    border:1px solid #ddd;
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(0,0,0,0.08);
+    font-size:12px;
+    line-height:1.4;
+    display:none;
+    pointer-events:none;
+  }
+  #controlTip .tipTitle { font-weight:700; margin-bottom:4px; }
+  #controlTip .tipEq { margin:6px 0; padding:6px; background:#fafafa; border-radius:6px; }
+  #controlTip .tipUse, #controlTip .tipPhys { margin:4px 0; }
+  @media (hover: none), (pointer: coarse) {
+    #panelToggleWrap, #leftPanelToggleWrap {
+      opacity:1;
+      pointer-events:auto;
+    }
+  }
+  h2 { margin:0 0 6px; }
+  fieldset { border:1px solid #e7e7e7; border-radius:10px; margin:0 0 12px; padding:10px 12px 12px; }
+  legend { font-weight:600; padding:0 6px; }
+  .row { display:grid; grid-template-columns: 1fr auto; align-items:center; gap:8px; margin:8px 0; }
+  input[type="range"]{ width:180px; } input[type="number"]{ width:110px; padding:4px 6px; }
+  .btns{ display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 4px; }
+  button { appearance:none; border:1px solid #ddd; background:#fff; padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; }
+  button:hover{ border-color:#bbb; } button.primary{ background:var(--accent); color:#fff; border-color:#000; }
+  .pill{ display:inline-block; padding:2px 8px; border:1px solid #eee; border-radius:999px; background:#fafafa; font-size:12px; }
+  .mono{ font-family: ui-monospace, Menlo, Consolas, "Courier New", monospace; }
+  .note, small, .footer{ color:#666; font-size:12px; }
+  progress { width:100%; height:14px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="view"><canvas id="canvas"></canvas></div>
+</div>
+<div id="leftPanelToggleWrap">
+  <button id="leftPanelToggle" aria-expanded="false" title="Show guide">Show guide</button>
+  <span class="leftToggleLabel">Simulation Guide</span>
+</div>
+
+<div id="leftPanel">
+  <h2>Simulation Guide</h2>
+  <div class="note">Choose a level, suggested experiments, or a short quiz.</div>
+  <div class="leftTabs">
+    <button class="leftTabBtn active" data-pane="pane-basic">Description (basic)</button>
+    <button class="leftTabBtn" data-pane="pane-intermediate">Description (intermediate)</button>
+    <button class="leftTabBtn" data-pane="pane-advanced">Description (advanced)</button>
+    <button class="leftTabBtn" data-pane="pane-try">Things to try</button>
+    <button class="leftTabBtn" data-pane="pane-quiz">Quiz</button>
+  </div>
+  <div id="leftContent">
+    <section id="pane-basic" class="leftPane visible">
+      <h3>Basic View</h3>
+      <p>This is a sheet of atoms connected by tiny springs. When one atom moves, it pulls neighbors, so waves run through the lattice.</p>
+      <p>The color of each bond shows stretching. Gray means near-rest length. Warmer tones mean stronger stretch.</p>
+      <p>You can drag near an atom to disturb the sheet and watch vibrations spread out.</p>
+      <p>Spring idea: \(F = kx\). Bigger \(k\) means stiffer bonds and faster oscillations.</p>
+    </section>
+    <section id="pane-intermediate" class="leftPane">
+      <h3>First-Year Physics View</h3>
+      <p>Each atom obeys Newton's law with damping:</p>
+      <p>\[m\ddot{\mathbf r}_i = \sum_j \mathbf F_{ij} - \gamma \dot{\mathbf r}_i + \mathbf F_{\text{drag}}\]</p>
+      <p>Nearest-neighbor bonds are harmonic by default:</p>
+      <p>\[U_{ij} = \tfrac12 k (r_{ij}-L_0)^2, \quad \mathbf F_{ij} = -\nabla_i U_{ij}\]</p>
+      <p>Numerical integration uses time step \(dt\). Larger \(dt\) runs faster but can become unstable.</p>
+    </section>
+    <section id="pane-advanced" class="leftPane">
+      <h3>Advanced View</h3>
+      <p>The model mixes first-neighbor bond forces and optional second-neighbor angular/lattice stiffening terms.</p>
+      <p>Optional Morse bonds use:</p>
+      <p>\[U_M(r)=D_e\left(1-e^{-\alpha(r-r_e)}\right)^2 - D_e\]</p>
+      <p>This introduces anharmonicity relevant for large strain and can support bond-breaking/reformation thresholds \(f_{\text{break}}, f_{\text{reform}}\).</p>
+      <p>For small displacements, normal modes approximate acoustic/optical branches of a two-atom basis honeycomb lattice.</p>
+    </section>
+    <section id="pane-try" class="leftPane">
+      <h3>Things to Try</h3>
+      <ol>
+        <li>Set damping \(\gamma\) near zero and pluck one corner; observe long-lived oscillations.</li>
+        <li>Increase \(k\) from 20 to 40 and compare wave speed visually.</li>
+        <li>Turn on Morse potential and raise initial offset; look for asymmetric restoring motion.</li>
+        <li>Enable bond breaking, increase perturbation, and find threshold where defects persist.</li>
+        <li>Lower steps per frame and compare numerical smoothness versus performance.</li>
+        <li>Use recording at different FPS and compare final video fluidity.</li>
+      </ol>
+    </section>
+    <section id="pane-quiz" class="leftPane">
+      <h3>Quiz</h3>
+      <div id="quizActions">
+        <button id="quizRevealBtn">Reveal answers</button>
+        <button id="quizResetBtn">Reset quiz</button>
+      </div>
+      <div id="quizScore">Answer the questions, then press Reveal answers.</div>
+      <div class="quizQ">
+        <div><strong>1.</strong> Increasing \(k\) mostly does what?</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q1" value="A">A. Makes atoms heavier</label>
+          <label class="quizOption"><input type="radio" name="q1" value="B">B. Increases stiffness and vibration frequency</label>
+          <label class="quizOption"><input type="radio" name="q1" value="C">C. Removes damping</label>
+        </div>
+        <div class="quizReveal" data-q="q1" data-correct="B">Correct answer: B. Higher \(k\) means larger restoring force \(F=kx\), so oscillation frequency rises.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>2.</strong> What is the role of \(\gamma\)?</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q2" value="A">A. Sets rest bond length</label>
+          <label class="quizOption"><input type="radio" name="q2" value="B">B. Dissipates kinetic energy over time</label>
+          <label class="quizOption"><input type="radio" name="q2" value="C">C. Controls atom count</label>
+        </div>
+        <div class="quizReveal" data-q="q2" data-correct="B">Correct answer: B. The damping term is \(\mathbf F_d=-\gamma\mathbf v\), which removes kinetic energy.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>3.</strong> If \(dt\) is too large, what can happen?</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q3" value="A">A. Better physical accuracy always</label>
+          <label class="quizOption"><input type="radio" name="q3" value="B">B. Infinite precision</label>
+          <label class="quizOption"><input type="radio" name="q3" value="C">C. Numerical instability or blow-up</label>
+        </div>
+        <div class="quizReveal" data-q="q3" data-correct="C">Correct answer: C. Too-large \(dt\) can violate stability constraints of explicit integration.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>4.</strong> Bond color primarily visualizes:</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q4" value="A">A. Relative bond strain \((r-L_0)/L_0\)</label>
+          <label class="quizOption"><input type="radio" name="q4" value="B">B. Atom mass distribution</label>
+          <label class="quizOption"><input type="radio" name="q4" value="C">C. Zoom level only</label>
+        </div>
+        <div class="quizReveal" data-q="q4" data-correct="A">Correct answer: A. Color encodes strain \(\varepsilon=(r-L_0)/L_0\) with scaling and saturation controls.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>5.</strong> Morse potential is useful because it:</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q5" value="A">A. Is identical to Hooke for all strains</label>
+          <label class="quizOption"><input type="radio" name="q5" value="B">B. Captures anharmonic behavior at larger displacement</label>
+          <label class="quizOption"><input type="radio" name="q5" value="C">C. Eliminates all oscillations</label>
+        </div>
+        <div class="quizReveal" data-q="q5" data-correct="B">Correct answer: B. Morse potential becomes asymmetric away from equilibrium.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>6.</strong> How does the number of atoms scale with unit cells \(n\)?</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q6" value="A">A. \(n^2\)</label>
+          <label class="quizOption"><input type="radio" name="q6" value="B">B. \(2n^2\)</label>
+          <label class="quizOption"><input type="radio" name="q6" value="C">C. \(3n\)</label>
+        </div>
+        <div class="quizReveal" data-q="q6" data-correct="B">Correct answer: B. There are two atoms per unit cell, so \(N=2n^2\).</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>7.</strong> Increasing steps per frame mainly changes:</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q7" value="A">A. Simulated time advanced per rendered frame</label>
+          <label class="quizOption"><input type="radio" name="q7" value="B">B. Atom mass</label>
+          <label class="quizOption"><input type="radio" name="q7" value="C">C. Bond rest length</label>
+        </div>
+        <div class="quizReveal" data-q="q7" data-correct="A">Correct answer: A. \(\Delta t_{frame}=\text{spf}\cdot dt\), so more dynamics are advanced each visual frame.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>8.</strong> Bond breaking triggers when:</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q8" value="A">A. \(r &lt; f_{break}L_0\)</label>
+          <label class="quizOption"><input type="radio" name="q8" value="B">B. \(r = L_0\)</label>
+          <label class="quizOption"><input type="radio" name="q8" value="C">C. \(r &gt; f_{break}L_0\)</label>
+        </div>
+        <div class="quizReveal" data-q="q8" data-correct="C">Correct answer: C. A bond is removed when stretched beyond the break threshold.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>9.</strong> Angle stiffness contributes by:</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q9" value="A">A. Adding a second-neighbor restoring term</label>
+          <label class="quizOption"><input type="radio" name="q9" value="B">B. Disabling all nearest-neighbor bonds</label>
+          <label class="quizOption"><input type="radio" name="q9" value="C">C. Freezing motion</label>
+        </div>
+        <div class="quizReveal" data-q="q9" data-correct="A">Correct answer: A. It augments elasticity through non-nearest-neighbor coupling.</div>
+      </div>
+      <div class="quizQ">
+        <div><strong>10.</strong> Why use smaller \(dt\) with large \(k\)?</div>
+        <div class="quizOptions">
+          <label class="quizOption"><input type="radio" name="q10" value="A">A. To keep numerical integration stable for fast oscillations</label>
+          <label class="quizOption"><input type="radio" name="q10" value="B">B. To reduce the number of atoms</label>
+          <label class="quizOption"><input type="radio" name="q10" value="C">C. To switch to Morse potential</label>
+        </div>
+        <div class="quizReveal" data-q="q10" data-correct="A">Correct answer: A. Stiffer systems have higher natural frequencies, demanding smaller timesteps.</div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="panel">
+    <h2>Graphene MD — Movie Mode</h2>
+    <div class="note">Honeycomb lattice · up to 50×50 cells · strain-colored bonds · inverse background option</div>
+    <hr/>
+
+    <fieldset>
+      <legend>Lattice</legend>
+      <div class="row"><label>Unit cells (n×n)</label><input id="cells" type="range" min="5" max="50" step="1" value="50"/><span id="cellsLbl" class="pill">50×50</span></div>
+      <div class="row"><label>Bond length (L₀)</label><input id="L0" type="number" step="0.01" value="1.00"/></div>
+      <div class="row"><label>Initial offset (×L₀)</label><input id="off" type="number" step="0.005" value="0"/></div>
+      <div class="btns"><button id="rebuild">Rebuild lattice</button></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Playback</legend>
+      <div class="btns">
+        <button id="play">▶ Play</button>
+        <button id="restart">↺ Restart</button>
+        <button id="step">Step</button>
+      </div>
+      <div class="row"><label>FPS (recording)</label><input id="fps" type="number" step="1" value="30"/></div>
+      <div class="row"><label>Steps / frame</label><input id="spf" type="range" min="1" max="1000" step="1" value="40"/><span id="spfLbl" class="pill">40</span></div>
+      <div class="row"><label>Frames (elapsed)</label><span class="mono"><span id="frameKpi">0</span>/∞</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Physics</legend>
+      <div class="row"><label>dt</label><input id="dt" type="number" min="0.001" max="0.010" step="0.00001" value="0.005"/></div>
+      <div class="row"><label>Spring k (nn)</label><input id="k" type="number" step="0.1" value="30"/></div>
+      <div class="row"><label>Damping γ</label><input id="g" type="number" step="0.01" value="0.05"/></div>
+      <div class="row"><label><input id="useMorse" type="checkbox" checked> Use Morse for nn bonds</label><span></span></div>
+      <div class="row"><label>Dₑ (Morse depth)</label><input id="De" type="number" step="0.1" value="1.667"/></div>
+      <div class="row"><label>α (1/L₀)</label><input id="alpha" type="number" step="0.1" value="3"/></div>
+      <div class="row"><label><input id="doBreak" type="checkbox" checked> Enable bond breaking</label><span></span></div>
+      <div class="row"><label><input id="allowReform" type="checkbox" checked> Allow reformation</label><span></span></div>
+      <div class="row"><label>Break factor (×L₀)</label><input id="fBreak" type="number" step="0.01" value="1.70"/></div>
+      <div class="row"><label>Reform factor (×L₀)</label><input id="fReform" type="number" step="0.01" value="1.35"/></div>
+      <div class="row"><label><input id="useAng" type="checkbox" checked> Angle stiffness (2nd-neighbor)</label><span></span></div>
+      <div class="row"><label>k<sub>angle</sub> (2nd-neighbor)</label><input id="kAng" type="number" step="0.5" value="8"/></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Visuals</legend>
+      <div class="row"><label>Scale (px per L₀)</label><input id="scale" type="number" step="1" max="50" value="30"/></div>
+      <div class="row"><label>Atom radius (px)</label><input id="rad" type="number" step="0.5" value="5"/></div>
+      <div class="row"><label>Bond line width</label><input id="lineW" type="range" min="0.5" max="4" step="0.1" value="3.2"/></div>
+      <div class="row"><label>Bond line color</label><input id="bondGray" type="range" min="0" max="255" step="1" value="65"/><span id="bondGrayLbl" class="pill">#414141</span></div>
+      <div class="row"><label>Strain color factor</label><input id="sf" type="range" min="0" max="40" step="0.05" value="40"/><span id="sfLbl" class="pill">40.00×</span></div>
+      <div class="row"><label>Strain saturation</label><input id="sat" type="range" min="0" max="1" step="0.01" value="0.99"/><span id="satLbl" class="pill">99%</span></div>
+      <div class="row"><label>Neutral gray (atoms &amp; bonds)</label><input id="neutralGray" type="range" min="0" max="255" step="1" value="134"/><span id="neutralLbl" class="pill">#868686</span></div>
+      <div class="row"><label><input id="invert" type="checkbox" checked> Invert colors (canvas background)</label><span></span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Export</legend>
+      <div class="btns">
+        <button id="startRec">● Start recording</button>
+        <button id="stopRec" class="primary">■ Stop &amp; download</button>
+        <button id="shot">Screenshot (PNG)</button>
+        <button id="dump">Download state (JSON)</button>
+      </div>
+      <small>WebM via <code>MediaRecorder</code>. Modern browsers recommended.</small>
+    </fieldset>
+
+    <fieldset>
+      <legend>Energy</legend>
+      <div class="row"><span>KE / PE / Total</span><span class="mono" id="E">0 / 0 / 0</span></div>
+    </fieldset>
+
+    <div class="footer">Pan = drag background · Pull = drag near an atom · Shift-drag horizontal = dt · Shift-drag vertical = grid size · Wheel = zoom.</div>
+  </div>
+<div id="controlTip"></div>
+
+<script>
+(() => {
+  const $ = q => document.querySelector(q);
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  const add=(a,b)=>[a[0]+b[0],a[1]+b[1]], mul=(a,s)=>[a[0]*s,a[1]*s];
+  function bondKey(i,j){ return (i<j) ? (i+'_'+j) : (j+'_'+i); }
+  function rebuildBondSet(st){ const s=new Set(); for(const b of st.bonds){ s.add(bondKey(b.i,b.j)); } return s; }
+
+
+  function build(n,L0){
+    const a1=[Math.sqrt(3)*L0,0], a2=[Math.sqrt(3)/2*L0,1.5*L0], A=[0,0], B=[Math.sqrt(3)/2*L0,0.5*L0];
+    const atoms=[], idx=(i,j,s)=>(j*n+i)*2+(s?1:0);
+    for(let j=0;j<n;j++) for(let i=0;i<n;i++){ const R=add(mul(a1,i),mul(a2,j)); atoms.push({p:add(R,A),v:[0,0],f:[0,0]}); atoms.push({p:add(R,B),v:[0,0],f:[0,0]}); }
+    const bonds=[];
+    for(let j=0;j<n;j++) for(let i=0;i<n;i++){ const Aij=idx(i,j,0), Bij=idx(i,j,1); if(i-1>=0) bonds.push({i:Aij,j:idx(i-1,j,1),L0}); if(j-1>=0) bonds.push({i:Aij,j:idx(i,j-1,1),L0}); bonds.push({i:Aij,j:Bij,L0}); }
+    const L2=Math.sqrt(3)*L0, bonds2=[];
+    const off = [[1,0],[0,1],[1,-1],[-1,0],[0,-1],[-1,1]];
+    for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+      const Aij=idx(i,j,0), Bij=idx(i,j,1);
+      for(const [di,dj] of off){
+        const I=i+di, J=j+dj;
+        if(I>=0&&I<n&&J>=0&&J<n){
+          const Aj=idx(I,J,0), Bj=idx(I,J,1);
+          if (Aj > Aij) bonds2.push({i:Aij,j:Aj,L0:L2});
+          if (Bj > Bij) bonds2.push({i:Bij,j:Bj,L0:L2});
+        }
+      }
+    }
+    return {atoms,bonds,bonds2,L0,L2};
+  }
+
+  function step(state,p,mouse,useAng,kAng,useMorse,De,alpha,doBreak,doReform,fBreak,fReform){
+    const {atoms,bonds,bonds2}=state,{k,g,dt,m}=p;
+    for(const a of atoms){ a.f[0]=0; a.f[1]=0; }
+    let pe=0;
+    for(const b of bonds){
+      const ai=atoms[b.i], aj=atoms[b.j];
+      const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
+      const d=Math.hypot(dx,dy)||1e-12, ux=dx/d, uy=dy/d;
+      if(useMorse){
+        const re=b.L0; const delta=d-re; const ex=Math.exp(-alpha*delta);
+        const fmag = 2*De*alpha*ex*(1 - ex);
+        const fx=fmag*ux, fy=fmag*uy;
+        ai.f[0]+=fx; ai.f[1]+=fy; aj.f[0]-=fx; aj.f[1]-=fy;
+        pe += De*((1 - ex)*(1 - ex) - 1);
+      } else {
+        const x=d-b.L0; const f=k*x; const fx=f*ux, fy=f*uy;
+        ai.f[0]+=fx; ai.f[1]+=fy; aj.f[0]-=fx; aj.f[1]-=fy;
+        pe+=0.5*k*x*x;
+      }
+    }
+    if(useAng && kAng>0){
+      for(const b of bonds2){
+        const ai=atoms[b.i], aj=atoms[b.j];
+        const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
+        const d=Math.hypot(dx,dy)||1e-12, ux=dx/d, uy=dy/d;
+        const x=d-b.L0, f=kAng*x; const fx=f*ux, fy=f*uy;
+        ai.f[0]+=fx; ai.f[1]+=fy; aj.f[0]-=fx; aj.f[1]-=fy;
+        pe+=0.5*kAng*x*x;
+      }
+    }
+    if(mouse.grab >= 0){
+      const a=atoms[mouse.grab], kM=mouse.k;
+      a.f[0] += kM*(mouse.world[0]-a.p[0]);
+      a.f[1] += kM*(mouse.world[1]-a.p[1]);
+    }
+
+    // --- Bond breaking & reformation ---
+    if (doBreak || doReform){
+      // Current valences
+      const val = new Int16Array(atoms.length);
+      for (const b of bonds){ val[b.i]++; val[b.j]++; }
+      // Break pass
+      if (doBreak){
+        const removeIdx = [];
+        for (let bi=0; bi<bonds.length; bi++){
+          const b = bonds[bi];
+          const ai=atoms[b.i], aj=atoms[b.j];
+          const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
+          const d=Math.hypot(dx,dy);
+          if (d > b.L0 * fBreak){ removeIdx.push(bi); }
+        }
+        // remove from end to start
+        for (let r=removeIdx.length-1; r>=0; r--){
+          const bi=removeIdx[r]; const b=bonds[bi];
+          bonds.splice(bi,1);
+          const key = bondKey(b.i,b.j);
+          state.bondSet.delete(key);
+          val[b.i]--; val[b.j]--;
+        }
+      }
+      // Reform pass (only among original NN)
+      if (doReform){
+        for (const b0 of state.origNN){
+          const key=bondKey(b0.i,b0.j);
+          if (state.bondSet.has(key)) continue; // already bonded
+          if (val[b0.i] >= 3 || val[b0.j] >= 3) continue;
+          const ai=atoms[b0.i], aj=atoms[b0.j];
+          const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
+          const d=Math.hypot(dx,dy);
+          if (d < b0.L0 * fReform){
+            bonds.push({i:b0.i,j:b0.j,L0:b0.L0});
+            state.bondSet.add(key);
+            val[b0.i]++; val[b0.j]++;
+          }
+        }
+      }
+    }
+    let ke=0;
+    for(const a of atoms){
+      a.f[0]+=-g*a.v[0]; a.f[1]+=-g*a.v[1];
+      a.v[0] += (a.f[0]/m)*dt; a.v[1] += (a.f[1]/m)*dt;
+      a.p[0] += a.v[0]*dt;     a.p[1] += a.v[1]*dt;
+      ke += 0.5*m*(a.v[0]*a.v[0]+a.v[1]*a.v[1]);
+    }
+    return {ke,pe};
+  }
+
+  const canvas = $('#canvas'), ctx = canvas.getContext('2d');
+  let n = Number($('#cells').value);
+  let params = {k:Number($('#k').value), g:Number($('#g').value), dt:Number($('#dt').value), m:1.0};
+  function syncDe(){ const k=Number($('#k').value), a=Number($('#alpha').value)||1; const DeVal = k/(2*a*a); $('#De').value = DeVal.toFixed(3); }
+  const view = {scale:Number($('#scale').value), origin:[0,0], showAtoms:true, rad:Number($('#rad').value)};
+  let invert=true;
+
+  let base = build(n, Number($('#L0').value));
+  let state = JSON.parse(JSON.stringify(base));
+  function center(atoms){ let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9; for(const a of atoms){minx=Math.min(minx,a.p[0]);maxx=Math.max(maxx,a.p[0]);miny=Math.min(miny,a.p[1]);maxy=Math.max(maxy,a.p[1]);} return [(minx+maxx)/2,(miny+maxy)/2]; }
+  function randomize(frac){ for(const a of state.atoms){ const th=Math.random()*Math.PI*2, r=frac*state.L0; a.p[0]+=r*Math.cos(th); a.p[1]+=r*Math.sin(th); a.v=[0,0]; } }
+  function rebuild(){ n=Number($('#cells').value); base=build(n, Number($('#L0').value)); state=JSON.parse(JSON.stringify(base)); state.origNN = base.bonds.map(b=>({i:b.i,j:b.j,L0:b.L0})); state.bondSet = rebuildBondSet(state); randomize(Number($('#off').value)); view.origin=center(state.atoms); frame=0; $('#frameKpi').textContent='0'; $('#cellsLbl').textContent=`${n}×${n}`; draw(state,0,0); }
+  function restart(){ state=JSON.parse(JSON.stringify(base)); state.origNN = base.bonds.map(b=>({i:b.i,j:b.j,L0:b.L0})); state.bondSet = rebuildBondSet(state); randomize(Number($('#off').value)); view.origin=center(state.atoms); frame=0; $('#frameKpi').textContent='0'; draw(state,0,0); }
+
+  function w2s(p){ const r=canvas.getBoundingClientRect(); return [(p[0]-view.origin[0])*view.scale + r.width*0.5, (p[1]-view.origin[1])*view.scale + r.height*0.5]; }
+  function s2w(sx,sy){ const r=canvas.getBoundingClientRect(); return [(sx - r.width*0.5)/view.scale + view.origin[0], (sy - r.height*0.5)/view.scale + view.origin[1]]; }
+
+  function draw(state,ke,pe){
+    const r=canvas.getBoundingClientRect();
+    ctx.fillStyle = invert ? '#000' : '#fff';
+    ctx.fillRect(0,0,r.width,r.height);
+
+    const factor = Number($('#sf').value);
+    const sat = Number($('#sat').value);
+    const atomGray = Number($('#neutralGray').value);
+    const bondGray = Number($('#bondGray').value);
+    const neutral = `rgb(${atomGray},${atomGray},${atomGray})`;
+    const zoomVisual = Math.max(0.1, view.scale / 30);
+    ctx.lineWidth = Number($('#lineW').value) * zoomVisual;
+
+    for(const b of state.bonds){
+      const ai=state.atoms[b.i], aj=state.atoms[b.j];
+      const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
+      const d=Math.hypot(dx,dy);
+      const tStr = clamp(((d - b.L0) / b.L0) * factor, 0, 1);
+      const sr = Math.round(30 + 225*tStr), sg = Math.round(30*(1 - tStr)), sb = sg;
+      const tint = sat * tStr;
+      const rMix = Math.round(bondGray*(1-tint) + sr*tint), gMix = Math.round(bondGray*(1-tint) + sg*tint), bMix = Math.round(bondGray*(1-tint) + sb*tint);
+      ctx.strokeStyle = `rgb(${rMix},${gMix},${bMix})`;
+      const pi=w2s(ai.p), pj=w2s(aj.p);
+      ctx.beginPath(); ctx.moveTo(pi[0],pi[1]); ctx.lineTo(pj[0],pj[1]); ctx.stroke();
+    }
+
+    ctx.fillStyle = neutral;
+    const rr = view.rad * zoomVisual;
+    for(const a of state.atoms){ const p=w2s(a.p); ctx.beginPath(); ctx.arc(p[0],p[1],rr,0,Math.PI*2); ctx.fill(); }
+
+    $('#E').textContent = `${ke.toFixed(3)} / ${pe.toFixed(3)} / ${(ke+pe).toFixed(3)}`;
+  }
+
+  function resize(){ const dpr=window.devicePixelRatio||1, r=canvas.getBoundingClientRect(); canvas.width=Math.max(2,Math.floor(r.width*dpr)); canvas.height=Math.max(2,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(state,0,0); }
+  window.addEventListener('resize', resize);
+
+  const mouse={grab:-1, world:[0,0], k:50};
+  let dragging=false, panning=false, last=[0,0];
+  const shiftDrag={active:false, mode:null, startX:0, startY:0, startDt:0.005, startCells:50, lastCells:50};
+  function setDtValue(v){
+    const dt=clamp(v,0.001,0.010);
+    params.dt=dt;
+    $('#dt').value=dt.toFixed(5);
+  }
+  function setCellValue(v){
+    const next=Math.round(clamp(v,5,50));
+    if(next===shiftDrag.lastCells && Number($('#cells').value)===next) return;
+    shiftDrag.lastCells=next;
+    $('#cells').value=String(next);
+    $('#cellsLbl').textContent=`${next}×${next}`;
+    const wasRunning=running;
+    rebuild();
+    setRunning(wasRunning);
+  }
+  function nearestAtom(sx,sy){ const pick=12; let best=-1, bd=1e9; for(let i=0;i<state.atoms.length;i++){ const p=w2s(state.atoms[i].p); const dx=p[0]-sx, dy=p[1]-sy; const d=Math.hypot(dx,dy); if(d<bd){ bd=d; best=i; } } return (bd<=pick)?best:-1; }
+  canvas.addEventListener('mousedown', e=>{
+    const sx=e.clientX, sy=e.clientY;
+    if(e.shiftKey){
+      shiftDrag.active=true; shiftDrag.mode=null; shiftDrag.startX=sx; shiftDrag.startY=sy;
+      shiftDrag.startDt=params.dt; shiftDrag.startCells=Number($('#cells').value); shiftDrag.lastCells=shiftDrag.startCells;
+      dragging=false; panning=false; mouse.grab=-1; canvas.style.cursor='ew-resize'; e.preventDefault(); return;
+    }
+    const idx=nearestAtom(sx,sy); if(idx>=0){ mouse.grab=idx; dragging=true; panning=false; mouse.world=s2w(sx,sy); canvas.style.cursor='grab'; } else { panning=true; dragging=false; last=[sx,sy]; canvas.style.cursor='move'; }
+  });
+  window.addEventListener('mouseup', ()=>{ shiftDrag.active=false; shiftDrag.mode=null; dragging=false; panning=false; mouse.grab=-1; canvas.style.cursor='crosshair'; });
+  window.addEventListener('mousemove', e=>{
+    const sx=e.clientX, sy=e.clientY;
+    if(shiftDrag.active){
+      const dx=sx-shiftDrag.startX, dy=sy-shiftDrag.startY;
+      if(!shiftDrag.mode && Math.abs(dx)+Math.abs(dy)>5) shiftDrag.mode=Math.abs(dx)>=Math.abs(dy)?'dt':'cells';
+      if(shiftDrag.mode==='dt'){
+        setDtValue(shiftDrag.startDt + dx*(0.009/360));
+        canvas.style.cursor='ew-resize';
+      }else if(shiftDrag.mode==='cells'){
+        setCellValue(shiftDrag.startCells - dy*(45/360));
+        canvas.style.cursor='ns-resize';
+      }
+      return;
+    }
+    if(dragging && mouse.grab>=0){ mouse.world = s2w(sx,sy); } else if(panning){ const dx=sx-last[0], dy=sy-last[1]; last=[sx,sy]; view.origin[0]-=dx/view.scale; view.origin[1]-=dy/view.scale; draw(state,0,0); }
+  }, {passive:true});
+  canvas.addEventListener('wheel', e=>{ e.preventDefault(); const s=Math.exp(-e.deltaY*0.001); view.scale=Math.max(5,Math.min(50,view.scale*s)); resize(); }, {passive:false});
+
+  let frame=0;
+  let running=false, raf=null;
+  function advance(){ const spf=Number($('#spf').value); const useAng=$('#useAng').checked; const kAng=Number($('#kAng').value); const useMorse=$('#useMorse').checked; const De=Number($('#De').value); const alpha=Number($('#alpha').value); const doBreak=$('#doBreak').checked; const doReform=$('#allowReform').checked; const fBreak=Number($('#fBreak').value); const fReform=Number($('#fReform').value);
+    let ke=0,pe=0; for(let i=0;i<spf;i++){ const e=step(state,params,mouse,useAng,kAng,useMorse,De,alpha,doBreak,doReform,fBreak,fReform); ke=e.ke; pe=e.pe; }
+    frame++; $('#frameKpi').textContent=frame; draw(state,ke,pe); }
+  function tick(){ advance(); if(running) raf=requestAnimationFrame(tick); }
+  function setRunning(v){ running=v; $('#play').textContent=running?'⏸ Pause':'▶ Play'; $('#play').classList.toggle('primary', !running); if(running && !raf) raf=requestAnimationFrame(tick); if(!running && raf){ cancelAnimationFrame(raf); raf=null; } }
+
+  let recorder=null, chunks=[];
+  function startRec(){ try{ const fps=Number($('#fps').value)||30; const stream=canvas.captureStream(fps); chunks=[]; recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'}); recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) chunks.push(e.data); }; recorder.onstop=()=>{ const blob=new Blob(chunks,{type:'video/webm'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='graphene_movie.webm'; a.click(); URL.revokeObjectURL(url); }; recorder.start(); } catch(err){ alert('Recording not supported: '+err); } }
+  function stopRec(){ if(recorder && recorder.state!=='inactive') recorder.stop(); }
+
+  $('#cells').addEventListener('input', e=>{ $('#cellsLbl').textContent=`${e.target.value}×${e.target.value}`; const wasRunning = running; rebuild(); setRunning(wasRunning); });
+  $('#rebuild').addEventListener('click', ()=>{ setRunning(false); rebuild(); });
+  $('#spf').addEventListener('input', e=>$('#spfLbl').textContent=e.target.value);
+  $('#sf').addEventListener('input', e=>{ $('#sfLbl').textContent=Number(e.target.value).toFixed(2)+'×'; draw(state,0,0); });
+  $('#sat').addEventListener('input', e=>{ $('#satLbl').textContent=Math.round(Number(e.target.value)*100)+'%'; draw(state,0,0); });
+  $('#bondGray').addEventListener('input', e=>{ const v=Number(e.target.value); const hex=v.toString(16).padStart(2,'0'); $('#bondGrayLbl').textContent = `#${hex}${hex}${hex}`; draw(state,0,0); });
+  $('#neutralGray').addEventListener('input', e=>{ const v=Number(e.target.value); const hex=v.toString(16).padStart(2,'0'); $('#neutralLbl').textContent = `#${hex}${hex}${hex}`; draw(state,0,0); });
+  $('#invert').addEventListener('change', e=>{ invert=e.target.checked; draw(state,0,0); });
+  $('#dt').addEventListener('change', e=>setDtValue(Number(e.target.value)));
+  $('#k').addEventListener('change', e=>{ params.k=Number(e.target.value); syncDe(); });
+  $('#g').addEventListener('change', e=>params.g=Number(e.target.value));
+  $('#alpha').addEventListener('change', ()=>{ syncDe(); });
+  $('#scale').addEventListener('change', e=>{ view.scale=Number(e.target.value); resize(); });
+  $('#rad').addEventListener('change', e=>{ view.rad=Number(e.target.value); draw(state,0,0); });
+  $('#play').addEventListener('click', ()=>setRunning(!running));
+  $('#restart').addEventListener('click', ()=>{ setRunning(false); restart(); });
+  $('#step').addEventListener('click', ()=>{ setRunning(false); advance(); });
+  $('#startRec').addEventListener('click', ()=>{ restart(); startRec(); setRunning(true); });
+  $('#stopRec').addEventListener('click', ()=>{ setRunning(false); stopRec(); });
+  $('#shot').addEventListener('click', ()=>{ const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download='graphene_frame.png'; a.click(); });
+  $('#dump').addEventListener('click', ()=>{ const blob=new Blob([JSON.stringify({params,frame,atoms:state.atoms,bonds:state.bonds,bonds2:state.bonds2,L0:state.L0,L2:state.L2},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='graphene_state.json'; a.click(); URL.revokeObjectURL(url); });
+
+  const panel = $('#panel');
+  const leftPanel = $('#leftPanel');
+  const leftPanelToggle = $('#leftPanelToggle');
+  const leftPanelToggleWrap = $('#leftPanelToggleWrap');
+  const controlTip = $('#controlTip');
+
+  function renderMath(el){
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+      window.MathJax.typesetPromise([el]).catch(()=>{});
+    }
+  }
+
+  const tabs = Array.from(document.querySelectorAll('.leftTabBtn'));
+  const panes = Array.from(document.querySelectorAll('.leftPane'));
+  tabs.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const target = btn.dataset.pane;
+      tabs.forEach(b=>b.classList.toggle('active', b===btn));
+      panes.forEach(p=>p.classList.toggle('visible', p.id===target));
+      renderMath($('#leftContent'));
+    });
+  });
+
+  function tipHtml(title, useText, physText, eqBlock){
+    return `<div class="tipTitle">${title}</div><div class="tipUse"><strong>How to use:</strong> ${useText}</div><div class="tipPhys"><strong>What it controls:</strong> ${physText}</div>${eqBlock ? `<div class="tipEq">${eqBlock}</div>` : ''}`;
+  }
+
+  const tooltips = {
+    cells: tipHtml('Unit Cells (n×n)', 'Drag to increase or decrease lattice size; changes apply immediately.', 'Controls system size and computational complexity. Larger lattices support longer-wavelength collective modes.', String.raw`\[N_{atoms}=2n^2\]`),
+    L0: tipHtml('Bond Length L0', 'Set equilibrium nearest-neighbor distance before rebuild.', 'Defines the reference geometry and strain baseline.', String.raw`\[\varepsilon=\frac{r-L_0}{L_0}\]`),
+    off: tipHtml('Initial Offset', 'Sets random starting displacement amplitude at restart/rebuild.', 'Adds initial elastic potential energy and seeds wave motion.', String.raw`\[U\propto \frac12 kx^2\]`),
+    rebuild: tipHtml('Rebuild Lattice', 'Recreates atom positions and bond topology from current geometry settings.', 'Useful after changing geometry-level parameters like unit-cell count or L0.', ''),
+    play: tipHtml('Play / Pause', 'Start or stop continuous time integration.', 'When running, atom positions update each animation frame.', ''),
+    restart: tipHtml('Restart', 'Resets to fresh randomized initial conditions with current settings.', 'Good for repeating experiments with parameter changes.', ''),
+    step: tipHtml('Step', 'Advance exactly one rendered frame while paused.', 'Applies the configured number of simulation substeps once.', String.raw`\[\Delta t_{frame}=\text{spf}\cdot dt\]`),
+    fps: tipHtml('FPS (Recording)', 'Choose capture frame rate for exported video.', 'Affects only video playback smoothness, not force integration.', ''),
+    spf: tipHtml('Steps per Frame', 'Increase for more simulation updates each render cycle.', 'Raises simulated time advanced between drawn frames.', String.raw`\[\Delta t_{frame}=\text{spf}\cdot dt\]`),
+    dt: tipHtml('Time Step dt', 'Set numerical integration step size.', 'Smaller dt is more stable and accurate; too large can cause divergence.', String.raw`\[m\ddot{\mathbf r}=\sum\mathbf F-\gamma\dot{\mathbf r}\]`),
+    k: tipHtml('Spring Constant k', 'Adjust nearest-neighbor bond stiffness.', 'Higher k means stronger restoring force and higher oscillation frequency.', String.raw`\[F=kx,\quad U=\tfrac12kx^2\]`),
+    g: tipHtml('Damping γ', 'Increase to suppress oscillations faster.', 'Implements viscous drag that removes kinetic energy.', String.raw`\[\mathbf F_d=-\gamma\mathbf v\]`),
+    useMorse: tipHtml('Use Morse Potential', 'Enable nonlinear bond interaction instead of pure Hooke law.', 'Captures anharmonic behavior at larger extension/compression.', String.raw`\[U_M=D_e\left(1-e^{-\alpha(r-r_e)}\right)^2-D_e\]`),
+    De: tipHtml('Morse Depth De', 'Set depth of the Morse potential well.', 'Larger De increases bond energy scale.', String.raw`\[U_M\propto D_e\]`),
+    alpha: tipHtml('Morse α', 'Control steepness/width of Morse potential.', 'Higher α makes the potential wall steeper near equilibrium.', String.raw`\[U_M=D_e\left(1-e^{-\alpha(r-r_e)}\right)^2-D_e\]`),
+    doBreak: tipHtml('Enable Bond Breaking', 'Allow bonds to be deleted when overstretched.', 'Models irreversible local damage under strong strain.', String.raw`\[r>f_{break}L_0\Rightarrow\text{bond removed}\]`),
+    allowReform: tipHtml('Allow Reformation', 'Permit broken original neighbor bonds to reform when close enough.', 'Adds reversible defect dynamics with valence constraints.', String.raw`\[r<f_{reform}L_0\Rightarrow\text{bond may reform}\]`),
+    fBreak: tipHtml('Break Factor', 'Set rupture threshold multiplier relative to L0.', 'Higher value delays rupture to larger extension.', String.raw`\[r_{break}=f_{break}L_0\]`),
+    fReform: tipHtml('Reform Factor', 'Set reformation distance threshold.', 'Controls hysteresis between break and heal behavior.', String.raw`\[r_{reform}=f_{reform}L_0\]`),
+    useAng: tipHtml('Angle Stiffness Toggle', 'Enable second-neighbor stiffening contribution.', 'Increases resistance to distortions not captured by nearest-neighbor springs alone.', ''),
+    kAng: tipHtml('Angle Stiffness k_angle', 'Adjust strength of second-neighbor restoring term.', 'Raises lattice rigidity against shape distortions.', String.raw`\[U_{2nn}=\tfrac12k_{angle}(r-L_2)^2\]`),
+    scale: tipHtml('Scale (px per L0)', 'Sets base zoom level.', 'In this app it also scales displayed atom size and bond thickness with zoom.', ''),
+    rad: tipHtml('Atom Radius', 'Set base atom marker radius.', 'Visual-only control; rendered radius scales with zoom.', ''),
+    lineW: tipHtml('Bond Line Width', 'Set base bond stroke thickness.', 'Visual-only control; rendered line width scales with zoom.', ''),
+    bondGray: tipHtml('Bond Line Color', 'Choose neutral bond grayscale from black to white.', 'Defines baseline bond color before strain tint is mixed in.', String.raw`\[\text{RGB}_{bond}=\text{mix}(\text{gray},\text{strainColor},\text{tint})\]`),
+    sf: tipHtml('Strain Color Factor', 'Amplify color sensitivity to strain.', 'Maps strain magnitude to color-intensity parameter t.', String.raw`\[t=\mathrm{clamp}(\varepsilon\cdot sf,0,1)\]`),
+    sat: tipHtml('Strain Saturation', 'Set how strongly strain tint overrides baseline bond gray.', 'At zero, bonds stay neutral; at one, strain tint fully applies where strain is high.', String.raw`\[\text{tint}=\text{sat}\cdot t\]`),
+    neutralGray: tipHtml('Neutral Gray (Atoms)', 'Set atom marker grayscale value.', 'Affects atom color only; bond baseline is controlled separately.', ''),
+    invert: tipHtml('Invert Colors', 'Switch canvas background white/black for contrast.', 'Presentation setting only; physics unchanged.', ''),
+    startRec: tipHtml('Start Recording', 'Begin WebM capture and start from a fresh restart.', 'Captures the canvas stream at selected FPS.', ''),
+    stopRec: tipHtml('Stop and Download', 'Finish recording and save the WebM file.', 'Exports all captured chunks into one video file.', ''),
+    shot: tipHtml('Screenshot', 'Download current canvas frame as PNG.', 'Useful for figures and reports.', ''),
+    dump: tipHtml('Download State', 'Export atoms, bonds, and parameters to JSON.', 'Supports reproducibility and offline analysis.', '')
+  };
+
+  const quizRevealBtn = $('#quizRevealBtn');
+  const quizResetBtn = $('#quizResetBtn');
+  const quizScore = $('#quizScore');
+  const quizReveals = Array.from(document.querySelectorAll('.quizReveal'));
+  quizReveals.forEach(node=>{
+    node.dataset.base = node.innerHTML.replace(/^Correct answer: [A-Z]\.\s*/, '');
+  });
+
+  function revealQuiz(){
+    let answered = 0;
+    let correct = 0;
+    quizReveals.forEach(node=>{
+      const qName = node.dataset.q;
+      const correctAnswer = node.dataset.correct;
+      const picked = document.querySelector(`input[name="${qName}"]:checked`);
+      node.style.display = 'block';
+      node.classList.remove('correct', 'wrong');
+      if (picked){
+        answered++;
+        if (picked.value === correctAnswer){
+          correct++;
+          node.classList.add('correct');
+          node.innerHTML = `Correct answer: ${correctAnswer}. <strong>Your choice was correct.</strong> ${node.dataset.base || ''}`;
+        } else {
+          node.classList.add('wrong');
+          node.innerHTML = `Correct answer: ${correctAnswer}. <strong>Your choice was ${picked.value}.</strong> ${node.dataset.base || ''}`;
+        }
+      } else {
+        node.classList.add('wrong');
+        node.innerHTML = `Correct answer: ${correctAnswer}. <strong>No answer selected.</strong> ${node.dataset.base || ''}`;
+      }
+    });
+    quizScore.textContent = `Score: ${correct}/10 correct (${answered}/10 answered).`;
+    renderMath($('#pane-quiz'));
+  }
+
+  function resetQuiz(){
+    Array.from(document.querySelectorAll('#pane-quiz input[type="radio"]')).forEach(i=>{ i.checked = false; });
+    quizReveals.forEach(node=>{
+      node.style.display = 'none';
+      node.classList.remove('correct', 'wrong');
+      node.innerHTML = `Correct answer: ${node.dataset.correct}. ${node.dataset.base || ''}`;
+    });
+    quizScore.textContent = 'Answer the questions, then press Reveal answers.';
+  }
+
+  quizRevealBtn.addEventListener('click', revealQuiz);
+  quizResetBtn.addEventListener('click', resetQuiz);
+
+  function placeTip(evt){
+    const pad = 12;
+    const tw = controlTip.offsetWidth;
+    const th = controlTip.offsetHeight;
+    let x = evt.clientX + 16;
+    let y = evt.clientY + 16;
+    if (x + tw + pad > window.innerWidth) x = evt.clientX - tw - 16;
+    if (y + th + pad > window.innerHeight) y = evt.clientY - th - 16;
+    x = Math.max(pad, x);
+    y = Math.max(pad, y);
+    controlTip.style.left = `${x}px`;
+    controlTip.style.top = `${y}px`;
+  }
+
+  function showTipFor(target, evt){
+    const id = target.id;
+    if (!id || !tooltips[id]) return;
+    controlTip.innerHTML = tooltips[id];
+    controlTip.style.display = 'block';
+    placeTip(evt);
+    renderMath(controlTip);
+  }
+
+  function hideTip(){ controlTip.style.display = 'none'; }
+
+  Array.from(document.querySelectorAll('#panel input, #panel button')).forEach(el=>{
+    el.addEventListener('mouseenter', e=>showTipFor(el, e));
+    el.addEventListener('mousemove', e=>{ if (controlTip.style.display === 'block') placeTip(e); });
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('focus', ()=>{
+      const rect = el.getBoundingClientRect();
+      showTipFor(el, { clientX: rect.left + rect.width * 0.5, clientY: rect.top + rect.height + 6 });
+    });
+    el.addEventListener('blur', hideTip);
+  });
+
+  function setLeftPanelVisible(visible){
+    leftPanel.classList.toggle('visible', visible);
+    leftPanelToggle.textContent = visible ? 'Hide guide' : 'Show guide';
+    leftPanelToggle.setAttribute('aria-expanded', String(visible));
+    leftPanelToggleWrap.classList.add('hint-visible');
+  }
+  leftPanelToggle.addEventListener('click', ()=>setLeftPanelVisible(!leftPanel.classList.contains('visible')));
+  window.addEventListener('mousemove', e=>{
+    const nearRight = e.clientX > window.innerWidth * 0.93;
+    const pr = panel.getBoundingClientRect();
+    const overPanel = e.clientX >= pr.left && e.clientX <= pr.right;
+    panel.classList.toggle('visible', nearRight || overPanel);
+    const nearUpperLeft = e.clientX < 180 && e.clientY < 140;
+    if (nearUpperLeft || leftPanel.classList.contains('visible')) {
+      leftPanelToggleWrap.classList.add('hint-visible');
+    } else {
+      leftPanelToggleWrap.classList.remove('hint-visible');
+    }
+  });
+
+  function init(){ syncDe(); state.origNN = base.bonds.map(b=>({i:b.i,j:b.j,L0:b.L0})); state.bondSet = rebuildBondSet(state); randomize(Number($('#off').value)); view.origin = center(state.atoms); frame=0; $('#frameKpi').textContent='0'; resize(); draw(state,0,0); setRunning(true); renderMath($('#leftContent')); }
+  init();
+})();
+</script>
+</body>
+</html>

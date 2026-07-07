@@ -1,0 +1,9 @@
+{
+  "slug": "graphene-bandstructure",
+  "name": "Graphene Band Structure",
+  "description": "Tight-binding model of graphene — visualise the π-band dispersion, Dirac cones, and how the hopping parameters shape the electronic band structure.",
+  "status": "live",
+  "url": "tools/graphene-bandstructure/index.html",
+  "icon": "chart",
+  "tags": ["simulations", "visualisations", "educational"]
+}

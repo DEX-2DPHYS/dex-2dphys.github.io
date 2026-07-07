@@ -1,0 +1,9 @@
+{
+  "slug": "moire-md",
+  "name": "Moiré MD",
+  "description": "Twisted-bilayer moiré with real molecular-dynamics relaxation — a driven core region forces twist/translation while the surrounding lattice relaxes, showing how coincidence-site-lattice (CSL) moiré patterns and AB/BA domains develop.",
+  "status": "live",
+  "url": "tools/moire-md/index.html",
+  "icon": "atom",
+  "tags": ["simulations", "visualisations", "educational"]
+}
