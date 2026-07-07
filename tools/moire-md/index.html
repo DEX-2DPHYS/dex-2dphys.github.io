@@ -186,6 +186,101 @@
     opacity: 0.55;
     cursor: not-allowed;
   }
+
+  /* --- Slider help tooltips --- */
+  .help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 6px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.06);
+    color: #333;
+    font-size: 10px;
+    font-weight: 700;
+    font-style: normal;
+    line-height: 1;
+    cursor: help;
+    vertical-align: middle;
+    user-select: none;
+    transition: background 120ms ease, color 120ms ease;
+  }
+
+  .help-icon:hover,
+  .help-icon:focus {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+    outline: none;
+  }
+
+  .tooltip-pop {
+    position: fixed;
+    display: none;
+    z-index: 9999;
+    width: 320px;
+    max-width: min(92vw, 320px);
+    max-height: 82vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 14px 16px 16px;
+    background: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    border-radius: 10px;
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    font-size: 12.5px;
+    line-height: 1.42;
+  }
+
+  .tooltip-pop .tip-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .tooltip-pop .tip-h {
+    display: block;
+    margin: 10px 0 3px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #2b6cb0;
+  }
+
+  .tooltip-pop .tip-h:first-of-type {
+    margin-top: 2px;
+  }
+
+  .tooltip-pop p {
+    margin: 0;
+  }
+
+  .tooltip-pop .eq {
+    display: block;
+    margin: 6px 0 2px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border-left: 3px solid rgba(43, 108, 176, 0.6);
+    border-radius: 4px;
+    font-family: "Cambria Math", "Latin Modern Math", Georgia, "Times New Roman", serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .tooltip-pop .eq i,
+  .tooltip-pop .var {
+    font-style: italic;
+  }
 </style>
 </head>
 <body>
@@ -2786,6 +2881,252 @@
   }
 
   init();
+})();
+</script>
+
+<script>
+/* Slider help tooltips: a "?" icon next to each slider label opens a popup
+   (What is this / Physics behind / How to use it) rendered on top of the
+   panel, positioned to the left of it so it is never clipped. */
+(function () {
+  "use strict";
+
+  var TIPS = {
+    bottomAlpha: {
+      title: "Bottom opacity",
+      what: "Sets how opaque the bottom (fixed substrate) layer is drawn, from fully transparent (0) to solid (1).",
+      physics: "A moiré pattern is a beat between two overlaid lattices — you only perceive it when both layers are simultaneously visible. Partial transparency lets the eye superimpose top and bottom and read out the interference envelope, exactly as two overlaid meshes reveal a moiré.",
+      how: "Lower it to look <em>through</em> the substrate at where top atoms sit relative to it; raise it to emphasise the fixed reference lattice. Purely a rendering control — it changes nothing physical."
+    },
+    topAlpha: {
+      title: "Top opacity",
+      what: "Sets how opaque the top (movable) layer is drawn, from transparent (0) to solid (1).",
+      physics: "The top layer carries the twist, shift and relaxation. Its registry with the substrate defines the local stacking (AA / AB / BA); rendering it semi-transparent lets that registry read against the layer beneath.",
+      how: "Balance it against the bottom opacity so both lattices are legible. If the CSL colouring looks washed out, nudge this up."
+    },
+    bottomCells: {
+      title: "Bottom size (N)",
+      what: "Number of unit cells along one edge of the bottom layer — i.e. how large the fixed substrate patch is.",
+      physics: "To display a moiré you need a patch several moiré periods wide. The moiré period grows as the twist shrinks:<span class=\"eq\">λ<sub>m</sub> ≈ <i>a</i> / (2&nbsp;sin(θ/2)) ≈ <i>a</i>/θ</span>so at θ = 1°, λ<sub>m</sub> ≈ 57&nbsp;<i>a</i> — you need N of that order to fit even one super-cell.",
+      how: "Increase N at small twist angles to capture whole moiré cells; decrease it to keep the atom count (and frame rate) manageable."
+    },
+    topCells: {
+      title: "Top size (N)",
+      what: "Number of unit cells along one edge of the top layer.",
+      physics: "The overlap region of the two layers sets how many moiré super-cells are visible. Matching top and bottom sizes gives a clean, fully-overlapped field; mismatched sizes leave a bare rim.",
+      how: "Keep it close to the bottom size for a filled field of view. Reduce both together if the simulation feels heavy."
+    },
+    atomSize: {
+      title: "Atom size",
+      what: "Screen radius of each atom dot, in pixels.",
+      physics: "No physics — a visualisation aid. Large dots merge neighbouring atoms into filled domains, making AB/BA triangular regions and AA nodes pop out as areas of colour; small dots expose the individual lattice.",
+      how: "Use large dots to read the moiré domain map at a glance; shrink them to inspect individual atomic positions and bonds."
+    },
+    gaussianSigma: {
+      title: "Gaussian size σ (Å)",
+      what: "Spatial width of the Gaussian brush used when you Shift/Ctrl/Alt-drag to deform the top layer by hand.",
+      physics: "The manual displacement field is a localized Gaussian bump:<span class=\"eq\"><b>u</b>(<b>r</b>) = <b>u</b><sub>0</sub>&nbsp;exp(−|<b>r</b>−<b>r</b><sub>drag</sub>|<sup>2</sup> / 2σ<sup>2</sup>)</span>σ sets the region that moves together. A wide σ imposes a smooth, low-strain distortion; a narrow σ concentrates the same displacement into a high strain ∇<b>u</b>.",
+      how: "Shift+drag translates, Ctrl+drag twists, Alt+drag lifts (dz) — all with this radius. Widen σ for gentle global warps, narrow it to paint a tight local defect."
+    },
+    cslSensitivity: {
+      title: "CSL sensitivity",
+      what: "Contrast (gamma) of the coincidence-site-lattice colouring that highlights how well the two layers register locally.",
+      physics: "Each top atom is coloured by the interlayer registry order parameter — the first Fourier harmonic of the stacking:<span class=\"eq\"><i>s</i>(<b>r</b>) = Σ<sub>i</sub> cos(<b>G</b><sub>i</sub>·(<b>r</b>−<b>r</b><sub>0</sub>))</span>Its maxima mark AA registry (atom-over-atom). The slider applies a power law with exponent γ = 1/sensitivity, so small values sharpen the AA coincidence sites against the AB/BA background.",
+      how: "Lower it to isolate just the bright AA nodes (the moiré lattice points); raise it toward 1 for a smooth continuous registry map. Toggle “Invert CSL scale” to flip the colour direction."
+    },
+    mdCoreRadius: {
+      title: "Core radius (Å)",
+      what: "Radius of the central disk that is rigidly driven (twisted/shifted) while the surrounding atoms relax freely.",
+      physics: "The disk is a Dirichlet boundary condition: inside it the stacking is forced, outside it minimizes energy. At the disk edge the mismatch is absorbed by a network of domain walls (solitons) — the same reconstruction that turns a rigid twist into AB/BA triangular domains joined at AA nodes.",
+      how: "Make it small to watch a single driven region shed strain into the relaxed surroundings; make it large to drive most of the field and study the wall network at its rim. Shift+drag moves the disk, Ctrl+drag rotates it."
+    },
+    mdFrame: {
+      title: "Frame thickness (Å)",
+      what: "Width of the outer ring of atoms used as the far-field boundary condition around the relaxing region.",
+      physics: "The frame stands in for the surrounding infinite crystal. Pinning it fixes the far-field registry so the interior can develop a genuine soliton network rather than drifting as a whole; a free edge instead lets the boundary relax and relieves stress.",
+      how: "Keep a finite clamped frame for realistic domain-wall patterns; set it to zero (or choose “Free edge”) to let the whole flake slide and rotate unconstrained."
+    },
+    mdTheta: {
+      title: "Core angle (deg)",
+      what: "Twist angle applied to the driven core relative to the substrate.",
+      physics: "Twist is the master knob of moiré physics. It sets the super-lattice period<span class=\"eq\">λ<sub>m</sub> = <i>a</i> / (2&nbsp;sin(θ/2))</span>Below the magic-angle range (≈ 1.1°) the adhesion energy wins over elasticity and the uniform twist <em>reconstructs</em> into sharp AB/BA triangular domains separated by AA-rich domain walls.",
+      how: "Sweep through 0–2° to see large reconstructed domains; increase toward 5–30° for a fine, nearly-rigid moiré. Keys: <b>[</b> and <b>]</b> also nudge the twist."
+    },
+    mdShiftXNumber: {
+      title: "Core shift X (Å)",
+      what: "Rigid in-plane translation of the driven core along x.",
+      physics: "A relative interlayer slide moves the system across the generalized stacking-fault energy (GSFE) landscape, selecting AA, AB or BA registry. Because that landscape is lattice-periodic, a shift by a full lattice vector is physically invisible — only the fractional offset matters.",
+      how: "Combine X and Y to place the core in a chosen stacking, or to slide existing domain walls back and forth. Arrow keys also nudge the translation."
+    },
+    mdShiftYNumber: {
+      title: "Core shift Y (Å)",
+      what: "Rigid in-plane translation of the driven core along y.",
+      physics: "Together with the X shift this sweeps the interlayer registry through the GSFE surface (AA ↔ AB ↔ BA). The elastic response of the surrounding atoms turns a uniform shift into moving solitons.",
+      how: "Use small offsets to fine-tune the domain configuration; a shift of one lattice constant returns to an equivalent stacking."
+    },
+    mdReg: {
+      title: "Registry strength",
+      what: "Amplitude V₀ of the interlayer adhesion potential that pulls the layers toward commensurate (AB/BA) stacking.",
+      physics: "The adhesion is modelled as the analytic generalized stacking-fault energy<span class=\"eq\"><i>V</i>(<b>r</b>) = V<sub>0</sub> Σ<sub>i</sub> cos(<b>G</b><sub>i</sub>·(<b>r</b>−<b>r</b><sub>0</sub>))</span>It competes with elastic energy; their balance sets the domain-wall width<span class=\"eq\"><i>w</i> ∝ √(<i>K</i>/V<sub>0</sub>)</span>Larger V₀ → narrower, sharper walls and stronger reconstruction.",
+      how: "Raise it to force crisp AB/BA domains with thin walls; lower it toward zero to recover an unreconstructed, rigid moiré. Trade it off against Elastic stiffness."
+    },
+    mdStiff: {
+      title: "Elastic stiffness",
+      what: "In-plane spring constant K of the intralayer bonds — how strongly the lattice resists being sheared.",
+      physics: "Elasticity opposes the shear the adhesion wants to impose. The dimensionless ratio K/V₀ governs reconstruction, again through<span class=\"eq\"><i>w</i> ∝ √(<i>K</i>/V<sub>0</sub>)</span>Stiff layers spread the mismatch smoothly (wide walls, weak reconstruction); soft layers localize it into sharp solitons.",
+      how: "Lower K (or raise Registry strength) to sharpen domain walls; raise K to keep the lattice nearly rigid. It is the natural partner of the Registry-strength slider."
+    },
+    mdBend: {
+      title: "Bending stiffness",
+      what: "Out-of-plane bending rigidity κ of the sheet — its resistance to curving.",
+      physics: "The bending energy penalizes curvature:<span class=\"eq\"><i>E</i><sub>bend</sub> = ½ κ ∫ (∇<sup>2</sup><i>h</i>)<sup>2</sup> dA</span>It sets how gently bubbles and ridges curve and, balanced against adhesion, fixes the width of wrinkles:<span class=\"eq\">λ<sub>w</sub> ∝ (κ / Γ)<sup>1/4</sup></span>where Γ is the adhesion energy.",
+      how: "Increase κ for broad, smooth blisters and wide ridges; decrease it for sharp, tightly-curved features. Only matters once a bubble or ridge is active."
+    },
+    mdAdh: {
+      title: "Adhesion",
+      what: "Strength of the van der Waals adhesion pulling the top sheet down flat onto the substrate.",
+      physics: "Adhesion Γ competes with bending and internal pressure. For a pressurized blister the membrane balance fixes the aspect ratio; for a wrinkle it sets the width via λ<sub>w</sub> ∝ (κ/Γ)<sup>1/4</sup>. Stronger adhesion means flatter sheets and steeper, narrower out-of-plane features.",
+      how: "Raise it to flatten the sheet and shrink bubbles/ridges; lower it to let the membrane detach and lift more easily."
+    },
+    mdBubR: {
+      title: "Bubble radius (Å)",
+      what: "Radius of the pressurized circular blister where the top sheet detaches from the substrate.",
+      physics: "A clamped pressurized membrane follows Hencky’s solution; its central height scales as<span class=\"eq\"><i>h</i>₀ / R ∝ (<i>p</i> R / <i>Et</i>)<sup>1/3</sup></span>The radial stretch inside the bubble strains the lattice and locally distorts the moiré into a target-like pattern.",
+      how: "Set a large radius (and small core radius) to see a free, well-developed bubble; small radii give tight blisters. Pair with the Pressure slider."
+    },
+    mdBubP: {
+      title: "Bubble pressure",
+      what: "Internal pressure inflating the bubble.",
+      physics: "Pressure p is the normal load in the membrane balance above; it fights adhesion (which wants the sheet down) and bending (which resists curvature). Higher p raises the blister and increases the in-plane stretch, so the moiré distortion grows.",
+      how: "Increase it to inflate and strain the bubble; drop it toward zero to let adhesion re-flatten the sheet. Watch the deflection with “Toggle 3D relief.”"
+    },
+    mdRidgeLen: {
+      title: "Ridge length (Å)",
+      what: "Length of the wrinkle/ridge line — a one-dimensional detached fold in the sheet.",
+      physics: "A ridge is a delamination buckle: under in-plane compression the sheet buckles upward along a line to relieve strain, the 2D analogue of a buckled strut. Its length is the extent of that folded region.",
+      how: "Lengthen it to run a wrinkle across the field of view; shorten it for a localized fold. Orientation and width are set by the neighbouring sliders."
+    },
+    mdRidgeAng: {
+      title: "Ridge angle (deg)",
+      what: "In-plane orientation of the ridge line.",
+      physics: "The ridge direction relative to the crystal axes sets which shear component of the moiré it couples to — wrinkles aligned with high-symmetry directions distort the domain network differently from oblique ones.",
+      how: "Rotate it to align the wrinkle with a lattice or moiré axis and study how it cuts through the AB/BA domains."
+    },
+    mdRidgeW: {
+      title: "Ridge half width (Å)",
+      what: "Half the lateral width of the ridge cross-section.",
+      physics: "The natural wrinkle width comes from the competition between bending (wants broad folds) and adhesion (wants the sheet flat):<span class=\"eq\">λ<sub>w</sub> ∝ (κ / Γ)<sup>1/4</sup></span>This slider lets you impose that width directly; very narrow ridges concentrate curvature and strain.",
+      how: "Widen it for a gentle, low-curvature fold; narrow it for a sharp crease. Keep it consistent with your Bending and Adhesion settings for a physical shape."
+    },
+    mdRidgeP: {
+      title: "Ridge pressure",
+      what: "Drive amplitude that lifts the ridge out of plane — effectively its buckling amplitude.",
+      physics: "It plays the role of the post-buckling load: larger values push the fold higher, increasing curvature (bending energy ∝ κ(∇²h)²) and the in-plane stretch that warps the surrounding moiré.",
+      how: "Raise it to make the ridge stand tall and strongly distort nearby domains; lower it for a shallow wrinkle. View the profile with “Toggle 3D relief.”"
+    }
+  };
+
+  var panel = document.getElementById("panel");
+
+  var pop = document.createElement("div");
+  pop.className = "tooltip-pop";
+  pop.setAttribute("role", "tooltip");
+  document.body.appendChild(pop);
+
+  var hideTimer = null;
+  var activeIcon = null;
+
+  function buildHtml(t) {
+    return "<div class=\"tip-title\">" + t.title + "</div>" +
+      "<span class=\"tip-h\">What is this</span><p>" + t.what + "</p>" +
+      "<span class=\"tip-h\">Physics behind</span><p>" + t.physics + "</p>" +
+      "<span class=\"tip-h\">How to use it</span><p>" + t.how + "</p>";
+  }
+
+  function positionPop(icon) {
+    var iconRect = icon.getBoundingClientRect();
+    var panelRect = panel.getBoundingClientRect();
+    var popRect = pop.getBoundingClientRect();
+    var gap = 12;
+
+    // Prefer placing the popup to the LEFT of the panel so it is never
+    // clipped underneath it. Fall back to the right of the icon if there
+    // is no room on the left (narrow screens).
+    var left = panelRect.left - popRect.width - gap;
+    if (left < 8) {
+      left = Math.min(iconRect.right + gap, window.innerWidth - popRect.width - 8);
+      if (left < 8) { left = 8; }
+    }
+
+    var top = iconRect.top - 6;
+    if (top + popRect.height > window.innerHeight - 8) {
+      top = window.innerHeight - popRect.height - 8;
+    }
+    if (top < 8) { top = 8; }
+
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+  }
+
+  function showPop(icon) {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    activeIcon = icon;
+    pop.innerHTML = icon._tipHtml;
+    pop.style.display = "block";
+    pop.style.left = "-9999px";
+    pop.style.top = "0px";
+    // Two-pass: render off-screen to measure, then place.
+    positionPop(icon);
+  }
+
+  function scheduleHide() {
+    if (hideTimer) { clearTimeout(hideTimer); }
+    hideTimer = setTimeout(function () {
+      pop.style.display = "none";
+      activeIcon = null;
+    }, 140);
+  }
+
+  pop.addEventListener("mouseenter", function () {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+  });
+  pop.addEventListener("mouseleave", scheduleHide);
+
+  Object.keys(TIPS).forEach(function (key) {
+    var label = document.querySelector('label[for="' + key + '"]');
+    if (!label) { return; }
+
+    var icon = document.createElement("span");
+    icon.className = "help-icon";
+    icon.textContent = "?";
+    icon.setAttribute("tabindex", "0");
+    icon.setAttribute("role", "button");
+    icon.setAttribute("aria-label", TIPS[key].title + " — help");
+    icon._tipHtml = buildHtml(TIPS[key]);
+
+    icon.addEventListener("mouseenter", function () { showPop(icon); });
+    icon.addEventListener("mouseleave", scheduleHide);
+    icon.addEventListener("focus", function () { showPop(icon); });
+    icon.addEventListener("blur", scheduleHide);
+    icon.addEventListener("click", function (e) {
+      e.preventDefault();
+      if (activeIcon === icon && pop.style.display === "block") {
+        pop.style.display = "none";
+        activeIcon = null;
+      } else {
+        showPop(icon);
+      }
+    });
+
+    label.appendChild(icon);
+  });
+
+  window.addEventListener("scroll", function () {
+    if (activeIcon && pop.style.display === "block") { positionPop(activeIcon); }
+  }, true);
+  window.addEventListener("resize", function () {
+    if (activeIcon && pop.style.display === "block") { positionPop(activeIcon); }
+  });
 })();
 </script>
 </body>
