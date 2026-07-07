@@ -1,1 +1,209 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEX — Digital Experiments &amp; Tools · 2DPHYS, DTU</title>
+  <meta name="description" content="DEX: Digital Experiments and Tools created by the 2DPHYS group at the Technical University of Denmark. Browser-based simulators and interactive tools for teaching and research." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23990000'/><text x='50' y='68' font-size='52' font-family='Arial,sans-serif' font-weight='700' text-anchor='middle' fill='white'>D</text></svg>" />
+  <style>
+    :root {
+      --red: #990000;
+      --red-bright: #c0122b;
+      --bg: #ffffff;
+      --bg-soft: #f5f5f4;
+      --card: #ffffff;
+      --border: #e5e3e0;
+      --text: #1b1a19;
+      --text-soft: #5c5955;
+      --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+      --shadow-hover: 0 2px 4px rgba(0,0,0,.06), 0 16px 40px rgba(0,0,0,.10);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --red: #ff5a5f;
+        --red-bright: #ff7a7f;
+        --bg: #131211;
+        --bg-soft: #1b1a18;
+        --card: #1e1c1a;
+        --border: #322f2c;
+        --text: #f3f1ee;
+        --text-soft: #a8a39d;
+        --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
+        --shadow-hover: 0 2px 4px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.55);
+      }
+    }
+    :root[data-theme="dark"] {
+      --red: #ff5a5f; --red-bright: #ff7a7f;
+      --bg: #131211; --bg-soft: #1b1a18; --card: #1e1c1a; --border: #322f2c;
+      --text: #f3f1ee; --text-soft: #a8a39d;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
+      --shadow-hover: 0 2px 4px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.55);
+    }
+    :root[data-theme="light"] {
+      --red: #990000; --red-bright: #c0122b;
+      --bg: #ffffff; --bg-soft: #f5f5f4; --card: #ffffff; --border: #e5e3e0;
+      --text: #1b1a19; --text-soft: #5c5955;
+      --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+      --shadow-hover: 0 2px 4px rgba(0,0,0,.06), 0 16px 40px rgba(0,0,0,.10);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* ---- Header ---- */
+    header {
+      border-top: 4px solid var(--red);
+      padding: 2.2rem 1.5rem 0;
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; }
+    .brand { display: flex; align-items: center; gap: .7rem; }
+    .brand-mark {
+      width: 38px; height: 38px; border-radius: 9px;
+      background: var(--red); color: #fff;
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 1.35rem; letter-spacing: -.02em;
+      flex: none;
+    }
+    .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
+    .brand-sub { color: var(--text-soft); font-size: .82rem; }
+    .hero { padding: 3.2rem 0 2.6rem; }
+    .hero h1 {
+      font-size: clamp(2rem, 6vw, 3.1rem);
+      line-height: 1.08;
+      letter-spacing: -.03em;
+      margin: 0 0 1rem;
+      font-weight: 800;
+    }
+    .hero h1 .accent { color: var(--red); }
+    .hero p {
+      font-size: clamp(1.02rem, 2.4vw, 1.2rem);
+      color: var(--text-soft);
+      max-width: 44ch;
+      margin: 0;
+    }
+    /* ---- Tools grid ---- */
+    main { padding: 0 1.5rem 4rem; }
+    .section-label {
+      font-size: .78rem; text-transform: uppercase; letter-spacing: .12em;
+      color: var(--text-soft); font-weight: 600;
+      margin: 2rem 0 1rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.1rem;
+    }
+    .card {
+      position: relative;
+      display: flex; flex-direction: column;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.4rem;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: var(--shadow);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      min-height: 180px;
+    }
+    a.card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--red);
+    }
+    .card.soon { opacity: .82; }
+    .card-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: grid; place-items: center; font-size: 1.4rem;
+      background: color-mix(in srgb, var(--red) 12%, transparent);
+      margin-bottom: 1rem;
+    }
+    .card h3 { margin: 0 0 .35rem; font-size: 1.15rem; letter-spacing: -.01em; }
+    .card p { margin: 0; color: var(--text-soft); font-size: .92rem; flex: 1; }
+    .badge {
+      position: absolute; top: 1.1rem; right: 1.1rem;
+      font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      padding: .22rem .55rem; border-radius: 999px;
+    }
+    .badge.live { background: color-mix(in srgb, #12924b 16%, transparent); color: #12924b; }
+    .badge.soon { background: color-mix(in srgb, var(--text-soft) 16%, transparent); color: var(--text-soft); }
+    @media (prefers-color-scheme: dark) {
+      .badge.live { color: #46d68a; }
+    }
+    .card-cta {
+      margin-top: 1rem; font-size: .88rem; font-weight: 600; color: var(--red);
+      display: inline-flex; align-items: center; gap: .3rem;
+    }
+    a.card:hover .card-cta { gap: .5rem; }
+    /* ---- Footer ---- */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 1.5rem;
+      color: var(--text-soft);
+      font-size: .88rem;
+    }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; justify-content: space-between; align-items: center; }
+    footer a { color: var(--red); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <div class="brand-mark">D</div>
+        <div>
+          <div class="brand-name">DEX</div>
+          <div class="brand-sub">2DPHYS · Technical University of Denmark</div>
+        </div>
+      </div>
+      <div class="hero">
+        <h1>Digital Experiments<br />&amp; <span class="accent">Tools</span></h1>
+        <p>Browser-based simulators and interactive tools for teaching and research in condensed-matter and 2D-materials physics — no install, they run right in your browser.</p>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="wrap">
+      <div class="section-label">Tools</div>
+      <div class="grid">
+        <!-- TranSim (placeholder until the tool is copied in) -->
+        <div class="card soon">
+          <span class="badge soon">Coming soon</span>
+          <div class="card-icon">🧲</div>
+          <h3>TranSim</h3>
+          <p>Charge-transport simulator — ballistic &amp; diffusive regimes, Hall and four-probe measurements, mobility maps.</p>
+        </div>
+        <!-- LabTCAD (placeholder) -->
+        <div class="card soon">
+          <span class="badge soon">Coming soon</span>
+          <div class="card-icon">⚙️</div>
+          <h3>LabTCAD</h3>
+          <p>TCAD-like process &amp; device simulator for micro- and nanofabricated semiconductor structures.</p>
+        </div>
+        <!-- Generic placeholder -->
+        <div class="card soon">
+          <span class="badge soon">Coming soon</span>
+          <div class="card-icon">🔬</div>
+          <h3>More tools</h3>
+          <p>Additional experiments and interactive notes from the 2DPHYS group will appear here.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <span>© 2DPHYS, DTU · Digital Experiments &amp; Tools</span>
+      <span><a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></span>
+    </div>
+  </footer>
+</body>
+</html>
