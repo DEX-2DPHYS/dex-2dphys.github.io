@@ -373,6 +373,13 @@
     footer .wrap { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; justify-content: space-between; align-items: center; }
     footer a { color: var(--red); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+    .footer-note {
+      margin-top: .8rem;
+      font-size: .78rem;
+      color: var(--text-soft);
+      opacity: .85;
+      max-width: 70ch;
+    }
 
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; scroll-behavior: auto; }
@@ -386,7 +393,7 @@
         <div class="brand-mark">D</div>
         <div>
           <div class="brand-name">DEX</div>
-          <div class="brand-sub">2DPHYS · Technical University of Denmark</div>
+          <div class="brand-sub">Digital Experiments from the 2DPHYS section at the Technical University of Denmark</div>
         </div>
       </a>
       <div class="nav-right">
@@ -447,8 +454,11 @@
 
   <footer>
     <div class="wrap">
-      <span>© <span id="year">2026</span> 2DPHYS, DTU · Digital Experiments &amp; Tools</span>
+      <span>© <span id="year">2026</span> Digital Experiments (DEX) · 2DPHYS section</span>
       <span><a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></span>
+    </div>
+    <div class="wrap footer-note">
+      An independent project by the 2DPHYS section at the Technical University of Denmark. Not an official DTU page and not an official communication of the university.
     </div>
   </footer>
 
