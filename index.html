@@ -74,12 +74,22 @@
       position: sticky;
       top: 0;
       z-index: 20;
-      border-top: 4px solid var(--red);
-      backdrop-filter: saturate(180%) blur(12px);
-      background: color-mix(in srgb, var(--bg) 82%, transparent);
-      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      isolation: isolate;
+      background: linear-gradient(105deg, #0a1a52 0%, #1b1c6b 45%, #3d1e83 72%, #5b2a99 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 6px 22px rgba(20, 12, 60, 0.18);
+    }
+    /* Atom-orbit pattern layer behind the bar contents */
+    .bar-atoms {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
     }
     .nav {
+      position: relative;
+      z-index: 1;
       display: flex; align-items: center; justify-content: space-between;
       gap: 1rem;
       padding: .8rem 1.5rem;
@@ -87,29 +97,32 @@
     .brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; }
     .brand-mark {
       width: 38px; height: 38px; border-radius: 9px;
-      background: var(--red); color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #fff;
       display: grid; place-items: center;
       font-weight: 800; font-size: 1.35rem; letter-spacing: -.02em;
       flex: none;
     }
-    .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; }
-    .brand-sub { color: var(--text-soft); font-size: .82rem; }
+    .brand-name { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; color: #fff; }
+    .brand-sub { color: rgba(255, 255, 255, 0.72); font-size: .82rem; }
     .nav-right { display: flex; align-items: center; gap: 1.4rem; }
-    .nav-links { display: flex; gap: 1.4rem; font-size: .9rem; font-weight: 500; color: var(--text-soft); }
+    .nav-links { display: flex; gap: 1.4rem; font-size: .9rem; font-weight: 500; color: rgba(255, 255, 255, 0.8); }
     .nav-links a { text-decoration: none; transition: color .15s ease; }
-    .nav-links a:hover { color: var(--text); }
-    .nav-links a.cta { color: var(--red); font-weight: 600; }
+    .nav-links a:hover { color: #fff; }
+    .nav-links a.cta { color: #c9b8ff; font-weight: 600; }
+    .nav-links a.cta:hover { color: #e7ddff; }
     .theme-toggle {
       display: grid; place-items: center;
       width: 36px; height: 36px;
       border-radius: 9px;
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--text-soft);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.85);
       cursor: pointer;
-      transition: color .15s ease, border-color .15s ease, transform .12s ease;
+      transition: color .15s ease, border-color .15s ease, background .15s ease, transform .12s ease;
     }
-    .theme-toggle:hover { color: var(--text); border-color: var(--red); }
+    .theme-toggle:hover { color: #fff; border-color: rgba(255, 255, 255, 0.55); background: rgba(255, 255, 255, 0.14); }
     .theme-toggle:active { transform: scale(.94); }
     .theme-toggle svg { width: 18px; height: 18px; }
     .theme-toggle .moon { display: none; }
@@ -388,6 +401,19 @@
 </head>
 <body id="top">
   <div class="topbar">
+    <svg class="bar-atoms" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="atomPat" width="150" height="130" patternUnits="userSpaceOnUse">
+          <g fill="none" stroke="#ffffff" stroke-opacity="0.14" stroke-width="1.3">
+            <circle cx="75" cy="65" r="3.2" fill="#ffffff" fill-opacity="0.22" stroke="none" />
+            <ellipse cx="75" cy="65" rx="40" ry="15" />
+            <ellipse cx="75" cy="65" rx="40" ry="15" transform="rotate(60 75 65)" />
+            <ellipse cx="75" cy="65" rx="40" ry="15" transform="rotate(120 75 65)" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#atomPat)" />
+    </svg>
     <div class="wrap nav">
       <a class="brand" href="#top" aria-label="DEX home">
         <div class="brand-mark">D</div>
