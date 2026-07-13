@@ -10,6 +10,7 @@
     "transim",
     "moire-md",
     "moire-explorer",
+    "moire-atomview",
     "qtm",
     "graphene-bandstructure",
     "graphene-phonons",

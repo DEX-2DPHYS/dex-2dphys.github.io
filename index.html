@@ -243,6 +243,33 @@
       transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
       min-height: 190px;
     }
+    .card-media {
+      position: relative;
+      margin: -1.4rem -1.4rem 1rem;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--red) 18%, transparent), transparent 42%),
+        linear-gradient(135deg, color-mix(in srgb, var(--bg-soft) 92%, transparent), color-mix(in srgb, var(--red) 8%, var(--bg-soft)));
+      border-bottom: 1px solid var(--border);
+    }
+    .card-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card-media::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 44%;
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,.16));
+      pointer-events: none;
+    }
+    .card.has-preview .card-icon {
+      margin-top: .15rem;
+    }
     .card::before {
       content: "";
       position: absolute; inset: 0 0 auto 0; height: 3px;
@@ -574,6 +601,10 @@
           }).join("");
 
           var noteHtml = t.note ? '<p class="card-note">' + esc(t.note) + "</p>" : "";
+          var previewUrl = t.preview || (t.slug ? "assets/tool-previews/" + t.slug + ".png" : "");
+          var mediaHtml = t.status === "live"
+            ? '<div class="card-media"><img src="' + esc(previewUrl) + '" alt="' + esc(t.name) + ' preview" loading="lazy"></div>'
+            : "";
 
           var footHtml;
           if (live) {
@@ -586,6 +617,7 @@
           }
 
           el.innerHTML =
+            mediaHtml +
             '<span class="badge ' + (live ? "live" : "soon") + '">' +
               (live ? "Available" : "Coming soon") + "</span>" +
             '<div class="card-icon" aria-hidden="true">' + svg(t.icon) + "</div>" +
@@ -594,6 +626,8 @@
             noteHtml +
             '<div class="card-tags">' + tagsHtml + "</div>" +
             footHtml;
+
+          if (mediaHtml) { el.classList.add("has-preview"); }
 
           // Whole-card click opens a live tool, unless a tag pill / link was clicked.
           if (live) {
@@ -673,6 +707,7 @@
         })).then(function (loaded) {
           tools = loaded.filter(Boolean).map(function (t) {
             t.tags = Array.isArray(t.tags) ? t.tags : [];
+            if (!t.preview && t.slug) t.preview = "assets/tool-previews/" + t.slug + ".png";
             return t;
           });
           loadingEl.hidden = true;

@@ -1,0 +1,9 @@
+{
+  "slug": "moire-atomview",
+  "name": "Moiré Explorer Atom View 2",
+  "description": "Atom-resolved moiré explorer for layered 2D heterostructures — tune twist, stacking, lattice geometry, and view settings to inspect atomic registries and emergent moiré patterns.",
+  "status": "live",
+  "url": "tools/moire-atomview/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational", "simulations", "applications"]
+}
