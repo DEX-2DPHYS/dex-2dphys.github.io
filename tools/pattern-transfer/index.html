@@ -29,6 +29,15 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-famil
 .ctrl input[type=number],.ctrl select{width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:11.5px}
 .ctrl input[type=range]{width:100%;margin:2px 0}
 .row{display:flex;gap:6px}.row .ctrl{flex:1}
+.mode-row{display:flex;flex-direction:column;gap:6px;margin:8px 0 10px}
+.mode-line{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mode-label{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.segmented{display:inline-flex;align-items:center;overflow:hidden;border:1px solid var(--border);border-radius:7px;background:#fff}
+.segmented button{border:0;border-radius:0;padding:4px 8px;font-size:10.5px;background:transparent;color:var(--muted)}
+.segmented button+button{border-left:1px solid var(--border)}
+.segmented button.active{background:var(--accent);color:#fff}
+.subhead{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:7px 0 4px}
+body.simple-controls .advanced-only{display:none!important}
 
 /* Buttons */
 .btn-row{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
@@ -59,6 +68,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .viz-tabs button{border:none;border-radius:0;border-bottom:2px solid transparent;padding:6px 14px;font-weight:600;font-size:11.5px;color:var(--muted);background:transparent}
 .viz-tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
 .viz-tabs button:hover{color:var(--text);background:#f1f5f9}
+.viz-quality{margin-left:auto;display:flex;align-items:center;gap:6px;padding:3px 8px}
+.viz-quality .quality-label{font-size:10px;color:var(--muted);white-space:nowrap}
+.viz-quality button{border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:10px;background:#fff;color:var(--text)}
+.viz-quality button.active{border-color:var(--accent);background:var(--accent);color:#fff}
+.viz-quality button:disabled{opacity:.55;cursor:wait}
+.viz-tabs .segmented button{border:0;border-bottom:0;padding:4px 8px;font-size:10.5px}
+.viz-tabs .segmented button.active{color:#fff;background:var(--accent)}
 .viz-body{flex:1;position:relative;background:#fff}
 .viz-body canvas{position:absolute;inset:0;width:100%;height:100%}
 .viz-step-label{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:6;display:none;padding:6px 18px;border-radius:6px;background:rgba(255,255,255,.92);color:#0f172a;font-size:26px;font-weight:800;letter-spacing:0;box-shadow:0 2px 12px rgba(15,23,42,.16);pointer-events:none;white-space:nowrap}
@@ -118,10 +134,19 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
 <div class="panel">
   <h1>EBL Process Simulator</h1>
   <div class="sub">Multi-step nanofabrication process designer. Build arbitrary sequences of deposition, lithography, etching and lift-off on a Si/SiO₂ substrate.</div>
+  <div class="mode-row">
+    <div class="mode-line">
+      <span class="mode-label">Controls</span>
+      <span class="segmented" role="group" aria-label="Control detail">
+        <button id="simpleControlsBtn" type="button">Simple</button>
+        <button id="advancedControlsBtn" type="button" class="active">Advanced</button>
+      </span>
+    </div>
+  </div>
 
   <!-- Substrate -->
   <div class="sec">
-    <h2 style="cursor:pointer;user-select:none" id="substrateToggle">▶ Substrate</h2>
+    <h2 style="cursor:pointer;user-select:none" id="substrateToggle">▶ Setup &amp; Resolution</h2>
     <div id="substrateBody" style="display:none">
     <div class="row">
       <div class="ctrl">
@@ -146,7 +171,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
         <label>Depth (nm) <span class="tip" data-tip="samp-d">?</span></label>
         <input id="sampD" type="number" value="300" min="20" max="5000" step="20"/>
       </div>
-      <div class="ctrl">
+      <div class="ctrl advanced-only">
         <label>3D threads</label>
         <select id="numWorkers" style="width:56px">
           <option value="1" selected>1</option>
@@ -163,7 +188,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
   </div>
 
   <!-- Mask Design Editor -->
-  <div class="sec">
+  <div class="sec advanced-only">
     <h2 style="cursor:pointer;user-select:none" id="maskToggle">▶ Mask Design</h2>
     <div id="maskBody" style="display:none">
       <div class="mask-wrap">
@@ -190,7 +215,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
 
   <!-- Process Step Selector -->
   <div class="sec">
-    <h2>Add Process Step</h2>
+    <h2>Process Step</h2>
     <div class="ctrl">
       <label>Step type</label>
       <select id="stepType">
@@ -278,12 +303,12 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
         </div>
       </div>
       <input id="resistType" type="hidden" value="positive"/>
-      <div style="color:#dc2626;font-weight:600;font-size:11px;margin:6px 0 2px">⚠ Please select resist &amp; development parameters</div>
-      <div class="ctrl">
+      <div class="advanced-only" style="color:#dc2626;font-weight:600;font-size:11px;margin:6px 0 2px">⚠ Please select resist &amp; development parameters</div>
+      <div class="ctrl advanced-only">
         <label>Sidewall angle (°) <span class="tip" data-tip="sidewall">?</span></label>
         <input id="devSidewall" type="number" value="90" min="60" max="120" step="1"/>
       </div>
-      <div class="row">
+      <div class="row advanced-only">
         <div class="ctrl">
           <label>Contrast γ <span class="tip" data-tip="contrast">?</span></label>
           <input id="devContrast" type="number" value="3" min="0.5" max="20" step="0.5"/>
@@ -293,7 +318,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
           <input id="devTime" type="number" value="60" min="1" max="600" step="5"/>
         </div>
       </div>
-      <div class="row">
+      <div class="row advanced-only">
         <div class="ctrl">
           <label>Dark erosion (nm/min) <span class="tip" data-tip="dark-erosion">?</span></label>
           <input id="devDarkErosion" type="number" value="2" min="0" max="50" step="0.5"/>
@@ -303,15 +328,15 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
           <input id="devClearFrac" type="number" value="0.5" min="0.05" max="1" step="0.05"/>
         </div>
       </div>
-      <div class="ctrl">
+      <div class="ctrl advanced-only">
         <label>Clearing dose D₁₀₀ (µC/cm²) <span class="tip" data-tip="d100">?</span></label>
         <input id="devD100" type="number" value="120" min="1" max="5000" step="10"/>
       </div>
-      <div class="ctrl">
+      <div class="ctrl advanced-only">
         <label>Scum / residual (nm) <span class="tip" data-tip="scum">?</span></label>
         <input id="devScum" type="number" value="0" min="0" max="30" step="0.5"/>
       </div>
-      <canvas id="contrastPlotResist" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+      <canvas id="contrastPlotResist" class="advanced-only" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
     </div>
 
     <!-- Expose params -->
@@ -359,7 +384,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
         <label>Dose (µC/cm²) <span class="tip" data-tip="exp-dose">?</span></label>
         <input id="expDose" type="number" value="150" min="1" max="5000" step="10"/>
       </div>
-      <canvas id="contrastPlotExpose" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+      <canvas id="contrastPlotExpose" class="advanced-only" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
     </div>
 
     <!-- Develop params -->
@@ -388,12 +413,12 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
           <option value="MAD525">ma-D 525</option>
         </select>
       </div>
-      <div id="devCompatHint" style="font-size:10.5px;color:var(--muted);margin-top:-1px;margin-bottom:4px">Developer compatibility is advisory only in this simulator version.</div>
+      <div id="devCompatHint" class="advanced-only" style="font-size:10.5px;color:var(--muted);margin-top:-1px;margin-bottom:4px">Developer compatibility is advisory only in this simulator version.</div>
       <div class="ctrl">
         <label>Dev. time (s) <span class="tip" data-tip="dev-time">?</span></label>
         <input id="devTimeDev" type="number" value="60" min="1" max="600" step="5"/>
       </div>
-      <canvas id="contrastPlotDevelop" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+      <canvas id="contrastPlotDevelop" class="advanced-only" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
     </div>
 
     <!-- UV expose params -->
@@ -442,7 +467,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
         <label>UV-equivalent dose (mJ/cm²)</label>
         <input id="uvDose" type="number" value="90" min="1" max="5000" step="5"/>
       </div>
-      <canvas id="contrastPlotUvExpose" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
+      <canvas id="contrastPlotUvExpose" class="advanced-only" width="260" height="140" style="display:block;width:100%;height:110px;border:1px solid var(--border);border-radius:6px;margin-top:6px;background:#fff;cursor:crosshair"></canvas>
     </div>
 
     <!-- RIE etch params -->
@@ -462,7 +487,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
           <label>Etch depth (nm) <span class="tip" data-tip="etch-depth">?</span></label>
           <input id="rieDepth" type="number" value="80" min="1" max="2000" step="5"/>
         </div>
-        <div class="ctrl">
+        <div class="ctrl advanced-only">
           <label>Resist selectivity <span class="tip" data-tip="selectivity">?</span></label>
           <input id="rieSelectivity" type="number" value="10" min="1" max="100" step="1"/>
         </div>
@@ -537,7 +562,12 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
   <div class="viz-tabs">
     <button data-tab="cross">Cross-section</button>
     <button class="active" data-tab="iso">3D Isometric</button>
-    <button id="perspBtn" data-tab="iso" style="margin-left:auto;font-size:10px;padding:4px 8px;border:1px solid var(--border);border-bottom:none;border-radius:6px 6px 0 0">Perspective: ON</button>
+    <div class="viz-quality" aria-label="Simulation resolution">
+      <span id="qualityLabel" class="quality-label">Fast build</span>
+      <button id="fastModeBtn" type="button" class="active" title="Build on a grid 4× coarser than the requested resolution">Fast build</button>
+      <button id="fullResBtn" type="button" title="Replay the complete process at the requested nm/px resolution">Render full resolution</button>
+    </div>
+    <button id="perspBtn" data-tab="iso" style="font-size:10px;padding:4px 8px;border:1px solid var(--border);border-bottom:none;border-radius:6px 6px 0 0">Perspective: ON</button>
   </div>
   <div class="viz-body">
     <div id="zSliceBar" style="display:none;padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);gap:6px;align-items:center">
@@ -816,11 +846,23 @@ const canvas2d=$('canvas2d'), canvas3d=$('canvas3d');
 const ctx2d=canvas2d.getContext('2d'), ctx3d=canvas3d.getContext('2d');
 const flowListEl=$('flowList');
 
+function setControlDetail(simple){
+  document.body.classList.toggle('simple-controls',simple);
+  $('simpleControlsBtn').classList.toggle('active',simple);
+  $('advancedControlsBtn').classList.toggle('active',!simple);
+}
+$('simpleControlsBtn').addEventListener('click',()=>setControlDetail(true));
+$('advancedControlsBtn').addEventListener('click',()=>setControlDetail(false));
+setControlDetail(false);
+
 /* ══════════ State ══════════ */
 let W=600, H=400, D=1;
 let sampleDepthNm=200;
 let grid=null; // array of D Uint8Array(W*H), one per z-slice (null until buildGrid)
 let nmPx=1;
+const FAST_RESOLUTION_FACTOR=4;
+let fastMode=true;
+let qualityReplayRunning=false;
 let undoStack=[];
 let processFlow=[]; // array of {type, params, snapshot}
 let selectedFlowIdx=-1; // -1 = none selected
@@ -1620,13 +1662,14 @@ function fitCanvases(){
 const ro=new ResizeObserver(()=>{fitCanvases();render();});
 
 function buildGrid(){
-  nmPx=Math.max(0.2, parseFloat(nmPerPxEl.value)||1);
+  const requestedNmPx=Math.max(0.2, parseFloat(nmPerPxEl.value)||1);
+  nmPx=requestedNmPx*(fastMode?FAST_RESOLUTION_FACTOR:1);
   const pxPerNm=1/nmPx;
-  const siPx=Math.max(10, Math.round(parseFloat(siNmEl.value)*pxPerNm));
+  const siPx=Math.max(1, Math.round(parseFloat(siNmEl.value)*pxPerNm));
   const oxPx=Math.max(0, Math.round(parseFloat(oxNmEl.value)*pxPerNm));
-  const airPx=Math.max(60, Math.round(300*pxPerNm)); // generous air space for multi-layer
+  const airPx=Math.max(20, Math.round(300*pxPerNm)); // generous air space for multi-layer
   H=siPx+oxPx+airPx;
-  W=Math.max(50, Math.round((parseFloat($('sampW').value)||500)*pxPerNm));
+  W=Math.max(10, Math.round((parseFloat($('sampW').value)||500)*pxPerNm));
   sampleDepthNm=Math.max(20, parseFloat($('sampD').value)||200);
   const depth3dPx=Math.max(10, Math.round(sampleDepthNm/nmPx));
   D=Math.min(Math.max(1, Math.floor(depth3dPx)), 60);
@@ -1646,8 +1689,46 @@ function buildGrid(){
   updateLegend();
   updateDimensions();
   renderFlow();
-  setStatus('Substrate built. Add process steps.');
+  syncQualityControls();
+  setStatus((fastMode?'Fast-build':'Full-resolution')+' substrate built. Add process steps.');
   render();
+}
+
+function syncQualityControls(){
+  const fastBtn=$('fastModeBtn'), fullBtn=$('fullResBtn'), label=$('qualityLabel');
+  if(!fastBtn||!fullBtn||!label) return;
+  fastBtn.classList.toggle('active',fastMode);
+  fullBtn.classList.toggle('active',!fastMode);
+  fastBtn.disabled=qualityReplayRunning;
+  fullBtn.disabled=qualityReplayRunning;
+  const requested=Math.max(0.2,parseFloat(nmPerPxEl.value)||1);
+  label.textContent=fastMode?'Fast: '+nmPx+' nm/px':'Full: '+requested+' nm/px';
+}
+
+function setResolutionMode(useFast){
+  if(qualityReplayRunning) return;
+  if(fastMode===useFast){syncQualityControls();return;}
+  const steps=processFlow.map(s=>({type:s.type,params:{...s.params}}));
+  fastMode=useFast;
+  qualityReplayRunning=true;
+  syncQualityControls();
+  setStatus(useFast?'Rebuilding fast preview…':'Recomputing every process step at full resolution…',true);
+  setTimeout(()=>{
+    buildGrid();
+    steps.forEach(s=>{
+      replayStep(s.type,s.params);
+      const entry={type:s.type,params:s.params,snapshot:makeSnapshot()};
+      if(s.type==='expose'||s.type==='uv_expose') entry.maskSnapshot=makeMaskSnapshot();
+      processFlow.push(entry);
+    });
+    renderFlow();
+    render();
+    qualityReplayRunning=false;
+    syncQualityControls();
+    setStatus(useFast
+      ?'Fast build ready at '+nmPx+' nm/px. Requested resolution remains '+nmPerPxEl.value+' nm/px.'
+      :'Full-resolution result ready at '+nmPx+' nm/px ('+steps.length+' steps replayed).');
+  },20);
 }
 
 function saveUndo(){
@@ -3043,7 +3124,9 @@ function updateLegend(){
 }
 
 function updateDimensions(){
-  $('dimReadout').textContent=W+'×'+H+' px = '+Math.round(W*nmPx)+'×'+Math.round(H*nmPx)+' nm | '+nmPx+' nm/px';
+  const requested=Math.max(0.2,parseFloat(nmPerPxEl.value)||1);
+  $('dimReadout').textContent=W+'×'+H+' px = '+Math.round(W*nmPx)+'×'+Math.round(H*nmPx)+' nm | '+nmPx+' nm/px'+
+    (fastMode?' fast preview (requested '+requested+' nm/px)':' full resolution');
 }
 
 function setStatus(msg, active){
@@ -3615,6 +3698,8 @@ $('execBtn').addEventListener('click', executeStep);
 $('undoBtn').addEventListener('click', doUndo);
 $('rebuildBtn').addEventListener('click', buildGrid);
 $('numWorkers').addEventListener('change', function(){ rebuildWorkerPool(parseInt(this.value)||4); });
+$('fastModeBtn').addEventListener('click',()=>setResolutionMode(true));
+$('fullResBtn').addEventListener('click',()=>setResolutionMode(false));
 
 /* ══════════ Lightweight external player API ══════════ */
 const PLAYER_STATE={recipe:null,steps:[],stepIndex:0,name:''};
