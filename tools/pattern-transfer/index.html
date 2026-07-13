@@ -73,6 +73,12 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .viz-quality button{border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:10px;background:#fff;color:var(--text)}
 .viz-quality button.active{border-color:var(--accent);background:var(--accent);color:#fff}
 .viz-quality button:disabled{opacity:.55;cursor:wait}
+@media(max-width:900px){
+  .viz-quality{padding:3px 2px;gap:3px}
+  .viz-quality .quality-label{display:none}
+  .viz-quality button{padding:4px 5px}
+  .viz-tabs #perspBtn{display:none}
+}
 .viz-tabs .segmented button{border:0;border-bottom:0;padding:4px 8px;font-size:10.5px}
 .viz-tabs .segmented button.active{color:#fff;background:var(--accent)}
 .viz-body{flex:1;position:relative;background:#fff}
@@ -565,7 +571,7 @@ body.player-engine .viz-step-label{bottom:14px;font-size:24px;box-shadow:none;ba
     <div class="viz-quality" aria-label="Simulation resolution">
       <span id="qualityLabel" class="quality-label">Fast build</span>
       <button id="fastModeBtn" type="button" class="active" title="Build on a grid 4× coarser than the requested resolution">Fast build</button>
-      <button id="fullResBtn" type="button" title="Replay the complete process at the requested nm/px resolution">Render full resolution</button>
+      <button id="fullResBtn" type="button" title="Replay the complete process at the requested nm/px resolution">Full res</button>
     </div>
     <button id="perspBtn" data-tab="iso" style="font-size:10px;padding:4px 8px;border:1px solid var(--border);border-bottom:none;border-radius:6px 6px 0 0">Perspective: ON</button>
   </div>
