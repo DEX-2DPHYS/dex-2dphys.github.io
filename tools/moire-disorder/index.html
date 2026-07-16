@@ -1,0 +1,2166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoireDisorder</title>
+<style>
+  :root {
+    --panel-width: 330px;
+    --panel-bg: rgba(255, 255, 255, 0.96);
+    --panel-border: rgba(0, 0, 0, 0.12);
+    --panel-shadow: 0 14px 38px rgba(0, 0, 0, 0.22);
+  }
+
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+  }
+
+  #simCanvas {
+    display: block;
+    background: #ffffff;
+    border: 0;
+    outline: 0;
+    touch-action: none;
+    user-select: none;
+  }
+
+  #simFrame {
+    position: relative;
+  }
+
+  #cslQuickToggle {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(128, 128, 128, 0.58);
+    border-radius: 50%;
+    background: rgba(128, 128, 128, 0.5);
+    box-shadow: none;
+    cursor: pointer;
+    z-index: 4;
+  }
+
+  #cslQuickToggle[aria-pressed="true"] {
+    background: rgba(128, 128, 128, 0.72);
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.24);
+  }
+
+  #panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: var(--panel-width);
+    max-width: min(92vw, var(--panel-width));
+    height: 100%;
+    box-sizing: border-box;
+    padding: 14px 14px 24px;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    box-shadow: var(--panel-shadow);
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 180ms ease-out;
+    z-index: 10;
+  }
+
+  #panel.visible {
+    transform: translateX(0);
+  }
+
+  .group {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
+  .group:last-child {
+    border-bottom: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 5px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .row:last-child {
+    margin-bottom: 0;
+  }
+
+  input[type="range"] {
+    width: 100%;
+  }
+
+  input[type="number"] {
+    width: 70px;
+    box-sizing: border-box;
+  }
+
+  input[type="color"] {
+    width: 100%;
+    height: 30px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: #fff;
+    padding: 0;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+
+  select,
+  button {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  button {
+    margin-top: 6px;
+    cursor: pointer;
+  }
+
+  .small {
+    font-size: 11px;
+    color: #222;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  .stats {
+    font-size: 12px;
+    line-height: 1.35;
+    color: #111;
+  }
+
+  .hidden-section {
+    display: none;
+  }
+
+  .toggle-button {
+    margin-top: 6px;
+  }
+
+  .preset-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  button[aria-pressed="true"] {
+    background: #111;
+    color: #fff;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+</style>
+</head>
+<body>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.  The <style> below is per-sim: it shifts the info bubble down so it
+  doesn't overlap the existing top-left CSL toggle.
+-->
+<style>#siminfo-bubble{ top:44px; }</style>
+<script>
+  window.SIM_INFO = {
+    title: "Moiré disorder — bilayer explorer",
+    about: "Two 2D lattices stacked with a tunable twist and per-layer settings. Choose the bottom and top unit cells (hexagonal, square, or hex-on-square), colours, and opacity. The visible moiré pattern arises from beating between the two lattices; disorder progressively washes out sharp registry features.",
+    howto: [
+      "Hover the right edge to open the control panel.",
+      "Pick the lattice type (<b>Hex</b>, <b>Square</b>, <b>Hex on Square</b>).",
+      "Set colours, opacity, twist, and lattice constants for each layer.",
+      "The small circle at the top-left toggles the coincidence-site-lattice (CSL) view."
+    ],
+    shortcuts: [
+      ["Drag",  "pan"],
+      ["Wheel", "zoom"],
+      ["I",     "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
+<div id="simFrame">
+  <canvas id="simCanvas" aria-label="Graphene bilayer simulation"></canvas>
+  <button id="cslQuickToggle" type="button" aria-label="Toggle CSL mode" aria-pressed="false"></button>
+</div>
+
+<div id="panel" aria-label="Controls">
+  <div class="group">
+    <button id="hexLattice" type="button">Hex</button>
+    <button id="cubicLattice" type="button">Square</button>
+    <button id="mixedLattice" type="button">Hex on Square</button>
+  </div>
+
+  <div class="group">
+    <label for="bgColor">Background color</label>
+    <input id="bgColor" type="color" value="#000000">
+  </div>
+
+  <div class="group">
+    <label for="bottomColor">Bottom layer color</label>
+    <input id="bottomColor" type="color" value="#00ff00">
+    <div class="row">
+      <label for="bottomAlpha">Bottom opacity</label>
+      <span id="bottomAlphaValue" class="small">0.95</span>
+    </div>
+    <input id="bottomAlpha" type="range" min="0" max="1" step="0.01" value="0.95">
+  </div>
+
+  <div class="group">
+    <label for="topColor">Top layer color</label>
+    <input id="topColor" type="color" value="#70d6dc">
+    <div class="row">
+      <label for="topAlpha">Top opacity</label>
+      <span id="topAlphaValue" class="small">0.92</span>
+    </div>
+    <input id="topAlpha" type="range" min="0" max="1" step="0.01" value="0.92">
+  </div>
+
+  <div class="group">
+    <div class="row">
+      <label for="bottomCells">Bottom size (N)</label>
+      <input id="bottomCellsNumber" type="number" min="2" max="100" step="1" value="100">
+    </div>
+    <input id="bottomCells" type="range" min="2" max="100" step="1" value="100">
+
+    <div class="row" style="margin-top:10px;">
+      <label for="topCells">Top size (N)</label>
+      <input id="topCellsNumber" type="number" min="2" max="100" step="1" value="100">
+    </div>
+    <input id="topCells" type="range" min="2" max="100" step="1" value="100">
+
+    <div class="stats" id="atomCounts" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="group">
+    <div class="row">
+      <label for="atomSize">Atom size</label>
+      <input id="atomSizeNumber" type="number" min="0.5" max="20" step="0.1" value="20">
+    </div>
+    <input id="atomSize" type="range" min="0.5" max="20" step="0.1" value="20">
+
+    <div class="row">
+      <label for="gaussianSigma">Gaussian size sigma (A)</label>
+      <input id="gaussianSigmaNumber" type="number" min="0.5" max="50" step="0.1" value="50">
+    </div>
+    <input id="gaussianSigma" type="range" min="0.5" max="50" step="0.1" value="50">
+
+    <label for="dispMode" style="margin-top:10px;">Displacement mode</label>
+    <select id="dispMode">
+      <option value="permanent">Permanent</option>
+      <option value="relax">Relax slowly</option>
+      <option value="jumpback">Jump back on release</option>
+    </select>
+
+    <button id="cslToggle" type="button" class="toggle-button">CSL</button>
+    <button id="cslInvertToggle" type="button" class="toggle-button">Invert CSL scale</button>
+
+    <div id="cslSettings" class="hidden-section">
+      <label for="showCSL" style="margin-top:10px;">Coincidence site lattice</label>
+      <div class="row">
+        <span class="small">Black -> red -> yellow for aligned atoms</span>
+        <input id="showCSL" type="checkbox">
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <label for="cslSensitivity">CSL sensitivity</label>
+        <input id="cslSensitivityNumber" type="number" min="0.01" max="1" step="0.01" value="0.05">
+      </div>
+      <input id="cslSensitivity" type="range" min="-2" max="0" step="0.001" value="-1.301">
+    </div>
+
+    <div class="small" style="margin-top:8px;">
+      Shift + drag applies local in-plane displacement to top layer with gaussian falloff.
+      Ctrl + drag applies a vortex-like twist/slide around the top-layer center using the same gaussian size.
+    </div>
+  </div>
+
+  <div class="group">
+    <label for="standardAngle">Standard angles (deg)</label>
+    <select id="standardAngle">
+      <option value="0">0</option>
+      <option value="0.55">0.55</option>
+      <option value="1.1">1.1</option>
+      <option value="5">5</option>
+      <option value="15">15</option>
+      <option value="30">30</option>
+      <option value="custom">Custom</option>
+    </select>
+
+    <button id="overviewView" type="button">Overview</button>
+    <button id="aaStacking" type="button">AA stacking</button>
+    <button id="abStacking" type="button">AB stacking</button>
+    <button id="resetView" type="button">Reset view</button>
+    <button id="resetRotation" type="button">Reset top rotation</button>
+    <button id="resetDisplacement" type="button">Reset top displacement</button>
+  </div>
+
+  <div class="group">
+    <div class="preset-row">
+      <div>
+        <label for="presetName">Preset name</label>
+        <input id="presetName" type="text" value="Default">
+      </div>
+      <div>
+        <label for="presetSelect">Saved settings</label>
+        <select id="presetSelect"></select>
+      </div>
+    </div>
+    <button id="storeSettings" type="button">Store settings</button>
+    <button id="loadSettings" type="button">Load settings</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const A0 = 2.46;
+  const A_CC = A0 / Math.sqrt(3);
+  const LAYER_SPACING = 3.3;
+  const Z_TOP = LAYER_SPACING * 0.5;
+  const Z_BOTTOM = -LAYER_SPACING * 0.5;
+  const AB_SHIFT_X = 0.5 * A0;
+  const AB_SHIFT_Y = A0 / (2 * Math.sqrt(3));
+  const TOP_LAYER_SHIFT_X = 0.5 * AB_SHIFT_X;
+  const TOP_LAYER_SHIFT_Y = 0.5 * AB_SHIFT_Y;
+  const BOTTOM_LAYER_SHIFT_X = -0.5 * AB_SHIFT_X;
+  const BOTTOM_LAYER_SHIFT_Y = -0.5 * AB_SHIFT_Y;
+  const FAST_RENDER_ATOM_THRESHOLD = 9000;
+  const RELAX_EPS = 0.0008;
+  const DISPLACEMENT_LABEL_FADE_MS = 5000;
+  const CSL_BIN = A0;
+  const CSL_RADIUS = 2.2 * A_CC;
+  const CSL_PALETTE_SIZE = 64;
+  const SETTINGS_STORAGE_KEY = "MoireSettings";
+  const LAST_STATE_KEY = "MoireSettings:last";
+  const VALID_LATTICE_MODES = new Set(["hex", "cubic", "mixed"]);
+
+  const canvas = document.getElementById("simCanvas");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const panel = document.getElementById("panel");
+
+  const ui = {
+    cslQuickToggle: document.getElementById("cslQuickToggle"),
+    hexLattice: document.getElementById("hexLattice"),
+    cubicLattice: document.getElementById("cubicLattice"),
+    mixedLattice: document.getElementById("mixedLattice"),
+    bgColor: document.getElementById("bgColor"),
+    bottomColor: document.getElementById("bottomColor"),
+    topColor: document.getElementById("topColor"),
+    bottomAlpha: document.getElementById("bottomAlpha"),
+    topAlpha: document.getElementById("topAlpha"),
+    bottomAlphaValue: document.getElementById("bottomAlphaValue"),
+    topAlphaValue: document.getElementById("topAlphaValue"),
+    bottomCells: document.getElementById("bottomCells"),
+    bottomCellsNumber: document.getElementById("bottomCellsNumber"),
+    topCells: document.getElementById("topCells"),
+    topCellsNumber: document.getElementById("topCellsNumber"),
+    atomSize: document.getElementById("atomSize"),
+    atomSizeNumber: document.getElementById("atomSizeNumber"),
+    gaussianSigma: document.getElementById("gaussianSigma"),
+    gaussianSigmaNumber: document.getElementById("gaussianSigmaNumber"),
+    dispMode: document.getElementById("dispMode"),
+    cslToggle: document.getElementById("cslToggle"),
+    cslInvertToggle: document.getElementById("cslInvertToggle"),
+    cslSettings: document.getElementById("cslSettings"),
+    showCSL: document.getElementById("showCSL"),
+    cslSensitivity: document.getElementById("cslSensitivity"),
+    cslSensitivityNumber: document.getElementById("cslSensitivityNumber"),
+    resetView: document.getElementById("resetView"),
+    resetRotation: document.getElementById("resetRotation"),
+    resetDisplacement: document.getElementById("resetDisplacement"),
+    standardAngle: document.getElementById("standardAngle"),
+    overviewView: document.getElementById("overviewView"),
+    aaStacking: document.getElementById("aaStacking"),
+    abStacking: document.getElementById("abStacking"),
+    presetName: document.getElementById("presetName"),
+    presetSelect: document.getElementById("presetSelect"),
+    storeSettings: document.getElementById("storeSettings"),
+    loadSettings: document.getElementById("loadSettings"),
+    atomCounts: document.getElementById("atomCounts")
+  };
+
+  const state = {
+    background: "#000000",
+    topColor: "#70d6dc",
+    bottomColor: "#00ff00",
+    topAlpha: 0.92,
+    bottomAlpha: 0.95,
+
+    topCells: 100,
+    bottomCells: 100,
+    atomSize: 20,
+    gaussianSigma: 50,
+    displacementMode: "relax",
+    latticeMode: "hex",
+    showCSL: false,
+    cslSensitivity: 0.05,
+    cslScaleInverted: false,
+
+    scale: 30,
+    panX: 0,
+    panY: 0,
+    viewPitch: 0,
+    viewYaw: 0,
+    topRotation: 0,
+    stackingMode: "AB",
+
+    dragMode: "none",
+    pointerInsidePanel: false,
+    showPanel: false,
+    panelEdgeThreshold: 0.9,
+
+    dragStartX: 0,
+    dragStartY: 0,
+    prevWorldTop: null,
+    rotateStartAngle: 0,
+    rotateStartTopAngle: 0,
+
+    angleVisible: false,
+    angleAlpha: 1,
+    displacementLabel: {
+      tracked: false,
+      mode: "",
+      alpha: 0,
+      released: false,
+      dragging: false,
+      value: 0,
+      accumX: 0,
+      accumY: 0
+    },
+
+    width: 0,
+    height: 0,
+    cx: 0,
+    cy: 0,
+
+    topLayer: { atoms: [], bonds: [] },
+    bottomLayer: { atoms: [], bonds: [] },
+    topLayerCenter: { x: 0, y: 0 },
+    bottomLayerCenter: { x: 0, y: 0 },
+    bottomSpatialHash: new Map(),
+    cslPalette: [],
+    topRadiusWorld: 1,
+    bottomRadiusWorld: 1,
+
+    framePending: false,
+    lastFrameMs: 0,
+
+    hoveredTopPerimeter: false,
+    pointerX: 0,
+    pointerY: 0
+  };
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function cslSensitivityToSlider(v) {
+    return Math.log10(clamp(v, 0.01, 1));
+  }
+
+  function cslSliderToSensitivity(v) {
+    return Math.pow(10, clamp(v, -2, 0));
+  }
+
+  function formatCslSensitivity(v) {
+    const clamped = clamp(v, 0.01, 1);
+    return clamped.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  }
+
+  function normalizeLatticeMode(mode) {
+    if (mode === "square") {
+      return "cubic";
+    }
+    return VALID_LATTICE_MODES.has(mode) ? mode : "hex";
+  }
+
+  function readSettingsStore() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (!raw) {
+        return { order: [], presets: {} };
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") {
+        return { order: [], presets: {} };
+      }
+      if (!Array.isArray(parsed.order)) {
+        parsed.order = [];
+      }
+      if (!parsed.presets || typeof parsed.presets !== "object") {
+        parsed.presets = {};
+      }
+      return parsed;
+    } catch (err) {
+      return { order: [], presets: {} };
+    }
+  }
+
+  function writeSettingsStore(store) {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(store));
+  }
+
+  function snapshotSettings() {
+    return {
+      background: state.background,
+      topColor: state.topColor,
+      bottomColor: state.bottomColor,
+      topAlpha: state.topAlpha,
+      bottomAlpha: state.bottomAlpha,
+      topCells: state.topCells,
+      bottomCells: state.bottomCells,
+      atomSize: state.atomSize,
+      gaussianSigma: state.gaussianSigma,
+      displacementMode: state.displacementMode,
+      latticeMode: state.latticeMode,
+      showCSL: state.showCSL,
+      cslSensitivity: state.cslSensitivity,
+      cslScaleInverted: state.cslScaleInverted,
+      scale: state.scale,
+      panX: state.panX,
+      panY: state.panY,
+      viewPitch: state.viewPitch,
+      viewYaw: state.viewYaw,
+      topRotation: state.topRotation,
+      stackingMode: state.stackingMode
+    };
+  }
+
+  function syncUiFromState() {
+    ui.bgColor.value = state.background;
+    ui.topColor.value = state.topColor;
+    ui.bottomColor.value = state.bottomColor;
+    ui.topAlpha.value = String(state.topAlpha);
+    ui.bottomAlpha.value = String(state.bottomAlpha);
+    ui.topAlphaValue.textContent = state.topAlpha.toFixed(2);
+    ui.bottomAlphaValue.textContent = state.bottomAlpha.toFixed(2);
+    ui.topCells.value = String(state.topCells);
+    ui.topCellsNumber.value = String(state.topCells);
+    ui.bottomCells.value = String(state.bottomCells);
+    ui.bottomCellsNumber.value = String(state.bottomCells);
+    ui.atomSize.value = String(state.atomSize);
+    ui.atomSizeNumber.value = String(state.atomSize);
+    ui.gaussianSigma.value = String(state.gaussianSigma);
+    ui.gaussianSigmaNumber.value = String(state.gaussianSigma);
+    ui.dispMode.value = state.displacementMode;
+    ui.hexLattice.setAttribute("aria-pressed", state.latticeMode === "hex" ? "true" : "false");
+    ui.cubicLattice.setAttribute("aria-pressed", state.latticeMode === "cubic" ? "true" : "false");
+    ui.mixedLattice.setAttribute("aria-pressed", state.latticeMode === "mixed" ? "true" : "false");
+    ui.showCSL.checked = state.showCSL;
+    ui.cslQuickToggle.setAttribute("aria-pressed", state.showCSL ? "true" : "false");
+    if (state.showCSL) {
+      ui.cslSettings.classList.remove("hidden-section");
+    }
+    ui.cslSensitivity.value = String(cslSensitivityToSlider(state.cslSensitivity));
+    ui.cslSensitivityNumber.value = formatCslSensitivity(state.cslSensitivity);
+    ui.cslInvertToggle.setAttribute("aria-pressed", state.cslScaleInverted ? "true" : "false");
+    syncCslAvailability();
+
+    syncStandardAngleSelection();
+  }
+
+  function isCslAvailable() {
+    return true;
+  }
+
+  function syncCslAvailability() {
+    const available = isCslAvailable();
+    ui.cslToggle.disabled = !available;
+    ui.cslInvertToggle.disabled = !available;
+    ui.showCSL.disabled = !available;
+    ui.cslSensitivity.disabled = !available;
+    ui.cslSensitivityNumber.disabled = !available;
+  }
+
+  function syncStandardAngleSelection() {
+    const standardAngles = [0, 0.55, 1.1, 5, 15, 30];
+    const deg = state.topRotation * 180 / Math.PI;
+    let matched = "custom";
+    for (let i = 0; i < standardAngles.length; i += 1) {
+      if (Math.abs(deg - standardAngles[i]) < 1e-6) {
+        matched = String(standardAngles[i]);
+        break;
+      }
+    }
+    ui.standardAngle.value = matched;
+  }
+
+  function applySettings(settings, skipPersist) {
+    if (!settings || typeof settings !== "object") {
+      return;
+    }
+
+    if (typeof settings.background === "string") state.background = settings.background;
+    if (typeof settings.topColor === "string") state.topColor = settings.topColor;
+    if (typeof settings.bottomColor === "string") state.bottomColor = settings.bottomColor;
+    if (typeof settings.topAlpha === "number") state.topAlpha = settings.topAlpha;
+    if (typeof settings.bottomAlpha === "number") state.bottomAlpha = settings.bottomAlpha;
+    if (typeof settings.topCells === "number") state.topCells = clamp(Math.round(settings.topCells), 2, 100);
+    if (typeof settings.bottomCells === "number") state.bottomCells = clamp(Math.round(settings.bottomCells), 2, 100);
+    if (typeof settings.atomSize === "number") state.atomSize = clamp(settings.atomSize, 0.5, 20);
+    if (typeof settings.gaussianSigma === "number") state.gaussianSigma = clamp(settings.gaussianSigma, 0.5, 50);
+    if (typeof settings.displacementMode === "string") state.displacementMode = settings.displacementMode;
+    if (typeof settings.latticeMode === "string") state.latticeMode = normalizeLatticeMode(settings.latticeMode);
+    if (typeof settings.showCSL === "boolean") state.showCSL = settings.showCSL;
+    if (typeof settings.cslSensitivity === "number") state.cslSensitivity = clamp(settings.cslSensitivity, 0.01, 1);
+    if (typeof settings.cslScaleInverted === "boolean") state.cslScaleInverted = settings.cslScaleInverted;
+    if (typeof settings.scale === "number") state.scale = clamp(settings.scale, 5, 220);
+    if (typeof settings.panX === "number") state.panX = settings.panX;
+    if (typeof settings.panY === "number") state.panY = settings.panY;
+    if (typeof settings.viewPitch === "number") state.viewPitch = clamp(settings.viewPitch, -1.52, 1.52);
+    if (typeof settings.viewYaw === "number") state.viewYaw = settings.viewYaw;
+    if (typeof settings.topRotation === "number") state.topRotation = settings.topRotation;
+    if (typeof settings.stackingMode === "string") state.stackingMode = settings.stackingMode;
+
+    syncUiFromState();
+    rebuildLayers();
+    requestRender();
+
+    if (!skipPersist) {
+      localStorage.setItem(LAST_STATE_KEY, JSON.stringify(snapshotSettings()));
+    }
+  }
+
+  function refreshPresetMenu() {
+    const store = readSettingsStore();
+    const previous = ui.presetSelect.value;
+    ui.presetSelect.innerHTML = "";
+
+    if (store.order.length === 0) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "No saved settings";
+      ui.presetSelect.appendChild(option);
+      return;
+    }
+
+    for (let i = 0; i < store.order.length; i += 1) {
+      const name = store.order[i];
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      ui.presetSelect.appendChild(option);
+    }
+
+    ui.presetSelect.value = store.order.indexOf(previous) >= 0 ? previous : store.order[0];
+  }
+
+  function storeCurrentSettings() {
+    const name = (ui.presetName.value || "").trim();
+    if (!name) {
+      return;
+    }
+
+    const store = readSettingsStore();
+    store.presets[name] = snapshotSettings();
+    if (store.order.indexOf(name) < 0) {
+      store.order.push(name);
+    }
+    writeSettingsStore(store);
+    localStorage.setItem(LAST_STATE_KEY, JSON.stringify(snapshotSettings()));
+    refreshPresetMenu();
+    ui.presetSelect.value = name;
+  }
+
+  function loadSelectedSettings() {
+    const name = ui.presetSelect.value;
+    if (!name) {
+      return;
+    }
+    const store = readSettingsStore();
+    if (!store.presets[name]) {
+      return;
+    }
+    applySettings(store.presets[name], true);
+    localStorage.setItem(LAST_STATE_KEY, JSON.stringify(snapshotSettings()));
+  }
+
+  function rgbaFromHex(hex, alpha) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!m) {
+      return "rgba(0,0,0," + alpha + ")";
+    }
+    const r = parseInt(m[1], 16);
+    const g = parseInt(m[2], 16);
+    const b = parseInt(m[3], 16);
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  function rotate2D(x, y, angle) {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    return {
+      x: x * c - y * s,
+      y: x * s + y * c
+    };
+  }
+
+  function buildGrapheneLayer(cellCount, z, includeDisplacement, offsetX, offsetY) {
+    const a1x = A0;
+    const a1y = 0;
+    const a2x = A0 * 0.5;
+    const a2y = A0 * Math.sqrt(3) * 0.5;
+
+    const basisA = { x: 0, y: 0 };
+    const basisB = { x: A0 * 0.5, y: A0 / (2 * Math.sqrt(3)) };
+
+    const halfSide = 0.5 * cellCount * A0;
+    const pad = Math.max(6, Math.ceil(cellCount * 0.65));
+
+    const atoms = [];
+    const aCellToAtom = new Map();
+    const bCellToAtom = new Map();
+
+    function addIfInside(ix, iy, basis, keyMap, type) {
+      const x = ix * a1x + iy * a2x + basis.x + offsetX;
+      const y = ix * a1y + iy * a2y + basis.y + offsetY;
+      if (Math.abs(x) > halfSide || Math.abs(y) > halfSide) {
+        return;
+      }
+      const atom = includeDisplacement
+        ? { x0: x, y0: y, z: z, dx: 0, dy: 0, type: type }
+        : { x0: x, y0: y, z: z, type: type };
+      const idx = atoms.length;
+      atoms.push(atom);
+      keyMap.set(ix + "," + iy, idx);
+    }
+
+    for (let iy = -cellCount - pad; iy <= cellCount + pad; iy += 1) {
+      for (let ix = -cellCount - pad; ix <= cellCount + pad; ix += 1) {
+        addIfInside(ix, iy, basisA, aCellToAtom, "A");
+        addIfInside(ix, iy, basisB, bCellToAtom, "B");
+      }
+    }
+
+    const bonds = [];
+    aCellToAtom.forEach(function (aIdx, key) {
+      const parts = key.split(",");
+      const ix = parseInt(parts[0], 10);
+      const iy = parseInt(parts[1], 10);
+      const b0 = bCellToAtom.get(ix + "," + iy);
+      const b1 = bCellToAtom.get(ix + "," + (iy - 1));
+      const b2 = bCellToAtom.get((ix - 1) + "," + iy);
+      if (b0 !== undefined) bonds.push({ i: aIdx, j: b0 });
+      if (b1 !== undefined) bonds.push({ i: aIdx, j: b1 });
+      if (b2 !== undefined) bonds.push({ i: aIdx, j: b2 });
+    });
+
+    return { atoms: atoms, bonds: bonds };
+  }
+
+  function buildSquareLayer(cellCount, z, includeDisplacement, offsetX, offsetY) {
+    const spacing = A0;
+    const halfSpan = 0.5 * (cellCount - 1) * spacing;
+    const atoms = [];
+    const indexMap = new Map();
+
+    for (let iy = 0; iy < cellCount; iy += 1) {
+      for (let ix = 0; ix < cellCount; ix += 1) {
+        const x = ix * spacing - halfSpan + offsetX;
+        const y = iy * spacing - halfSpan + offsetY;
+        const atom = includeDisplacement
+          ? { x0: x, y0: y, z: z, dx: 0, dy: 0, type: "S" }
+          : { x0: x, y0: y, z: z, type: "S" };
+        const idx = atoms.length;
+        atoms.push(atom);
+        indexMap.set(ix + "," + iy, idx);
+      }
+    }
+
+    const bonds = [];
+    for (let iy = 0; iy < cellCount; iy += 1) {
+      for (let ix = 0; ix < cellCount; ix += 1) {
+        const here = indexMap.get(ix + "," + iy);
+        const right = indexMap.get((ix + 1) + "," + iy);
+        const up = indexMap.get(ix + "," + (iy + 1));
+        if (right !== undefined) {
+          bonds.push({ i: here, j: right });
+        }
+        if (up !== undefined) {
+          bonds.push({ i: here, j: up });
+        }
+      }
+    }
+
+    return { atoms: atoms, bonds: bonds };
+  }
+
+  function getStackingOffsets() {
+    if (state.stackingMode === "AA") {
+      return {
+        bottomX: 0,
+        bottomY: 0,
+        topX: 0,
+        topY: 0
+      };
+    }
+    return {
+      bottomX: BOTTOM_LAYER_SHIFT_X,
+      bottomY: BOTTOM_LAYER_SHIFT_Y,
+      topX: TOP_LAYER_SHIFT_X,
+      topY: TOP_LAYER_SHIFT_Y
+    };
+  }
+
+  function makeCSLPalette(alpha) {
+    const palette = new Array(CSL_PALETTE_SIZE);
+    for (let i = 0; i < CSL_PALETTE_SIZE; i += 1) {
+      const t = i / (CSL_PALETTE_SIZE - 1);
+      let r = 0;
+      let g = 0;
+      const scaleValue = state.cslScaleInverted ? 1 - t : t;
+      if (scaleValue < 0.5) {
+        r = Math.round(255 * (scaleValue / 0.5));
+      } else {
+        r = 255;
+        g = Math.round(255 * ((scaleValue - 0.5) / 0.5));
+      }
+      palette[i] = "rgba(" + r + "," + g + ",0," + alpha + ")";
+    }
+    return palette;
+  }
+
+  function buildBottomSpatialHash() {
+    const hash = new Map();
+    for (let i = 0; i < state.bottomLayer.atoms.length; i += 1) {
+      const atom = state.bottomLayer.atoms[i];
+      const bx = Math.floor(atom.x0 / CSL_BIN);
+      const by = Math.floor(atom.y0 / CSL_BIN);
+      const key = bx + "," + by;
+      let list = hash.get(key);
+      if (!list) {
+        list = [];
+        hash.set(key, list);
+      }
+      list.push({ x: atom.x0, y: atom.y0 });
+    }
+    state.bottomSpatialHash = hash;
+  }
+
+  function nearestBottomDistance2(wx, wy) {
+    const bx = Math.floor(wx / CSL_BIN);
+    const by = Math.floor(wy / CSL_BIN);
+    const ring = Math.ceil(CSL_RADIUS / CSL_BIN);
+    let best = Infinity;
+
+    for (let oy = -ring; oy <= ring; oy += 1) {
+      for (let ox = -ring; ox <= ring; ox += 1) {
+        const key = (bx + ox) + "," + (by + oy);
+        const list = state.bottomSpatialHash.get(key);
+        if (!list) {
+          continue;
+        }
+        for (let i = 0; i < list.length; i += 1) {
+          const dx = list[i].x - wx;
+          const dy = list[i].y - wy;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < best) {
+            best = d2;
+          }
+        }
+      }
+    }
+
+    return best;
+  }
+
+  function coincidenceColorForAtom(worldX, worldY) {
+    const d2 = nearestBottomDistance2(worldX, worldY);
+    const d = Math.sqrt(d2);
+    const tRaw = 1 - clamp(d / CSL_RADIUS, 0, 1);
+    const gamma = 1 / clamp(state.cslSensitivity, 0.01, 1);
+    const t = Math.pow(tRaw, gamma);
+    const idx = Math.round(t * (CSL_PALETTE_SIZE - 1));
+    return state.cslPalette[clamp(idx, 0, CSL_PALETTE_SIZE - 1)];
+  }
+
+  function rebuildLayers() {
+    const offsets = getStackingOffsets();
+    const bottomBuilder = state.latticeMode === "cubic" ? buildSquareLayer : (state.latticeMode === "mixed" ? buildSquareLayer : buildGrapheneLayer);
+    const topBuilder = state.latticeMode === "mixed" ? buildGrapheneLayer : (state.latticeMode === "cubic" ? buildSquareLayer : buildGrapheneLayer);
+    state.bottomLayer = bottomBuilder(state.bottomCells, Z_BOTTOM, false, offsets.bottomX, offsets.bottomY);
+    state.topLayer = topBuilder(state.topCells, Z_TOP, true, offsets.topX, offsets.topY);
+    buildBottomSpatialHash();
+    state.bottomLayerCenter = computeLayerCenter(state.bottomLayer);
+    state.topLayerCenter = computeLayerCenter(state.topLayer);
+    let topMaxR2 = 1;
+    for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
+      const a = state.topLayer.atoms[i];
+      const r2 = a.x0 * a.x0 + a.y0 * a.y0;
+      if (r2 > topMaxR2) {
+        topMaxR2 = r2;
+      }
+    }
+    let bottomMaxR2 = 1;
+    for (let j = 0; j < state.bottomLayer.atoms.length; j += 1) {
+      const b = state.bottomLayer.atoms[j];
+      const r2b = b.x0 * b.x0 + b.y0 * b.y0;
+      if (r2b > bottomMaxR2) {
+        bottomMaxR2 = r2b;
+      }
+    }
+    state.topRadiusWorld = Math.sqrt(topMaxR2);
+    state.bottomRadiusWorld = Math.sqrt(bottomMaxR2);
+    const bottomLabel = state.latticeMode === "hex" ? "hex" : "square";
+    const topLabel = state.latticeMode === "cubic" ? "square" : "hex";
+    ui.atomCounts.textContent =
+      "Bottom atoms: " + state.bottomLayer.atoms.length + " (" + bottomLabel + ")" +
+      " | Top atoms: " + state.topLayer.atoms.length + " (" + topLabel + ")";
+    requestRender();
+  }
+
+  function computeLayerCenter(layer) {
+    let sumX = 0;
+    let sumY = 0;
+    for (let i = 0; i < layer.atoms.length; i += 1) {
+      sumX += layer.atoms[i].x0;
+      sumY += layer.atoms[i].y0;
+    }
+    if (layer.atoms.length === 0) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: sumX / layer.atoms.length,
+      y: sumY / layer.atoms.length
+    };
+  }
+
+  function fitOverview() {
+    const radius = Math.max(state.topRadiusWorld, state.bottomRadiusWorld, 1);
+    state.viewPitch = 0;
+    state.viewYaw = 0;
+    state.scale = clamp(Math.min(state.width, state.height) * 0.42 / radius, 5, 220);
+    const centerX = 0.5 * (state.topLayerCenter.x + state.bottomLayerCenter.x);
+    const centerY = 0.5 * (state.topLayerCenter.y + state.bottomLayerCenter.y);
+    state.panX = -centerX * state.scale;
+    state.panY = -centerY * state.scale;
+    requestRender();
+  }
+
+  function getViewMatrix() {
+    const cp = Math.cos(state.viewPitch);
+    const sp = Math.sin(state.viewPitch);
+    const cy = Math.cos(state.viewYaw);
+    const sy = Math.sin(state.viewYaw);
+
+    // World -> camera rotation, Yaw then Pitch.
+    return {
+      r11: cy,
+      r12: sy * sp,
+      r13: sy * cp,
+
+      r21: 0,
+      r22: cp,
+      r23: -sp,
+
+      r31: -sy,
+      r32: cy * sp,
+      r33: cy * cp
+    };
+  }
+
+  function projectPointWorld(x, y, z, vm) {
+    const cx = vm.r11 * x + vm.r12 * y + vm.r13 * z;
+    const cy = vm.r21 * x + vm.r22 * y + vm.r23 * z;
+    const cz = vm.r31 * x + vm.r32 * y + vm.r33 * z;
+
+    return {
+      sx: state.cx + state.panX + cx * state.scale,
+      sy: state.cy + state.panY + cy * state.scale,
+      depth: cz
+    };
+  }
+
+  function getTopAtomWorld(atom) {
+    const localX = atom.x0 + atom.dx - state.topLayerCenter.x;
+    const localY = atom.y0 + atom.dy - state.topLayerCenter.y;
+    const rot = rotate2D(localX, localY, state.topRotation);
+    return { x: rot.x + state.topLayerCenter.x, y: rot.y + state.topLayerCenter.y, z: atom.z };
+  }
+
+  function getBottomAtomWorld(atom) {
+    return { x: atom.x0, y: atom.y0, z: atom.z };
+  }
+
+  function projectLayerAtoms(layer, isTop, vm) {
+    const projected = new Array(layer.atoms.length);
+    for (let i = 0; i < layer.atoms.length; i += 1) {
+      const world = isTop ? getTopAtomWorld(layer.atoms[i]) : getBottomAtomWorld(layer.atoms[i]);
+      const p = projectPointWorld(world.x, world.y, world.z, vm);
+      projected[i] = {
+        sx: p.sx,
+        sy: p.sy,
+        depth: p.depth,
+        wx: world.x,
+        wy: world.y,
+        isTop: isTop
+      };
+    }
+    return projected;
+  }
+
+  function collectBondSegments(layer, projected, color) {
+    const segments = new Array(layer.bonds.length);
+    for (let k = 0; k < layer.bonds.length; k += 1) {
+      const b = layer.bonds[k];
+      const p1 = projected[b.i];
+      const p2 = projected[b.j];
+      segments[k] = {
+        x1: p1.sx,
+        y1: p1.sy,
+        x2: p2.sx,
+        y2: p2.sy,
+        d: 0.5 * (p1.depth + p2.depth),
+        color: color
+      };
+    }
+    return segments;
+  }
+
+  function renderDepthSortedBonds(segments) {
+    segments.sort(function (a, b) { return a.d - b.d; });
+
+    let activeColor = "";
+    ctx.lineWidth = 1.15;
+    ctx.lineCap = "round";
+    for (let i = 0; i < segments.length; i += 1) {
+      const s = segments[i];
+      if (s.color !== activeColor) {
+        if (activeColor) {
+          ctx.stroke();
+        }
+        activeColor = s.color;
+        ctx.strokeStyle = activeColor;
+        ctx.beginPath();
+      }
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+    }
+    if (activeColor) {
+      ctx.stroke();
+    }
+  }
+
+  function renderDepthSortedAtoms(bottomProj, topProj, atomRadius) {
+    const dots = new Array(bottomProj.length + topProj.length);
+    let n = 0;
+    for (let i = 0; i < bottomProj.length; i += 1) {
+      dots[n++] = {
+        sx: bottomProj[i].sx,
+        sy: bottomProj[i].sy,
+        depth: bottomProj[i].depth,
+        isTop: false,
+        wx: bottomProj[i].wx,
+        wy: bottomProj[i].wy
+      };
+    }
+    for (let j = 0; j < topProj.length; j += 1) {
+      dots[n++] = {
+        sx: topProj[j].sx,
+        sy: topProj[j].sy,
+        depth: topProj[j].depth,
+        isTop: true,
+        wx: topProj[j].wx,
+        wy: topProj[j].wy
+      };
+    }
+
+    dots.sort(function (a, b) { return a.depth - b.depth; });
+
+    for (let k = 0; k < dots.length; k += 1) {
+      const p = dots[k];
+      let color;
+      if (p.isTop) {
+        color = state.showCSL ? coincidenceColorForAtom(p.wx, p.wy) : rgbaFromHex(state.topColor, state.topAlpha);
+      } else {
+        color = rgbaFromHex(state.bottomColor, state.bottomAlpha);
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, atomRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawOverlayLabel(text, y, alpha) {
+    ctx.save();
+    ctx.globalAlpha = clamp(alpha, 0, 1);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    let fontSize = 52;
+    const maxLabelWidth = Math.max(16, state.width - 24);
+    ctx.font = "bold " + fontSize + "px Arial, sans-serif";
+    let metrics = ctx.measureText(text);
+    while (fontSize > 24 && metrics.width + 34 > maxLabelWidth) {
+      fontSize -= 2;
+      ctx.font = "bold " + fontSize + "px Arial, sans-serif";
+      metrics = ctx.measureText(text);
+    }
+
+    const labelWidth = Math.min(maxLabelWidth, metrics.width + 34);
+    const labelHeight = fontSize + 14;
+    const x = state.cx - labelWidth * 0.5;
+    ctx.fillStyle = "rgba(0,0,0,0.86)";
+    ctx.fillRect(x, y - labelHeight * 0.5, labelWidth, labelHeight);
+
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.fillText(text, state.cx, y);
+    ctx.restore();
+  }
+
+  function drawAngleOverlay() {
+    if (state.angleAlpha <= 0) {
+      return;
+    }
+    const deg = state.topRotation * 180 / Math.PI;
+    const text = deg.toFixed(2) + " deg";
+    const y = Math.min(Math.max(39, state.height * 0.075), state.height - 39);
+    drawOverlayLabel(text, y, state.angleAlpha);
+  }
+
+  function drawDisplacementOverlay() {
+    const label = state.displacementLabel;
+    if (!label.tracked || label.alpha <= 0) {
+      return;
+    }
+
+    const absValue = Math.abs(label.value);
+    const text = label.mode === "vortex"
+      ? absValue.toFixed(2) + " degrees"
+      : absValue.toFixed(2) + " nm";
+
+    const y = Math.max(Math.min(state.height - 39, state.height * 0.925), 39);
+    drawOverlayLabel(text, y, label.alpha);
+  }
+
+  function resetDisplacementLabel() {
+    state.displacementLabel.tracked = false;
+    state.displacementLabel.mode = "";
+    state.displacementLabel.alpha = 0;
+    state.displacementLabel.released = false;
+    state.displacementLabel.dragging = false;
+    state.displacementLabel.value = 0;
+    state.displacementLabel.accumX = 0;
+    state.displacementLabel.accumY = 0;
+  }
+
+  function beginDisplacementLabel(mode) {
+    resetDisplacementLabel();
+    const label = state.displacementLabel;
+    label.tracked = true;
+    label.mode = mode;
+    label.alpha = 1;
+    label.dragging = true;
+  }
+
+  function updateLinearDisplacementLabel(deltaLocal) {
+    const label = state.displacementLabel;
+    if (!label.tracked || !label.dragging || label.mode !== "displace" || !deltaLocal) {
+      return;
+    }
+    label.accumX += deltaLocal.x;
+    label.accumY += deltaLocal.y;
+    label.value = Math.sqrt(label.accumX * label.accumX + label.accumY * label.accumY) / 10;
+    label.alpha = 1;
+  }
+
+  function updateVortexDisplacementLabel(dTheta) {
+    const label = state.displacementLabel;
+    if (!label.tracked || !label.dragging || label.mode !== "vortex" || typeof dTheta !== "number") {
+      return;
+    }
+    label.value += dTheta * 180 / Math.PI;
+    label.alpha = 1;
+  }
+
+  function releaseDisplacementLabel(mode) {
+    const label = state.displacementLabel;
+    if (!label.tracked || !label.dragging || label.mode !== mode) {
+      return;
+    }
+    label.released = true;
+    label.dragging = false;
+    label.alpha = 1;
+  }
+
+  function updateDisplacementLabelFrame(dtMs, relaxFactor) {
+    const label = state.displacementLabel;
+    if (!label.tracked) {
+      return;
+    }
+
+    if (state.displacementMode === "relax" && label.released) {
+      label.value *= relaxFactor;
+      label.accumX *= relaxFactor;
+      label.accumY *= relaxFactor;
+    }
+
+    if (state.displacementMode === "permanent") {
+      label.alpha = 1;
+      return;
+    }
+
+    if (label.released) {
+      label.alpha = Math.max(0, label.alpha - dtMs / DISPLACEMENT_LABEL_FADE_MS);
+      if (label.alpha <= 0) {
+        if (state.displacementMode !== "relax" || !hasActiveRelaxDisplacement()) {
+          resetDisplacementLabel();
+        }
+      }
+    }
+  }
+
+  function updateHoveredPerimeter() {
+    const vm = getViewMatrix();
+    const centerProjected = projectPointWorld(state.topLayerCenter.x, state.topLayerCenter.y, Z_TOP, vm);
+
+    const maxR = Math.max(4, state.topRadiusWorld * state.scale * 1.03);
+
+    if (maxR < 4) {
+      state.hoveredTopPerimeter = false;
+      return;
+    }
+
+    const pdx = state.pointerX - centerProjected.sx;
+    const pdy = state.pointerY - centerProjected.sy;
+    const pr = Math.sqrt(pdx * pdx + pdy * pdy);
+
+    const inside = pr <= maxR * 1.07;
+    const nearRing = pr >= maxR * 0.72;
+    state.hoveredTopPerimeter = inside && nearRing;
+  }
+
+  function hasActiveRelaxDisplacement() {
+    if (state.displacementMode !== "relax") {
+      return false;
+    }
+    for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
+      const a = state.topLayer.atoms[i];
+      if (Math.abs(a.dx) > RELAX_EPS || Math.abs(a.dy) > RELAX_EPS) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function requestRender() {
+    if (state.framePending) {
+      return;
+    }
+    state.framePending = true;
+    requestAnimationFrame(render);
+  }
+
+  function render(nowMs) {
+    state.framePending = false;
+    const dtMs = state.lastFrameMs > 0 ? Math.min(34, Math.max(1, nowMs - state.lastFrameMs)) : 16;
+    state.lastFrameMs = nowMs;
+    const vm = getViewMatrix();
+    let relaxFactor = 1;
+
+    if (state.displacementMode === "relax" && state.dragMode !== "displace") {
+      relaxFactor = Math.pow(0.985, dtMs / 16);
+      for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
+        state.topLayer.atoms[i].dx *= relaxFactor;
+        state.topLayer.atoms[i].dy *= relaxFactor;
+      }
+    }
+    updateDisplacementLabelFrame(dtMs, relaxFactor);
+
+    ctx.fillStyle = state.background;
+    ctx.fillRect(0, 0, state.width, state.height);
+
+    const bottomBondColor = rgbaFromHex(state.bottomColor, clamp(state.bottomAlpha * 0.68, 0, 1));
+    const topBondColor = rgbaFromHex(state.topColor, clamp(state.topAlpha * 0.68, 0, 1));
+    state.cslPalette = makeCSLPalette(state.topAlpha);
+
+    const bottomProj = projectLayerAtoms(state.bottomLayer, false, vm);
+    const topProj = projectLayerAtoms(state.topLayer, true, vm);
+
+    const totalAtoms = bottomProj.length + topProj.length;
+    const useFastPath = totalAtoms > FAST_RENDER_ATOM_THRESHOLD;
+
+    if (useFastPath) {
+      const bottomSeg = collectBondSegments(state.bottomLayer, bottomProj, bottomBondColor);
+      const topSeg = collectBondSegments(state.topLayer, topProj, topBondColor);
+      ctx.strokeStyle = bottomBondColor;
+      ctx.lineWidth = 1.1;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      for (let i = 0; i < bottomSeg.length; i += 1) {
+        const s = bottomSeg[i];
+        ctx.moveTo(s.x1, s.y1);
+        ctx.lineTo(s.x2, s.y2);
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = topBondColor;
+      ctx.beginPath();
+      for (let j = 0; j < topSeg.length; j += 1) {
+        const s = topSeg[j];
+        ctx.moveTo(s.x1, s.y1);
+        ctx.lineTo(s.x2, s.y2);
+      }
+      ctx.stroke();
+    } else {
+      const bottomSeg = collectBondSegments(state.bottomLayer, bottomProj, bottomBondColor);
+      const topSeg = collectBondSegments(state.topLayer, topProj, topBondColor);
+      renderDepthSortedBonds(bottomSeg.concat(topSeg));
+    }
+
+    const atomRadius = clamp(state.atomSize * (state.scale / 30), 0.6, 26);
+    if (useFastPath) {
+      const bottomColor = rgbaFromHex(state.bottomColor, state.bottomAlpha);
+      const topDefaultColor = rgbaFromHex(state.topColor, state.topAlpha);
+      ctx.fillStyle = bottomColor;
+      for (let i = 0; i < bottomProj.length; i += 1) {
+        const p = bottomProj[i];
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, atomRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (let j = 0; j < topProj.length; j += 1) {
+        const p = topProj[j];
+        ctx.fillStyle = state.showCSL ? coincidenceColorForAtom(p.wx, p.wy) : topDefaultColor;
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, atomRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      renderDepthSortedAtoms(bottomProj, topProj, atomRadius);
+    }
+
+    if (state.dragMode !== "rotate-top") {
+      state.angleAlpha = Math.max(0, state.angleAlpha - 0.018 * (dtMs / 16));
+    }
+    drawAngleOverlay();
+    drawDisplacementOverlay();
+
+    const labelAnimating = state.displacementLabel.alpha > 0 &&
+      (state.displacementMode !== "permanent" || state.dragMode !== "none");
+    if (state.dragMode !== "none" || state.angleAlpha > 0 || labelAnimating || hasActiveRelaxDisplacement()) {
+      requestRender();
+    }
+  }
+
+  function updateCanvasSize() {
+    const targetW = window.innerWidth;
+    const targetH = window.innerHeight;
+
+    let width = targetW;
+    let height = width * 9 / 16;
+    if (height > targetH) {
+      height = targetH;
+      width = height * 16 / 9;
+    }
+
+    width = Math.max(16, Math.round(width));
+    height = Math.max(9, Math.round(height));
+
+    canvas.width = width;
+    canvas.height = height;
+    state.width = width;
+    state.height = height;
+    state.cx = width * 0.5;
+    state.cy = height * 0.5;
+    requestRender();
+  }
+
+  function canvasPointFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  function worldXYOnPlaneFromScreen(sx, sy, zPlane) {
+    const vm = getViewMatrix();
+    const xc = (sx - state.cx - state.panX) / state.scale;
+    const yc = (sy - state.cy - state.panY) / state.scale;
+
+    const c1 = xc - vm.r13 * zPlane;
+    const c2 = yc - vm.r23 * zPlane;
+
+    const det = vm.r11 * vm.r22 - vm.r12 * vm.r21;
+    if (Math.abs(det) < 1e-8) {
+      return null;
+    }
+
+    const x = (c1 * vm.r22 - c2 * vm.r12) / det;
+    const y = (vm.r11 * c2 - vm.r21 * c1) / det;
+    return { x: x, y: y };
+  }
+
+  function worldToTopLocal(worldX, worldY) {
+    const centeredX = worldX - state.topLayerCenter.x;
+    const centeredY = worldY - state.topLayerCenter.y;
+    const inv = rotate2D(centeredX, centeredY, -state.topRotation);
+    return { x: inv.x + state.topLayerCenter.x, y: inv.y + state.topLayerCenter.y };
+  }
+
+  function applyGaussianDisplacement(prevScreen, currScreen) {
+    const prevWorld = worldXYOnPlaneFromScreen(prevScreen.x, prevScreen.y, Z_TOP);
+    const currWorld = worldXYOnPlaneFromScreen(currScreen.x, currScreen.y, Z_TOP);
+    if (!prevWorld || !currWorld) {
+      return null;
+    }
+
+    const deltaWorld = {
+      x: currWorld.x - prevWorld.x,
+      y: currWorld.y - prevWorld.y
+    };
+    const deltaLocal = rotate2D(deltaWorld.x, deltaWorld.y, -state.topRotation);
+    const currLocal = worldToTopLocal(currWorld.x, currWorld.y);
+
+    const sigma = Math.max(0.12, state.gaussianSigma);
+    const invTwoSigma2 = 1 / (2 * sigma * sigma);
+
+    for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
+      const atom = state.topLayer.atoms[i];
+      const ax = atom.x0 + atom.dx;
+      const ay = atom.y0 + atom.dy;
+      const dx = ax - currLocal.x;
+      const dy = ay - currLocal.y;
+      const r2 = dx * dx + dy * dy;
+      const g = Math.exp(-r2 * invTwoSigma2);
+      atom.dx += deltaLocal.x * g;
+      atom.dy += deltaLocal.y * g;
+    }
+    return deltaLocal;
+  }
+
+  function wrapAngleDelta(a) {
+    let d = a;
+    while (d > Math.PI) {
+      d -= 2 * Math.PI;
+    }
+    while (d < -Math.PI) {
+      d += 2 * Math.PI;
+    }
+    return d;
+  }
+
+  function applyVortexDisplacement(prevScreen, currScreen) {
+    const prevWorld = worldXYOnPlaneFromScreen(prevScreen.x, prevScreen.y, Z_TOP);
+    const currWorld = worldXYOnPlaneFromScreen(currScreen.x, currScreen.y, Z_TOP);
+    if (!prevWorld || !currWorld) {
+      return null;
+    }
+
+    const prevLocal = worldToTopLocal(prevWorld.x, prevWorld.y);
+    const currLocal = worldToTopLocal(currWorld.x, currWorld.y);
+
+    const prevAngle = Math.atan2(prevLocal.y - state.topLayerCenter.y, prevLocal.x - state.topLayerCenter.x);
+    const currAngle = Math.atan2(currLocal.y - state.topLayerCenter.y, currLocal.x - state.topLayerCenter.x);
+    const dTheta = wrapAngleDelta(currAngle - prevAngle);
+
+    const prevR = Math.sqrt(Math.pow(prevLocal.x - state.topLayerCenter.x, 2) + Math.pow(prevLocal.y - state.topLayerCenter.y, 2));
+    const currR = Math.sqrt(Math.pow(currLocal.x - state.topLayerCenter.x, 2) + Math.pow(currLocal.y - state.topLayerCenter.y, 2));
+    const dR = currR - prevR;
+
+    const sigma = Math.max(0.12, state.gaussianSigma);
+    const invTwoSigma2 = 1 / (2 * sigma * sigma);
+
+    for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
+      const atom = state.topLayer.atoms[i];
+      const ax = atom.x0 + atom.dx;
+      const ay = atom.y0 + atom.dy;
+
+      const r2 = ax * ax + ay * ay;
+      const r = Math.sqrt(r2);
+      const g = Math.exp(-r2 * invTwoSigma2);
+
+      if (r < 1e-8) {
+        continue;
+      }
+
+      const ux = ax / r;
+      const uy = ay / r;
+      const tx = -uy;
+      const ty = ux;
+
+      // Tangential twist plus a small radial slide for a vortex-like interaction.
+      const tangential = dTheta * r * g;
+      const radial = dR * 0.35 * g;
+
+      atom.dx += tx * tangential + ux * radial;
+      atom.dy += ty * tangential + uy * radial;
+    }
+    return dTheta;
+  }
+
+  function resetTopDisplacement() {
+    for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
+      state.topLayer.atoms[i].dx = 0;
+      state.topLayer.atoms[i].dy = 0;
+    }
+  }
+
+  function currentTopCenterScreen() {
+    const vm = getViewMatrix();
+    return projectPointWorld(state.topLayerCenter.x, state.topLayerCenter.y, Z_TOP, vm);
+  }
+
+  function pointerDown(e) {
+    if (e.button !== 0 && e.button !== 1 && e.button !== 2) {
+      return;
+    }
+
+    const p = canvasPointFromEvent(e);
+    state.pointerX = p.x;
+    state.pointerY = p.y;
+    updateHoveredPerimeter();
+
+    state.dragStartX = p.x;
+    state.dragStartY = p.y;
+
+    if (e.ctrlKey && e.button === 0) {
+      state.dragMode = "vortex";
+      state.prevWorldTop = worldXYOnPlaneFromScreen(p.x, p.y, Z_TOP);
+      beginDisplacementLabel("vortex");
+      e.preventDefault();
+      requestRender();
+      return;
+    }
+
+    if (e.shiftKey && e.button === 0) {
+      state.dragMode = "displace";
+      state.prevWorldTop = worldXYOnPlaneFromScreen(p.x, p.y, Z_TOP);
+      beginDisplacementLabel("displace");
+      e.preventDefault();
+      requestRender();
+      return;
+    }
+
+    if (state.hoveredTopPerimeter && e.button === 0) {
+      const center = currentTopCenterScreen();
+      state.dragMode = "rotate-top";
+      state.rotateStartAngle = Math.atan2(p.y - center.sy, p.x - center.sx);
+      state.rotateStartTopAngle = state.topRotation;
+      state.angleAlpha = 1;
+      state.angleVisible = true;
+      e.preventDefault();
+      requestRender();
+      return;
+    }
+
+    if (e.button === 2 || e.button === 1) {
+      state.dragMode = "pan";
+      e.preventDefault();
+      requestRender();
+      return;
+    }
+
+    if (e.button === 0) {
+      state.dragMode = "tilt";
+      e.preventDefault();
+      requestRender();
+    }
+  }
+
+  function pointerMove(e) {
+    const p = canvasPointFromEvent(e);
+    state.pointerX = p.x;
+    state.pointerY = p.y;
+
+    if (state.dragMode === "none") {
+      updateHoveredPerimeter();
+      canvas.style.cursor = state.hoveredTopPerimeter ? "crosshair" : "grab";
+      return;
+    }
+
+    const dx = p.x - state.dragStartX;
+    const dy = p.y - state.dragStartY;
+
+    if (state.dragMode === "tilt") {
+      state.viewYaw += dx * 0.0065;
+      state.viewPitch += dy * 0.0065;
+      state.viewPitch = clamp(state.viewPitch, -1.52, 1.52);
+      state.dragStartX = p.x;
+      state.dragStartY = p.y;
+      canvas.style.cursor = "grabbing";
+      requestRender();
+      return;
+    }
+
+    if (state.dragMode === "pan") {
+      state.panX += dx;
+      state.panY += dy;
+      state.dragStartX = p.x;
+      state.dragStartY = p.y;
+      canvas.style.cursor = "move";
+      requestRender();
+      return;
+    }
+
+    if (state.dragMode === "rotate-top") {
+      const center = currentTopCenterScreen();
+      const a = Math.atan2(p.y - center.sy, p.x - center.sx);
+      state.topRotation = state.rotateStartTopAngle + (a - state.rotateStartAngle);
+      state.angleAlpha = 1;
+      state.angleVisible = true;
+      syncStandardAngleSelection();
+      canvas.style.cursor = "crosshair";
+      requestRender();
+      return;
+    }
+
+    if (state.dragMode === "displace") {
+      const deltaLocal = applyGaussianDisplacement({ x: state.dragStartX, y: state.dragStartY }, p);
+      updateLinearDisplacementLabel(deltaLocal);
+      state.dragStartX = p.x;
+      state.dragStartY = p.y;
+      canvas.style.cursor = "grabbing";
+      requestRender();
+      return;
+    }
+
+    if (state.dragMode === "vortex") {
+      const dTheta = applyVortexDisplacement({ x: state.dragStartX, y: state.dragStartY }, p);
+      updateVortexDisplacementLabel(dTheta);
+      state.dragStartX = p.x;
+      state.dragStartY = p.y;
+      canvas.style.cursor = "grabbing";
+      requestRender();
+      return;
+    }
+  }
+
+  function pointerUp() {
+    const releasedDragMode = state.dragMode;
+    if (state.dragMode === "displace" && state.displacementMode === "jumpback") {
+      resetTopDisplacement();
+    }
+    if (releasedDragMode === "displace" || releasedDragMode === "vortex") {
+      releaseDisplacementLabel(releasedDragMode);
+    }
+    state.dragMode = "none";
+    state.prevWorldTop = null;
+    canvas.style.cursor = "grab";
+    requestRender();
+  }
+
+  function wheelZoom(e) {
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.0014);
+    state.scale = clamp(state.scale * factor, 5, 220);
+    requestRender();
+  }
+
+  function updatePanelVisibilityFromPointer(clientX) {
+    const thresholdPx = window.innerWidth * state.panelEdgeThreshold;
+    state.showPanel = clientX >= thresholdPx || state.pointerInsidePanel;
+    panel.classList.toggle("visible", state.showPanel);
+  }
+
+  function bindSliderPair(rangeEl, numberEl, parseFn, applyFn) {
+    function setBoth(v) {
+      rangeEl.value = String(v);
+      numberEl.value = String(v);
+      applyFn(v);
+    }
+
+    rangeEl.addEventListener("input", function () {
+      const v = parseFn(rangeEl.value);
+      setBoth(v);
+    });
+
+    numberEl.addEventListener("input", function () {
+      const v = parseFn(numberEl.value);
+      if (Number.isFinite(v)) {
+        const clamped = clamp(v, parseFloat(rangeEl.min), parseFloat(rangeEl.max));
+        setBoth(clamped);
+      }
+    });
+  }
+
+  function bindUI() {
+    ui.hexLattice.addEventListener("click", function () {
+      applySettings({ latticeMode: "hex" }, false);
+    });
+
+    ui.cubicLattice.addEventListener("click", function () {
+      applySettings({ latticeMode: "cubic" }, false);
+    });
+
+    ui.mixedLattice.addEventListener("click", function () {
+      applySettings({ latticeMode: "mixed" }, false);
+    });
+
+    ui.bgColor.addEventListener("input", function () {
+      state.background = ui.bgColor.value;
+      requestRender();
+    });
+
+    ui.bottomColor.addEventListener("input", function () {
+      state.bottomColor = ui.bottomColor.value;
+      requestRender();
+    });
+
+    ui.topColor.addEventListener("input", function () {
+      state.topColor = ui.topColor.value;
+      requestRender();
+    });
+
+    ui.bottomAlpha.addEventListener("input", function () {
+      state.bottomAlpha = parseFloat(ui.bottomAlpha.value);
+      ui.bottomAlphaValue.textContent = state.bottomAlpha.toFixed(2);
+      requestRender();
+    });
+
+    ui.topAlpha.addEventListener("input", function () {
+      state.topAlpha = parseFloat(ui.topAlpha.value);
+      ui.topAlphaValue.textContent = state.topAlpha.toFixed(2);
+      requestRender();
+    });
+
+    bindSliderPair(ui.bottomCells, ui.bottomCellsNumber, function (v) {
+      return Math.round(parseFloat(v));
+    }, function (v) {
+      state.bottomCells = v;
+      rebuildLayers();
+    });
+
+    bindSliderPair(ui.topCells, ui.topCellsNumber, function (v) {
+      return Math.round(parseFloat(v));
+    }, function (v) {
+      state.topCells = v;
+      rebuildLayers();
+    });
+
+    bindSliderPair(ui.atomSize, ui.atomSizeNumber, function (v) {
+      return parseFloat(v);
+    }, function (v) {
+      state.atomSize = v;
+      requestRender();
+    });
+
+    bindSliderPair(ui.gaussianSigma, ui.gaussianSigmaNumber, function (v) {
+      return parseFloat(v);
+    }, function (v) {
+      state.gaussianSigma = v;
+    });
+
+    ui.cslSensitivity.addEventListener("input", function () {
+      state.cslSensitivity = cslSliderToSensitivity(parseFloat(ui.cslSensitivity.value));
+      ui.cslSensitivityNumber.value = formatCslSensitivity(state.cslSensitivity);
+      requestRender();
+    });
+
+    ui.cslSensitivityNumber.addEventListener("input", function () {
+      const v = parseFloat(ui.cslSensitivityNumber.value);
+      if (Number.isFinite(v)) {
+        state.cslSensitivity = clamp(v, 0.01, 1);
+        ui.cslSensitivity.value = String(cslSensitivityToSlider(state.cslSensitivity));
+        requestRender();
+      }
+    });
+
+    ui.cslSensitivityNumber.addEventListener("change", function () {
+      state.cslSensitivity = clamp(state.cslSensitivity, 0.01, 1);
+      ui.cslSensitivityNumber.value = formatCslSensitivity(state.cslSensitivity);
+      ui.cslSensitivity.value = String(cslSensitivityToSlider(state.cslSensitivity));
+      requestRender();
+    });
+
+    ui.dispMode.addEventListener("change", function () {
+      state.displacementMode = ui.dispMode.value;
+      if (state.displacementMode === "jumpback" && state.dragMode === "none") {
+        resetTopDisplacement();
+      }
+      requestRender();
+    });
+
+    ui.cslToggle.addEventListener("click", function () {
+      ui.cslSettings.classList.remove("hidden-section");
+      applySettings({
+        background: "#000000",
+        bottomColor: "#00ff00",
+        topColor: "#7ffcff",
+        bottomAlpha: 0.95,
+        topAlpha: 0.92,
+        bottomCells: 100,
+        topCells: 100,
+        atomSize: 20,
+        gaussianSigma: 29.8,
+        displacementMode: "relax",
+        latticeMode: state.latticeMode,
+        showCSL: true,
+        cslSensitivity: 0.05
+      }, true);
+    });
+
+    ui.cslInvertToggle.addEventListener("click", function () {
+      state.cslScaleInverted = !state.cslScaleInverted;
+      syncUiFromState();
+      requestRender();
+    });
+
+    ui.cslQuickToggle.addEventListener("click", function () {
+      state.showCSL = !state.showCSL;
+      syncUiFromState();
+      requestRender();
+    });
+
+    ui.showCSL.addEventListener("change", function () {
+      state.showCSL = ui.showCSL.checked;
+      syncUiFromState();
+      requestRender();
+    });
+
+    ui.resetView.addEventListener("click", function () {
+      state.scale = 30;
+      state.panX = 0;
+      state.panY = 0;
+      state.viewPitch = 0.75;
+      state.viewYaw = 0.45;
+      requestRender();
+    });
+
+    ui.resetRotation.addEventListener("click", function () {
+      state.topRotation = 0;
+      state.angleAlpha = 1;
+      syncStandardAngleSelection();
+      requestRender();
+    });
+
+    ui.resetDisplacement.addEventListener("click", function () {
+      resetTopDisplacement();
+      requestRender();
+    });
+
+    ui.overviewView.addEventListener("click", function () {
+      fitOverview();
+    });
+
+    ui.standardAngle.addEventListener("change", function () {
+      if (ui.standardAngle.value === "custom") {
+        return;
+      }
+      state.topRotation = parseFloat(ui.standardAngle.value) * Math.PI / 180;
+      state.angleAlpha = 1;
+      syncStandardAngleSelection();
+      requestRender();
+    });
+
+    ui.aaStacking.addEventListener("click", function () {
+      applySettings({ stackingMode: "AA" }, false);
+    });
+
+    ui.abStacking.addEventListener("click", function () {
+      applySettings({ stackingMode: "AB" }, false);
+    });
+
+    ui.storeSettings.addEventListener("click", function () {
+      storeCurrentSettings();
+    });
+
+    ui.loadSettings.addEventListener("click", function () {
+      loadSelectedSettings();
+    });
+
+    ui.presetSelect.addEventListener("change", function () {
+      if (ui.presetSelect.value) {
+        ui.presetName.value = ui.presetSelect.value;
+      }
+    });
+
+    panel.addEventListener("pointerenter", function () {
+      state.pointerInsidePanel = true;
+      panel.classList.add("visible");
+    });
+
+    panel.addEventListener("pointerleave", function () {
+      state.pointerInsidePanel = false;
+    });
+  }
+
+  function initPointerEvents() {
+    canvas.addEventListener("pointerdown", pointerDown);
+    window.addEventListener("pointermove", function (e) {
+      updatePanelVisibilityFromPointer(e.clientX);
+      const rect = canvas.getBoundingClientRect();
+      if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        pointerMove(e);
+      }
+    });
+
+    window.addEventListener("pointerup", pointerUp);
+    window.addEventListener("pointercancel", pointerUp);
+    canvas.addEventListener("wheel", wheelZoom, { passive: false });
+
+    canvas.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+    });
+  }
+
+  function init() {
+    updateCanvasSize();
+    bindUI();
+    initPointerEvents();
+    refreshPresetMenu();
+
+    // Always start from built-in defaults for reproducible startup state.
+    rebuildLayers();
+    state.topRotation = 0;
+    state.angleAlpha = 1;
+    state.viewPitch = 0;
+    state.viewYaw = 0;
+    syncStandardAngleSelection();
+    fitOverview();
+    syncUiFromState();
+
+    window.addEventListener("beforeunload", function () {
+      localStorage.setItem(LAST_STATE_KEY, JSON.stringify(snapshotSettings()));
+    });
+
+    window.addEventListener("resize", updateCanvasSize);
+
+    canvas.style.cursor = "grab";
+    requestRender();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

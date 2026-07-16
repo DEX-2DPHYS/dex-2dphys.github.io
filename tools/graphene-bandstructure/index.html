@@ -1,435 +1,2313 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Graphene Tight-Binding Simulation</title>
+<!--
+PROTOTYPE_PERMISSION_NOTICE
+Peter Bøggild, pbog@dtu.dk. DTU Physics, Technical University of Denmark.
+-->
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Electron bands — twisted bilayer graphene (v2)</title>
+<!-- Plotly loaded for Real TB 3D surface panel -->
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-:root {
-  --bg-color: #f8f9fa;
-  --panel-bg: #ffffff;
-  --text-color: #212529;
-  --text-muted: #6c757d;
-  --border-color: #dee2e6;
-  --accent-color: #0d6efd;
-  --shadow-color: rgba(0, 0, 0, 0.07);
-  --gap: 12px;
-  --vh: 100vh;
-}
+  :root { --bg:#ffffff; --fg:#111111; --muted:#5a6a85; --acc:#0b57d0; }
+  html, body {
+    height:100%; margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    background:#ffffff; color:var(--fg); overflow:hidden;
+  }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 15px;
-  height: 100%;
-  overflow: hidden;
-}
+  .app-frame {
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
+    margin: 0 auto;
+    overflow: hidden;
+    background: #fff;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 8px;
+    gap: 6px;
+  }
 
-.wrap {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: var(--gap);
-  box-sizing: border-box;
-}
+  .top-row {
+    display: grid;
+    grid-template-columns: 2fr 3.2fr;
+    gap: 6px;
+    flex: 0 0 68%;
+    min-height: 0;
+  }
+  .app-frame.basic-mode .top-row {
+    grid-template-columns: 1fr;
+  }
+  .app-frame.basic-mode.landau-on .top-row {
+    grid-template-columns: 1.35fr 1fr;
+  }
+  .app-frame.basic-mode #dispWrap {
+    display: none;
+  }
+  #fanWrap { display: none; }
+  .app-frame.basic-mode.landau-on #fanWrap {
+    display: flex;
+  }
 
-header {
-  flex: 0 0 auto;
-  padding-bottom: var(--gap);
-  border-bottom: 1px solid var(--border-color);
-}
+  .bottom-area {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    gap: 4px;
+    min-height: 0;
+  }
 
-h1 {
-  font-size: 1.3rem;
-  font-weight: 500;
-  margin: 0;
-}
+  .canvas-wrap {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.controls {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--gap);
-  margin: var(--gap) 0;
-}
+  #dispCanvas { cursor: crosshair; }
+  #bzCanvas   { cursor: grab; }
+  #bzCanvas.dragging { cursor: grabbing; }
+  #chainCanvas { cursor: default; }
+  #fanCanvas { cursor: default; }
 
-.control {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--panel-bg);
-  border-radius: 8px;
-  padding: 4px 8px;
-  box-shadow: 0 2px 8px var(--shadow-color);
-}
+  .chain-wrap {
+    flex: 1 1 0;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
 
-.control label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
+  .controls-strip {
+    display: flex;
+    align-items: center;
+    padding: 2px 4px;
+    flex: 0 0 auto;
+  }
 
-.value {
-  font-size: 0.8rem;
-  color: var(--text-color);
-  font-family: monospace;
-}
+  /* popup control panel */
+  .popup-panel {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 200px;
+    background: rgba(255,255,255,0.97);
+    border-left: 1px solid #d4dae6;
+    border-radius: 10px 0 0 10px;
+    padding: 20px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transform: translateX(100%);
+    transition: transform 0.18s ease, opacity 0.18s ease;
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow: -4px 0 18px rgba(0,0,0,0.08);
+    overflow-y: auto;
+  }
+  .popup-panel.visible {
+    transform: translateX(0);
+    pointer-events: auto;
+    opacity: 1;
+  }
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .ctrl-group label {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .ctrl-group input[type="range"] {
+    accent-color: #89b4ff;
+    height: 18px;
+    width: 100%;
+  }
+  .ctrl-group .val {
+    font-size: 11px;
+    color: #333;
+    text-align: right;
+  }
+  button.play-btn {
+    border: 1px solid #b9c3d5;
+    background: #ffffff;
+    color: #10213f;
+    border-radius: 8px;
+    padding: 6px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .12s;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+  button.play-btn:hover { background: #e4ebfa; }
+  button.play-btn.active { background: #d0e4fc; border-color: #6aa3ef; }
+  button.play-btn.real-active { background: #e8f5e9; border-color: #43a047; color: #1b5e20; }
 
-.grid {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: 65% 35%;
-  gap: var(--gap);
-  min-height: 0;
-}
+  .panel-sep {
+    border: none;
+    border-top: 1px solid #d4dae6;
+    margin: 2px 0;
+    flex-shrink: 0;
+  }
+  .tb-extra {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tb-extra.visible {
+    display: flex;
+  }
 
-.panel {
-  background-color: var(--panel-bg);
-  border-radius: 10px;
-  box-shadow: 0 4px 20px var(--shadow-color);
-  overflow: hidden;
-}
-
-#plot3d {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-}
-
-.rhs {
-  display: grid;
-  grid-template-rows: repeat(3, 1fr);
-  gap: var(--gap);
-  min-height: 0;
-}
-
-.plot {
-  width: 100%;
-  height: 100%;
-}
-
-footer {
-  flex: 0 0 auto;
-  padding-top: var(--gap);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  text-align: center;
-  border-top: 1px solid var(--border-color);
-}
-
-/* Smaller screens */
-@media (max-width: 1200px) {
-  .controls { grid-template-columns: repeat(2, 1fr); }
-  .grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .rhs { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
-}
-
-@media (max-width: 768px) {
-  .controls { grid-template-columns: 1fr; }
-  .rhs { grid-template-columns: 1fr; grid-template-rows: auto; }
-}
-
+  /* Realmode overlay fills the BZ canvas area exactly */
+  #realBZPlot {
+    position: absolute;
+    inset: 0;
+    background: #ffffff;
+    display: none;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header><h1>Graphene Tight-Binding Model</h1></header>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.
+-->
+<style>
+  #gapOverlay{
+    position:fixed; left:50%; top:36%; transform:translate(-50%,-50%);
+    font:700 60px/1.15 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+    color:#111; background:rgba(255,255,255,0.9);
+    padding:12px 30px; border-radius:16px;
+    border:1px solid #dfe5ee; box-shadow:0 10px 30px rgba(0,0,0,0.14);
+    opacity:0; transition:opacity 150ms ease;
+    pointer-events:none; z-index:9997; white-space:nowrap;
+  }
+  #gapOverlay.visible{ opacity:1; }
+  #gapOverlay sub{ font-size:0.55em; }
+</style>
+<script>
+  window.SIM_INFO = {
+    title: "Electron bands — twisted bilayer graphene",
+    about: "Band structure of two rotated graphene layers. The left panel shows the dispersion along a k-path, the centre shows the Brillouin zone (or a 3D tight-binding band surface), and the bottom animates a real-space atomic chain for the selected mode. A Landau-level fan can be overlaid.",
+    howto: [
+      "Hover the right edge to open the parameter panel (twist θ, Fermi energy, animation speed).",
+      "Switch between <b>Basic</b> and <b>Tight-binding</b> models with the buttons in the panel.",
+      "In Tight-binding mode extra controls appear (hopping ratio, Real-TB 3D surface, Landau overlay).",
+      "Drag the Brillouin-zone canvas to pan it; click the dispersion canvas to pick a k-point.",
+      "In Tight-binding mode, <b>Shift-drag</b> on the canvas (rightwards or upwards) to open a mass gap Δ — the resulting E<sub>gap</sub> is shown in large letters while you drag. The Δ slider in the panel still works too."
+    ],
+    shortcuts: [
+      ["Shift + drag",      "tune mass gap Δ, showing E_gap (TB mode)"],
+      ["Drag (BZ)",         "pan the Brillouin-zone view"],
+      ["Click (dispersion)", "pick k-point / mode"],
+      ["I",                 "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
 
-  <div class="controls" role="group" aria-label="Model Controls">
-    <div class="control">
-      <label for="ef">Fermi level (eV)</label>
-      <input id="ef" type="range" min="-3.0" max="3.0" step="0.01" value="0" />
-      <div class="value" id="efv">0.00 eV</div>
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
+<div class="app-frame basic-mode" id="appFrame">
+
+  <div class="top-row">
+    <div class="canvas-wrap" id="dispWrap">
+      <canvas id="dispCanvas"></canvas>
     </div>
-    <div class="control">
-      <label for="mass">Mass Δ (eV)</label>
-      <input id="mass" type="range" min="0.00" max="0.50" step="0.005" value="0.000" />
-      <div class="value" id="massv">0.000 eV</div>
+    <div class="canvas-wrap" id="bzWrap">
+      <canvas id="bzCanvas"></canvas>
+      <!-- Real TB 3D band surface — shown instead of bzCanvas in Real TB mode -->
+      <div id="realBZPlot"></div>
     </div>
-    <div class="control">
-      <label for="tprime">t′ NNN (eV)</label>
-      <input id="tprime" type="range" min="-0.6" max="0.6" step="0.005" value="0.000" />
-      <div class="value" id="tprimev">0.000 eV</div>
-    </div>
-    <div class="control">
-      <label for="eta">DOS broadening η (eV)</label>
-      <input id="eta" type="range" min="0.005" max="0.200" step="0.005" value="0.030" />
-      <div class="value" id="etav">0.030 eV</div>
-    </div>
-    <div class="control">
-      <label for="elev">Camera elevation</label>
-      <input id="elev" type="range" min="0" max="45" step="1" value="28" />
-      <div class="value" id="elevv">28°</div>
-    </div>
-    <div class="control">
-      <label for="az">Camera azimuth</label>
-      <input id="az" type="range" min="-180" max="180" step="1" value="30" />
-      <div class="value" id="azv">30°</div>
-    </div>
-    <div class="control">
-      <label for="npts">Grid N×N</label>
-      <input id="npts" type="range" min="64" max="192" step="8" value="120" />
-      <div class="value" id="nptsv">120×120</div>
-    </div>
-    <div class="control">
-      <label for="fsToggle">Fermi surface</label>
-      <input id="fsToggle" type="range" min="0" max="1" step="1" value="1" />
-      <div class="value" id="fsTogglev">on</div>
+    <div class="canvas-wrap" id="fanWrap">
+      <canvas id="fanCanvas"></canvas>
     </div>
   </div>
 
-  <div class="grid">
-    <div class="panel"><div id="plot3d" class="plot"></div></div>
-    <div class="rhs">
-      <div class="panel"><div id="plotPath" class="plot"></div></div>
-      <div class="panel"><div id="plotDOS" class="plot"></div></div>
-      <div class="panel"><div id="plotFS" class="plot"></div></div>
+  <div class="bottom-area">
+    <div class="chain-wrap" id="chainWrap">
+      <canvas id="chainCanvas"></canvas>
     </div>
   </div>
 
-  <footer>Model: Nearest-neighbor hopping (t), staggered sublattice potential / mass (Δ), and next-nearest-neighbor hopping (t′).</footer>
+  <!-- Popup control panel -->
+  <div class="popup-panel" id="popupPanel">
+    <div class="ctrl-group">
+      <label>Twist angle θ</label>
+      <input type="range" id="thetaSlider" min="-60" max="60" step="0.5" value="15">
+      <span class="val" id="thetaVal">15.0°</span>
+    </div>
+    <div class="ctrl-group">
+      <label>Fermi energy E<sub>F</sub></label>
+      <input type="range" id="fermiSlider" min="-1" max="1" step="0.02" value="0">
+      <span class="val" id="fermiVal">0.00 t</span>
+    </div>
+    <div class="ctrl-group">
+      <label>Animation speed</label>
+      <input type="range" id="speedSlider" min="0.1" max="4" step="0.05" value="1.5">
+      <span class="val" id="speedVal">1.5×</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="play-btn active" id="basicBtn" style="flex:1">Basic</button>
+      <button class="play-btn" id="tbBtn" style="flex:1">Tight-binding</button>
+    </div>
+    <button class="play-btn" id="landauBtn" style="margin-top:6px;width:100%">Landau fan G(n,B)</button>
+    <button class="play-btn active" id="miniBZBtn" style="margin-top:6px;width:100%">Mini BZ (split K)</button>
+    <div class="tb-extra" id="tbExtra">
+      <div class="ctrl-group">
+        <label>t′ NNN hopping (×t)</label>
+        <input type="range" id="tprimeSlider" min="-0.3" max="0.3" step="0.01" value="-0.01">
+        <span class="val" id="tprimeVal">-0.01</span>
+      </div>
+      <div class="ctrl-group">
+        <label>Mass gap Δ (×t)</label>
+        <input type="range" id="massSlider" min="0" max="0.5" step="0.01" value="0">
+        <span class="val" id="massVal">0.00</span>
+      </div>
+      <div class="ctrl-group">
+        <label>Camera elevation</label>
+        <input type="range" id="elevSlider" min="0" max="45" step="1" value="28">
+        <span class="val" id="elevVal">28°</span>
+      </div>
+      <div class="ctrl-group">
+        <label>Camera azimuth</label>
+        <input type="range" id="azSlider" min="-180" max="180" step="1" value="30">
+        <span class="val" id="azVal">30°</span>
+      </div>
+      <div class="ctrl-group">
+        <label>Grid N×N</label>
+        <input type="range" id="gridNSlider" min="20" max="192" step="1" value="115">
+        <span class="val" id="gridNVal">115×115</span>
+      </div>
+      <button class="play-btn active" id="kMarkerBtn" style="margin-top:6px;width:100%">📍 k-point marker</button>
+    </div>
+  </div>
+
 </div>
 
 <script>
-(function(){
-  // Params
-  const P = { a:1.0, t:2.7, n:120, kmax:Math.PI };
+'use strict';
 
-  // UI
-  const ui = idMap(['ef','efv','mass','massv','tprime','tprimev','eta','etav','elev','elevv','az','azv','npts','nptsv','fsToggle','fsTogglev']);
-  function idMap(ids){ const o={}; ids.forEach(i=>o[i]=document.getElementById(i)); return o; }
+// ── Physics: basic 1D tight-binding-like cosine bands ─────────────────────
+const t_hop = 1.0;
+const a     = 1.0;
+const kMax  = Math.PI / a;
+const TB_PATH_SEGMENTS = 60;
+const basicGap = 0.26 * t_hop;
+const basicBandwidth = 0.74 * t_hop;
 
-  // Cached grids & precomputed terms
-  let kx=[], ky=[];
-  let E_NNN_term = null, E_NN_term_sq = null;
-  let Eplus=null, Eminus=null, flatPlus=null, flatMinus=null;
-  let pathE1 = null, pathE2 = null; // Cached path energies
+function bandEnergy(k) {
+  const edgeRise = 0.5 * (1 - Math.cos(k * a));
+  return {
+    Evalence:    -basicGap - basicBandwidth * edgeRise,
+    Econduction: +basicGap + basicBandwidth * edgeRise,
+  };
+}
 
-  // Helpers
-  const Ky  = a => 4*Math.PI/(3*Math.sqrt(3)*a);
-  const Kx2 = a => 2*Math.PI/(3*a);
-  const Ky2 = a => 2*Math.PI/(3*Math.sqrt(3)*a);
-  const Mx  = a => Math.PI/a, My = a => Math.PI/(Math.sqrt(3)*a);
+// ── Real 2D TB band structure (graphene, units of t) ──────────────────────
+// E±(kx,ky) = 2t'·f_NNN ± √(Δ² + f²)
+// f²  = 1 + 4cos²(√3 ky/2) + 4cos(√3 ky/2)·cos(3 kx/2)   (with a=1)
+// f_NNN = cos(√3 ky) + 2cos(3 kx/2)cos(√3 ky/2)
+function tbEnergyNorm(kxi, kyj, tp, m) {
+  const c1  = Math.cos(Math.sqrt(3) * kyj / 2);
+  const c2  = Math.cos(3 * kxi / 2);
+  const c1d = Math.cos(Math.sqrt(3) * kyj);
+  const inside = Math.max(1 + 4*c1*c1 + 4*c1*c2, 0);
+  const Ek0 = Math.sqrt(m*m + inside);
+  const e0  = 2 * tp * (c1d + 2*c2*c1);
+  return { Eplus: e0 + Ek0, Eminus: e0 - Ek0 };
+}
 
-  // Build k grid
-  function buildGrid(){
-    const {n,kmax} = P;
-    kx = Array.from({length:n},(_,i)=>-kmax + (2*kmax)*i/(n-1));
-    ky = Array.from({length:n},(_,j)=>-kmax + (2*kmax)*j/(n-1));
-  }
+// ── BZ coupling κ(θ) ────────────────────────────────────────────────────────
+function computeKappa(thetaDeg) {
+  // Bistritzer-MacDonald continuum-model effective interlayer coupling
+  // C(θ) = α(θ)/α(θ_ref), clipped to [0,1]
+  // α(θ) = w / (ħv_F · 2K·sin(θ/2)),  K = 4π/(3a)
+  const w         = 0.110;   // eV, interlayer tunnelling amplitude
+  const hbar_vF   = 0.658;   // eV·nm, graphene ħv_F
+  const a         = 0.246;   // nm, graphene lattice constant
+  const theta_ref = 1.05;    // degrees, magic-angle reference
+  const K = 4 * Math.PI / (3 * a);
+  // distance to nearest momentum-matching angle (0°, 60°, 120°, …)
+  const t = ((thetaDeg % 60) + 60) % 60;
+  const d = Math.min(t, 60 - t);                      // [0, 30]°
+  const theta_rad     = Math.max(d, 1e-3) * Math.PI / 180;
+  const theta_ref_rad = theta_ref * Math.PI / 180;
+  const alpha     = w / (hbar_vF * 2 * K * Math.sin(theta_rad / 2));
+  const alpha_ref = w / (hbar_vF * 2 * K * Math.sin(theta_ref_rad / 2));
+  return Math.min(1.0, alpha / alpha_ref);
+}
 
-  // Precompute geometry-dependent energy terms
-  function precomputeGeometry(){
-    const n=P.n, a=P.a, t_sq=P.t*P.t;
-    E_NNN_term   = Array.from({length:n}, ()=>new Float32Array(n));
-    E_NN_term_sq = Array.from({length:n}, ()=>new Float32Array(n));
-    const diracPoints = [{x:0,y:Ky(a)}, {x:Kx2(a),y:Ky2(a)}, {x:-Kx2(a),y:Ky2(a)}];
-    for(let j=0; j<n; j++){
-      const kyj = ky[j];
-      const c1  = Math.cos(Math.sqrt(3)*kyj*a/2), c1d = Math.cos(Math.sqrt(3)*kyj*a);
-      for(let i=0; i<n; i++){
-        const kxi = kx[i], c2  = Math.cos(3*a*kxi/2);
-        const inside = 1 + 4*c1*c1 + 4*c1*c2;
-        E_NN_term_sq[j][i] = t_sq * (inside > 0 ? inside : 0);
-        E_NNN_term[j][i]   = 2 * (c1d + 2*c2*c1);
-      }
-    }
-    // Enforce exact Dirac points
-    const kmax2 = 2*P.kmax;
-    for(const p of [...diracPoints, ...diracPoints.map(pt => ({x:pt.x, y:-pt.y}))]) {
-        const i = Math.round((p.x + P.kmax)*(n-1)/kmax2);
-        const j = Math.round((p.y + P.kmax)*(n-1)/kmax2);
-        if (i>=0 && i<n && j>=0 && j<n) E_NN_term_sq[j][i] = 0;
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function setTheta(thetaDeg) {
+  state.theta = clamp(thetaDeg, -60, 60);
+  state.kappa = computeKappa(state.theta);
+  const ts = document.getElementById('thetaSlider');
+  const tv = document.getElementById('thetaVal');
+  if (ts) ts.value = state.theta.toFixed(1);
+  if (tv) tv.textContent = state.theta.toFixed(1) + '°';
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = {
+  theta:    15,
+  kappa:    computeKappa(15),
+  speed:    1.5,
+  fermiE:   0.0,
+  k:        0.92 * kMax,
+  band:     'valence',
+  playing:   true,
+  twoLayer:  false,
+  advanced:  true,
+  showBloch: true,
+  groupVel:  false,
+  realMode:  false,    // false = Basic (Electron.html), true = Real TB
+  tbTprime: -0.01,      // t′ NNN in units of t
+  tbMass:    0.0,      // sublattice mass gap in units of t
+  plotlyBuilt: false,
+  plotlyUirev: 1,      // incremented on 1L→2L only, resets camera then
+  tbElev:    28,       // camera elevation (°)
+  tbAz:      30,       // camera azimuth (°)
+  tbN:       115,       // 3D grid N×N
+  showKMarker: true,      // show selected k-point on 3D surface
+  showLandau: false,      // show Landau fan panel in Basic mode
+  showMiniBZ: true,       // show mini moire BZ between split K points
+  realPathIdx: 2 * TB_PATH_SEGMENTS - 1, // selected index along Γ→M→K→Γ path; starts near K
+  t:        0,
+};
+
+let dispBranchLabels = [];
+
+// ── Canvas references ──────────────────────────────────────────────────────
+const dispCanvas  = document.getElementById('dispCanvas');
+const bzCanvas    = document.getElementById('bzCanvas');
+const fanCanvas   = document.getElementById('fanCanvas');
+const chainCanvas = document.getElementById('chainCanvas');
+const dc = dispCanvas.getContext('2d');
+const bc = bzCanvas.getContext('2d');
+const fc = fanCanvas.getContext('2d');
+const cc = chainCanvas.getContext('2d');
+
+function fitCanvases() {
+  const dw = document.getElementById('dispWrap');
+  const bw = document.getElementById('bzWrap');
+  const fw = document.getElementById('fanWrap');
+  const cw = document.getElementById('chainWrap');
+  dispCanvas.width  = dw.clientWidth;
+  dispCanvas.height = dw.clientHeight;
+  bzCanvas.width    = bw.clientWidth;
+  bzCanvas.height   = bw.clientHeight;
+  fanCanvas.width   = Math.max(0, fw.clientWidth);
+  fanCanvas.height  = Math.max(0, fw.clientHeight);
+  chainCanvas.width  = cw.clientWidth;
+  chainCanvas.height = cw.clientHeight;
+  if (state.realMode && state.plotlyBuilt) {
+    Plotly.Plots.resize('realBZPlot');
+  }
+}
+
+function renderBasicAuxPanels() {
+  drawBZ();
+  if (state.showLandau && !state.realMode) drawLandauFan();
+}
+
+function drawLandauFan() {
+  const W = fanCanvas.width, H = fanCanvas.height;
+  if (W < 8 || H < 8) return;
+  fc.clearRect(0, 0, W, H);
+  fc.fillStyle = '#ffffff';
+  fc.fillRect(0, 0, W, H);
+
+  const pad = { l: 42, r: 16, t: 24, b: 34 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+  const thetaAbs = Math.abs(state.theta);
+  const nShift = 0.42 + 0.34 * thetaAbs;
+  const nSpan = Math.max(6, nShift + 2.6);
+  const nMin = -nSpan, nMax = nSpan;
+  const BMin = 0, BMax = 12;
+  const nToX = n => pad.l + (n - nMin) / (nMax - nMin) * pw;
+  const BToY = B => pad.t + (1 - (B - BMin) / (BMax - BMin)) * ph;
+
+  fc.strokeStyle = '#e7edf5';
+  fc.lineWidth = 1;
+  const nStep = nSpan > 10 ? 4 : 2;
+  for (let n = Math.ceil(nMin / nStep) * nStep; n <= nMax + 1e-6; n += nStep) {
+    const x = nToX(n);
+    fc.beginPath(); fc.moveTo(x, pad.t); fc.lineTo(x, pad.t + ph); fc.stroke();
+  }
+  for (let B = 0; B <= 12; B += 2) {
+    const y = BToY(B);
+    fc.beginPath(); fc.moveTo(pad.l, y); fc.lineTo(pad.l + pw, y); fc.stroke();
+  }
+
+  fc.strokeStyle = '#b0bcd0';
+  fc.lineWidth = 1.1;
+  fc.beginPath();
+  fc.moveTo(pad.l, pad.t);
+  fc.lineTo(pad.l, pad.t + ph);
+  fc.lineTo(pad.l + pw, pad.t + ph);
+  fc.stroke();
+
+  const slope = 0.115;
+
+  function drawFanFamily(n0, color, alpha = 1) {
+    for (let m = 1; m <= 5; m++) {
+      for (const sgn of [-1, 1]) {
+        fc.beginPath();
+        let started = false;
+        for (let B = 0; B <= BMax; B += 0.15) {
+          const n = n0 + sgn * m * slope * B;
+          if (n < nMin || n > nMax) continue;
+          const x = nToX(n), y = BToY(B);
+          if (!started) { fc.moveTo(x, y); started = true; }
+          else fc.lineTo(x, y);
+        }
+        fc.strokeStyle = color;
+        fc.globalAlpha = alpha;
+        fc.lineWidth = m <= 2 ? 2.0 : 1.4;
+        fc.stroke();
+      }
     }
-  }
+    fc.globalAlpha = 1;
+  }
 
-  // Update bands with current Δ and t′
-  function updateBands(){
-    const n=P.n, d=parseFloat(ui.mass.value), tp=parseFloat(ui.tprime.value), d2=d*d;
-    Eplus  = Array.from({length:n}, ()=>new Float32Array(n));
-    Eminus = Array.from({length:n}, ()=>new Float32Array(n));
-    flatPlus  = new Float32Array(n*n);
-    flatMinus = new Float32Array(n*n);
-    let k=0;
-    for(let j=0; j<n; j++){
-      for(let i=0; i<n; i++){
-        const Ek0 = Math.sqrt(d2 + E_NN_term_sq[j][i]);
-        const e0  = tp * E_NNN_term[j][i];
-        Eplus[j][i] = e0 + Ek0; Eminus[j][i] = e0 - Ek0;
-        flatPlus[k] = Eplus[j][i]; flatMinus[k] = Eminus[j][i]; k++;
-      }
-    }
-  }
+  drawFanFamily(0, '#1a6bbf', 0.95);
+  drawFanFamily(+nShift, '#1f9d55', 0.88);
+  drawFanFamily(-nShift, '#1f9d55', 0.88);
 
-  // Plot helpers
-  function plane(nx,ny,val){ const out=new Array(ny); for(let j=0;j<ny;j++) out[j]=new Array(nx).fill(val); return out; }
-  function cam(){ const r=2.3, R=Math.PI/180, elev=parseFloat(ui.elev.value)*R, az=parseFloat(ui.az.value)*R; return { eye:{x:r*Math.cos(elev)*Math.cos(az), y:r*Math.cos(elev)*Math.sin(az), z:r*Math.sin(elev)}, center:{x:0,y:0,z:0}, up:{x:0,y:0,z:1} }; }
+  fc.fillStyle = '#5a6a85';
+  fc.font = '12px system-ui';
+  fc.textAlign = 'center';
+  fc.fillText('n (carrier density, arb.)', pad.l + pw / 2, H - 8);
+  fc.save();
+  fc.translate(12, pad.t + ph / 2);
+  fc.rotate(-Math.PI / 2);
+  fc.fillText('B (T)', 0, 0);
+  fc.restore();
 
-  // Build 3D plot
-  function build3D(){
-    const lighting={ambient:0.5,diffuse:0.65,specular:0.25,roughness:0.9,fresnel:0.2};
-    const traces=[
-      {type:'surface',x:kx,y:ky,z:[],name:'Valence',showscale:false,opacity:0.95,colorscale:'Portland',lighting},
-      {type:'surface',x:kx,y:ky,z:[],name:'Conduction',showscale:false,opacity:0.95,colorscale:'Viridis',lighting},
-      {type:'surface',x:kx,y:ky,z:[],name:'E=Ef',showscale:false,opacity:0.18,colorscale:[[0,'#0d6efd'],[1,'#0d6efd']],hoverinfo:'skip'}
-    ];
-    Plotly.newPlot('plot3d', traces, {
-      uirevision:'lock', paper_bgcolor:'transparent',margin:{l:0,r:0,t:24,b:0},
-      scene:{ xaxis:{title:'k_x (1/a)',gridcolor:'#eee',zeroline:false,backgroundcolor:'#fff'},
-              yaxis:{title:'k_y (1/a)',gridcolor:'#eee',zeroline:false,backgroundcolor:'#fff'},
-              zaxis:{title:'E (eV)',  gridcolor:'#eee',zeroline:false,backgroundcolor:'#fff'},
-              camera:cam(), aspectmode:'cube', dragmode:'orbit' },
-      legend:{orientation:'h',x:0.05,y:1, font: {size: 10}}
-    }, {displaylogo:false,responsive:true,scrollZoom:false});
-    update3D();
-  }
+  fc.font = 'bold 12px system-ui';
+  fc.textAlign = 'left';
+  fc.fillStyle = '#123a73';
+  fc.fillText('Main Dirac fan', pad.l + 6, pad.t + 14);
+  fc.fillStyle = '#1f7f49';
+  fc.fillText(`Cloned fans (|θ|=${thetaAbs.toFixed(1)}°)`, pad.l + 6, pad.t + 30);
+}
 
-  // Update 3D plot data
-  function update3D(){
-    const Ef=parseFloat(ui.ef.value);
-    Plotly.restyle('plot3d', { z:[Eminus, Eplus, plane(P.n,P.n,Ef)] });
-  }
+// ═══════════════════════════════════════════════════════════════════════════
+//  BASIC MODE — dispersion diagram (1D projection)
+// ═══════════════════════════════════════════════════════════════════════════
+function drawDispersion() {
+  const W = dispCanvas.width, H = dispCanvas.height;
+  dc.clearRect(0, 0, W, H);
 
-  // Path plot
-  const pathData = { Pth:[], s:[] };
-  function calculatePathEnergies(){
-    const a=P.a, t=P.t, d=parseFloat(ui.mass.value), tp=parseFloat(ui.tprime.value), d2=d*d;
-    const E1=new Float32Array(pathData.Pth.length), E2=new Float32Array(pathData.Pth.length);
-    for(let i=0; i<pathData.Pth.length; i++){
-      const p=pathData.Pth[i], c1=Math.cos(Math.sqrt(3)*p.y*a/2), c1d=Math.cos(Math.sqrt(3)*p.y*a), c2=Math.cos(3*a*p.x/2);
-      const inside=Math.max(1+4*c1*c1+4*c1*c2,0); const e0=2*tp*(c1d+2*c2*c1); const Ek0=Math.sqrt(d2 + (t*t)*inside);
-      E1[i]=e0 - Ek0; E2[i]=e0 + Ek0;
-    }
-    pathE1 = Array.from(E1);
-    pathE2 = Array.from(E2);
-  }
-  function buildPath(){
-    const a=P.a, G={x:0,y:0}, K={x:0,y:Ky(a)}, M={x:Mx(a), y:My(a)}, nseg=70;
-    function seg(A,B,n){ return Array.from({length:n},(_,i)=>({x:A.x+(B.x-A.x)*i/(n-1), y:A.y+(B.y-A.y)*i/(n-1)})); }
-    const Pth=[...seg(G,K,nseg), ...seg(K,M,nseg), ...seg(M,G,nseg)];
-    Pth[nseg-1]={...K}; Pth[2*nseg-1]={...M}; Pth[Pth.length-1]={...G};
-    pathData.Pth = Pth;
-    pathData.s = Array.from({length:Pth.length},(_,i)=>i);
-    const ticks = [0,nseg-1,2*nseg-1,3*nseg-1], ticktext = ['Γ','K','M','Γ'];
-    calculatePathEnergies();
-    const Ef=parseFloat(ui.ef.value);
-    Plotly.newPlot('plotPath', [
-      {type:'scatter',mode:'lines',x:pathData.s,y:pathE1,name:'E−',line:{width:2, color: '#ff7f0e'}},
-      {type:'scatter',mode:'lines',x:pathData.s,y:pathE2,name:'E+',line:{width:2, color: '#1f77b4'}},
-      {type:'scatter',mode:'lines',x:[pathData.s[0],pathData.s[pathData.s.length-1]],y:[Ef,Ef],name:'E<sub>f</sub>',line:{width:1.5,dash:'dot', color: '#2ca02c'}}
-    ], {
-      uirevision:'lock', paper_bgcolor:'transparent', plot_bgcolor:'#ffffff', margin:{l:40,r:10,t:24,b:36},
-      xaxis:{title:'Γ–K–M–Γ',tickmode:'array',tickvals:ticks,ticktext:ticktext,gridcolor:'#eee'},
-      yaxis:{title:'E (eV)',zeroline:false,gridcolor:'#eee'},
-      legend: {y: 1.0, yanchor: 'bottom', x: 1.0, xanchor: 'right', orientation: 'h', font: {size: 10}}
-    }, {displaylogo:false,responsive:true});
-  }
-  function updatePath(){
-    calculatePathEnergies();
-    const Ef=parseFloat(ui.ef.value);
-    Plotly.restyle('plotPath', {y: [pathE1, pathE2, [Ef,Ef]]});
-  }
+  const pad = { l: 44, r: 52, t: 28, b: 48 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
 
-  // DOS
-  function buildDOS(){
-    const eta=parseFloat(ui.eta.value), Ef=parseFloat(ui.ef.value);
-    const Emin=Math.min(minOf(flatMinus), minOf(flatPlus)), Emax=Math.max(maxOf(flatPlus), maxOf(flatMinus));
-    const NB=320, Es=new Float32Array(NB); for(let i=0;i<NB;i++) Es[i]=Emin+(Emax-Emin)*i/(NB-1);
-    const dos=new Float32Array(NB).fill(0), norm=1/(Math.sqrt(2*Math.PI)*eta);
-    addGauss(dos, Es, flatPlus, eta, norm); addGauss(dos, Es, flatMinus, eta, norm);
-    const scale=1/(P.n*P.n*2); for(let i=0;i<NB;i++) dos[i]*=scale;
-    const ymax = Math.max(...dos) * 1.05;
-    Plotly.react('plotDOS', [
-      {type:'scatter',mode:'lines',x:Array.from(Es),y:Array.from(dos),name:'DOS',line:{width:2, color: '#1f77b4'}},
-      {type:'scatter',mode:'lines',x:[Ef,Ef],y:[0,ymax],name:'E<sub>f</sub>',line:{width:1.5,dash:'dot', color: '#ff7f0e'}}
-    ], {
-      uirevision:'lock', paper_bgcolor:'transparent', plot_bgcolor:'#ffffff', margin:{l:48,r:10,t:24,b:36},
-      xaxis:{title:'E (eV)',gridcolor:'#eee'},
-      yaxis:{title:'DOS (arb.)',zeroline:false,gridcolor:'#eee',range:[0,ymax]},
-      showlegend: false
-    }, {displaylogo:false,responsive:true});
-  }
-  function addGauss(out, Es, arr, eta, norm){ const NB=Es.length; for(let n=0;n<arr.length;n++){ const E=arr[n]; for(let i=0;i<NB;i++){ const x=(Es[i]-E)/eta; out[i]+=norm*Math.exp(-0.5*x*x); } } }
-  const minOf=a=>{ let m=+Infinity; for(let i=0;i<a.length;i++) if(a[i]<m) m=a[i]; return m; };
-  const maxOf=a=>{ let m=-Infinity; for(let i=0;i<a.length;i++) if(a[i]>m) m=a[i]; return m; };
+  const eMax = t_hop * 1.15;
+  const eMin = -eMax;
+  const eRange = eMax - eMin;
 
-  // Fermi Surface
-  function buildFS(){
-    Plotly.newPlot('plotFS', [
-      {type:'contour',x:kx,y:ky,z:[], contours:{coloring:'lines',start:0,end:0,size:1e-4},line:{width:2, color: '#1f77b4'},showscale:false,name:'E+'},
-      {type:'contour',x:kx,y:ky,z:[],contours:{coloring:'lines',start:0,end:0,size:1e-4},line:{width:2, color: '#ff7f0e'},showscale:false,name:'E−'}
-    ], {
-      uirevision:'lock', paper_bgcolor:'transparent', plot_bgcolor:'#ffffff', margin:{l:40,r:10,t:24,b:36},
-      xaxis:{title:'k_x (1/a)',gridcolor:'#eee'},
-      yaxis:{title:'k_y (1/a)',gridcolor:'#eee',scaleanchor:'x',scaleratio:1},
-      showlegend: false
-    }, {displaylogo:false,responsive:true});
-    updateFS();
-  }
-  function updateFS(){
-    const show = ui.fsToggle.value==='1';
-    ui.fsTogglev.textContent = show ? 'on' : 'off';
-    if(!show){ Plotly.react('plotFS', []); return; }
-    const Ef=parseFloat(ui.ef.value);
-    Plotly.restyle('plotFS', { z: [Eplus, Eminus], 'contours.start':Ef, 'contours.end':Ef, visible: true });
-  }
+  function kx(k)  { return pad.l + (k + kMax) / (2 * kMax) * pw; }
+  function ey(E)  { return pad.t + (1 - (E - eMin) / eRange) * ph; }
 
-  // Bind sliders
-  ui.ef.addEventListener('input', ()=>{
-    ui.efv.textContent=parseFloat(ui.ef.value).toFixed(2)+' eV';
-    const Ef = parseFloat(ui.ef.value);
-    Plotly.restyle('plot3d', { z: [Eminus, Eplus, plane(P.n, P.n, Ef)] });
-    Plotly.restyle('plotPath', { y: [pathE1, pathE2, [Ef,Ef]] });
-    Plotly.restyle('plotFS', {'contours.start':Ef, 'contours.end':Ef});
-    Plotly.restyle('plotDOS', { x:[null, [Ef,Ef]] });
+  dc.fillStyle = '#ffffff';
+  dc.fillRect(0, 0, W, H);
+
+  const fermiY = ey(state.fermiE);
+  dc.fillStyle = 'rgba(200,230,255,0.28)';
+  dc.fillRect(pad.l, fermiY, pw, pad.t + ph - fermiY);
+
+  dc.strokeStyle = '#b0bcd0'; dc.lineWidth = 1;
+  dc.beginPath();
+  dc.moveTo(pad.l, pad.t); dc.lineTo(pad.l, pad.t + ph); dc.lineTo(pad.l + pw, pad.t + ph);
+  dc.stroke();
+
+  dc.strokeStyle = '#c5cdd8'; dc.lineWidth = 0.8; dc.setLineDash([3, 3]);
+  dc.beginPath(); dc.moveTo(pad.l, ey(0)); dc.lineTo(pad.l + pw, ey(0)); dc.stroke();
+  dc.setLineDash([]);
+
+  dc.fillStyle = '#5a6a85'; dc.font = 'bold 17px system-ui'; dc.textAlign = 'center';
+  dc.fillText('−π/a', kx(-kMax), pad.t + ph + 20);
+  dc.fillText('+π/a', kx(+kMax), pad.t + ph + 20);
+  dc.font = 'bold 17px system-ui';
+  dc.fillText('Momentum', pad.l + pw / 2, H - 8);
+
+  dc.save();
+  dc.translate(12, pad.t + ph / 2); dc.rotate(-Math.PI / 2);
+  dc.fillStyle = '#5a6a85'; dc.font = 'bold 17px system-ui'; dc.textAlign = 'center';
+  dc.fillText('Energy', 0, 0);
+  dc.restore();
+
+  dc.fillStyle = '#5a6a85'; dc.font = '16px system-ui'; dc.textAlign = 'right';
+  dc.fillText('0',  pad.l - 6, ey(0) + 6);
+  dc.fillText('+1', pad.l - 6, ey(1) + 6);
+  dc.fillText('−1', pad.l - 6, ey(-1) + 6);
+
+  dc.setLineDash([4, 3]); dc.strokeStyle = '#c5cdd8'; dc.lineWidth = 0.8;
+  [-kMax, kMax].forEach(kv => {
+    dc.beginPath(); dc.moveTo(kx(kv), pad.t); dc.lineTo(kx(kv), pad.t + ph); dc.stroke();
   });
-  ui.ef.addEventListener('change', ()=>{ buildDOS(); });
+  dc.setLineDash([]);
 
-  function heavyUpdate(){ updateBands(); update3D(); updatePath(); updateFS(); }
-  ui.mass.addEventListener('input', ()=>{ ui.massv.textContent=parseFloat(ui.mass.value).toFixed(3)+' eV'; heavyUpdate(); });
-  ui.mass.addEventListener('change', ()=>{ buildDOS(); });
-  ui.tprime.addEventListener('input', ()=>{ ui.tprimev.textContent=parseFloat(ui.tprime.value).toFixed(3)+' eV'; heavyUpdate(); });
-  ui.tprime.addEventListener('change', ()=>{ buildDOS(); });
-  ui.eta.addEventListener('change', ()=>{ ui.etav.textContent=parseFloat(ui.eta.value).toFixed(3)+' eV'; buildDOS(); });
-  ui.elev.addEventListener('input', ()=>{ ui.elevv.textContent=ui.elev.value+'°'; Plotly.relayout('plot3d', {'scene.camera':cam()}); });
-  ui.az.addEventListener('input',   ()=>{ ui.azv.textContent  =ui.az.value  +'°'; Plotly.relayout('plot3d', {'scene.camera':cam()}); });
-  ui.npts.addEventListener('change', ()=>{
-    P.n = parseInt(ui.npts.value,10);
-    ui.nptsv.textContent = P.n+'×'+P.n;
-    buildAll(true);
-  });
-  ui.fsToggle.addEventListener('change', ()=>{ updateFS(); });
+  dc.strokeStyle = '#c5cdd8'; dc.lineWidth = 1;
+  [-kMax, kMax].forEach(kv => {
+    dc.beginPath(); dc.moveTo(kx(kv), pad.t + ph); dc.lineTo(kx(kv), pad.t + ph + 5); dc.stroke();
+  });
 
-  // Build all
-  function buildAll(first){
-    buildGrid(); precomputeGeometry(); updateBands();
-    if(first){
-      build3D(); buildPath(); buildFS();
-    } else {
-      update3D(); updatePath(); updateFS();
+  const steps = 300;
+
+  if (!state.advanced) {
+    const bandDefs = [
+      { key: 'Econduction', color: '#1a6bbf' },
+      { key: 'Evalence',    color: '#c0392b' },
+    ];
+    bandDefs.forEach(bd => {
+      dc.beginPath(); dc.strokeStyle = bd.color; dc.lineWidth = 3.5; dc.setLineDash([]);
+      for (let i = 0; i <= steps; i++) {
+        const k = -kMax + i / steps * 2 * kMax;
+        const E = bandEnergy(k)[bd.key];
+        i === 0 ? dc.moveTo(kx(k), ey(E)) : dc.lineTo(kx(k), ey(E));
+      }
+      dc.stroke();
+    });
+
+    const rightDefs = [
+      { text: 'π*', band: 'conduction', key: 'Econduction', color: '#1a6bbf' },
+      { text: 'π',  band: 'valence',    key: 'Evalence',    color: '#c0392b' },
+    ];
+    dispBranchLabels = [];
+    dc.font = 'bold 14px system-ui'; dc.textBaseline = 'middle';
+    const pillH = 20, pillGap = 3, pillX = kx(kMax) + 8;
+    const naturalYs = rightDefs.map(lb => ey(bandEnergy(kMax)[lb.key]));
+    const placedYs = naturalYs.slice();
+    for (let i = 1; i < placedYs.length; i++)
+      if (placedYs[i] > placedYs[i-1] - pillH - pillGap) placedYs[i] = placedYs[i-1] - pillH - pillGap;
+    rightDefs.forEach((lb, i) => {
+      const isActive = state.band === lb.band;
+      const cy = placedYs[i], tw = dc.measureText(lb.text).width, pW = tw + 16;
+      dispBranchLabels.push({ x: pillX, y: cy - pillH/2, w: pW, h: pillH, band: lb.band });
+      dc.beginPath(); dc.strokeStyle = lb.color + 'aa'; dc.lineWidth = 1.2;
+      dc.moveTo(kx(kMax), naturalYs[i]); dc.lineTo(pillX - 1, cy); dc.stroke();
+      dc.beginPath(); dc.roundRect(pillX, cy - pillH/2, pW, pillH, 4);
+      if (isActive) { dc.fillStyle = lb.color; dc.fill(); dc.fillStyle = '#fff'; }
+      else { dc.strokeStyle = lb.color; dc.lineWidth = 1.5; dc.stroke(); dc.fillStyle = lb.color; }
+      dc.textAlign = 'left'; dc.fillText(lb.text, pillX + 6, cy);
+    });
+    dc.textBaseline = 'alphabetic';
+
+  } else {
+    const t60 = ((state.theta % 60) + 60) % 60;
+    const dDeg = Math.min(t60, 60 - t60);
+    const dRad = dDeg * Math.PI / 180;
+    const cosD  = Math.cos(dRad);
+    const K2_D  = kMax * cosD;
+
+    function bandL2(K) {
+      return bandEnergy(K / cosD);
     }
-    buildDOS();
-  }
 
-  // Init labels
-  const updateLabel = (el,v,u,d) => el.textContent = parseFloat(v).toFixed(d) + u;
-  updateLabel(ui.efv, ui.ef.value, ' eV', 2);
-  updateLabel(ui.massv, ui.mass.value, ' eV', 3);
-  updateLabel(ui.tprimev, ui.tprime.value, ' eV', 3);
-  updateLabel(ui.etav, ui.eta.value, ' eV', 3);
-  ui.elevv.textContent=ui.elev.value+'°';
-  ui.azv.textContent=ui.az.value+'°';
-  ui.nptsv.textContent=P.n+'×'+P.n;
-  ui.fsTogglev.textContent = ui.fsToggle.value === '1' ? 'on' : 'off';
+    const greenL1 = '#1a8c3a', greenL2 = '#57c278';
 
-  buildAll(true);
-})();
+    ['Econduction','Evalence'].forEach(key => {
+      dc.beginPath(); dc.strokeStyle = greenL1; dc.lineWidth = 3.0; dc.setLineDash([]);
+      for (let i = 0; i <= steps; i++) {
+        const k = -kMax + i / steps * 2 * kMax;
+        const E = bandEnergy(k)[key];
+        i === 0 ? dc.moveTo(kx(k), ey(E)) : dc.lineTo(kx(k), ey(E));
+      }
+      dc.stroke();
+    });
+
+    if (state.twoLayer) {
+      ['Econduction','Evalence'].forEach(key => {
+        dc.beginPath(); dc.strokeStyle = greenL2; dc.lineWidth = 2.5; dc.setLineDash([6,4]);
+        for (let i = 0; i <= steps; i++) {
+          const k = -kMax + i / steps * 2 * kMax;
+          const E = bandL2(k)[key];
+          i === 0 ? dc.moveTo(kx(k), ey(E)) : dc.lineTo(kx(k), ey(E));
+        }
+        dc.stroke(); dc.setLineDash([]);
+      });
+    }
+
+    const mR = 5;
+    [[-kMax, greenL1], [kMax, greenL1]].forEach(([kv, col]) => {
+      ['Econduction', 'Evalence'].forEach(key => {
+        dc.beginPath(); dc.arc(kx(kv), ey(bandEnergy(kv)[key]), mR, 0, 2*Math.PI);
+        dc.fillStyle = col; dc.fill(); dc.strokeStyle = '#fff'; dc.lineWidth = 1.2; dc.stroke();
+      });
+    });
+    if (state.twoLayer) {
+      [[-K2_D, '#c0392b'], [K2_D, '#c0392b']].forEach(([kv, col]) => {
+        ['Econduction', 'Evalence'].forEach(key => {
+          dc.beginPath(); dc.arc(kx(kv), ey(bandL2(kv)[key]), mR, 0, 2*Math.PI);
+          dc.fillStyle = col; dc.fill(); dc.strokeStyle = '#fff'; dc.lineWidth = 1.2; dc.stroke();
+        });
+      });
+      dc.setLineDash([3,3]); dc.strokeStyle = 'rgba(192,57,43,0.35)'; dc.lineWidth = 0.8;
+      [-K2_D, K2_D].forEach(kv => {
+        dc.beginPath(); dc.moveTo(kx(kv), pad.t); dc.lineTo(kx(kv), pad.t + ph); dc.stroke();
+      });
+      dc.setLineDash([]);
+    }
+
+    dc.font = 'bold 13px system-ui'; dc.textBaseline = 'middle';
+    const legX = pad.l + 6, legY = pad.t + 12;
+    dc.strokeStyle = greenL1; dc.lineWidth = 2.5; dc.setLineDash([]);
+    dc.beginPath(); dc.moveTo(legX, legY); dc.lineTo(legX + 18, legY); dc.stroke();
+    dc.fillStyle = '#333'; dc.textAlign = 'left'; dc.fillText('L1', legX + 21, legY);
+    if (state.twoLayer) {
+      dc.strokeStyle = greenL2; dc.lineWidth = 2; dc.setLineDash([5,3]);
+      dc.beginPath(); dc.moveTo(legX, legY + 16); dc.lineTo(legX + 18, legY + 16); dc.stroke();
+      dc.setLineDash([]); dc.fillText('L2', legX + 21, legY + 16);
+    }
+    dc.textBaseline = 'alphabetic';
+
+    dispBranchLabels = [];
+    const pillH2 = 20, pillGap2 = 3, pillX2 = kx(kMax) + 8;
+    const rightDefs2 = [
+      { text: 'π*', band: 'conduction', key: 'Econduction', color: greenL1 },
+      { text: 'π',  band: 'valence',    key: 'Evalence',    color: greenL1 },
+    ];
+    dc.font = 'bold 14px system-ui'; dc.textBaseline = 'middle';
+    const nY2 = rightDefs2.map(lb => ey(bandEnergy(kMax)[lb.key]));
+    const pY2 = nY2.slice();
+    for (let i = 1; i < pY2.length; i++)
+      if (pY2[i] > pY2[i-1] - pillH2 - pillGap2) pY2[i] = pY2[i-1] - pillH2 - pillGap2;
+    rightDefs2.forEach((lb, i) => {
+      const isActive = state.band === lb.band;
+      const cy = pY2[i], tw = dc.measureText(lb.text).width, pW = tw + 16;
+      dispBranchLabels.push({ x: pillX2, y: cy - pillH2/2, w: pW, h: pillH2, band: lb.band });
+      dc.beginPath(); dc.strokeStyle = lb.color + 'aa'; dc.lineWidth = 1.2;
+      dc.moveTo(kx(kMax), nY2[i]); dc.lineTo(pillX2 - 1, cy); dc.stroke();
+      dc.beginPath(); dc.roundRect(pillX2, cy - pillH2/2, pW, pillH2, 4);
+      if (isActive) { dc.fillStyle = lb.color; dc.fill(); dc.fillStyle = '#fff'; }
+      else { dc.strokeStyle = lb.color; dc.lineWidth = 1.5; dc.stroke(); dc.fillStyle = lb.color; }
+      dc.textAlign = 'left'; dc.fillText(lb.text, pillX2 + 6, cy);
+    });
+    dc.textBaseline = 'alphabetic';
+  }
+
+  dc.strokeStyle = 'rgba(20,120,20,0.75)'; dc.lineWidth = 1.5; dc.setLineDash([6, 4]);
+  dc.beginPath(); dc.moveTo(pad.l, fermiY); dc.lineTo(pad.l + pw, fermiY); dc.stroke();
+  dc.setLineDash([]);
+  dc.fillStyle = 'rgba(20,120,20,0.9)'; dc.font = 'bold 14px system-ui'; dc.textAlign = 'left';
+  dc.fillText('E\u1D3C', pad.l + 2, fermiY - 5);
+
+  const selX = kx(state.k);
+  const selBand = state.band === 'conduction' ? { key: 'Econduction', color: '#1a6bbf' }
+                                               : { key: 'Evalence',    color: '#c0392b' };
+  const selE = bandEnergy(state.k)[selBand.key];
+  const selY = ey(selE);
+
+  dc.strokeStyle = 'rgba(80,80,80,0.35)'; dc.lineWidth = 1; dc.setLineDash([4, 3]);
+  dc.beginPath(); dc.moveTo(selX, pad.t + ph); dc.lineTo(selX, selY); dc.stroke();
+  dc.setLineDash([]);
+  dc.beginPath(); dc.arc(selX, selY, 5, 0, 2*Math.PI);
+  dc.fillStyle = selBand.color; dc.fill(); dc.strokeStyle = '#fff'; dc.lineWidth = 1.5; dc.stroke();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  REAL TB MODE — full 2D band path Γ→M→K→Γ, both layers
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Graphene high-symmetry points (a=1, units 1/a)
+const TB_Ky  = 4 * Math.PI / (3 * Math.sqrt(3));   // |K| along y  ≈ 2.42
+const TB_Mx  = Math.PI / 3;                          // M point x    ≈ 1.047  (midpoint of K–K' BZ edge)
+const TB_My  = Math.PI / Math.sqrt(3);               // M point y    ≈ 1.814
+
+function buildTBPath(nseg) {
+  const path = [];
+  function seg(ax, ay, bx, by) {
+    for (let i = 0; i < nseg; i++)
+      path.push({ x: ax + (bx-ax)*i/(nseg-1), y: ay + (by-ay)*i/(nseg-1) });
+  }
+  seg(0, 0,           TB_Mx, TB_My);   // Γ → M
+  seg(TB_Mx, TB_My,    0, TB_Ky);       // M → K
+  seg(0, TB_Ky,        0, 0);           // K → Γ
+  return path;
+}
+
+function drawRealBands() {
+  const W = dispCanvas.width, H = dispCanvas.height;
+  dc.clearRect(0, 0, W, H);
+  dc.fillStyle = '#ffffff';
+  dc.fillRect(0, 0, W, H);
+
+  const pad = { l: 44, r: 52, t: 28, b: 48 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+  const eMax = 3.3, eMin = -eMax, eRange = eMax - eMin;
+  const nseg = TB_PATH_SEGMENTS;
+  const npts = nseg * 3;
+
+  function sx(i) { return pad.l + i / (npts - 1) * pw; }
+  function ey(E) { return pad.t + (1 - (E - eMin) / eRange) * ph; }
+
+  // Fermi shading
+  const fermiY = ey(state.fermiE);
+  dc.fillStyle = 'rgba(200,230,255,0.28)';
+  dc.fillRect(pad.l, fermiY, pw, pad.t + ph - fermiY);
+
+  // Axes
+  dc.strokeStyle = '#b0bcd0'; dc.lineWidth = 1;
+  dc.beginPath();
+  dc.moveTo(pad.l, pad.t); dc.lineTo(pad.l, pad.t + ph); dc.lineTo(pad.l + pw, pad.t + ph);
+  dc.stroke();
+
+  // E=0 line
+  dc.strokeStyle = '#c5cdd8'; dc.lineWidth = 0.8; dc.setLineDash([3,3]);
+  dc.beginPath(); dc.moveTo(pad.l, ey(0)); dc.lineTo(pad.l + pw, ey(0)); dc.stroke();
+  dc.setLineDash([]);
+
+  // Grid lines at integer energies
+  dc.strokeStyle = '#eef0f4'; dc.lineWidth = 0.5;
+  [-3,-2,-1,1,2,3].forEach(v => {
+    dc.beginPath(); dc.moveTo(pad.l, ey(v)); dc.lineTo(pad.l + pw, ey(v)); dc.stroke();
+  });
+
+  // Segment dividers (K, M tick lines)
+  const tickIndices = [0, nseg-1, 2*nseg-1, npts-1];
+  const tickLabels  = ['Γ', 'M', 'K', 'Γ'];
+  dc.strokeStyle = '#dde3ec'; dc.lineWidth = 0.8; dc.setLineDash([3,3]);
+  tickIndices.slice(1,-1).forEach(ti => {
+    dc.beginPath(); dc.moveTo(sx(ti), pad.t); dc.lineTo(sx(ti), pad.t+ph); dc.stroke();
+  });
+  dc.setLineDash([]);
+
+  // Build path & compute energies
+  const path = buildTBPath(nseg);
+  const tp = state.tbTprime, m = state.tbMass;
+  const thetaRad = state.theta * Math.PI / 180;
+  const cosT = Math.cos(thetaRad), sinT = Math.sin(thetaRad);
+
+  const E1p = new Float32Array(npts), E1m = new Float32Array(npts);
+  const E2p = new Float32Array(npts), E2m = new Float32Array(npts);
+  for (let i = 0; i < npts; i++) {
+    const p = path[i];
+    const e1 = tbEnergyNorm(p.x, p.y, tp, m);
+    E1p[i] = e1.Eplus; E1m[i] = e1.Eminus;
+    // L2: rotate k by -θ into L2 frame before evaluating
+    const rx =  cosT * p.x + sinT * p.y;
+    const ry = -sinT * p.x + cosT * p.y;
+    const e2 = tbEnergyNorm(rx, ry, tp, m);
+    E2p[i] = e2.Eplus; E2m[i] = e2.Eminus;
+  }
+
+  const greenL1 = '#1a7a38', greenL2 = '#57c278';
+
+  // Draw L1 bands — solid dark green
+  [[E1p,'#1a7a38'],[E1m,'#1a7a38']].forEach(([Earr, col]) => {
+    dc.beginPath(); dc.strokeStyle = col; dc.lineWidth = 2.8; dc.setLineDash([]);
+    for (let i = 0; i < npts; i++) i===0 ? dc.moveTo(sx(i), ey(Earr[i])) : dc.lineTo(sx(i), ey(Earr[i]));
+    dc.stroke();
+  });
+
+  // Draw L2 bands — dashed light green (only in 2L mode)
+  if (state.twoLayer) {
+    [[E2p, greenL2],[E2m, greenL2]].forEach(([Earr, col]) => {
+      dc.beginPath(); dc.strokeStyle = col; dc.lineWidth = 2.0; dc.setLineDash([6,4]);
+      for (let i = 0; i < npts; i++) i===0 ? dc.moveTo(sx(i), ey(Earr[i])) : dc.lineTo(sx(i), ey(Earr[i]));
+      dc.stroke(); dc.setLineDash([]);
+    });
+  }
+
+  // Fermi level line
+  dc.strokeStyle = 'rgba(20,120,20,0.75)'; dc.lineWidth = 1.5; dc.setLineDash([6,4]);
+  dc.beginPath(); dc.moveTo(pad.l, fermiY); dc.lineTo(pad.l + pw, fermiY); dc.stroke();
+  dc.setLineDash([]);
+  dc.fillStyle = 'rgba(20,120,20,0.9)'; dc.font = 'bold 16px system-ui'; dc.textAlign = 'left';
+  dc.fillText('E\u1D3C', pad.l + 2, fermiY - 5);
+
+  // Axis labels — path ticks
+  dc.fillStyle = '#5a6a85'; dc.font = 'bold 17px system-ui'; dc.textAlign = 'center';
+  tickIndices.forEach((ti, idx) => {
+    dc.fillText(tickLabels[idx], sx(ti), pad.t + ph + 20);
+  });
+  dc.font = 'bold 17px system-ui';
+  dc.fillText('Momentum', pad.l + pw / 2, H - 8);
+
+  // y-axis ticks
+  dc.font = '16px system-ui'; dc.textAlign = 'right'; dc.fillStyle = '#5a6a85';
+  [-3,-2,-1,0,1,2,3].forEach(v => {
+    dc.fillText(v.toString(), pad.l - 6, ey(v) + 6);
+  });
+
+  // y-axis label
+  dc.save();
+  dc.translate(12, pad.t + ph/2); dc.rotate(-Math.PI/2);
+  dc.fillStyle = '#5a6a85'; dc.font = 'bold 17px system-ui'; dc.textAlign = 'center';
+  dc.fillText('Energy', 0, 0);
+  dc.restore();
+
+  // Legend
+  dc.font = 'bold 15px system-ui'; dc.textBaseline = 'middle';
+  const legX = pad.l + 6, legY = pad.t + 14;
+  dc.strokeStyle = greenL1; dc.lineWidth = 2.5; dc.setLineDash([]);
+  dc.beginPath(); dc.moveTo(legX, legY); dc.lineTo(legX+18, legY); dc.stroke();
+  dc.fillStyle = '#333'; dc.textAlign = 'left'; dc.fillText('L1', legX+21, legY);
+  dc.strokeStyle = greenL2; dc.lineWidth = 2; dc.setLineDash([5,3]);
+  dc.beginPath(); dc.moveTo(legX, legY+18); dc.lineTo(legX+18, legY+18); dc.stroke();
+  dc.setLineDash([]);
+  dc.fillText('L2', legX+21, legY+18);
+  dc.textBaseline = 'alphabetic';
+
+  // Selected k-point marker — uses realPathIdx so it works on any branch
+  const selIdx = Math.max(0, Math.min(npts - 1, state.realPathIdx));
+  const selBandKey = state.band === 'conduction' ? E1p : E1m;
+  const selE_r = selBandKey[selIdx];
+  const selSx = sx(selIdx);
+  const selSy = ey(selE_r);
+  dc.strokeStyle = 'rgba(80,80,80,0.35)'; dc.lineWidth = 1; dc.setLineDash([4,3]);
+  dc.beginPath(); dc.moveTo(selSx, pad.t+ph); dc.lineTo(selSx, selSy); dc.stroke();
+  dc.setLineDash([]);
+  const selCol = state.band === 'conduction' ? '#1a6bbf' : '#c0392b';
+  dc.beginPath(); dc.arc(selSx, selSy, 8, 0, 2*Math.PI);
+  dc.fillStyle = selCol; dc.fill(); dc.strokeStyle = '#fff'; dc.lineWidth = 2; dc.stroke();
+  drawMiniBZWidget();
+}
+
+// ── Mini BZ widget (drawn on dispCanvas upper-right in Real TB mode) ────────────
+function getMiniBZCenter() {
+  const W = dispCanvas.width, H = dispCanvas.height;
+  const miniR = Math.max(22, Math.min(W, H) * 0.11);
+  return { cx: 16 + miniR, cy: 28 + miniR + 6, miniR };
+}
+
+function drawMiniBZWidget() {
+  if (!state.realMode) return;
+  const { cx, cy, miniR } = getMiniBZCenter();
+  dc.save();
+  // Green halo — momentum-matching proximity (0°, 60°, 120°, …)
+  {
+    const t = ((state.theta % 60) + 60) % 60;
+    const d = Math.min(t, 60 - t);     // distance to nearest matching angle
+    const sigma_h = 2.2;              // °, vanishes by ~5-7°
+    const haloA = Math.exp(-(d / sigma_h) * (d / sigma_h));
+    if (haloA > 0.005) {
+      const r1 = miniR + 28;
+      const grad = dc.createRadialGradient(cx, cy, miniR - 2, cx, cy, r1);
+      grad.addColorStop(0,    `rgba(40, 210, 80, ${(haloA * 0.90).toFixed(3)})`);
+      grad.addColorStop(0.30, `rgba(40, 210, 80, ${(haloA * 0.52).toFixed(3)})`);
+      grad.addColorStop(0.65, `rgba(40, 210, 80, ${(haloA * 0.18).toFixed(3)})`);
+      grad.addColorStop(1,    'rgba(40, 210, 80, 0)');
+      dc.beginPath(); dc.arc(cx, cy, r1, 0, 2 * Math.PI);
+      dc.fillStyle = grad; dc.fill();
+    }
+  }
+  dc.beginPath(); dc.arc(cx, cy, miniR + 6, 0, 2*Math.PI);
+  dc.fillStyle = 'rgba(248,250,255,0.93)'; dc.fill();
+  dc.strokeStyle = '#c0cad8'; dc.lineWidth = 1; dc.stroke();
+  const hexR = miniR * 0.80;
+  // L1 hex (static, blue)
+  dc.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const ang = i * Math.PI / 3;
+    i === 0 ? dc.moveTo(cx + hexR*Math.cos(ang), cy + hexR*Math.sin(ang))
+            : dc.lineTo(cx + hexR*Math.cos(ang), cy + hexR*Math.sin(ang));
+  }
+  dc.closePath();
+  dc.strokeStyle = '#1a6bbf'; dc.lineWidth = 1.5; dc.setLineDash([]); dc.stroke();
+  // L2 hex (rotated by θ, red dashed) — only in 2L mode
+  if (state.twoLayer) {
+    const tR2 = state.theta * Math.PI / 180;
+    const l1Verts = [];
+    const l2Verts = [];
+    dc.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const ang = tR2 + i * Math.PI / 3;
+      l1Verts.push([cx + hexR * Math.cos(i * Math.PI / 3), cy + hexR * Math.sin(i * Math.PI / 3)]);
+      l2Verts.push([cx + hexR * Math.cos(ang), cy + hexR * Math.sin(ang)]);
+      i === 0 ? dc.moveTo(cx + hexR*Math.cos(ang), cy + hexR*Math.sin(ang))
+              : dc.lineTo(cx + hexR*Math.cos(ang), cy + hexR*Math.sin(ang));
+    }
+    dc.closePath();
+    dc.strokeStyle = '#c0392b'; dc.lineWidth = 1.5; dc.setLineDash([3,2]); dc.stroke();
+    dc.setLineDash([]);
+
+    if (state.showMiniBZ && Math.abs(state.theta) > 1e-3) {
+      const anchor = leftmostPoint(l1Verts);
+      const pair = pairFromAnchor(l2Verts, anchor);
+      const mini = pair ? miniBZFromSplitK(pair.p, pair.q, [cx, cy]) : null;
+      if (mini) {
+        dc.beginPath();
+        dc.moveTo(mini.pts[0][0], mini.pts[0][1]);
+        mini.pts.slice(1).forEach(p => dc.lineTo(p[0], p[1]));
+        dc.closePath();
+        dc.strokeStyle = '#1f9d55';
+        dc.lineWidth = 1.4;
+        dc.stroke();
+      }
+    }
+  }
+  dc.setLineDash([]);
+  // drag-hint grab cursor indicator
+  dc.strokeStyle = 'rgba(90,106,133,0.35)'; dc.lineWidth = 0.8;
+  dc.beginPath(); dc.arc(cx, cy, miniR + 2, 0, 2*Math.PI); dc.stroke();
+  // 1L/2L centre button (matches big BZ panel style)
+  const btnR = miniR * 0.32;
+  dc.beginPath(); dc.arc(cx, cy, btnR, 0, 2*Math.PI);
+  dc.fillStyle = state.twoLayer ? '#d0e4fc' : '#e8f5e9'; dc.fill();
+  dc.strokeStyle = state.twoLayer ? '#1a6bbf' : '#2e7d32'; dc.lineWidth = 1.2; dc.stroke();
+  dc.fillStyle = state.twoLayer ? '#1a6bbf' : '#2e7d32';
+  dc.font = `bold ${Math.round(btnR * 0.9)}px system-ui`;
+  dc.textAlign = 'center'; dc.textBaseline = 'middle';
+  dc.fillText(state.twoLayer ? '2L' : '1L', cx, cy);
+  dc.textBaseline = 'alphabetic';
+  // label
+  dc.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  REAL TB MODE — 3D Plotly band surface (L1 + L2 superposed)
+// ═══════════════════════════════════════════════════════════════════════════
+function camReal3D() {
+  const r = 2.3, elev = state.tbElev * Math.PI / 180, az = state.tbAz * Math.PI / 180;
+  return {
+    eye:    { x: r*Math.cos(elev)*Math.cos(az), y: r*Math.cos(elev)*Math.sin(az), z: r*Math.sin(elev) },
+    center: { x:0, y:0, z:0 },
+    up:     { x:0, y:0, z:1 }
+  };
+}
+
+function miniBZFromSplitK(k1, k2, refPoint = [0, 0]) {
+  if (!k1 || !k2) return null;
+  const ex = k2[0] - k1[0];
+  const ey = k2[1] - k1[1];
+  const d = Math.hypot(ex, ey);
+  if (d <= 1e-9) return null;
+
+  function buildPts(sign) {
+    const pts = [[k1[0], k1[1]], [k2[0], k2[1]]];
+    let vx = ex, vy = ey;
+    const c = Math.cos(sign * Math.PI / 3);
+    const s = Math.sin(sign * Math.PI / 3);
+    for (let i = 0; i < 4; i++) {
+      const nx = c * vx - s * vy;
+      const ny = s * vx + c * vy;
+      const last = pts[pts.length - 1];
+      pts.push([last[0] + nx, last[1] + ny]);
+      vx = nx; vy = ny;
+    }
+    const cx = pts.reduce((acc, p) => acc + p[0], 0) / 6;
+    const cy = pts.reduce((acc, p) => acc + p[1], 0) / 6;
+    return { pts, cx, cy };
+  }
+
+  const hPos = buildPts(+1);
+  const hNeg = buildPts(-1);
+  const rx = refPoint[0] || 0;
+  const ry = refPoint[1] || 0;
+  const dPos2 = (hPos.cx - rx) * (hPos.cx - rx) + (hPos.cy - ry) * (hPos.cy - ry);
+  const dNeg2 = (hNeg.cx - rx) * (hNeg.cx - rx) + (hNeg.cy - ry) * (hNeg.cy - ry);
+  // Keep the mini hex on the outer side of the split-K edge.
+  const best = dPos2 >= dNeg2 ? hPos : hNeg;
+  return { pts: best.pts, k1, k2 };
+}
+
+function closestPointPair(setA, setB) {
+  if (!Array.isArray(setA) || !Array.isArray(setB) || !setA.length || !setB.length) return null;
+  let best = null;
+  let dBest = Infinity;
+  for (const p of setA) {
+    for (const q of setB) {
+      const dx = q[0] - p[0], dy = q[1] - p[1];
+      const d2 = dx * dx + dy * dy;
+      if (d2 < dBest) {
+        dBest = d2;
+        best = { p, q, d2 };
+      }
+    }
+  }
+  return best;
+}
+
+function leftmostPoint(set) {
+  if (!Array.isArray(set) || !set.length) return null;
+  return set.reduce((best, p) => {
+    if (p[0] < best[0]) return p;
+    if (p[0] === best[0] && p[1] > best[1]) return p;
+    return best;
+  }, set[0]);
+}
+
+function pairFromAnchor(setB, anchor) {
+  if (!Array.isArray(setB) || !setB.length || !anchor) return null;
+  let qBest = null;
+  let dBest = Infinity;
+  for (const q of setB) {
+    const dx = q[0] - anchor[0], dy = q[1] - anchor[1];
+    const d2 = dx * dx + dy * dy;
+    if (d2 < dBest) {
+      dBest = d2;
+      qBest = q;
+    }
+  }
+  return qBest ? { p: anchor, q: qBest, d2: dBest } : null;
+}
+
+function cameraClosestPair(setA, setB, eye) {
+  if (!Array.isArray(setA) || !setA.length || !Array.isArray(setB) || !setB.length) return null;
+  const ex = eye && Number.isFinite(eye.x) ? eye.x : 0;
+  const ey = eye && Number.isFinite(eye.y) ? eye.y : 0;
+  const minPair = closestPointPair(setA, setB);
+  if (!minPair) return null;
+  const dTol2 = minPair.d2 * 1.25 + 1e-9;
+  let best = null;
+  let scoreBest = Infinity;
+  for (const p of setA) {
+    for (const q of setB) {
+      const dx = q[0] - p[0], dy = q[1] - p[1];
+      const d2 = dx * dx + dy * dy;
+      if (d2 > dTol2) continue;
+      const mx = 0.5 * (p[0] + q[0]);
+      const my = 0.5 * (p[1] + q[1]);
+      const score = (mx - ex) * (mx - ex) + (my - ey) * (my - ey);
+      if (score < scoreBest) {
+        scoreBest = score;
+        best = { p, q, d2 };
+      }
+    }
+  }
+  return best || minPair;
+}
+
+function buildReal3D(resetCam = false) {
+  const N   = state.tbN;
+  const kmx = Math.PI;
+  const karr = Array.from({length:N}, (_,i) => -kmx + 2*kmx*i/(N-1));
+  const tp  = state.tbTprime, m = state.tbMass;
+  const tR  = state.theta * Math.PI / 180;
+  const cT  = Math.cos(tR), sT = Math.sin(tR);
+
+  // L1 surface (unrotated graphene)
+  const Eplus_L1  = Array.from({length:N}, () => new Array(N));
+  const Eminus_L1 = Array.from({length:N}, () => new Array(N));
+  // L2 surface: evaluate TB with k rotated into L2 crystal frame by −θ
+  const Eplus_L2  = state.twoLayer ? Array.from({length:N}, () => new Array(N)) : null;
+  const Eminus_L2 = state.twoLayer ? Array.from({length:N}, () => new Array(N)) : null;
+
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const e1 = tbEnergyNorm(karr[i], karr[j], tp, m);
+      Eplus_L1[j][i]  = e1.Eplus;
+      Eminus_L1[j][i] = e1.Eminus;
+      if (state.twoLayer) {
+        const rx =  cT * karr[i] + sT * karr[j];
+        const ry = -sT * karr[i] + cT * karr[j];
+        const e2 = tbEnergyNorm(rx, ry, tp, m);
+        Eplus_L2[j][i]  = e2.Eplus;
+        Eminus_L2[j][i] = e2.Eminus;
+      }
+    }
+  }
+
+  // K-point markers
+  const Kx2v = 2 * Math.PI / 3, Ky2v = 2 * Math.PI / (3 * Math.sqrt(3));
+  const L1K = [
+    [0, TB_Ky], [Kx2v, Ky2v], [-Kx2v, Ky2v],
+    [0, -TB_Ky], [Kx2v, -Ky2v], [-Kx2v, -Ky2v]
+  ];
+  const L2K = L1K.map(([kx, ky]) => [cT*kx - sT*ky, sT*kx + cT*ky]);
+  const gdCam = document.getElementById('realBZPlot');
+  const liveCam = (gdCam._fullLayout && gdCam._fullLayout.scene && gdCam._fullLayout.scene.camera)
+    ? gdCam._fullLayout.scene.camera
+    : camReal3D();
+  const pair3D = cameraClosestPair(L1K, L2K, liveCam.eye || {x:0, y:0, z:2});
+  const mini3D = (state.twoLayer && state.showMiniBZ && Math.abs(state.theta) > 1e-3 && pair3D)
+    ? miniBZFromSplitK(pair3D.p, pair3D.q, [0, 0])
+    : null;
+
+  const Ef = state.fermiE;
+  function makePlane(val) { return Array.from({length:N}, () => new Array(N).fill(val)); }
+  const lighting = {ambient:0.5,diffuse:0.7,specular:0.2,roughness:0.8};
+
+  const traces = [
+    {
+      type:'surface', x:karr, y:karr, z:Eminus_L1, name:'L1 π',
+      showscale:false, opacity:0.82, colorscale:'YlGnBu', lighting,
+      hovertemplate:'L1 π  E=%{z:.2f}t<extra></extra>'
+    },
+    {
+      type:'surface', x:karr, y:karr, z:Eplus_L1, name:'L1 π*',
+      showscale:false, opacity:0.82, colorscale:'YlGnBu', lighting,
+      hovertemplate:'L1 π*  E=%{z:.2f}t<extra></extra>'
+    },
+    ...(state.twoLayer ? [
+      {
+        type:'surface', x:karr, y:karr, z:Eminus_L2, name:'L2 π',
+        showscale:false, opacity:0.58, colorscale:[[0,'#8b1a1a'],[0.4,'#d73027'],[0.7,'#fc8d59'],[1,'#fee090']], lighting,
+        hovertemplate:'L2 π  E=%{z:.2f}t<extra></extra>'
+      },
+      {
+        type:'surface', x:karr, y:karr, z:Eplus_L2, name:'L2 π*',
+        showscale:false, opacity:0.58, colorscale:[[0,'#8b1a1a'],[0.4,'#d73027'],[0.7,'#fc8d59'],[1,'#fee090']], lighting,
+        hovertemplate:'L2 π*  E=%{z:.2f}t<extra></extra>'
+      }
+    ] : []),
+    {
+      type:'surface', x:karr, y:karr, z:makePlane(Ef), name:'Eᶠ',
+      showscale:false, opacity:0.18,
+      colorscale:[[0,'#2e7d32'],[1,'#2e7d32']], hoverinfo:'skip'
+    },
+    {
+      type:'scatter3d', mode:'markers',
+      x:L1K.map(p=>p[0]), y:L1K.map(p=>p[1]), z:L1K.map(()=>0),
+      name:'L1 K',
+      marker:{size:5, color:'#1a6bbf', opacity:0.9},
+      hovertemplate:'L1 K<extra></extra>'
+    },
+    ...(state.twoLayer ? [{
+      type:'scatter3d', mode:'markers',
+      x:L2K.map(p=>p[0]), y:L2K.map(p=>p[1]), z:L2K.map(()=>0),
+      name:'L2 K',
+      marker:{size:5, color:'#c0392b', opacity:0.9, symbol:'diamond'},
+      hovertemplate:'L2 K<extra></extra>'
+    }] : []),
+    ...(mini3D ? [
+      {
+        type:'scatter3d',
+        mode:'lines',
+        x:[...mini3D.pts.map(p => p[0]), mini3D.pts[0][0]],
+        y:[...mini3D.pts.map(p => p[1]), mini3D.pts[0][1]],
+        z:new Array(7).fill(0),
+        name:'mini BZ',
+        showlegend:true,
+        line:{color:'#1f9d55', width:6},
+        hoverinfo:'skip'
+      },
+      {
+        type:'scatter3d',
+        mode:'lines',
+        x:[mini3D.k1[0], mini3D.k2[0]],
+        y:[mini3D.k1[1], mini3D.k2[1]],
+        z:[0, 0],
+        name:'ΔK',
+        showlegend:false,
+        line:{color:'rgba(31,157,85,0.75)', width:5, dash:'dot'},
+        hoverinfo:'skip'
+      }
+    ] : []),
+    // Selected k-point on the band surface
+    ...(state.showKMarker ? (() => {
+      const nseg = TB_PATH_SEGMENTS, npts = nseg * 3;
+      const selIdx = Math.max(0, Math.min(npts-1, state.realPathIdx));
+      const path = buildTBPath(nseg);
+      const p = path[selIdx];
+      const e1 = tbEnergyNorm(p.x, p.y, tp, m);
+      const selE = state.band === 'conduction' ? e1.Eplus : e1.Eminus;
+      return [{
+        type:'scatter3d', mode:'markers',
+        x:[p.x], y:[p.y], z:[selE],
+        name:'selected k',
+        showlegend: false,
+        marker:{size:9, color:'#ffd700',
+                symbol:'circle', line:{color:'#333', width:1.5}},
+        hovertemplate:'k=(%{x:.2f},%{y:.2f})<br>E=%{z:.2f}t<extra></extra>'
+      }];
+    })() : [])
+  ];
+
+  const axisTitleFont = {size:16, color:'#333'};
+  const sceneAxes = {
+    xaxis:{title:'Momentum kₓ a', titlefont:axisTitleFont, tickfont:{size:13}, gridcolor:'#eee', zeroline:false, backgroundcolor:'#fafafa'},
+    yaxis:{title:'Momentum k_y a', titlefont:axisTitleFont, tickfont:{size:13}, gridcolor:'#eee', zeroline:false, backgroundcolor:'#fafafa'},
+    zaxis:{title:'Energy E/t',  titlefont:axisTitleFont, tickfont:{size:13}, gridcolor:'#eee', zeroline:false, backgroundcolor:'#fafafa', range:[-3.4,3.4]},
+    aspectmode:'cube'
+  };
+  const layoutBase = {
+    uirevision: state.plotlyUirev,   // stable = camera preserved; increment = camera resets
+    paper_bgcolor:'transparent',
+    margin:{l:0,r:0,t:20,b:0},
+    scene: Object.assign({camera: (() => {
+      // Only reset to default camera when explicitly requested (1L↔2L toggle)
+      if (resetCam || !state.plotlyBuilt) return camReal3D();
+      const gd = document.getElementById('realBZPlot');
+      return (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.camera)
+        ? gd._fullLayout.scene.camera
+        : camReal3D();
+    })()}, sceneAxes),
+    legend:{orientation:'h', x:0.0, y:1.0, font:{size:12}, bgcolor:'rgba(255,255,255,0.7)'}
+  };
+  const config = {displaylogo:false, responsive:true, scrollZoom:true};
+
+  if (!state.plotlyBuilt) {
+    Plotly.newPlot('realBZPlot', traces, layoutBase, config);
+    state.plotlyBuilt = true;
+  } else {
+    Plotly.react('realBZPlot', traces, layoutBase, config);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BZ diagram (Basic mode)
+// ═══════════════════════════════════════════════════════════════════════════
+function hexVertices(angle0Deg, R) {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const ang = (angle0Deg + i * 60) * Math.PI / 180;
+    pts.push([R * Math.cos(ang), R * Math.sin(ang)]);
+  }
+  return pts;
+}
+
+function clipPolygon(subjectPoly, clipPoly) {
+  let output = subjectPoly.slice();
+  const n = clipPoly.length;
+  for (let i = 0; i < n; i++) {
+    if (!output.length) return [];
+    const input = output.slice();
+    output = [];
+    const A = clipPoly[i], B = clipPoly[(i+1) % n];
+    for (let j = 0; j < input.length; j++) {
+      const P = input[j], Q = input[(j+1) % input.length];
+      const insideP = side(A,B,P) >= 0;
+      const insideQ = side(A,B,Q) >= 0;
+      if (insideP) output.push(P);
+      if (insideP !== insideQ) output.push(intersect(A,B,P,Q));
+    }
+  }
+  return output;
+}
+function side(A, B, P) {
+  return (B[0]-A[0])*(P[1]-A[1]) - (B[1]-A[1])*(P[0]-A[0]);
+}
+function intersect(A, B, C, D) {
+  const a1=B[1]-A[1], b1=A[0]-B[0], c1=a1*A[0]+b1*A[1];
+  const a2=D[1]-C[1], b2=C[0]-D[0], c2=a2*C[0]+b2*C[1];
+  const det=a1*b2-a2*b1;
+  return det===0 ? A : [(b2*c1-b1*c2)/det, (a1*c2-a2*c1)/det];
+}
+
+function drawBZ() {
+  const W = bzCanvas.width, H = bzCanvas.height;
+  bc.clearRect(0, 0, W, H);
+  bc.fillStyle = '#ffffff';
+  bc.fillRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) * 0.35;
+
+  const tilt = state.advanced ? Math.PI / 4 : 0;
+
+  function toCanvas(px, py) {
+    const rx = px * Math.cos(tilt) - py * Math.sin(tilt);
+    const ry = px * Math.sin(tilt) + py * Math.cos(tilt);
+    return [cx + rx, cy + ry];
+  }
+
+  const hex0 = hexVertices(0, R);
+  const hex1 = hexVertices(state.theta, R);
+  let thetaLabel = { x: 16, y: 40 };
+
+  function drawHex(pts, color, dash) {
+    const [x0, y0] = toCanvas(pts[0][0], pts[0][1]);
+    bc.beginPath(); bc.moveTo(x0, y0);
+    pts.slice(1).forEach(p => { const [x,y] = toCanvas(p[0],p[1]); bc.lineTo(x,y); });
+    bc.closePath();
+    bc.strokeStyle = color; bc.lineWidth = 1.8;
+    if (dash) bc.setLineDash(dash); else bc.setLineDash([]);
+    bc.stroke(); bc.setLineDash([]);
+  }
+
+  function drawDiracCone(px, py, coneR, coneH, color) {
+    const [ax, ay] = toCanvas(px, py);
+    const ry = coneR * 0.38;
+
+    function a(op) { return color.replace(/[\d.]+\)$/, op + ')'); }
+
+    bc.save();
+    bc.setLineDash([2, 2]); bc.lineWidth = 0.9; bc.strokeStyle = a(0.28);
+    bc.beginPath(); bc.ellipse(ax, ay - coneH, coneR, ry, 0, 0, Math.PI, false); bc.stroke();
+    bc.beginPath(); bc.ellipse(ax, ay + coneH, coneR, ry, 0, 0, Math.PI, false); bc.stroke();
+    bc.setLineDash([]); bc.restore();
+
+    // Upper cone — front face (lower arc of top ellipse)
+    const topY = ay - coneH;
+    bc.beginPath();
+    bc.moveTo(ax, ay);
+    bc.lineTo(ax - coneR, topY);
+    bc.ellipse(ax, topY, coneR, ry, 0, Math.PI, 0, false);
+    bc.closePath();
+    const g1 = bc.createLinearGradient(ax, ay, ax, topY);
+    g1.addColorStop(0,   a(0.10));
+    g1.addColorStop(0.5, a(0.70));
+    g1.addColorStop(1,   a(0.85));
+    bc.fillStyle = g1; bc.fill();
+    bc.beginPath(); bc.ellipse(ax, topY, coneR, ry, 0, Math.PI, 0, false);
+    bc.strokeStyle = a(0.88); bc.lineWidth = 1.5; bc.stroke();
+
+    // Lower cone
+    const botY = ay + coneH;
+    bc.beginPath();
+    bc.moveTo(ax, ay);
+    bc.lineTo(ax - coneR, botY);
+    bc.ellipse(ax, botY, coneR, ry, 0, Math.PI, 0, true);
+    bc.closePath();
+    const g2 = bc.createLinearGradient(ax - coneR, botY, ax + coneR, botY);
+    g2.addColorStop(0,    a(0.32));
+    g2.addColorStop(0.38, a(0.80));
+    g2.addColorStop(1,    a(0.42));
+    bc.fillStyle = g2; bc.fill();
+    bc.beginPath(); bc.ellipse(ax, botY, coneR, ry, 0, Math.PI, 0, true);
+    bc.strokeStyle = a(0.88); bc.lineWidth = 1.5; bc.stroke();
+
+    bc.beginPath(); bc.arc(ax, ay, 2.2, 0, 2 * Math.PI);
+    bc.fillStyle = '#ffffff'; bc.fill();
+  }
+
+  if (state.twoLayer) {
+    const kapNorm = (state.kappa - 0.05) / 0.95;
+
+    const clip = clipPolygon(hex0, hex1);
+    if (clip.length > 2) {
+      const [x0,y0] = toCanvas(clip[0][0], clip[0][1]);
+      bc.beginPath(); bc.moveTo(x0,y0);
+      clip.slice(1).forEach(p => { const [x,y]=toCanvas(p[0],p[1]); bc.lineTo(x,y); });
+      bc.closePath();
+      bc.fillStyle = 'rgba(120, 200, 120, 0.35)'; bc.fill();
+    }
+    drawHex(hex0, '#1a6bbf', null);
+    drawHex(hex1, '#c0392b', [5, 3]);
+
+    if (state.showMiniBZ && Math.abs(state.theta) > 1e-3) {
+      const anchor = leftmostPoint(hex0);
+      const pair = pairFromAnchor(hex1, anchor);
+      const mini = pair ? miniBZFromSplitK(pair.p, pair.q, [0, 0]) : null;
+      if (mini) {
+        bc.beginPath();
+        const [mx0, my0] = toCanvas(mini.pts[0][0], mini.pts[0][1]);
+        bc.moveTo(mx0, my0);
+        mini.pts.slice(1).forEach(p => {
+          const [mx, my] = toCanvas(p[0], p[1]);
+          bc.lineTo(mx, my);
+        });
+        bc.closePath();
+        bc.strokeStyle = '#1f9d55';
+        bc.lineWidth = 2.0;
+        bc.stroke();
+
+        const [k1x, k1y] = toCanvas(mini.k1[0], mini.k1[1]);
+        const [k2x, k2y] = toCanvas(mini.k2[0], mini.k2[1]);
+        bc.beginPath();
+        bc.moveTo(k1x, k1y);
+        bc.lineTo(k2x, k2y);
+        bc.strokeStyle = 'rgba(31,157,85,0.72)';
+        bc.lineWidth = 1.6;
+        bc.setLineDash([3, 3]);
+        bc.stroke();
+        bc.setLineDash([]);
+
+        thetaLabel = {
+          x: 0.5 * (k1x + k2x) - 18,
+          y: 0.5 * (k1y + k2y) - 18,
+        };
+      }
+    }
+
+    const Rk = R * 0.10;
+    const coneR = R * 0.13, coneH = R * 0.22;
+
+    hex0.forEach((p, i) => {
+      const p2 = hex1[i];
+      const [cx1,cy1] = toCanvas(p[0],p[1]);
+      const [cx2,cy2] = toCanvas(p2[0],p2[1]);
+      bc.beginPath(); bc.moveTo(cx1,cy1); bc.lineTo(cx2,cy2);
+      bc.strokeStyle = `rgba(100,60,180,${kapNorm * 0.6})`;
+      bc.lineWidth = 1.5; bc.setLineDash([3,3]); bc.stroke(); bc.setLineDash([]);
+
+      if (state.advanced) {
+        drawDiracCone(p[0],  p[1],  coneR, coneH, `rgba(26,107,191,${0.55 + 0.4*kapNorm})`);
+        drawDiracCone(p2[0], p2[1], coneR, coneH, `rgba(192,57,43,${0.55 + 0.4*kapNorm})`);
+      } else {
+        const [px,py] = toCanvas(p[0],p[1]);
+        bc.beginPath(); bc.arc(px, py, Rk, 0, 2*Math.PI);
+        bc.fillStyle = 'rgba(26,107,191,0.6)'; bc.fill();
+      }
+    });
+  } else {
+    drawHex(hex0, '#1a6bbf', null);
+    const Rk = R * 0.10;
+    const coneR = R * 0.13, coneH = R * 0.22;
+    hex0.forEach(p => {
+      if (state.advanced) {
+        drawDiracCone(p[0], p[1], coneR, coneH, 'rgba(26,107,191,0.65)');
+      } else {
+        const [px,py] = toCanvas(p[0],p[1]);
+        bc.beginPath(); bc.arc(px, py, Rk, 0, 2*Math.PI);
+        bc.fillStyle = 'rgba(26,107,191,0.6)'; bc.fill();
+      }
+    });
+  }
+
+  const btnR = Math.min(W, H) * 0.10;
+  bc.beginPath(); bc.arc(cx, cy, btnR, 0, 2*Math.PI);
+  bc.fillStyle = state.twoLayer ? '#d0e4fc' : '#e8f5e9'; bc.fill();
+  bc.strokeStyle = state.twoLayer ? '#1a6bbf' : '#2e7d32'; bc.lineWidth = 1.5; bc.stroke();
+  bc.fillStyle = state.twoLayer ? '#1a6bbf' : '#2e7d32';
+  bc.font = `bold ${Math.round(btnR * 0.68)}px system-ui`;
+  bc.textAlign = 'center'; bc.textBaseline = 'middle';
+  bc.fillText(state.twoLayer ? '2L' : '1L', cx, cy);
+  bc.textBaseline = 'alphabetic';
+
+  thetaLabel.x = Math.max(10, Math.min(W - 170, thetaLabel.x));
+  thetaLabel.y = Math.max(26, Math.min(H - 8, thetaLabel.y));
+  bc.fillStyle = 'rgba(255,255,255,0.92)';
+  bc.fillRect(thetaLabel.x - 8, thetaLabel.y - 30, 170, 44);
+  bc.fillStyle = '#3b4f73';
+  bc.font = 'bold 32px system-ui';
+  bc.textAlign = 'left';
+  bc.fillText(`θ = ${state.theta.toFixed(1)}°`, thetaLabel.x, thetaLabel.y);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CHAIN (bottom panel — unchanged)
+// ═══════════════════════════════════════════════════════════════════════════
+const N      = 16;
+const Natoms = N * 2;
+const rA     = 8;
+const rB     = 8;
+
+function fermiGlow() {
+  const steps = 200; let filled = 0;
+  for (let i = 0; i <= steps; i++) {
+    const k = -kMax + i / steps * 2 * kMax;
+    const E = state.band === 'conduction' ? bandEnergy(k).Econduction : bandEnergy(k).Evalence;
+    if (E <= state.fermiE) filled++;
+  }
+  return filled / (steps + 1);
+}
+
+function drawArrow(ctx, x1, y, x2, arrowSize, color, opacity) {
+  ctx.save(); ctx.globalAlpha = opacity;
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = arrowSize * 0.32; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2 - arrowSize * 0.8, y); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y);
+  ctx.lineTo(x2 - arrowSize, y - arrowSize * 0.5);
+  ctx.lineTo(x2 - arrowSize * 0.7, y);
+  ctx.lineTo(x2 - arrowSize, y + arrowSize * 0.5);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawChain() {
+  const W = chainCanvas.width, H = chainCanvas.height;
+  cc.clearRect(0, 0, W, H);
+  cc.fillStyle = '#ffffff'; cc.fillRect(0, 0, W, H);
+
+  const rowTop = state.twoLayer ? H * 0.28 : H * 0.50;
+  const rowBot = H * 0.72;
+  const margin  = 40;
+  const spacing = (W - 2 * margin) / (Natoms - 1);
+
+  const selE = state.band === 'conduction'
+    ? bandEnergy(state.k).Econduction
+    : bandEnergy(state.k).Evalence;
+  const isFilled = selE <= state.fermiE;
+
+  const vg_vis   = basicBandwidth * a * Math.abs(Math.sin(state.k * a));
+  const omega_vis = state.groupVel ? vg_vis * 3.5 + 0.5 : Math.abs(selE) * 3.5 + 0.5;
+
+  function drawAtomRow(yBase, baseAlpha, blochAmp, phaseOff) {
+    phaseOff = phaseOff || 0;
+    cc.strokeStyle = `rgba(120,130,150,${0.5 * baseAlpha})`;
+    cc.lineWidth = 1.5;
+    for (let i = 0; i < Natoms - 1; i++) {
+      const x1 = margin + i * spacing, x2 = margin + (i + 1) * spacing;
+      cc.beginPath(); cc.moveTo(x1, yBase); cc.lineTo(x2, yBase); cc.stroke();
+    }
+    for (let i = 0; i < Natoms; i++) {
+      const atomType = i % 2;
+      const x = margin + i * spacing;
+      const r = atomType === 0 ? rA : rB;
+      const baseColor = atomType === 0 ? [37, 99, 235] : [220, 38, 38];
+      const xPhys = i * a * 0.5;
+      const phase = state.k * xPhys - omega_vis * state.t + phaseOff;
+      const blochGlow = state.showBloch ? 0.5 + 0.5 * blochAmp * Math.cos(phase) : 0.5;
+      const glowIntensity = (isFilled ? 1.0 : 0.18) * blochGlow;
+      const glowR = r * 2.4 * glowIntensity;
+      if (glowR > 0.5) {
+        const grad = cc.createRadialGradient(x, yBase, r * 0.5, x, yBase, r + glowR);
+        grad.addColorStop(0, `rgba(${baseColor},${0.5 * baseAlpha})`);
+        grad.addColorStop(1, `rgba(${baseColor},0)`);
+        cc.beginPath(); cc.arc(x, yBase, r + glowR, 0, 2*Math.PI);
+        cc.fillStyle = grad; cc.fill();
+      }
+      cc.beginPath(); cc.arc(x, yBase, r, 0, 2*Math.PI);
+      cc.fillStyle = `rgba(${baseColor},${baseAlpha})`; cc.fill();
+      cc.strokeStyle = `rgba(255,255,255,${0.7 * baseAlpha})`; cc.lineWidth = 1.5; cc.stroke();
+    }
+  }
+
+  if (state.twoLayer) {
+    const kapNorm = (state.kappa - 0.05) / 0.95;
+    const bandOpacity = kapNorm * 0.50;
+    const bandTop = rowTop + 14, bandBot = rowBot - 14;
+    const grad = cc.createLinearGradient(0, bandTop, 0, bandBot);
+    grad.addColorStop(0,   `rgba(130,40,200,0)`);
+    grad.addColorStop(0.3, `rgba(130,40,200,${bandOpacity})`);
+    grad.addColorStop(0.7, `rgba(130,40,200,${bandOpacity})`);
+    grad.addColorStop(1,   `rgba(130,40,200,0)`);
+    cc.fillStyle = grad; cc.fillRect(0, bandTop, W, bandBot - bandTop);
+    cc.textAlign = 'center'; cc.textBaseline = 'middle';
+    cc.font = 'bold 22px system-ui';
+    cc.fillStyle = `rgba(100,20,180,${0.1 + kapNorm * 0.80})`;
+    cc.fillText(`coupling κ = ${state.kappa.toFixed(2)}`, W / 2, (rowTop + rowBot) / 2);
+    cc.textBaseline = 'alphabetic';
+  }
+
+  const botPhaseOff = (1 - state.kappa) * Math.PI * 0.6;
+
+  function drawBlochWave(yCentre, halfAmp, phaseOff, color, alpha) {
+    if (alpha < 0.03) return;
+    const steps = Math.round(W - 2 * margin);
+    const xSpan = (Natoms - 1) * a * 0.5;
+    cc.save();
+    cc.strokeStyle = color; cc.lineWidth = 2.2; cc.globalAlpha = alpha;
+    cc.lineJoin = 'round'; cc.beginPath();
+    for (let px = 0; px <= steps; px++) {
+      const x = margin + px;
+      const xPhys = (px / steps) * xSpan;
+      const phase = state.k * xPhys - omega_vis * state.t + phaseOff;
+      const y = yCentre - halfAmp * Math.sin(phase);
+      px === 0 ? cc.moveTo(x, y) : cc.lineTo(x, y);
+    }
+    cc.stroke();
+    cc.globalAlpha = alpha * 0.28; cc.lineWidth = 0.7; cc.setLineDash([3, 3]);
+    cc.beginPath(); cc.moveTo(margin, yCentre); cc.lineTo(W - margin, yCentre); cc.stroke();
+    cc.setLineDash([]); cc.restore();
+  }
+
+  const waveHalfAmp = H * 0.065;
+
+  drawAtomRow(rowTop, 1.0, 1.0, 0);
+  if (state.twoLayer) {
+    drawAtomRow(rowBot, 0.7, state.kappa * state.kappa, botPhaseOff);
+  }
+
+  if (state.showBloch) {
+    if (state.twoLayer) {
+      drawBlochWave(rowTop, waveHalfAmp, 0,           '#1a6bbf', isFilled ? 0.80 : 0.22);
+      drawBlochWave(rowBot, waveHalfAmp, botPhaseOff, '#c0392b', state.kappa * state.kappa * 0.80);
+    } else {
+      drawBlochWave(rowTop, waveHalfAmp, 0, '#1a6bbf', isFilled ? 0.80 : 0.22);
+    }
+  }
+
+  const pulse = 0.70 + 0.25 * Math.sin(state.t * 2.5);
+  const arrowY_top = rowTop - (state.twoLayer ? H * 0.13 : H * 0.10);
+  const arrowY_bot = rowBot + H * 0.13;
+  const arrowLeft  = margin + spacing * 2;
+  const arrowRight = W - margin - spacing * 2;
+  const arrowSize  = 14;
+
+  const arrowColor = state.band === 'conduction' ? '#2196f3' : '#e53935';
+  if (isFilled) {
+    drawArrow(cc, arrowLeft, arrowY_top, arrowRight, arrowSize, arrowColor, 0.85 * pulse);
+    if (state.twoLayer) {
+      drawArrow(cc, arrowLeft, arrowY_bot, arrowRight, arrowSize, arrowColor, 0.85 * pulse * state.kappa);
+    }
+  }
+
+  if (state.twoLayer) {
+    cc.fillStyle = 'rgba(26,107,191,0.7)'; cc.font = 'bold 12px system-ui'; cc.textAlign = 'left';
+    cc.fillText('Layer 1', arrowLeft, rowTop + (H * 0.72 - rowTop) * 0.5 - 48);
+    cc.fillStyle = 'rgba(192,57,43,0.7)';
+    cc.fillText('Layer 2', arrowLeft, rowBot + H * 0.13 + 16);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Mode switch
+// ═══════════════════════════════════════════════════════════════════════════
+function switchMode(toReal) {
+  state.realMode = toReal;
+  const frame = document.getElementById('appFrame');
+  frame.classList.toggle('basic-mode', !toReal);
+  frame.classList.toggle('landau-on', !toReal && state.showLandau);
+  document.getElementById('tbBtn').classList.toggle('real-active', toReal);
+  document.getElementById('basicBtn').classList.toggle('active', !toReal);
+
+  // Show/hide BZ panels
+  document.getElementById('realBZPlot').style.display = toReal ? 'block' : 'none';
+  bzCanvas.style.display                               = toReal ? 'none' : '';
+
+  // Show/hide extra controls
+  document.getElementById('tbExtra').classList.toggle('visible', toReal);
+
+  // Fermi slider range: extend to ±3 in real mode
+  const fs = document.getElementById('fermiSlider');
+  if (toReal) {
+    fs.min = -3; fs.max = 3; fs.step = 0.05;
+  } else {
+    state.fermiE = Math.max(-1, Math.min(1, state.fermiE));
+    fs.min = -1; fs.max = 1; fs.step = 0.02;
+    fs.value = state.fermiE;
+    document.getElementById('fermiVal').textContent = state.fermiE.toFixed(2) + ' t';
+  }
+
+  fitCanvases();
+  if (toReal) buildReal3D();
+
+  if (!state.playing) {
+    if (toReal) drawRealBands(); else { drawDispersion(); renderBasicAuxPanels(); }
+    drawChain();
+  }
+}
+
+function setTwoLayer(nextTwoLayer, reset3DCam = true) {
+  const prev = !!state.twoLayer;
+  state.twoLayer = !!nextTwoLayer;
+  if (!prev && state.twoLayer) {
+    setTheta(1.1);
+  }
+  if (state.realMode && state.plotlyBuilt) {
+    buildReal3D(reset3DCam);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Animation loop
+// ═══════════════════════════════════════════════════════════════════════════
+let animId = null, lastTime = null;
+
+function animate(ts) {
+  if (!state.playing) { lastTime = null; return; }
+  if (lastTime !== null) {
+    const dtReal = Math.min((ts - lastTime) / 1000, 0.05);
+    state.t += dtReal * state.speed;
+  }
+  lastTime = ts;
+  if (state.realMode) {
+    drawRealBands();
+    // Plotly 3D is static; only rebuilt on parameter change
+  } else {
+    drawDispersion();
+    renderBasicAuxPanels();
+  }
+  drawChain();
+  animId = requestAnimationFrame(animate);
+}
+
+function startAnim() {
+  if (animId) cancelAnimationFrame(animId);
+  lastTime = null;
+  animId = requestAnimationFrame(animate);
+}
+
+function stopAnim() {
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  if (state.realMode) drawRealBands(); else { drawDispersion(); renderBasicAuxPanels(); }
+  drawChain();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UI wiring
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById('thetaSlider').addEventListener('input', e => {
+  setTheta(parseFloat(e.target.value));
+  if (state.realMode && state.plotlyBuilt) buildReal3D();
+  if (!state.playing) {
+    if (state.realMode) drawRealBands(); else { renderBasicAuxPanels(); }
+    drawChain();
+  }
+});
+
+document.getElementById('fermiSlider').addEventListener('input', e => {
+  state.fermiE = parseFloat(e.target.value);
+  document.getElementById('fermiVal').textContent = state.fermiE.toFixed(2) + ' t';
+  if (state.realMode && state.plotlyBuilt) buildReal3D();
+  if (!state.playing) {
+    if (state.realMode) drawRealBands(); else drawDispersion();
+    drawChain();
+  }
+});
+
+document.getElementById('speedSlider').addEventListener('input', e => {
+  state.speed = parseFloat(e.target.value);
+  document.getElementById('speedVal').textContent = state.speed.toFixed(2) + '×';
+});
+
+document.getElementById('basicBtn').addEventListener('click', () => {
+  if (state.realMode) switchMode(false);
+});
+
+document.getElementById('tbBtn').addEventListener('click', () => {
+  if (!state.realMode) switchMode(true);
+});
+
+document.getElementById('kMarkerBtn').addEventListener('click', () => {
+  state.showKMarker = !state.showKMarker;
+  document.getElementById('kMarkerBtn').classList.toggle('active', state.showKMarker);
+  if (state.realMode && state.plotlyBuilt) buildReal3D();
+});
+
+document.getElementById('miniBZBtn').addEventListener('click', () => {
+  state.showMiniBZ = !state.showMiniBZ;
+  document.getElementById('miniBZBtn').classList.toggle('active', state.showMiniBZ);
+  if (state.realMode && state.plotlyBuilt) buildReal3D();
+  if (!state.playing) {
+    if (state.realMode) drawRealBands(); else renderBasicAuxPanels();
+  }
+});
+
+document.getElementById('landauBtn').addEventListener('click', () => {
+  state.showLandau = !state.showLandau;
+  document.getElementById('landauBtn').classList.toggle('active', state.showLandau);
+  const frame = document.getElementById('appFrame');
+  frame.classList.toggle('landau-on', !state.realMode && state.showLandau);
+  fitCanvases();
+  if (!state.realMode && !state.playing) {
+    drawDispersion();
+    renderBasicAuxPanels();
+    drawChain();
+  }
+});
+
+document.getElementById('tprimeSlider').addEventListener('input', e => {
+  state.tbTprime = parseFloat(e.target.value);
+  document.getElementById('tprimeVal').textContent = state.tbTprime.toFixed(2);
+  if (state.realMode) {
+    buildReal3D();
+    if (!state.playing) drawRealBands();
+  }
+});
+
+document.getElementById('massSlider').addEventListener('input', e => {
+  state.tbMass = parseFloat(e.target.value);
+  document.getElementById('massVal').textContent = state.tbMass.toFixed(2);
+  if (state.realMode) {
+    buildReal3D();
+    if (!state.playing) drawRealBands();
+  }
+});
+
+document.getElementById('elevSlider').addEventListener('input', e => {
+  state.tbElev = parseInt(e.target.value, 10);
+  document.getElementById('elevVal').textContent = state.tbElev + '°';
+  if (state.realMode && state.plotlyBuilt)
+    Plotly.relayout('realBZPlot', {'scene.camera': camReal3D()});
+});
+
+document.getElementById('azSlider').addEventListener('input', e => {
+  state.tbAz = parseInt(e.target.value, 10);
+  document.getElementById('azVal').textContent = state.tbAz + '°';
+  if (state.realMode && state.plotlyBuilt)
+    Plotly.relayout('realBZPlot', {'scene.camera': camReal3D()});
+});
+
+document.getElementById('gridNSlider').addEventListener('change', e => {
+  state.tbN = parseInt(e.target.value, 10);
+  document.getElementById('gridNVal').textContent = state.tbN + '×' + state.tbN;
+  if (state.realMode) buildReal3D();
+});
+
+// ── Dispersion canvas: drag to select k-point (Basic mode only) ────────────
+let dispDragging = false;
+let miniBZDragging = false, miniBZStartAngle = 0, miniBZStartTheta = 0;
+let lastMiniToggleTime = 0;
+
+function dispCanvasCoords(e) {
+  const rect = dispCanvas.getBoundingClientRect();
+  return {
+    mx: (e.clientX - rect.left) * (dispCanvas.width  / rect.width),
+    my: (e.clientY - rect.top)  * (dispCanvas.height / rect.height),
+  };
+}
+
+function applyDispClick(mx, my) {
+  const pad = { l: 44, r: 52, t: 28, b: 48 };
+  const pw = dispCanvas.width  - pad.l - pad.r;
+  const ph = dispCanvas.height - pad.t - pad.b;
+  const kRaw = ((mx - pad.l) / pw) * 2 * kMax - kMax;
+  state.k = Math.max(-kMax, Math.min(kMax, kRaw));
+  const eMax = t_hop * 1.15, eMin = -eMax, eRange = eMax - eMin;
+  const eClick = eMin + (1 - (my - pad.t) / ph) * eRange;
+  const eC = bandEnergy(state.k).Econduction, eV = bandEnergy(state.k).Evalence;
+  state.band = Math.abs(eClick - eC) <= Math.abs(eClick - eV) ? 'conduction' : 'valence';
+  if (!state.playing) { drawDispersion(); drawChain(); }
+}
+
+function applyDispDrag(mx) {
+  const pad = { l: 44, r: 52, t: 28, b: 48 };
+  const pw = dispCanvas.width - pad.l - pad.r;
+  const kRaw = ((mx - pad.l) / pw) * 2 * kMax - kMax;
+  state.k = Math.max(-kMax, Math.min(kMax, kRaw));
+  if (!state.playing) { drawDispersion(); drawChain(); }
+}
+
+// Lightweight update of the k-marker on the 3D plot (no grid rebuild, camera never touched)
+function updateKMarker3D() {
+  if (!state.realMode || !state.plotlyBuilt || !state.showKMarker) return;
+  const nseg = TB_PATH_SEGMENTS, npts = nseg * 3;
+  const selIdx = Math.max(0, Math.min(npts - 1, state.realPathIdx));
+  const path = buildTBPath(nseg);
+  const p = path[selIdx];
+  const e1 = tbEnergyNorm(p.x, p.y, state.tbTprime, state.tbMass);
+  const selE = state.band === 'conduction' ? e1.Eplus : e1.Eminus;
+  // trace index: 2 L1 surfaces + (2 L2 if twoLayer) + Fermi plane + L1 K-pts + (L2 K-pts if twoLayer)
+  const idx = 4 + (state.twoLayer ? 3 : 0);
+  // Plotly.update = atomic data+layout update; pass live camera so the scene never resets
+  const gd = document.getElementById('realBZPlot');
+  const liveCam = (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.camera)
+    ? gd._fullLayout.scene.camera : camReal3D();
+  Plotly.update('realBZPlot',
+    { x: [[p.x]], y: [[p.y]], z: [[selE]] },
+    { 'scene.camera': liveCam },
+    [idx]);
+}
+
+// Real TB mode: click/drag on band path selects k and band
+function applyRealBandClick(mx, my) {
+  const pad = { l: 44, r: 52, t: 28, b: 48 };
+  const pw = dispCanvas.width  - pad.l - pad.r;
+  const ph = dispCanvas.height - pad.t - pad.b;
+  const nseg = TB_PATH_SEGMENTS, npts = nseg * 3;
+  const pathFrac = Math.max(0, Math.min(1, (mx - pad.l) / pw));
+  const pathIdx  = Math.round(pathFrac * (npts - 1));
+  state.realPathIdx = pathIdx;
+  // Compute both bands at this path point and pick the nearest one
+  const path = buildTBPath(nseg);
+  const p = path[pathIdx];
+  const e1 = tbEnergyNorm(p.x, p.y, state.tbTprime, state.tbMass);
+  const eMax = 3.3, eMin = -eMax, eRange = eMax - eMin;
+  const eClick = eMin + (1 - (my - pad.t) / ph) * eRange;
+  state.band = Math.abs(eClick - e1.Eplus) <= Math.abs(eClick - e1.Eminus) ? 'conduction' : 'valence';
+  // |k| of the path point, clamped to kMax for the 1-D chain animation
+  state.k = Math.min(Math.sqrt(p.x*p.x + p.y*p.y), kMax);
+  updateKMarker3D();
+  if (!state.playing) { drawRealBands(); drawChain(); }
+}
+
+function applyRealBandDrag(mx) {
+  const pad = { l: 44, r: 52, t: 28, b: 48 };
+  const pw = dispCanvas.width - pad.l - pad.r;
+  const nseg = TB_PATH_SEGMENTS, npts = nseg * 3;
+  const pathFrac = Math.max(0, Math.min(1, (mx - pad.l) / pw));
+  const pathIdx  = Math.round(pathFrac * (npts - 1));
+  state.realPathIdx = pathIdx;
+  const path = buildTBPath(nseg);
+  const p = path[pathIdx];
+  state.k = Math.min(Math.sqrt(p.x*p.x + p.y*p.y), kMax);
+  updateKMarker3D();
+  if (!state.playing) { drawRealBands(); drawChain(); }
+}
+
+dispCanvas.addEventListener('mousedown', e => {
+  const { mx, my } = dispCanvasCoords(e);
+  if (state.realMode) {
+    const { cx, cy, miniR } = getMiniBZCenter();
+    const distMini = Math.sqrt((mx-cx)*(mx-cx) + (my-cy)*(my-cy));
+    // Centre click on mini BZ — toggle 1L/2L (debounced so double-click counts as one toggle)
+    if (distMini < miniR * 0.35) {
+      const now = Date.now();
+      if (now - lastMiniToggleTime < 350) return;  // second mousedown of a dblclick — skip
+      lastMiniToggleTime = now;
+      setTwoLayer(!state.twoLayer, true); // reset camera on any 1L↔2L switch
+      if (!state.playing) { drawRealBands(); drawChain(); }
+      return;
+    }
+    if (distMini < miniR + 8) {
+      miniBZDragging = true;
+      miniBZStartAngle = Math.atan2(my - cy, mx - cx) * 180 / Math.PI;
+      miniBZStartTheta = state.theta;
+      dispCanvas.style.cursor = 'grabbing';
+      e.preventDefault();
+      return;
+    }
+    // Click on band path — select k and band for chain animation
+    dispDragging = true;
+    dispCanvas.style.cursor = 'ew-resize';
+    applyRealBandClick(mx, my);
+    return;
+  }
+  for (const lb of dispBranchLabels) {
+    if (mx >= lb.x && mx <= lb.x + lb.w && my >= lb.y && my <= lb.y + lb.h) {
+      state.band = lb.band;
+      if (!state.playing) { drawDispersion(); drawChain(); }
+      return;
+    }
+  }
+  dispDragging = true;
+  dispCanvas.style.cursor = 'ew-resize';
+  applyDispClick(mx, my);
+});
+
+dispCanvas.addEventListener('mousemove', e => {
+  if (state.realMode) {
+    const { mx, my } = dispCanvasCoords(e);
+    if (miniBZDragging) {
+      const { cx, cy } = getMiniBZCenter();
+      let delta = Math.atan2(my - cy, mx - cx) * 180 / Math.PI - miniBZStartAngle;
+      if (delta >  180) delta -= 360;
+      if (delta < -180) delta += 360;
+      setTheta(miniBZStartTheta + delta);
+      if (state.plotlyBuilt) buildReal3D();
+      if (!state.playing) { drawRealBands(); drawChain(); }
+    } else if (dispDragging) {
+      applyRealBandDrag(mx);
+    } else {
+      const { cx, cy, miniR } = getMiniBZCenter();
+      const d = Math.sqrt((mx-cx)*(mx-cx) + (my-cy)*(my-cy));
+      dispCanvas.style.cursor = d < miniR + 8 ? 'grab' : 'crosshair';
+    }
+    return;
+  }
+  if (!dispDragging) return;
+  const { mx } = dispCanvasCoords(e);
+  applyDispDrag(mx);
+});
+
+window.addEventListener('mouseup', () => {
+  if (miniBZDragging) { miniBZDragging = false; dispCanvas.style.cursor = 'default'; }
+  if (dispDragging) { dispDragging = false; dispCanvas.style.cursor = 'crosshair'; }
+});
+
+// ── BZ drag / click ─────────────────────────────────────────────────────────
+let bzDragging = false, bzDragStartAngle = 0, bzDragStartTheta = 0, bzCenterClick = false;
+
+function getBZAngle(e) {
+  const rect = bzCanvas.getBoundingClientRect();
+  return Math.atan2(e.clientY - rect.top  - rect.height/2,
+                    e.clientX - rect.left - rect.width/2) * 180 / Math.PI;
+}
+
+bzCanvas.addEventListener('mousedown', e => {
+  const rect = bzCanvas.getBoundingClientRect();
+  const dx = e.clientX - rect.left - rect.width/2, dy = e.clientY - rect.top - rect.height/2;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const Rhit = Math.min(rect.width, rect.height) * 0.35;
+  if (dist < Rhit * 0.42) { bzCenterClick = true; e.preventDefault(); return; }
+  bzDragging = true; bzDragStartAngle = getBZAngle(e); bzDragStartTheta = state.theta;
+  bzCanvas.classList.add('dragging'); e.preventDefault();
+});
+
+bzCanvas.addEventListener('mousemove', e => {
+  if (!bzDragging) {
+    const rect = bzCanvas.getBoundingClientRect();
+    const dx = e.clientX - rect.left - rect.width/2, dy = e.clientY - rect.top - rect.height/2;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const Rhit = Math.min(rect.width, rect.height) * 0.35;
+    bzCanvas.style.cursor = dist < Rhit * 0.42 ? 'pointer' : 'grab';
+    return;
+  }
+  let delta = getBZAngle(e) - bzDragStartAngle;
+  if (delta >  180) delta -= 360;
+  if (delta < -180) delta += 360;
+  setTheta(bzDragStartTheta + delta);
+  if (!state.playing) { renderBasicAuxPanels(); drawChain(); }
+});
+
+window.addEventListener('mouseup', () => {
+  if (bzCenterClick) {
+    bzCenterClick = false;
+    setTwoLayer(!state.twoLayer, false);
+    if (!state.playing) { renderBasicAuxPanels(); drawChain(); }
+  }
+  bzDragging = false;
+  bzCanvas.style.cursor = 'grab';
+  bzCanvas.classList.remove('dragging');
+});
+
+// ── Popup panel proximity ──────────────────────────────────────────────────
+const popupPanel = document.getElementById('popupPanel');
+window.addEventListener('mousemove', e => {
+  const frame = document.getElementById('appFrame').getBoundingClientRect();
+  const fromRight = frame.right - e.clientX;
+  const inFrame   = e.clientY >= frame.top && e.clientY <= frame.bottom;
+  const trigger   = fromRight < frame.width * 0.05;
+  const maintain  = fromRight < 215 && popupPanel.classList.contains('visible');
+  popupPanel.classList.toggle('visible', inFrame && (trigger || maintain));
+});
+
+// ── Shift-drag: tune mass term Δ, showing the band gap it opens ─────────────
+// Drag right or up to increase Δ (left / down to decrease). E_gap = 2Δ·t at K,
+// displayed in eV using t = 2.7 eV. The Δ slider in the panel keeps working.
+const T_EV = 2.7;
+const gapOverlay = document.createElement('div');
+gapOverlay.id = 'gapOverlay';
+document.body.appendChild(gapOverlay);
+
+const massDrag = { active:false, startX:0, startY:0, startMass:0 };
+let gapHideTimer = null, massRebuildQueued = false;
+
+function queueMassRebuild() {
+  if (massRebuildQueued) return;
+  massRebuildQueued = true;
+  requestAnimationFrame(() => {
+    massRebuildQueued = false;
+    if (!state.realMode) return;
+    buildReal3D();
+    if (!state.playing) drawRealBands();
+  });
+}
+
+function setMassFromDrag(v) {
+  const mass = Math.max(0, Math.min(0.5, v));
+  state.tbMass = mass;
+  document.getElementById('massSlider').value = mass;
+  document.getElementById('massVal').textContent = mass.toFixed(2);
+  gapOverlay.innerHTML = `E<sub>gap</sub> = ${(2 * mass * T_EV).toFixed(2)} eV`;
+  gapOverlay.classList.add('visible');
+  queueMassRebuild();
+}
+
+window.addEventListener('mousedown', e => {
+  if (!e.shiftKey || !state.realMode) return;
+  const frame = document.getElementById('appFrame');
+  if (!frame.contains(e.target) || popupPanel.contains(e.target)) return;
+  massDrag.active = true;
+  massDrag.startX = e.clientX;
+  massDrag.startY = e.clientY;
+  massDrag.startMass = state.tbMass;
+  clearTimeout(gapHideTimer);
+  setMassFromDrag(state.tbMass);
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+window.addEventListener('mousemove', e => {
+  if (!massDrag.active) return;
+  const d = (e.clientX - massDrag.startX) - (e.clientY - massDrag.startY);
+  setMassFromDrag(massDrag.startMass + d * (0.5 / 300));
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+window.addEventListener('mouseup', () => {
+  if (!massDrag.active) return;
+  massDrag.active = false;
+  clearTimeout(gapHideTimer);
+  gapHideTimer = setTimeout(() => gapOverlay.classList.remove('visible'), 900);
+}, true);
+
+// ── Init ───────────────────────────────────────────────────────────────────
+fitCanvases();
+switchMode(true);   // default to Tight-binding mode (still 1L)
+startAnim();
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    fitCanvases();
+    if (!state.playing) {
+      if (state.realMode) drawRealBands(); else { drawDispersion(); renderBasicAuxPanels(); }
+      drawChain();
+    }
+  }, 60);
+});
 </script>
 </body>
 </html>

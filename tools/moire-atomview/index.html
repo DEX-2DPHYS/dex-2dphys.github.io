@@ -825,6 +825,230 @@
   </style>
 </head>
 <body>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.  The <style> below is per-sim: it shifts the info bubble down so it
+  doesn't overlap the existing top-left element.
+-->
+<style>#siminfo-bubble{ top:56px; }</style>
+<script>
+  window.SIM_INFO = {
+    title: "Moiré Explorer — atom view",
+    about: "Pedagogical explorer for moiré superlattices in stacks of 2D materials (graphene, hBN, MoS₂, MoTe₂, WS₂, WTe₂) and perovskites (SrTiO₃, BaTiO₃). Shows direct atoms or coincidence-site lattice (CSL), up to seven layers with per-layer twist, colour and opacity, square or hexagonal unit cells, and soft random strain displacement maps.",
+    howto: [
+      "Use the panel on the left to choose lattice type, add or remove layers, and set per-layer twist / colour / opacity.",
+      "Adjust global <b>zoom</b> and pan from the zoom row.",
+      "Toggle <b>CSL</b> mode to show only coincidence sites.",
+      "Enable the strain map to add random per-layer displacement."
+    ],
+    shortcuts: [
+      ["Wheel", "zoom on the canvas"],
+      ["Drag",  "pan on the canvas"],
+      ["I",     "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
   <h1>Moire Explorer Atom View 2</h1>
   <p class="subtitle">
     Pedagogical white-background explorer for moiré superlattices in graphene, hBN, MoS₂, MoTe₂, WS₂, WTe₂,

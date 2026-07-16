@@ -1,7 +1,7 @@
 {
   "slug": "graphene-bandstructure",
-  "name": "Graphene Band Structure",
-  "description": "Tight-binding model of graphene — visualise the π-band dispersion, Dirac cones, and how the hopping parameters shape the electronic band structure.",
+  "name": "Electron Bands — Twisted Bilayer Graphene",
+  "description": "Tight-binding electron bands of graphene and twisted bilayer graphene — dispersion along Γ–M–K–Γ, a 3D band surface over the Brillouin zone, mass-gap and hopping controls, and an optional Landau-level fan.",
   "status": "live",
   "url": "tools/graphene-bandstructure/index.html",
   "icon": "chart",

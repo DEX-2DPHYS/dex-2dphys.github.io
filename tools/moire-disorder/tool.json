@@ -1,0 +1,13 @@
+{
+  "slug": "moire-disorder",
+  "name": "Moiré Disorder",
+  "description": "Two stacked 2D lattices with tunable twist, unit cells (hexagonal, square, hex-on-square) and per-layer settings — watch the moiré pattern emerge from lattice beating and see how disorder washes out sharp registry features.",
+  "status": "live",
+  "url": "tools/moire-disorder/index.html",
+  "icon": "atom",
+  "tags": [
+    "visualisations",
+    "simulations",
+    "educational"
+  ]
+}

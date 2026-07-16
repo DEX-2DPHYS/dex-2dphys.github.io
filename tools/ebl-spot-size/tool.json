@@ -1,0 +1,13 @@
+{
+  "slug": "ebl-spot-size",
+  "name": "EBL Spot Size",
+  "description": "Interactive explorer of the electron-beam-lithography spot size — how acceleration voltage, aperture, and beam parameters set the achievable spot and thus the patterning resolution.",
+  "status": "live",
+  "url": "tools/ebl-spot-size/index.html",
+  "icon": "device",
+  "tags": [
+    "simulations",
+    "applications",
+    "educational"
+  ]
+}

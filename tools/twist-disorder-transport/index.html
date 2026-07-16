@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<title>Twist Disorder &amp; Transport</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a2233; --muted:#5c6b80;
+    --panel-bg:rgba(255,255,255,.97); --panel-border:rgba(16,24,40,.14);
+    --line:#e3e8ef; --accent:#0b57d0; --accent-soft:#e8f0fe;
+    --btn-bg:#f4f6fa; --btn-border:#d4dbe5;
+  }
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;}
+  #stage{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    gap:2.2vw;padding:0 3vw;box-sizing:border-box;
+  }
+  .fig{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .fig .cap{font-size:24px;font-weight:700;letter-spacing:.01em;color:var(--fg);}
+  .fig canvas{
+    display:block;background:#fff;border:1px solid var(--line);border-radius:6px;
+    touch-action:none;user-select:none;
+  }
+  .fig .sub{font-size:17px;color:var(--muted);height:22px;}
+  #legendPhase{display:flex;gap:20px;font-size:17px;color:var(--muted);align-items:center;height:22px;}
+  #legendPhase span{display:inline-flex;align-items:center;gap:6px;}
+  #legendPhase i{width:15px;height:15px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.15);}
+
+  /* ── slide-in control panel ── */
+  #panel{
+    position:fixed;top:0;right:0;width:min(330px,92vw);height:100%;
+    box-sizing:border-box;padding:12px 14px 24px;
+    background:var(--panel-bg);border-left:1px solid var(--panel-border);
+    box-shadow:-8px 0 30px rgba(0,0,0,.14);
+    overflow-y:auto;transform:translateX(102%);
+    transition:transform 190ms ease-out;z-index:10;font-size:12.5px;
+  }
+  #panel.visible{transform:translateX(0);}
+  #panelHead{display:flex;align-items:center;gap:8px;margin:0 0 10px;}
+  #panelHead .t{font-weight:700;font-size:13px;flex:1;}
+  #panelHead label{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer;}
+  details.grp{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  details.grp>summary{
+    list-style:none;cursor:pointer;user-select:none;
+    padding:8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+    display:flex;align-items:center;gap:6px;
+  }
+  details.grp>summary::-webkit-details-marker{display:none;}
+  details.grp>summary::before{content:"▸";font-size:10px;transition:transform 120ms;color:var(--accent);}
+  details.grp[open]>summary::before{transform:rotate(90deg);}
+  details.grp>.body{padding:2px 10px 12px;}
+  label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:2px;}
+  .row{display:grid;grid-template-columns:1fr 64px;gap:8px;align-items:center;margin:5px 0;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:5px 0;}
+  .stack{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px;}
+  input[type=number],select{
+    width:100%;box-sizing:border-box;background:#fff;color:var(--fg);
+    border:1px solid #c9d2de;border-radius:8px;padding:6px 7px;font-size:12px;
+  }
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .btn{
+    display:inline-flex;gap:6px;align-items:center;justify-content:center;
+    border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--fg);
+    border-radius:9px;padding:7px 10px;font-size:12px;cursor:pointer;
+  }
+  .btn:hover{border-color:var(--accent);}
+  .btn.accent{border-color:var(--accent);background:var(--accent-soft);font-weight:600;}
+  .legend{font-size:10.5px;color:var(--muted);margin-top:6px;}
+  .val{font:600 11px Consolas,ui-monospace,monospace;color:var(--accent);text-align:right;}
+  #status{
+    margin-top:8px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;
+    font:11px/1.55 Consolas,ui-monospace,monospace;color:var(--muted);white-space:pre-line;
+  }
+</style>
+</head>
+<body>
+<script>
+  window.SIM_INFO = {
+    title: "Twist disorder & transport",
+    about: "A qualitative visualisation of how twist-angle disorder in magic-angle bilayer graphene fragments the phase diagram. Paint strain into the sample (left) — the local twist follows from the rotation part of the displacement field, and the full distortion (rotation + heterostrain) sets the local moiré filling; no lattice relaxation is performed. Each region is assigned a phase (middle, contacts shown in gold) and a mock transport map G(ν₀, B) (right) is computed from the resulting conductor/insulator mixture.",
+    howto: [
+      "Drag on the left panel to twist the lattice locally (vortex brush). Shift+drag translates; Alt+drag smooths/erases. Double-click resets.",
+      "The local-twist heat map overlays when you finish a stroke; ⟨θ⟩ ± rms is shown below the sample.",
+      "Drag the dot on the right panel (or use the sliders) to set the operating point (ν₀, B); the middle phase map follows.",
+      "Double-click the transport map (right) to toggle colour <b>autoscale</b>: the colour range stretches to the current data min/max instead of the fixed σ range (an 'autoscale' badge shows when it is on).",
+      "Choose the phase model in the panel: Diagram (filling from the full local distortion, mapped onto the measured diagram) or Cartoon (direct twist windows).",
+      "Transport: Effective medium (instant, histogram-only) vs Resistor network (spatial, sees percolation paths).",
+      "Arrangement rearranges the same twist histogram (shuffle / series / parallel stripes): EMA is unchanged but the network G changes — spatial connectivity matters.",
+      "Random disorder (panel) generates a smooth random twist-angle landscape, recentred on θ₀."
+    ],
+    shortcuts: [
+      ["Drag",  "twist brush"],
+      ["Shift + Drag", "translate lattice"],
+      ["Alt + Drag",   "smooth / erase disorder"],
+      ["Double-click", "reset strain (left panel)"],
+      ["Double-click (G map)", "toggle colour autoscale"],
+      ["R", "reset disorder"],
+      ["G", "recompute G map"],
+      ["P", "physics documentation"],
+      ["I", "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+    @media (prefers-color-scheme: dark){
+      /* stays light — matches the sims which are white */
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // allow either plain text or pre-formatted HTML in each field
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    // "Shift + drag" → <kbd>Shift</kbd> + drag ; single tokens → <kbd>X</kbd>
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      // wrap short identifiers as kbd, leave phrases like "drag" plain
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    // Shortcuts: default entry for "I" always appended unless already present
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;   // left-edge hover zone
+  const HOLD_MS = 250;  // grace period before hiding after mouse leaves
+
+  function showBubble(){
+    clearTimeout(bubbleTimer);
+    bubble.classList.add("visible");
+  }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  // hover the left edge → bubble
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  // click the bubble → open
+  bubble.addEventListener("click", showPanel);
+
+  // click outside the panel → close
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  // keyboard: hold I → bubble, tap I / ? → toggle, Esc → close
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ // hold-to-reveal (only fires the "hold" behaviour, not a toggle every repeat)
+        iHeld = true; showBubble(); return;
+      }
+      // first press → toggle panel
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  // expose a tiny API in case a sim wants to trigger it programmatically
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+
+/* === END inlined sim-info.js === */
+</script>
+
+<style>
+  #physics-panel{
+    position:fixed;top:0;left:0;width:min(620px,94vw);height:100vh;
+    box-sizing:border-box;padding:20px 26px 30px;overflow-y:auto;
+    background:var(--panel-bg);color:var(--fg);
+    border-right:1px solid var(--panel-border);box-shadow:8px 0 30px rgba(0,0,0,.18);
+    transform:translateX(-102%);transition:transform 200ms ease;z-index:10001;
+    font:13px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  #physics-panel.visible{transform:translateX(0);}
+  #physics-panel h1{font-size:16px;margin:0 0 4px;padding-right:28px;}
+  #physics-panel h2{
+    font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+    margin:18px 0 6px;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:3px;
+  }
+  #physics-panel p,#physics-panel li{color:var(--fg);margin:0 0 8px;}
+  #physics-panel ul{margin:0 0 8px;padding-left:18px;}
+  #physics-panel li{margin:3px 0;}
+  #physics-panel math[display="block"]{margin:8px 0 10px;font-size:15px;}
+  #physics-panel .pnote{font-size:11.5px;color:var(--muted);}
+  #physics-panel .pclose{
+    position:absolute;top:12px;right:12px;width:26px;height:26px;border:0;background:transparent;
+    color:var(--muted);cursor:pointer;font:600 18px/1 system-ui;border-radius:5px;
+  }
+  #physics-panel .pclose:hover{background:var(--btn-bg);color:var(--fg);}
+  #physics-open{
+    display:inline-block;margin:2px 0 10px;padding:5px 12px;
+    border:1px solid var(--btn-border);border-radius:8px;cursor:pointer;
+    background:var(--btn-bg);color:var(--fg);font:600 12px "Segoe UI",system-ui,sans-serif;
+  }
+  #physics-open:hover{border-color:var(--accent);}
+</style>
+<script>
+// ===== Physics documentation panel =====
+(function(){
+  const HTML = `
+<button class="pclose" aria-label="Close">×</button>
+<h1>Physics of this visualisation</h1>
+<p class="pnote">Qualitative tool — every stage is an explicit, documented cartoon chosen to reproduce the phenomenology of twist-disordered magic-angle bilayer graphene, not a research-grade calculation.</p>
+
+<h2>1 · Imposed displacement field (no relaxation)</h2>
+<p>The top layer carries a continuum in-plane displacement field <i>u</i>(<i>r</i>) sampled on a grid. Brushes add Gaussian-weighted rotation (vortex), translation, or smoothing increments. The field is exactly what is painted — no elastic relaxation is performed, so the local twist below is exact for the imposed field.</p>
+
+<h2>2 · Local twist angle</h2>
+<math display="block"><mrow><msub><mi>θ</mi><mrow><mi>l</mi><mi>o</mi><mi>c</mi></mrow></msub><mo>(</mo><mi>r</mi><mo>)</mo><mo>=</mo><msub><mi>θ</mi><mn>0</mn></msub><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mrow><mo>(</mo><mfrac><mrow><mo>∂</mo><msub><mi>u</mi><mi>y</mi></msub></mrow><mrow><mo>∂</mo><mi>x</mi></mrow></mfrac><mo>−</mo><mfrac><mrow><mo>∂</mo><msub><mi>u</mi><mi>x</mi></msub></mrow><mrow><mo>∂</mo><mi>y</mi></mrow></mfrac><mo>)</mo></mrow></mrow></math>
+<p>The antisymmetric (rotation) part of the distortion tensor added to the global twist <i>θ</i><sub>0</sub>, evaluated by central finite differences. The moiré image is rendered from the registry field <i>s</i>(<i>r</i>) = Σ cos(<i>G<sub>i</sub></i>·<i>δ</i>(<i>r</i>)) with interlayer displacement <i>δ</i> = <i>θ</i><sub>0</sub> ẑ×<i>r</i> + <i>u</i>.</p>
+
+<h2>3 · Local phase — two selectable models</h2>
+<p><b>Diagram model.</b> The local moiré superlattice density is set by the <em>full</em> interlayer distortion, <i>n<sub>s</sub></i> ∝ det ∇<i>δ</i>, so at fixed carrier density the local filling factor becomes</p>
+<math display="block"><mrow><msub><mi>ν</mi><mrow><mi>l</mi><mi>o</mi><mi>c</mi></mrow></msub><mo>=</mo><msub><mi>ν</mi><mn>0</mn></msub><mfrac><msubsup><mi>θ</mi><mi>m</mi><mn>2</mn></msubsup><mrow><mi>det</mi><mo>&#8202;</mo><mo>∇</mo><mi>δ</mi></mrow></mfrac></mrow></math>
+<p>which reduces to <i>ν</i><sub>0</sub>(<i>θ<sub>m</sub></i>/<i>θ</i>)² for pure rotation, and also responds to biaxial heterostrain (det ∇δ = θ² + ε² there). Uniaxial heterostrain preserves the cell area to first order — its effects on moiré <em>anisotropy</em> and bandwidth are not modelled. Each point looks up (<i>ν<sub>loc</sub></i>, <i>B</i>) in a parameterisation of the measured phase diagram — correlated insulators at ν = 0, ±2 (imposed as field-robust columns, as drawn in the companion diagram), a band insulator with a fixed soft onset at |ν| ≈ 3.9, superconducting domes flanking ν = ±2 at low field, faint Landau-fan conductance modulation above ~0.5 T, metal elsewhere. All boundaries are smooth crossover <em>weights</em> (logistic / Gaussian), not Boolean phases: each point carries fractions w<sub>SC</sub>, w<sub>CI</sub>, w<sub>BI</sub>, w<sub>metal</sub>, its conductivity is the log-weighted mix, and the phase map blends colours accordingly. The correlated weights are multiplied by a magic-window gate</p>
+<math display="block"><mrow><mi>g</mi><mo>(</mo><mi>θ</mi><mo>)</mo><mo>=</mo><mi>exp</mi><mrow><mo>(</mo><mo>−</mo><mfrac><msup><mrow><mo>(</mo><mi>θ</mi><mo>−</mo><msub><mi>θ</mi><mi>m</mi></msub><mo>)</mo></mrow><mn>2</mn></msup><mrow><mn>2</mn><msup><mi>w</mi><mn>2</mn></msup></mrow></mfrac><mo>)</mo></mrow></mrow></math>
+<p>that suppresses the correlated phases as bandwidth grows away from <i>θ<sub>m</sub></i> = 1.06° (the diagram itself is fixed-twist, so this gate is parameterised, width <i>w</i> adjustable).</p>
+<p><b>Cartoon model.</b> Direct twist windows at the operating point: Mott for |<i>θ</i> − <i>θ<sub>m</sub></i>| &lt; <i>w</i><sub>M</sub>, superconductor for <i>w</i><sub>M</sub> &lt; |<i>θ</i> − <i>θ<sub>m</sub></i>| &lt; <i>w</i><sub>SC</sub>, metal beyond — transparent but ignores filling geometry.</p>
+
+<h2>4 · Mock transport G(ν<sub>0</sub>, B)</h2>
+<p>Conductivities are log-mixed from the phase weights with σ<sub>SC-like</sub> : σ<sub>metal</sub> : σ<sub>ins</sub> = 10² : 1 : 10⁻² (moderate contrast keeps the solver well conditioned; "SC-like" means a very good classical conductor, not a zero-resistance state). Two transport models:</p>
+<p><b>Effective medium (instant).</b> The sample's (θ, det ∇δ) histogram gives the local-conductivity distribution, mixed by the 2-D Bruggeman equation</p>
+<math display="block"><mrow><munder><mo>∑</mo><mi>i</mi></munder><msub><mi>f</mi><mi>i</mi></msub><mfrac><mrow><msub><mi>σ</mi><mi>i</mi></msub><mo>−</mo><msub><mi>σ</mi><mi>e</mi></msub></mrow><mrow><msub><mi>σ</mi><mi>i</mi></msub><mo>+</mo><msub><mi>σ</mi><mi>e</mi></msub></mrow></mfrac><mo>=</mo><mn>0</mn></mrow></math>
+<p><b>Resistor network (spatial).</b> A finite-volume discretisation of ∇·(σ(<i>r</i>)∇V) = 0 on a regular 32×32 grid: 5-point stencil with harmonic face conductivities, solved by successive over-relaxation with a residual stopping criterion (max |ΔV| &lt; 10⁻⁶, capped at 1200 sweeps). Four selectable contact layouts, drawn on the phase map exactly where they act. Gold pads are current contacts (Dirichlet nodes); silver pads are <em>ideal voltage probes</em> that draw no current and simply read the local potential. <em>Hall bar</em> (default): wide current contacts spanning the full left/right edges, two narrow probes on the bottom edge — the classic longitudinal R<sub>xx</sub> configuration, G = I/(V₊−V₋). <em>4-terminal corners</em>: current pads at the upper two corners, probes at the lower two. <em>2-terminal diagonal pads</em> and <em>full edges</em> report I/V<sub>bias</sub>. In the four-terminal layouts, superconducting puddles shorting the probe path drive G very large — genuine four-probe R→0 phenomenology, capped a decade above σ<sub>SC</sub>. All non-contact boundaries are insulating. The total current is evaluated on two independent cross-sections and their mismatch ΔI/I is reported as a convergence check. Each coarse cell's conductivity is the Bruggeman mix of its 3×3 underlying fine cells (block averaging — thin filaments contribute their proper area fraction rather than being aliased away). G is normalised by the uniform-sample geometry factor of the selected contact layout, so a homogeneous sample reads G = σ in either geometry.</p>
+<p><b>Why both models:</b> effective medium depends only on the twist <em>histogram</em>; the network sees the spatial <em>arrangement</em>. The Arrangement control makes this explicit — block-shuffling or sorting the same histogram into stripes leaves the EMA untouched while the network G changes. With full-edge contacts the stripe arrangements realise the exact series/parallel bounds; with corner pads the geometry additionally forces current to cross stripes near the contacts, so the "parallel" arrangement is no longer a true upper bound — itself a nice illustration that contact placement matters. Two samples with identical twist statistics can conduct very differently: connectivity matters.</p>
+
+<h2>Limitations</h2>
+<ul>
+<li>Phase assignment is a lookup with smooth crossover weights, not a correlated-electron calculation; dome positions and widths are drawn from the companion phase-diagram sim, and the ν = ±2 insulating columns are imposed as field-robust, as in that diagram.</li>
+<li>The local filling uses det ∇δ (rotation + area-changing strain); moiré <em>anisotropy</em> and strain-induced bandwidth changes are not included.</li>
+<li>Transport is classical and ohmic: no phase coherence, no Josephson coupling between SC-like puddles, no Andreev physics, no critical currents.</li>
+<li>Landau fans are a cosmetic conductance modulation, not quantum-Hall physics.</li>
+<li>Carrier density and field are uniform; screening and self-consistency are ignored.</li>
+<li>No lattice relaxation by design — real samples partially relax imposed strain into domain patterns.</li>
+<li>The magic-window gate width is a free parameter, not derived.</li>
+<li>ν₀ is the nominal filling at θ<sub>m</sub>; it is proportional to gate voltage but no explicit C<sub>g</sub> conversion is made.</li>
+</ul>
+`;
+  function build(){
+    if(document.getElementById('physics-panel')) return document.getElementById('physics-panel');
+    const p = document.createElement('aside');
+    p.id='physics-panel'; p.setAttribute('role','dialog'); p.setAttribute('aria-hidden','true');
+    p.innerHTML = HTML;
+    document.body.appendChild(p);
+    p.querySelector('.pclose').addEventListener('click', hide);
+    return p;
+  }
+  function panelEl(){ return document.getElementById('physics-panel') || build(); }
+  function show(){ const p=panelEl(); p.classList.add('visible'); p.setAttribute('aria-hidden','false'); }
+  function hide(){ const p=document.getElementById('physics-panel'); if(p){ p.classList.remove('visible'); p.setAttribute('aria-hidden','true'); } }
+  function toggle(){ const p=panelEl(); p.classList.contains('visible') ? hide() : show(); }
+  function injectButton(){
+    const info = document.getElementById('siminfo-panel');
+    if(!info) return requestAnimationFrame(injectButton);
+    if(info.querySelector('#physics-open')) return;
+    const btn = document.createElement('button');
+    btn.id='physics-open';
+    btn.textContent='Physics — models, method, limitations';
+    btn.addEventListener('click', show);
+    const h1 = info.querySelector('h1');
+    if(h1 && h1.nextSibling) h1.parentNode.insertBefore(btn, h1.nextSibling); else info.appendChild(btn);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', injectButton, {once:true});
+  else injectButton();
+  const mo = new MutationObserver(()=>{ const i=document.getElementById('siminfo-panel'); if(i && !i.querySelector('#physics-open')) injectButton(); });
+  (function watch(){ const i=document.getElementById('siminfo-panel'); if(!i) return requestAnimationFrame(watch); mo.observe(i,{childList:true}); })();
+  window.addEventListener('keydown',(e)=>{
+    const t=e.target, tag=(t&&t.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable)) return;
+    if(e.key==='Escape'){ hide(); return; }
+    if(e.key==='p'||e.key==='P'){ toggle(); e.preventDefault(); }
+  });
+  document.addEventListener('mousedown',(e)=>{
+    const p=document.getElementById('physics-panel');
+    if(!p || !p.classList.contains('visible')) return;
+    if(p.contains(e.target)) return;
+    const opener=document.getElementById('physics-open');
+    if(opener && opener.contains(e.target)) return;
+    hide();
+  }, true);
+  window.PhysicsInfo = { show, hide, toggle };
+})();
+</script>
+
+<div id="stage">
+  <div class="fig">
+    <div class="cap">Sample — twist disorder</div>
+    <canvas id="cSample" width="460" height="460"></canvas>
+    <canvas id="cTwistBar" width="460" height="48" style="border:0"></canvas>
+    <div class="sub" id="subSample">θ₀ = 1.06°</div>
+  </div>
+  <div class="fig">
+    <div class="cap">Local phase</div>
+    <canvas id="cPhase" width="460" height="460"></canvas>
+    <div id="legendPhase">
+      <span><i style="background:#1565c0"></i>SC</span>
+      <span><i style="background:#eceff1"></i>metal</span>
+      <span><i style="background:#b71c1c"></i>Mott</span>
+      <span><i style="background:#4e342e"></i>band ins.</span>
+    </div>
+    <div class="sub" id="subPhase" style="height:48px">arrangement: painted</div>
+  </div>
+  <div class="fig">
+    <div class="cap" id="capG">log G (ν<sub>0</sub>, B)</div>
+    <canvas id="cGmap" width="460" height="460"></canvas>
+    <canvas id="cGBar" width="460" height="48" style="border:0"></canvas>
+    <div class="sub" id="subGmap">drag the dot to set the operating point</div>
+  </div>
+</div>
+
+<aside id="panel" aria-label="Controls">
+  <div id="panelHead">
+    <span class="t">Twist disorder &amp; transport</span>
+    <label><input type="checkbox" id="pinPanel"> pin</label>
+  </div>
+
+  <details class="grp" open id="gSample">
+    <summary>Sample &amp; disorder</summary>
+    <div class="body">
+      <div class="row">
+        <div><label>Global twist θ₀ (°)</label><input id="theta0" type="range" min="0.70" max="1.45" step="0.005" value="1.06"></div>
+        <span class="val" id="theta0Val">1.06°</span>
+      </div>
+      <div class="row2">
+        <div><label>Brush size (nm)</label><input id="brushSig" type="number" min="10" max="200" step="5" value="60"></div>
+        <div><label>Brush strength</label><input id="brushAmp" type="number" min="0.1" max="3" step="0.1" value="1"></div>
+      </div>
+      <div class="row2">
+        <div><label>Random Δθ rms (°)</label><input id="rndAmp" type="number" min="0" max="0.3" step="0.01" value="0.06"></div>
+        <div><label>Corr. length (nm)</label><input id="rndXi" type="number" min="20" max="200" step="10" value="80"></div>
+      </div>
+      <div class="stack">
+        <button class="btn accent" id="rndBtn">Random disorder</button>
+        <button class="btn" id="resetBtn">Reset</button>
+      </div>
+      <div class="row">
+        <div><label>Twist overlay opacity</label><input id="ovAlpha" type="range" min="0" max="1" step="0.05" value="0.75"></div>
+        <span class="val" id="ovAlphaVal">0.75</span>
+      </div>
+    </div>
+  </details>
+
+  <details class="grp" open id="gPhaseM">
+    <summary>Phase model</summary>
+    <div class="body">
+      <div class="row2">
+        <div><label>Model</label>
+          <select id="phaseModel">
+            <option selected value="diagram">Diagram (ν-mapping)</option>
+            <option value="cartoon">Cartoon (θ windows)</option>
+          </select>
+        </div>
+        <div><label>Magic θₘ (°)</label><input id="thetaM" type="number" min="0.9" max="1.2" step="0.01" value="1.06"></div>
+      </div>
+      <div class="row">
+        <div><label>Magic window w (°)</label><input id="magicW" type="range" min="0.02" max="0.30" step="0.005" value="0.10"></div>
+        <span class="val" id="magicWVal">0.10°</span>
+      </div>
+      <div class="legend">Cartoon: Mott inside w, SC in the flank ring 1–2 w, metal beyond.</div>
+    </div>
+  </details>
+
+  <details class="grp" open id="gOp">
+    <summary>Operating point</summary>
+    <div class="body">
+      <div class="row">
+        <div><label>Filling ν₀ (at θₘ)</label><input id="nu0" type="range" min="-4.5" max="4.5" step="0.02" value="-2.2"></div>
+        <span class="val" id="nu0Val">−2.20</span>
+      </div>
+      <div class="row">
+        <div><label>Field B (T)</label><input id="B0" type="range" min="0" max="8" step="0.05" value="0.3"></div>
+        <span class="val" id="B0Val">0.30 T</span>
+      </div>
+    </div>
+  </details>
+
+  <details class="grp" id="gTrans">
+    <summary>G map</summary>
+    <div class="body">
+      <div class="row2">
+        <div><label>Transport model</label>
+          <select id="transModel">
+            <option selected value="ema">Effective medium (instant)</option>
+            <option value="net">Resistor network (spatial)</option>
+          </select>
+        </div>
+        <div><label>&nbsp;</label><button class="btn accent" id="gmapBtn" style="width:100%">Recompute</button></div>
+      </div>
+      <div class="row2">
+        <div><label>Plotted quantity</label>
+          <select id="gQuant">
+            <option selected value="logG">log G</option>
+            <option value="G">G (linear)</option>
+            <option value="logR">log R</option>
+            <option value="R">R (linear)</option>
+          </select>
+        </div>
+        <div><label>Arrangement</label>
+          <select id="arrangement">
+            <option selected value="painted">Painted</option>
+            <option value="shuffled">Block-shuffled</option>
+            <option value="series">Stripes ⊥ current</option>
+            <option value="parallel">Stripes ∥ current</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div><label>Contacts</label>
+          <select id="contacts">
+            <option selected value="hallbar">Hall bar (wide I, V probes)</option>
+            <option value="corner4">4-terminal (I top, V bottom)</option>
+            <option value="corner">2-terminal diagonal pads</option>
+            <option value="edge">Full edges</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+      <div class="legend">The resistor network solves ∇·(σ∇V)=0 on the sample and captures percolation paths that effective medium averages away. Arrangement rearranges the same twist histogram — EMA is unchanged, the spatial G is not: connectivity matters.</div>
+    </div>
+  </details>
+
+  <div id="status">—</div>
+</aside>
+
+<script>
+'use strict';
+// ================= constants & state =================
+const N = 96;                 // field grid (N×N)
+const Lnm = 420;              // sample side (nm)
+const A0 = 0.246;             // graphene lattice constant (nm)
+const DEG = Math.PI/180;
+// conductivities (σ₀ units): SC-like : metal : insulator = 10² : 1 : 10⁻²
+// (moderate contrast keeps the network solver well conditioned; maps look identical)
+const SIG_SC = 100, SIG_M = 1, SIG_I = 0.01;
+
+const S = {
+  theta0: 1.06,          // deg
+  thetaM: 1.06,          // deg
+  magicW: 0.10,          // deg
+  brushSig: 60,          // nm
+  brushAmp: 1,
+  rndAmp: 0.06, rndXi: 80,
+  ovAlpha: 0.75,
+  phaseModel: 'diagram',
+  transModel: 'ema',
+  gQuant: 'logG',
+  gAutoscale: false,
+  arrangement: 'painted',
+  contacts: 'hallbar',   // 'hallbar' | 'corner4' | 'corner' | 'edge'
+  nu0: -2.2, B0: 0.3,
+  painting: false,
+  panelPinned: false,
+};
+
+// displacement field (nm) on N×N nodes over [0,Lnm]²
+const ux = new Float32Array(N*N);
+const uy = new Float32Array(N*N);
+const thetaLoc = new Float32Array(N*N);   // deg — local rotation
+const detRaw  = new Float32Array(N*N);    // rad² — det(∇δ), full local distortion
+const phaseIdx = new Uint8Array(N*N);     // argmax phase: 0 metal, 1 SC, 2 CI, 3 band-ins
+const phaseCol = new Uint8Array(N*N*3);   // weight-blended RGB per cell
+const h = Lnm/(N-1);
+
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+
+// ================= local fields: rotation + full distortion =================
+// θ_loc = θ0 + ½(∂uy/∂x − ∂ux/∂y)  — antisymmetric (rotation) part of ∇u
+// det(∇δ) with δ = θ0 ẑ×r + u      — full local moiré distortion; the local
+//                                    superlattice density n_s ∝ det(∇δ)
+function computeFields(){
+  const th0 = S.theta0*DEG;
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const im=Math.max(0,i-1), ip=Math.min(N-1,i+1);
+      const jm=Math.max(0,j-1), jp=Math.min(N-1,j+1);
+      const sx=(ip-im)*h, sy=(jp-jm)*h;
+      const ux_x=(ux[j*N+ip]-ux[j*N+im])/sx;
+      const ux_y=(ux[jp*N+i]-ux[jm*N+i])/sy;
+      const uy_x=(uy[j*N+ip]-uy[j*N+im])/sx;
+      const uy_y=(uy[jp*N+i]-uy[jm*N+i])/sy;
+      thetaLoc[j*N+i] = S.theta0 + 0.5*(uy_x-ux_y)/DEG;
+      // ∇δ = [[ux_x, ux_y−θ0],[uy_x+θ0, uy_y]]
+      detRaw[j*N+i] = ux_x*uy_y - (ux_y-th0)*(uy_x+th0);
+    }
+  }
+}
+
+// ================= phase model: smooth crossover weights =================
+// Fills w = [wMetal, wSC, wCI, wBandIns] (sum 1) and returns σ (log-mixed,
+// with a faint Landau-fan modulation of the metallic component in diagram mode).
+const _w = new Float64Array(4);
+function phaseWeightsInto(th, det, nu0, B, w){
+  const g = Math.exp(-((th-S.thetaM)**2)/(2*S.magicW*S.magicW));
+  let wBI, wCI, wSC;
+  if(S.phaseModel==='cartoon'){
+    // direct twist windows: CI inside w, SC ring w…2w, metal beyond (soft edges)
+    const d=Math.abs(th-S.thetaM), w0=S.magicW;
+    const ci=sigmoid((w0-d)/(0.12*w0));
+    const sc=(1-ci)*sigmoid((2*w0-d)/(0.2*w0))*sigmoid((1.2-B)/0.12);
+    wBI=0; wCI=ci; wSC=Math.max(0,sc);
+  }else{
+    // diagram model: ν_loc = ν0 · θm² / det(∇δ)  (n_s ∝ det; rotation AND
+    // heterostrain change the local filling; reduces to ν0(θm/θ)² for pure twist)
+    const thm=S.thetaM*DEG;
+    const q=Math.max(0.05, det/(thm*thm));
+    const nu=nu0/q;
+    const a=Math.abs(nu);
+    wBI = sigmoid((a-3.9)/0.07);                                   // band insulator, fixed soft edge
+    let ci = g*( Math.exp(-((a-2)**2)/(2*0.18*0.18))               // ν=±2 correlated insulator
+               + Math.exp(-(a*a)/(2*0.12*0.12)) );                 // CNP
+    ci=Math.min(1,ci);
+    const dome = Math.exp(-((a-2.62)**2)/(2*0.20*0.20))            // SC domes flank ν=±2
+               + Math.exp(-((a-1.38)**2)/(2*0.17*0.17));
+    let sc = g*Math.min(1,dome)*sigmoid((1.2*g-B)/0.12);           // soft field suppression
+    wCI=(1-wBI)*ci;
+    wSC=Math.max(0,(1-wBI)*(1-ci)*sc);
+  }
+  const wM=Math.max(0,1-wBI-wCI-wSC);
+  w[0]=wM; w[1]=wSC; w[2]=wCI; w[3]=wBI;
+  return w;
+}
+// faint Landau fans (diagram mode): conductance modulation of the metal, > ~0.5 T
+function fanFactor(nu,B){
+  if(S.phaseModel!=='diagram' || B<0.4) return 1;
+  let f=0;
+  const slope=0.55;
+  for(const c of [0,2,-2,4,-4]){
+    const x=(nu-c)/(slope*(B+0.2));
+    const n=Math.round(x);
+    if(n===0 || Math.abs(n)>5) continue;
+    const d=Math.abs(x-n)*slope*(B+0.2);
+    const v=Math.exp(-d*d/(2*0.045*0.045));
+    if(v>f) f=v;
+  }
+  return 1-0.35*f*Math.min(1,(B-0.4)/1.5);
+}
+const LN_SC=Math.log(SIG_SC), LN_M=Math.log(SIG_M), LN_I=Math.log(SIG_I);
+function phaseSigma(th, det, nu0, B){
+  phaseWeightsInto(th, det, nu0, B, _w);
+  let lnFan=0;
+  if(_w[0]>1e-3){
+    const thm=S.thetaM*DEG;
+    const q=Math.max(0.05, det/(thm*thm));
+    lnFan=Math.log(fanFactor(nu0/q, B));
+  }
+  return Math.exp(_w[1]*LN_SC + _w[0]*(LN_M+lnFan) + (_w[2]+_w[3])*LN_I);
+}
+function phaseArgmax(w){
+  let m=0;
+  for(let i=1;i<4;i++) if(w[i]>w[m]) m=i;
+  return m;
+}
+
+// phase map over the ARRANGED field (see arrangement below)
+const PHASE_RGB=[[0xec,0xef,0xf1],[0x15,0x65,0xc0],[0xb7,0x1c,0x1c],[0x4e,0x34,0x2e]];
+function computePhaseMap(){
+  const T=arrTh, D=arrDet;
+  for(let k=0;k<N*N;k++){
+    phaseWeightsInto(T[k], D[k], S.nu0, S.B0, _w);
+    phaseIdx[k]=phaseArgmax(_w);
+    let r=0,g=0,b=0;
+    for(let p=0;p<4;p++){ r+=_w[p]*PHASE_RGB[p][0]; g+=_w[p]*PHASE_RGB[p][1]; b+=_w[p]*PHASE_RGB[p][2]; }
+    phaseCol[3*k]=r; phaseCol[3*k+1]=g; phaseCol[3*k+2]=b;
+  }
+}
+
+// ================= brushes =================
+function applyVortex(cx, cy, dphiRad){
+  const sig=S.brushSig, s2=2*sig*sig;
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const x=i*h, y=j*h;
+      const dx=x-cx, dy=y-cy;
+      const w=Math.exp(-(dx*dx+dy*dy)/s2);
+      if(w<1e-4) continue;
+      ux[j*N+i] += -dphiRad*w*dy;
+      uy[j*N+i] +=  dphiRad*w*dx;
+    }
+  }
+}
+function applyTranslate(cx, cy, dxnm, dynm){
+  const sig=S.brushSig, s2=2*sig*sig;
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const x=i*h, y=j*h;
+      const dx=x-cx, dy=y-cy;
+      const w=Math.exp(-(dx*dx+dy*dy)/s2);
+      if(w<1e-4) continue;
+      ux[j*N+i] += dxnm*w;
+      uy[j*N+i] += dynm*w;
+    }
+  }
+}
+function applySmooth(cx, cy){
+  const sig=S.brushSig, s2=2*sig*sig;
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const x=i*h, y=j*h;
+      const dx=x-cx, dy=y-cy;
+      const w=0.25*Math.exp(-(dx*dx+dy*dy)/s2);
+      if(w<1e-4) continue;
+      ux[j*N+i]*= (1-w);
+      uy[j*N+i]*= (1-w);
+    }
+  }
+}
+// rigid rotation about the sample centre — used to recentre random disorder
+function applyRigidRotation(phiRad){
+  const cx=Lnm/2, cy=Lnm/2;
+  for(let j=0;j<N;j++){
+    for(let i=0;i<N;i++){
+      const x=i*h, y=j*h;
+      ux[j*N+i] += -phiRad*(y-cy);
+      uy[j*N+i] +=  phiRad*(x-cx);
+    }
+  }
+}
+function resetField(){ ux.fill(0); uy.fill(0); }
+
+// Smooth random twist landscape, scaled to the requested rms and recentred so
+// the sample-mean twist equals θ0 (boundary-clipped vortices otherwise leave a
+// net rigid rotation).
+function randomDisorder(){
+  resetField();
+  const xi = S.rndXi, K = Math.max(6, Math.round((Lnm/xi)*(Lnm/xi)*1.5));
+  const saveSig = S.brushSig; S.brushSig = xi;
+  for(let k=0;k<K;k++){
+    applyVortex(Math.random()*Lnm, Math.random()*Lnm, (Math.random()*2-1)*0.008);
+  }
+  S.brushSig = saveSig;
+  computeFields();
+  // scale to requested rms (about the mean)
+  let m=0;
+  for(let k=0;k<N*N;k++) m+=thetaLoc[k]-S.theta0;
+  m/=N*N;
+  let v=0;
+  for(let k=0;k<N*N;k++){ const d=thetaLoc[k]-S.theta0-m; v+=d*d; }
+  const rms=Math.sqrt(v/(N*N));
+  if(rms>1e-6){
+    const sc=S.rndAmp/rms;
+    for(let k=0;k<N*N;k++){ ux[k]*=sc; uy[k]*=sc; }
+  }
+  // remove the residual mean rigid rotation
+  computeFields();
+  let m2=0;
+  for(let k=0;k<N*N;k++) m2+=thetaLoc[k]-S.theta0;
+  m2/=N*N;
+  applyRigidRotation(-m2*DEG);
+  computeFields();
+}
+
+// ================= arrangement (same histogram, different geometry) =================
+// 'painted'  — the field as painted
+// 'shuffled' — 8×8-cell blocks randomly permuted (preserves local texture)
+// 'series'   — cells sorted by θ into stripes ⊥ current (series bound)
+// 'parallel' — cells sorted by θ into stripes ∥ current (parallel bound)
+// EMA depends only on the histogram, so it is identical for all four — the
+// spatial (network) conductance is not. That is the point.
+let arrTh=thetaLoc, arrDet=detRaw;
+function buildArrangement(){
+  if(S.arrangement==='painted'){ arrTh=thetaLoc; arrDet=detRaw; updateArrLabel(); return; }
+  const n=N*N;
+  const T=new Float32Array(n), D=new Float32Array(n);
+  if(S.arrangement==='shuffled'){
+    const Bs=8, nb=N/Bs;
+    const perm=[...Array(nb*nb).keys()];
+    for(let i=perm.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [perm[i],perm[j]]=[perm[j],perm[i]]; }
+    for(let b=0;b<nb*nb;b++){
+      const dy=(b/nb|0)*Bs, dx=(b%nb)*Bs;
+      const sy=(perm[b]/nb|0)*Bs, sx=(perm[b]%nb)*Bs;
+      for(let j=0;j<Bs;j++) for(let i=0;i<Bs;i++){
+        T[(dy+j)*N+dx+i]=thetaLoc[(sy+j)*N+sx+i];
+        D[(dy+j)*N+dx+i]=detRaw[(sy+j)*N+sx+i];
+      }
+    }
+  }else{
+    const idx=[...Array(n).keys()].sort((a,b)=>thetaLoc[a]-thetaLoc[b]);
+    for(let s=0;s<n;s++){
+      const src=idx[s];
+      let k;
+      if(S.arrangement==='series'){ const col=(s/N)|0, row=s%N; k=row*N+col; }   // stripes ⊥ current
+      else{ const row=(s/N)|0, col=s%N; k=row*N+col; }                            // stripes ∥ current
+      T[k]=thetaLoc[src]; D[k]=detRaw[src];
+    }
+  }
+  arrTh=T; arrDet=D;
+  updateArrLabel();
+}
+const ARR_LABEL={painted:'arrangement: painted', shuffled:'arrangement: block-shuffled (same histogram)',
+                 series:'arrangement: stripes ⊥ current (series bound)', parallel:'arrangement: stripes ∥ current (parallel bound)'};
+function updateArrLabel(){
+  const el=document.getElementById('subPhase');
+  if(el) el.textContent=ARR_LABEL[S.arrangement]||'';
+}
+
+// ================= rendering: sample (moiré + twist overlay) =================
+const cSample=document.getElementById('cSample');
+const gSampleCtx=cSample.getContext('2d');
+const W=cSample.width, H=cSample.height;
+const imgSample=gSampleCtx.createImageData(W,H);
+const REG_G=(function(){
+  const g=4*Math.PI/(Math.sqrt(3)*A0);
+  const G=[];
+  for(let k=0;k<3;k++){
+    const ang=Math.PI/2 + k*2*Math.PI/3;
+    G.push([g*Math.cos(ang), g*Math.sin(ang)]);
+  }
+  return G;
+})();
+function sampleU(xnm, ynm, out){
+  const gx=clamp(xnm/h,0,N-1.001), gy=clamp(ynm/h,0,N-1.001);
+  const i0=Math.floor(gx), j0=Math.floor(gy);
+  const fx=gx-i0, fy=gy-j0;
+  const i1=i0+1, j1=j0+1;
+  const a=j0*N+i0, b=j0*N+i1, c=j1*N+i0, d=j1*N+i1;
+  out[0]=(ux[a]*(1-fx)+ux[b]*fx)*(1-fy)+(ux[c]*(1-fx)+ux[d]*fx)*fy;
+  out[1]=(uy[a]*(1-fx)+uy[b]*fx)*(1-fy)+(uy[c]*(1-fx)+uy[d]*fx)*fy;
+}
+function sampleTheta(xnm, ynm){
+  const gx=clamp(xnm/h,0,N-1.001), gy=clamp(ynm/h,0,N-1.001);
+  const i0=Math.floor(gx), j0=Math.floor(gy);
+  const fx=gx-i0, fy=gy-j0;
+  const i1=i0+1, j1=j0+1;
+  const a=j0*N+i0, b=j0*N+i1, c=j1*N+i0, d=j1*N+i1;
+  return (thetaLoc[a]*(1-fx)+thetaLoc[b]*fx)*(1-fy)+(thetaLoc[c]*(1-fx)+thetaLoc[d]*fx)*fy;
+}
+function twistColor(dth, span){
+  const t=clamp(0.5+0.5*dth/span, 0, 1);
+  let r,g,b;
+  if(t<0.5){ const u=t*2; r=lerp(0x21,0xf7,u); g=lerp(0x5e,0xf7,u); b=lerp(0xc4,0xf7,u); }
+  else{ const u=(t-0.5)*2; r=lerp(0xf7,0xc6,u); g=lerp(0xf7,0x28,u); b=lerp(0xf7,0x28,u); }
+  return [r,g,b];
+}
+function drawTwistBar(span){
+  window.__twistSpan = span;
+  const cv=document.getElementById('cTwistBar'); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  const Wb=cv.width, Hb=cv.height;
+  ctx.clearRect(0,0,Wb,Hb);
+  const bx=40, bw=Wb-80, by=4, bh=16;
+  for(let x=0;x<bw;x++){
+    const dth=((x/(bw-1))-0.5)*2*span;
+    const c=twistColor(dth,span);
+    ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+    ctx.fillRect(bx+x,by,1.5,bh);
+  }
+  ctx.strokeStyle='#c9d2de'; ctx.lineWidth=1;
+  ctx.strokeRect(bx+0.5,by+0.5,bw-1,bh-1);
+  ctx.fillStyle='#3c4657'; ctx.font='600 17px Segoe UI, sans-serif';
+  ctx.textAlign='left';  ctx.fillText('−'+span.toFixed(2)+'°', bx, by+bh+22);
+  ctx.textAlign='center';ctx.fillText('Δθ = 0', bx+bw/2, by+bh+22);
+  ctx.textAlign='right'; ctx.fillText('+'+span.toFixed(2)+'°', bx+bw, by+bh+22);
+}
+function drawGBar(){
+  const cv=document.getElementById('cGBar'); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  const Wb=cv.width, Hb=cv.height;
+  ctx.clearRect(0,0,Wb,Hb);
+  const bx=40, bw=Wb-80, by=4, bh=16;
+  for(let x=0;x<bw;x++){
+    const c=gColor(x/(bw-1));
+    ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+    ctx.fillRect(bx+x,by,1.5,bh);
+  }
+  ctx.strokeStyle='#c9d2de'; ctx.lineWidth=1;
+  ctx.strokeRect(bx+0.5,by+0.5,bw-1,bh-1);
+  ctx.fillStyle='#3c4657'; ctx.font='600 17px Segoe UI, sans-serif';
+  ctx.textAlign='left';  ctx.fillText('low', bx, by+bh+22);
+  ctx.textAlign='center';ctx.fillText('medium', bx+bw/2, by+bh+22);
+  ctx.textAlign='right'; ctx.fillText('high', bx+bw, by+bh+22);
+}
+function renderSample(showOverlay){
+  const d=imgSample.data;
+  const th0=S.theta0*DEG;
+  const uv=[0,0];
+  const px=Lnm/W;
+  // span, mean, rms of the local twist
+  let span=0.05, mean=0;
+  for(let k=0;k<N*N;k++) mean+=thetaLoc[k];
+  mean/=N*N;
+  let vr=0;
+  for(let k=0;k<N*N;k++){
+    const dd=thetaLoc[k]-mean; vr+=dd*dd;
+    const a=Math.abs(thetaLoc[k]-S.theta0); if(a>span) span=a;
+  }
+  const rms=Math.sqrt(vr/(N*N));
+  const ov=showOverlay ? S.ovAlpha : 0;
+  let p=0;
+  for(let y=0;y<H;y++){
+    const ynm=y*px;
+    for(let x=0;x<W;x++){
+      const xnm=x*px;
+      sampleU(xnm,ynm,uv);
+      const dx = -th0*ynm + uv[0];
+      const dy =  th0*xnm + uv[1];
+      let s=0;
+      for(let k=0;k<3;k++) s+=Math.cos(REG_G[k][0]*dx + REG_G[k][1]*dy);
+      const t=(s+1.5)/4.5;
+      let r=255-115*t, g=255-115*t, b=255-105*t;
+      if(ov>0){
+        const c=twistColor(sampleTheta(xnm,ynm)-S.theta0, span);
+        r=lerp(r,c[0],ov); g=lerp(g,c[1],ov); b=lerp(b,c[2],ov);
+      }
+      d[p++]=r; d[p++]=g; d[p++]=b; d[p++]=255;
+    }
+  }
+  gSampleCtx.putImageData(imgSample,0,0);
+  document.getElementById('subSample').textContent =
+    `θ₀ = ${S.theta0.toFixed(2)}°    ⟨θ⟩ = ${mean.toFixed(3)}° ± ${rms.toFixed(3)}°`;
+  drawTwistBar(span);
+}
+
+// ================= rendering: phase map =================
+const cPhase=document.getElementById('cPhase');
+const gPhaseCtx=cPhase.getContext('2d');
+const imgPhase=gPhaseCtx.createImageData(cPhase.width,cPhase.height);
+function renderPhase(){
+  const d=imgPhase.data;
+  const Wp=cPhase.width, Hp=cPhase.height;
+  let p=0;
+  for(let y=0;y<Hp;y++){
+    const j=Math.min(N-1,Math.round(y/(Hp-1)*(N-1)));
+    for(let x=0;x<Wp;x++){
+      const i=Math.min(N-1,Math.round(x/(Wp-1)*(N-1)));
+      const k=j*N+i;
+      d[p++]=phaseCol[3*k]; d[p++]=phaseCol[3*k+1]; d[p++]=phaseCol[3*k+2]; d[p++]=255;
+    }
+  }
+  gPhaseCtx.putImageData(imgPhase,0,0);
+  drawContacts();
+}
+// contact pads drawn exactly where the solver's Dirichlet nodes (gold, current)
+// and ideal voltage probes (silver) sit
+function drawContacts(){
+  const ctx=gPhaseCtx, Wp=cPhase.width, Hp=cPhase.height;
+  const cw=13;
+  const frac=CL/Nc;
+  // pad: [x, yTop, width, height, kind ('I'|'V'), label, rot (-1 left, 1 right, 0 horizontal)]
+  let pads;
+  if(S.contacts==='edge'){
+    pads=[[0,0,cw,Hp,'I','I⁺',-1],[Wp-cw,0,cw,Hp,'I','I⁻',1]];
+  }else if(S.contacts==='hallbar'){
+    // probe pads derived from the SAME column function the solver reads —
+    // drawing and physics agree by construction
+    const [a0,a1]=hbProbeCols(0), [b0,b1]=hbProbeCols(1);
+    const x1=(a0/Nc)*Wp, w1=((a1-a0)/Nc)*Wp;
+    const x2=(b0/Nc)*Wp, w2=((b1-b0)/Nc)*Wp;
+    pads=[[0,0,cw,Hp,'I','I⁺',-1],[Wp-cw,0,cw,Hp,'I','I⁻',1],
+          [x1,Hp-cw,w1,cw,'V','V₊',0],[x2,Hp-cw,w2,cw,'V','V₋',0]];
+  }else if(S.contacts==='corner4'){
+    pads=[[0,0,cw,Hp*frac,'I','I⁺',-1],[Wp-cw,0,cw,Hp*frac,'I','I⁻',1],
+          [0,Hp*(1-frac),cw,Hp*frac,'V','V₊',-1],[Wp-cw,Hp*(1-frac),cw,Hp*frac,'V','V₋',1]];
+  }else{
+    pads=[[0,Hp*(1-frac),cw,Hp*frac,'I','I⁺',-1],[Wp-cw,0,cw,Hp*frac,'I','I⁻',1]];
+  }
+  for(const [x,y0,ww,hh,kind] of pads){
+    const grad = (ww>=hh)
+      ? ctx.createLinearGradient(0,y0,0,y0+hh)
+      : ctx.createLinearGradient(x,0,x+ww,0);
+    if(kind==='I'){
+      grad.addColorStop(0,'#e8c96a'); grad.addColorStop(0.5,'#c9a227'); grad.addColorStop(1,'#a8821a');
+    }else{
+      grad.addColorStop(0,'#eceef2'); grad.addColorStop(0.5,'#c3c8d2'); grad.addColorStop(1,'#9aa1ad');
+    }
+    ctx.fillStyle=grad;
+    ctx.fillRect(x,y0,ww,hh);
+    ctx.strokeStyle = kind==='I' ? '#7a5f12' : '#5c6470';
+    ctx.lineWidth=1.5;
+    ctx.strokeRect(x+0.75,y0+0.75,ww-1.5,hh-1.5);
+  }
+  // labels: drawn on the sample BESIDE the pads (never on them — glyphs on a
+  // 13 px pad read as a break in the contact), horizontal, with a white halo
+  ctx.font='700 19px Segoe UI, sans-serif';
+  ctx.lineJoin='round';
+  for(const [x,y0,ww,hh,kind,label,rot] of pads){
+    let lx, ly, align;
+    if(rot===0){ lx=x+ww/2; ly=y0-7; align='center'; }              // above horizontal probe pad
+    else if(x<cPhase.width/2){ lx=x+ww+7; ly=y0+hh/2+6; align='left'; }   // right of a left-edge pad
+    else{ lx=x-7; ly=y0+hh/2+6; align='right'; }                    // left of a right-edge pad
+    ctx.textAlign=align;
+    ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=4;
+    ctx.strokeText(label,lx,ly);
+    ctx.fillStyle = kind==='I' ? '#5a4508' : '#252a31';
+    ctx.fillText(label,lx,ly);
+  }
+}
+
+// ================= transport: sample list + EMA =================
+// The sample is summarised (for EMA) by a quantised list of (θ, det) pairs with
+// weights — arrangement-invariant by construction.
+let sampList=[];
+function buildSampleList(){
+  const thm2=(S.thetaM*DEG)**2;
+  function build(qTh, qQ){
+    const map=new Map();
+    for(let k=0;k<N*N;k++){
+      const tk=Math.round(thetaLoc[k]/qTh);
+      const qk=Math.round(detRaw[k]/thm2/qQ);
+      const key=tk*200003+qk;
+      map.set(key,(map.get(key)||0)+1);
+    }
+    const list=[];
+    for(const [key,cnt] of map){
+      const tk=Math.round(key/200003), qk=key-tk*200003;
+      list.push({th:tk*qTh, det:qk*qQ*thm2, w:cnt/(N*N)});
+    }
+    return list;
+  }
+  sampList=build(0.01,0.02);
+  if(sampList.length>700) sampList=build(0.02,0.04);
+  if(sampList.length>700) sampList=build(0.04,0.08);
+}
+// EMA via σ log-histogram + Bruggeman bisection
+const SIGB=44;
+const sigHist=new Float32Array(SIGB);
+const sigBinVal=new Float64Array(SIGB);
+(function(){
+  const lgI=Math.log(SIG_I), lgS=Math.log(SIG_SC);
+  for(let b=0;b<SIGB;b++) sigBinVal[b]=Math.exp(lgI+(b+0.5)/SIGB*(lgS-lgI));
+})();
+function emaFromHist(){
+  let lo=Math.log(SIG_I), hi=Math.log(SIG_SC);
+  for(let it=0;it<48;it++){
+    const se=Math.exp(0.5*(lo+hi));
+    let F=0;
+    for(let b=0;b<SIGB;b++){
+      const f=sigHist[b]; if(!f) continue;
+      F+=f*(sigBinVal[b]-se)/(sigBinVal[b]+se);
+    }
+    if(F>0) lo=0.5*(lo+hi); else hi=0.5*(lo+hi);
+  }
+  return Math.exp(0.5*(lo+hi));
+}
+function sigToBin(s){
+  const lgI=Math.log(SIG_I), lgS=Math.log(SIG_SC);
+  return clamp(Math.floor((Math.log(s)-lgI)/(lgS-lgI)*SIGB),0,SIGB-1);
+}
+function conductanceEMA(nu0,B){
+  sigHist.fill(0);
+  for(const e of sampList) sigHist[sigToBin(phaseSigma(e.th,e.det,nu0,B))]+=e.w;
+  return emaFromHist();
+}
+// 3-phase Bruggeman for status fractions display (kept for tests)
+function emaSigma(fSC,fM,fI){
+  let lo=Math.log(SIG_I), hi=Math.log(SIG_SC);
+  for(let it=0;it<48;it++){
+    const se=Math.exp(0.5*(lo+hi));
+    const F=fSC*(SIG_SC-se)/(SIG_SC+se)+fM*(SIG_M-se)/(SIG_M+se)+fI*(SIG_I-se)/(SIG_I+se);
+    if(F>0) lo=0.5*(lo+hi); else hi=0.5*(lo+hi);
+  }
+  return Math.exp(0.5*(lo+hi));
+}
+
+// ================= transport: resistor network (spatial) =================
+// Finite-volume / resistor-network discretisation of ∇·(σ∇V)=0 on a regular
+// grid: 5-point stencil, harmonic face conductivities, solved by SOR with a
+// residual stopping criterion. V=1 on the left contact, V=0 on the right;
+// insulating (zero normal current) top and bottom edges.
+const Nc=32, BLK=N/Nc;             // coarse grid; each cell = BLK×BLK fine cells
+const CONTACT_FRAC=0.25;           // corner-pad length as a fraction of the edge
+const CL=Math.max(3,Math.round(Nc*CONTACT_FRAC));
+const sigC=new Float32Array(Nc*Nc);
+const Vf=new Float32Array(Nc*Nc);
+// contact node predicates.
+// 'corner4': current pads at the TOP ends of the left/right edges; ideal
+//            (non-invasive) voltage probes at the BOTTOM ends — a genuine
+//            four-terminal measurement, G = I / (V₊ − V₋).
+// 'hallbar': classic Hall bar — current contacts span the FULL left/right
+//            edges; two narrow ideal voltage probes sit on the bottom edge
+//            (longitudinal R_xx configuration).
+// 'corner' : two-terminal diagonal pads (source left-bottom, drain right-top).
+// 'edge'   : full left/right edges, two-terminal.
+const HB_PX1=0.32, HB_PX2=0.68, HB_PW=3;   // Hall-bar probe centres (frac of width) and width (cells)
+function hbProbeCols(which){
+  const c=Math.round((which===0?HB_PX1:HB_PX2)*Nc);
+  return [c-(HB_PW>>1), c-(HB_PW>>1)+HB_PW];   // [start, end)
+}
+function isSrc(i,j){
+  if(i!==0) return false;
+  if(S.contacts==='edge'||S.contacts==='hallbar') return true;
+  if(S.contacts==='corner4') return j<CL;       // top-left
+  return j>=Nc-CL;                              // corner: bottom-left
+}
+function isDrn(i,j){
+  if(i!==Nc-1) return false;
+  if(S.contacts==='edge'||S.contacts==='hallbar') return true;
+  return j<CL;                                  // top-right (both corner modes)
+}
+// geometry factor: measured I/ΔV for a uniform σ=1 sample with the current
+// contact layout — G is reported relative to it, so uniform σ reads G = σ.
+let geomFactor=0;
+function solveNet(){
+  for(let j=0;j<Nc;j++){
+    for(let i=0;i<Nc;i++){
+      const k=j*Nc+i;
+      Vf[k] = isSrc(i,j) ? 1 : (isDrn(i,j) ? 0 : 1-i/(Nc-1));
+    }
+  }
+  const hm=(a,b)=>2*a*b/(a+b);
+  const om=1.85, tol=1e-6, maxSweeps=1200;
+  let sweeps=0;
+  for(; sweeps<maxSweeps; sweeps++){
+    let maxD=0;
+    for(let j=0;j<Nc;j++){
+      for(let i=0;i<Nc;i++){
+        if(isSrc(i,j)||isDrn(i,j)) continue;
+        const k=j*Nc+i, s0=sigC[k];
+        let num=0, den=0;
+        if(i>0){ const c=hm(s0,sigC[k-1]); num+=c*Vf[k-1]; den+=c; }
+        if(i<Nc-1){ const c=hm(s0,sigC[k+1]); num+=c*Vf[k+1]; den+=c; }
+        if(j>0){ const c=hm(s0,sigC[k-Nc]); num+=c*Vf[k-Nc]; den+=c; }
+        if(j<Nc-1){ const c=hm(s0,sigC[k+Nc]); num+=c*Vf[k+Nc]; den+=c; }
+        if(!den) continue;
+        const dV=om*(num/den-Vf[k]);
+        Vf[k]+=dV;
+        const a=Math.abs(dV); if(a>maxD) maxD=a;
+      }
+    }
+    if(maxD<tol) break;
+  }
+  window.__netSweeps=sweeps;
+  // total current through two independent vertical cross-sections — in steady
+  // state they must agree; their mismatch is the convergence check
+  function cut(i0){
+    let I=0;
+    for(let j=0;j<Nc;j++){
+      const k=j*Nc+i0;
+      I+=hm(sigC[k-1],sigC[k])*(Vf[k-1]-Vf[k]);
+    }
+    return I;
+  }
+  const IA=cut(Nc>>2), IB=cut((3*Nc)>>2);
+  window.__netErr=Math.abs(IA-IB)/Math.max(Math.abs(IA),Math.abs(IB),1e-12);
+  const I=0.5*(IA+IB);
+  // measurement voltage: 4-terminal reads the ideal probes at the bottom
+  // corners (free nodes — they draw no current); 2-terminal reads the source-
+  // drain bias (=1).
+  let dV=1;
+  if(S.contacts==='corner4'){
+    let vA=0, vB=0, n=0;
+    for(let j=Nc-CL;j<Nc;j++){ vA+=Vf[j*Nc]; vB+=Vf[j*Nc+Nc-1]; n++; }
+    dV=(vA-vB)/n;
+  }else if(S.contacts==='hallbar'){
+    // two narrow ideal probes on the bottom edge (row j = Nc−1)
+    const [a0,a1]=hbProbeCols(0), [b0,b1]=hbProbeCols(1);
+    let vA=0, vB=0;
+    for(let i=a0;i<a1;i++) vA+=Vf[(Nc-1)*Nc+i];
+    for(let i=b0;i<b1;i++) vB+=Vf[(Nc-1)*Nc+i];
+    dV=(vA-vB)/HB_PW;
+  }
+  window.__probeDV=dV;
+  return I/Math.max(Math.abs(dV),1e-6)*Math.sign(dV||1);
+}
+function conductanceNet(nu0,B){
+  if(!geomFactor){
+    sigC.fill(1);
+    geomFactor=solveNet();
+  }
+  const T=arrTh, D=arrDet;
+  // block-average: per coarse cell, mini-Bruggeman over its BLK² fine σ values
+  // (anti-aliasing: thin features contribute their proper area fraction)
+  const blkSig=new Float64Array(BLK*BLK);
+  for(let cj=0;cj<Nc;cj++){
+    for(let ci=0;ci<Nc;ci++){
+      let n=0;
+      for(let j=0;j<BLK;j++) for(let i=0;i<BLK;i++){
+        const k=(cj*BLK+j)*N + ci*BLK+i;
+        blkSig[n++]=phaseSigma(T[k],D[k],nu0,B);
+      }
+      let lo=Math.log(SIG_I), hi=Math.log(SIG_SC);
+      for(let it=0;it<30;it++){
+        const se=Math.exp(0.5*(lo+hi));
+        let F=0;
+        for(let m=0;m<n;m++) F+=(blkSig[m]-se)/(blkSig[m]+se);
+        if(F>0) lo=0.5*(lo+hi); else hi=0.5*(lo+hi);
+      }
+      sigC[cj*Nc+ci]=Math.exp(0.5*(lo+hi));
+    }
+  }
+  // clamp: 4-terminal G diverges when SC puddles short the probe path (real
+  // R→0 phenomenology) — cap it a decade above σ_SC to keep the map finite
+  return clamp(solveNet()/geomFactor, SIG_I*0.5, SIG_SC*10);
+}
+
+// ================= G map =================
+const cGmap=document.getElementById('cGmap');
+const gGmapCtx=cGmap.getContext('2d');
+const GM_W=110, GM_H=96;
+const NU_MIN=-4.5, NU_MAX=4.5, B_MIN=0, B_MAX=8;
+const gVals=new Float32Array(GM_W*GM_H);
+let gmapJob=0;
+function gColor(t){
+  t=clamp(t,0,1);
+  const st=[[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[250,193,39],[252,255,164]];
+  const x=t*(st.length-1), s=Math.min(st.length-2,Math.floor(x)), u=x-s;
+  return [lerp(st[s][0],st[s+1][0],u),lerp(st[s][1],st[s+1][1],u),lerp(st[s][2],st[s+1][2],u)];
+}
+const AXIS_L=66, AXIS_B=56, AXIS_T=10, AXIS_R=12;
+function plotRect(){ return {x:AXIS_L, y:AXIS_T, w:cGmap.width-AXIS_L-AXIS_R, h:cGmap.height-AXIS_T-AXIS_B}; }
+const G_QUANT_LABEL={logG:'log G', G:'G', logR:'log R', R:'R'};
+function quantT(g, gmax, gmin){
+  // Fixed scale spans the full σ range; autoscale stretches to the current data min/max.
+  let lgMin=Math.log10(SIG_I), lgMax=Math.log10(SIG_SC);
+  if(S.gAutoscale){
+    lgMin=Math.log10(Math.max(gmin,1e-12));
+    lgMax=Math.log10(Math.max(gmax,1e-12));
+    if(lgMax-lgMin<1e-6) lgMax=lgMin+1e-6;
+  }
+  const tLog=(Math.log10(Math.max(g,1e-12))-lgMin)/(lgMax-lgMin);
+  switch(S.gQuant){
+    case 'G':    return S.gAutoscale ? (g-gmin)/Math.max(gmax-gmin,1e-12) : g/gmax;
+    case 'logR': return 1-tLog;
+    case 'R':    return S.gAutoscale
+                   ? (1/Math.max(g,1e-12) - 1/gmax)/Math.max(1/gmin - 1/gmax, 1e-12)
+                   : (1/Math.max(g,SIG_I))/(1/gmin);
+    default:     return tLog;
+  }
+}
+function drawGmap(progressRow){
+  const ctx=gGmapCtx, R=plotRect();
+  ctx.clearRect(0,0,cGmap.width,cGmap.height);
+  let gmax=SIG_I, gmin=SIG_SC;
+  for(let k=0;k<GM_W*GM_H;k++){ const v=gVals[k]; if(v>gmax)gmax=v; if(v<gmin)gmin=v; }
+  const img=ctx.createImageData(GM_W,GM_H);
+  const d=img.data;
+  for(let y=0;y<GM_H;y++){
+    for(let x=0;x<GM_W;x++){
+      const c=gColor(quantT(gVals[y*GM_W+x], gmax, gmin));
+      const p=((GM_H-1-y)*GM_W+x)*4;
+      d[p]=c[0]; d[p+1]=c[1]; d[p+2]=c[2]; d[p+3]=255;
+    }
+  }
+  const off=document.createElement('canvas'); off.width=GM_W; off.height=GM_H;
+  off.getContext('2d').putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(off,R.x,R.y,R.w,R.h);
+  if(progressRow!=null && progressRow<GM_H){
+    const yPix=R.y + (1-progressRow/GM_H)*R.h;
+    ctx.fillStyle='rgba(255,255,255,0.75)';
+    ctx.fillRect(R.x,R.y,R.w,yPix-R.y);
+  }
+  ctx.strokeStyle='#c9d2de'; ctx.lineWidth=1;
+  ctx.strokeRect(R.x+0.5,R.y+0.5,R.w-1,R.h-1);
+  ctx.fillStyle='#3c4657'; ctx.font='600 17px Segoe UI, sans-serif';
+  ctx.textAlign='center';
+  for(const nu of [-4,-2,0,2,4]){
+    const xp=R.x+(nu-NU_MIN)/(NU_MAX-NU_MIN)*R.w;
+    ctx.fillText(String(nu), xp, R.y+R.h+22);
+    ctx.strokeStyle='#c9d2de'; ctx.beginPath(); ctx.moveTo(xp,R.y+R.h); ctx.lineTo(xp,R.y+R.h+5); ctx.stroke();
+  }
+  ctx.font='700 19px Segoe UI, sans-serif';
+  ctx.fillText('ν₀  (∝ V₉)', R.x+R.w/2, R.y+R.h+46);
+  ctx.font='600 17px Segoe UI, sans-serif';
+  ctx.textAlign='right';
+  for(const b of [0,2,4,6,8]){
+    const yp=R.y+R.h-(b-B_MIN)/(B_MAX-B_MIN)*R.h;
+    ctx.fillText(String(b), R.x-9, yp+6);
+    ctx.strokeStyle='#c9d2de'; ctx.beginPath(); ctx.moveTo(R.x-5,yp); ctx.lineTo(R.x,yp); ctx.stroke();
+  }
+  ctx.save();
+  ctx.translate(20,R.y+R.h/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='700 19px Segoe UI, sans-serif'; ctx.fillText('B (T)',0,0);
+  ctx.restore();
+  if(S.gAutoscale){
+    ctx.font='700 14px Segoe UI, sans-serif';
+    const label='autoscale', tw=ctx.measureText(label).width;
+    ctx.fillStyle='rgba(255,255,255,0.82)';
+    ctx.fillRect(R.x+R.w-tw-19, R.y+6, tw+13, 22);
+    ctx.fillStyle='#1a2233'; ctx.textAlign='left';
+    ctx.fillText(label, R.x+R.w-tw-13, R.y+22);
+  }
+  const xp=R.x+(S.nu0-NU_MIN)/(NU_MAX-NU_MIN)*R.w;
+  const yp=R.y+R.h-(S.B0-B_MIN)/(B_MAX-B_MIN)*R.h;
+  ctx.beginPath(); ctx.arc(xp,yp,12,0,2*Math.PI);
+  ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fill();
+  ctx.lineWidth=3.5; ctx.strokeStyle='#1a2233'; ctx.stroke();
+  ctx.lineWidth=2.5; ctx.beginPath();
+  ctx.moveTo(xp-19,yp); ctx.lineTo(xp-12,yp); ctx.moveTo(xp+12,yp); ctx.lineTo(xp+19,yp);
+  ctx.moveTo(xp,yp-19); ctx.lineTo(xp,yp-12); ctx.moveTo(xp,yp+12); ctx.lineTo(xp,yp+19);
+  ctx.stroke();
+  ctx.beginPath(); ctx.arc(xp,yp,4,0,2*Math.PI); ctx.fillStyle='#1a2233'; ctx.fill();
+  drawGBar();
+}
+function computeGmapEMA(){
+  const job=++gmapJob;
+  let y=0;
+  function chunk(){
+    if(job!==gmapJob) return;
+    const t0=performance.now();
+    while(y<GM_H && performance.now()-t0<40){
+      const B=B_MIN+(y/(GM_H-1))*(B_MAX-B_MIN);
+      for(let x=0;x<GM_W;x++){
+        const nu=NU_MIN+(x/(GM_W-1))*(NU_MAX-NU_MIN);
+        gVals[y*GM_W+x]=conductanceEMA(nu,B);
+      }
+      y++;
+    }
+    drawGmap(y<GM_H?y:null);
+    if(y<GM_H) requestAnimationFrame(chunk);
+    else setStatus();
+  }
+  chunk();
+}
+function computeGmapNet(){
+  const job=++gmapJob;
+  let y=0;
+  gVals.fill(SIG_I);
+  function chunk(){
+    if(job!==gmapJob) return;
+    const t0=performance.now();
+    while(y<GM_H && performance.now()-t0<40){
+      const B=B_MIN+(y/(GM_H-1))*(B_MAX-B_MIN);
+      for(let x=0;x<GM_W;x+=2){
+        const nu=NU_MIN+(x/(GM_W-1))*(NU_MAX-NU_MIN);
+        const g=conductanceNet(nu,B);
+        gVals[y*GM_W+x]=g;
+        if(x+1<GM_W) gVals[y*GM_W+x+1]=g;
+        if(y+1<GM_H){ gVals[(y+1)*GM_W+x]=g; if(x+1<GM_W) gVals[(y+1)*GM_W+x+1]=g; }
+      }
+      y+=2;
+    }
+    drawGmap(y<GM_H?y:null);
+    if(y<GM_H) requestAnimationFrame(chunk);
+    else setStatus();
+  }
+  chunk();
+}
+function computeGmap(){
+  if(S.transModel==='net') computeGmapNet(); else computeGmapEMA();
+}
+
+// ================= pipeline =================
+function afterFieldChange(showOverlay){
+  computeFields();
+  buildSampleList();
+  buildArrangement();
+  computePhaseMap();
+  renderSample(showOverlay);
+  renderPhase();
+}
+function afterOpChange(){
+  computePhaseMap();
+  renderPhase();
+  drawGmap(null);
+  setStatus();
+}
+// network G at the operating point is throttled (SOR solve ≈ 10–30 ms)
+let netCache={t:-1e9, v:null, err:0, sweeps:0};
+function netGThrottled(){
+  const now=performance.now();
+  if(now-netCache.t>250){
+    netCache.v=conductanceNet(S.nu0,S.B0);
+    netCache.err=window.__netErr;
+    netCache.sweeps=window.__netSweeps;
+    netCache.t=performance.now();
+  }
+  return netCache;
+}
+function setStatus(){
+  const el=document.getElementById('status'); if(!el) return;
+  let fSC=0,fM=0,fI=0;
+  for(let k=0;k<N*N;k++){ const p=phaseIdx[k]; if(p===1)fSC++; else if(p===0)fM++; else fI++; }
+  const tot=N*N;
+  const gE=conductanceEMA(S.nu0,S.B0);
+  const nc=netGThrottled();
+  el.textContent =
+    `ν₀ = ${S.nu0.toFixed(2)}   B = ${S.B0.toFixed(2)} T   ${S.phaseModel} / ${S.arrangement}\n`+
+    `SC-like ${(100*fSC/tot).toFixed(1)}%   metal ${(100*fM/tot).toFixed(1)}%   ins ${(100*fI/tot).toFixed(1)}%\n`+
+    `G_ema = ${gE.toPrecision(3)}   G_net = ${nc.v.toPrecision(3)} σ₀\n`+
+    `network: ${nc.sweeps} sweeps, ΔI/I = ${(100*nc.err).toExponential(1)}%`;
+}
+
+// ================= interaction: sample painting =================
+(function(){
+  let dragging=false, mode='vortex', lastX=0, lastY=0;
+  function toNm(e){
+    const r=cSample.getBoundingClientRect();
+    return [ (e.clientX-r.left)/r.width*Lnm, (e.clientY-r.top)/r.height*Lnm ];
+  }
+  cSample.addEventListener('pointerdown',(e)=>{
+    dragging=true; S.painting=true;
+    mode = e.shiftKey?'translate':(e.altKey?'smooth':'vortex');
+    const p=toNm(e); lastX=p[0]; lastY=p[1];
+    cSample.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  cSample.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    const p=toNm(e);
+    const dx=p[0]-lastX, dy=p[1]-lastY;
+    if(mode==='vortex'){
+      const dphi=(dx-dy)*4e-4*S.brushAmp;
+      applyVortex(p[0],p[1],dphi);
+    }else if(mode==='translate'){
+      applyTranslate(p[0],p[1],dx*0.15*S.brushAmp,dy*0.15*S.brushAmp);
+    }else{
+      applySmooth(p[0],p[1]);
+    }
+    lastX=p[0]; lastY=p[1];
+    computeFields();
+    renderSample(false);
+    e.preventDefault();
+  });
+  function up(){
+    if(!dragging) return;
+    dragging=false; S.painting=false;
+    afterFieldChange(true);
+    computeGmap();
+  }
+  cSample.addEventListener('pointerup',up);
+  cSample.addEventListener('pointercancel',up);
+  cSample.addEventListener('dblclick',(e)=>{
+    resetField();
+    afterFieldChange(false);
+    computeGmap();
+    e.preventDefault();
+  });
+})();
+
+// ================= interaction: operating point on G map =================
+(function(){
+  let dragging=false;
+  function apply(e){
+    const r=cGmap.getBoundingClientRect(), R=plotRect();
+    const px=(e.clientX-r.left)/r.width*cGmap.width;
+    const py=(e.clientY-r.top)/r.height*cGmap.height;
+    const nu=NU_MIN+clamp((px-R.x)/R.w,0,1)*(NU_MAX-NU_MIN);
+    const B=B_MIN+clamp(1-(py-R.y)/R.h,0,1)*(B_MAX-B_MIN);
+    S.nu0=Math.round(nu*50)/50; S.B0=Math.round(B*20)/20;
+    document.getElementById('nu0').value=String(S.nu0);
+    document.getElementById('B0').value=String(S.B0);
+    syncVals();
+    afterOpChange();
+  }
+  cGmap.addEventListener('pointerdown',(e)=>{ dragging=true; cGmap.setPointerCapture(e.pointerId); apply(e); e.preventDefault(); });
+  cGmap.addEventListener('pointermove',(e)=>{ if(dragging){ apply(e); e.preventDefault(); } });
+  cGmap.addEventListener('pointerup',()=>dragging=false);
+  cGmap.addEventListener('pointercancel',()=>dragging=false);
+  cGmap.addEventListener('dblclick',(e)=>{
+    S.gAutoscale=!S.gAutoscale;
+    drawGmap(null);
+    e.preventDefault();
+  });
+})();
+
+// ================= panel =================
+function q(id){ return document.getElementById(id); }
+function syncVals(){
+  q('theta0Val').textContent=S.theta0.toFixed(2)+'°';
+  q('magicWVal').textContent=S.magicW.toFixed(2)+'°';
+  q('nu0Val').textContent=(S.nu0<0?'−':'')+Math.abs(S.nu0).toFixed(2);
+  q('B0Val').textContent=S.B0.toFixed(2)+' T';
+  q('ovAlphaVal').textContent=S.ovAlpha.toFixed(2);
+}
+function bindUI(){
+  q('theta0').addEventListener('input',()=>{ S.theta0=Number(q('theta0').value); syncVals(); afterFieldChange(true); computeGmap(); });
+  q('brushSig').addEventListener('input',()=>S.brushSig=Number(q('brushSig').value)||60);
+  q('brushAmp').addEventListener('input',()=>S.brushAmp=Number(q('brushAmp').value)||1);
+  q('rndAmp').addEventListener('input',()=>S.rndAmp=Number(q('rndAmp').value)||0);
+  q('rndXi').addEventListener('input',()=>S.rndXi=Number(q('rndXi').value)||80);
+  q('rndBtn').onclick=()=>{ randomDisorder(); afterFieldChange(true); computeGmap(); };
+  q('resetBtn').onclick=()=>{ resetField(); afterFieldChange(false); computeGmap(); };
+  q('ovAlpha').addEventListener('input',()=>{ S.ovAlpha=Number(q('ovAlpha').value); syncVals(); renderSample(true); });
+  q('phaseModel').addEventListener('change',()=>{ S.phaseModel=q('phaseModel').value; afterOpChange(); computeGmap(); });
+  q('thetaM').addEventListener('input',()=>{ S.thetaM=Number(q('thetaM').value)||1.06; buildSampleList(); afterOpChange(); computeGmap(); });
+  q('magicW').addEventListener('input',()=>{ S.magicW=Number(q('magicW').value); syncVals(); afterOpChange(); computeGmap(); });
+  q('nu0').addEventListener('input',()=>{ S.nu0=Number(q('nu0').value); syncVals(); afterOpChange(); });
+  q('B0').addEventListener('input',()=>{ S.B0=Number(q('B0').value); syncVals(); afterOpChange(); });
+  q('transModel').addEventListener('change',()=>{ S.transModel=q('transModel').value; computeGmap(); });
+  q('contacts').addEventListener('change',()=>{
+    S.contacts=q('contacts').value;
+    geomFactor=0;                       // re-derive the geometry normalisation
+    netCache.t=-1e9;
+    renderPhase();                      // redraw pads
+    if(S.transModel==='net') computeGmap(); else setStatus();
+  });
+  q('arrangement').addEventListener('change',()=>{
+    S.arrangement=q('arrangement').value;
+    buildArrangement();
+    computePhaseMap();
+    renderPhase();
+    netCache.t=-1e9;                    // force fresh network G
+    if(S.transModel==='net') computeGmap();
+    else setStatus();                   // EMA map is arrangement-invariant — the lesson
+  });
+  q('gQuant').addEventListener('change',()=>{
+    S.gQuant=q('gQuant').value;
+    q('capG').innerHTML=G_QUANT_LABEL[S.gQuant]+' (ν<sub>0</sub>, B)';
+    drawGmap(null);
+    setStatus();
+  });
+  q('gmapBtn').onclick=()=>computeGmap();
+
+  const panel=q('panel');
+  let inPanel=false;
+  q('pinPanel').addEventListener('change',()=>{ S.panelPinned=q('pinPanel').checked; if(S.panelPinned) panel.classList.add('visible'); });
+  window.addEventListener('mousemove',(e)=>{
+    if(S.panelPinned) return;
+    panel.classList.toggle('visible', (e.clientX>=window.innerWidth-36)||inPanel);
+  });
+  panel.addEventListener('mouseenter',()=>{ inPanel=true; panel.classList.add('visible'); });
+  panel.addEventListener('mouseleave',()=>{ inPanel=false; if(!S.panelPinned) panel.classList.remove('visible'); });
+
+  window.addEventListener('keydown',(e)=>{
+    const t=e.target, tag=(t&&t.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea'||tag==='select'||(t&&t.isContentEditable)) return;
+    if(e.key==='r'||e.key==='R'){ resetField(); afterFieldChange(false); computeGmap(); }
+    else if(e.key==='g'||e.key==='G'){ computeGmap(); }
+  });
+}
+
+// ================= boot =================
+(function boot(){
+  bindUI();
+  syncVals();
+  resetField();               // start pristine — no strain
+  afterFieldChange(false);
+  computeGmap();
+  const panel=document.getElementById('panel');
+  panel.classList.add('visible');
+  setTimeout(()=>{ if(!S.panelPinned) panel.classList.remove('visible'); }, 2600);
+  window.__BOOTED__=true;
+})();
+
+</script>
+</body></html>

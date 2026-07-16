@@ -1,0 +1,13 @@
+{
+  "slug": "graphene-md",
+  "name": "Graphene Molecular Dynamics",
+  "description": "A bilayer-graphene MD sandbox: the top sheet is a live molecular-dynamics model with breakable Morse C–C bonds, angle and bending stiffness, resting on a rigid graphene substrate via Lennard-Jones forces. Push mesas, bumps or air bubbles up through the sheet.",
+  "status": "live",
+  "url": "tools/graphene-md/index.html",
+  "icon": "atom",
+  "tags": [
+    "simulations",
+    "visualisations",
+    "educational"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "slug": "graphene-antidot-lattice",
+  "name": "Graphene Antidot Lattice",
+  "description": "A honeycomb carbon sheet patterned with a triangular lattice of holes — explore how antidot geometry (hole size, spacing) shapes the resulting lattice and its edges.",
+  "status": "live",
+  "url": "tools/graphene-antidot-lattice/index.html",
+  "icon": "atom",
+  "tags": [
+    "visualisations",
+    "educational"
+  ]
+}

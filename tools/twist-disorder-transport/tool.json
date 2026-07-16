@@ -1,0 +1,13 @@
+{
+  "slug": "twist-disorder-transport",
+  "name": "Twist Disorder & Transport",
+  "description": "Paint twist-angle disorder into a magic-angle bilayer sample and watch the phase map fragment — a mock transport map G(ν₀, B) is computed from the resulting conductor/insulator mixture with effective-medium or resistor-network models.",
+  "status": "live",
+  "url": "tools/twist-disorder-transport/index.html",
+  "icon": "transport",
+  "tags": [
+    "simulations",
+    "visualisations",
+    "educational"
+  ]
+}

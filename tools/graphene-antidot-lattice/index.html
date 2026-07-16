@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!--
+PROTOTYPE_PERMISSION_NOTICE
+Peter Bøggild, pbog@dtu.dk. DTU Physics, Technical University of Denmark.
+Graphene antidot lattice — real holes made by removing atoms from the honeycomb.
+Visualisation only (no dynamics).
+-->
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Graphene antidot lattice</title>
+<style>
+  :root{ --panel:340px; }
+  html,body{ margin:0; height:100%; background:#fff; color:#1a2233;
+    font-family: system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial; }
+  #app{ height:100vh; width:100vw; overflow:hidden; position:relative; }
+  canvas{ display:block; width:100%; height:100%; background:#fff; cursor:crosshair; }
+
+  /* slide-in control panel (hidden until the corner toggle is used) */
+  #panel{
+    position:fixed; top:0; right:0; width:var(--panel); height:100vh;
+    border-left:1px solid #e7eaf0; background:#fff; box-sizing:border-box;
+    padding:16px 16px 20px; overflow:auto; transform:translateX(100%);
+    transition:transform 180ms ease; z-index:20;
+  }
+  #panel.visible{ transform:translateX(0); }
+  #panel h1{ font-size:14px; margin:0 0 2px; }
+  #panel .note{ font-size:11px; color:#6b7890; margin:0 0 14px; line-height:1.45; }
+  .ctrl{ margin:11px 0; }
+  .ctrl .row{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .ctrl label{ font-size:12px; font-weight:600; color:#37465e; }
+  .ctrl .val{ font-size:11px; font-family:"Consolas",monospace; color:#0b57d0; white-space:nowrap; }
+  .ctrl input[type=range]{ width:100%; accent-color:#0b57d0; margin-top:3px; }
+  .check{ display:flex; align-items:center; gap:7px; font-size:12px; color:#37465e; margin:9px 0; }
+  .metrics{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:14px; }
+  .met{ background:#f6f8fc; border:1px solid #eef1f6; border-radius:7px; padding:6px 8px; }
+  .met .k{ font-size:10px; color:#6b7890; }
+  .met .v{ font-size:12px; font-weight:700; font-family:"Consolas",monospace; }
+  .hint{ font-size:11px; color:#6b7890; margin-top:14px; line-height:1.5;
+    border-top:1px solid #eef1f6; padding-top:10px; }
+  .swatch{ display:inline-block; width:9px; height:9px; border-radius:50%; vertical-align:middle; margin:0 3px; }
+
+</style>
+</head>
+<body>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.
+-->
+<script>
+  window.SIM_INFO = {
+    title: "Graphene antidot lattice",
+    about: "A honeycomb sheet of carbon atoms with a triangular lattice of holes " +
+           "cut out by physically <b>removing</b> atoms. Atoms whose neighbour has " +
+           "been removed are marked red (dangling bonds on the hole edge). " +
+           "The band-gap estimate uses the Pedersen scaling <i>E<sub>g</sub> ∝ N<sub>rem</sub>/N<sub>tot</sub></i>.",
+    howto: [
+      "Drag the empty area to <b>pan</b> the sheet.",
+      "Use the mouse <b>wheel</b> to zoom in and out.",
+      "Hover the right edge to open the parameter panel (period, hole size, sheet size, …).",
+      "Toggle bonds, edge-atom highlighting, hexagonal vs. circular holes, and the band-gap plot from the panel."
+    ],
+    shortcuts: [
+      ["Shift + drag", "change antidot period"],
+      ["Ctrl + drag",  "change hole size"],
+      ["Wheel",        "zoom"],
+      ["Drag",         "pan"],
+      ["I",            "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
+
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <aside id="panel">
+    <h1>Graphene antidot lattice</h1>
+    <p class="note">Real holes: atoms are <b>removed</b> from the honeycomb. Under-coordinated
+      atoms on a hole edge are drawn <span class="swatch" style="background:#d23b30"></span>red,
+      bulk atoms <span class="swatch" style="background:#6a6a6a"></span>grey.</p>
+
+    <div class="ctrl">
+      <div class="row"><label for="period">Antidot period</label><span class="val" id="periodVal"></span></div>
+      <input id="period" type="range" min="5" max="106" step="0.5" value="21.13">
+    </div>
+    <div class="ctrl">
+      <div class="row"><label for="hole">Hole size (radius)</label><span class="val" id="holeVal"></span></div>
+      <input id="hole" type="range" min="0" max="21" step="0.25" value="0">
+    </div>
+    <div class="ctrl">
+      <div class="row"><label for="cells">Sheet size (cells)</label><span class="val" id="cellsVal"></span></div>
+      <input id="cells" type="range" min="30" max="200" step="2" value="84">
+    </div>
+    <div class="ctrl">
+      <div class="row"><label for="rad">Atom size</label><span class="val" id="radVal"></span></div>
+      <input id="rad" type="range" min="0.12" max="0.46" step="0.01" value="0.30">
+    </div>
+
+    <label class="check"><input id="showBonds" type="checkbox" checked> Show bonds</label>
+    <label class="check"><input id="showEdge" type="checkbox" checked> Mark edge atoms red</label>
+    <label class="check"><input id="hexHoles" type="checkbox"> Hexagonal holes (else circular)</label>
+    <label class="check"><input id="showEgPlot" type="checkbox" checked> Show band-gap plot (E<sub>g</sub>)</label>
+
+    <div class="metrics">
+      <div class="met"><div class="k">atoms drawn</div><div class="v" id="mAtoms">–</div></div>
+      <div class="met"><div class="k">removed</div><div class="v" id="mRemoved">–</div></div>
+      <div class="met"><div class="k">edge atoms</div><div class="v" id="mEdge">–</div></div>
+      <div class="met"><div class="k">hole ⌀</div><div class="v" id="mHole">–</div></div>
+      <div class="met"><div class="k">period</div><div class="v" id="mPeriod">–</div></div>
+      <div class="met"><div class="k">neck width</div><div class="v" id="mNeck">–</div></div>
+      <div class="met" style="grid-column:1 / -1;"><div class="k">band gap E<sub>g</sub> (Pedersen et al.)</div><div class="v" id="mEg" style="color:#d23b30;">–</div></div>
+    </div>
+
+    <div class="hint">
+      Pan = drag · Zoom = wheel<br>
+      <b>Shift-drag</b> = antidot period · <b>Ctrl-drag</b> = hole size<br>
+      Sizes in units of C–C bond (a<sub>cc</sub> = 0.142 nm).
+    </div>
+  </aside>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const $ = s => document.querySelector(s);
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  const SQ3 = Math.sqrt(3);
+  const A_CC_NM = 0.142;               // C–C bond length (nm); world unit L0 = 1 = a_cc
+
+  const cv = $("#cv"), ctx = cv.getContext("2d");
+
+  // ── lattice state ──────────────────────────────────────────────────────────
+  let n = 84;                          // cells per side
+  let X = null, Y = null, N = 0;       // atom positions (typed) and count
+  let removed = null, edge = null;
+  let cx = 0, cy = 0, bbox = [0,0,0,0];
+
+  const view = { scale: 26, origin:[0,0] };
+  const params = { P: 3/A_CC_NM, R: 0, rad: 0.30, bonds:true, markEdge:true, hex:false, showEg:true }; // period 3 nm, no holes
+
+  function idx(i,j,s){ return (j*n+i)*2 + s; }
+
+  function build(){
+    n = +$("#cells").value;
+    N = 2*n*n;
+    X = new Float32Array(N); Y = new Float32Array(N);
+    removed = new Uint8Array(N); edge = new Uint8Array(N);
+    // honeycomb basis (L0 = 1)
+    const a1x = SQ3, a1y = 0, a2x = SQ3/2, a2y = 1.5;
+    const Bx = SQ3/2, By = 0.5;
+    let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+    for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+      const Rx = i*a1x + j*a2x, Ry = i*a1y + j*a2y;
+      const ia = idx(i,j,0), ib = idx(i,j,1);
+      X[ia]=Rx;      Y[ia]=Ry;
+      X[ib]=Rx+Bx;   Y[ib]=Ry+By;
+      if(Rx<minx)minx=Rx; if(Rx+Bx>maxx)maxx=Rx+Bx;
+      if(Ry<miny)miny=Ry; if(Ry+By>maxy)maxy=Ry+By;
+    }
+    bbox=[minx,miny,maxx,maxy];
+    cx=(minx+maxx)/2; cy=(miny+maxy)/2;
+  }
+
+  // ── remove atoms inside the antidot lattice, flag hole-edge atoms ───────────
+  function recompute(){
+    const P = params.P, R = params.R, R2 = R*R;
+    const hex = params.hex;
+    const halfw = P*SQ3/2;             // triangular hole-lattice row spacing
+    for(let a=0;a<N;a++){
+      const dx = X[a]-cx, dy = Y[a]-cy;
+      // nearest triangular hole-lattice site (oblique coords), check 3×3 around it
+      const k0 = dy/halfw, m0 = dx/P - k0/2;
+      const mr = Math.round(m0), kr = Math.round(k0);
+      let mind = Infinity, hxBest=0, hyBest=0;
+      for(let dk=-1;dk<=1;dk++) for(let dm=-1;dm<=1;dm++){
+        const m=mr+dm, k=kr+dk;
+        const hx = cx + m*P + k*P/2, hy = cy + k*halfw;
+        const ex=X[a]-hx, ey=Y[a]-hy, d=ex*ex+ey*ey;
+        if(d<mind){ mind=d; hxBest=hx; hyBest=hy; }
+      }
+      let inside;
+      if(hex){
+        // regular hexagon of "radius" R (flat-to-vertex), pointy-top
+        const ex=X[a]-hxBest, ey=Y[a]-hyBest;
+        const q = Math.abs(ex), r = Math.abs(ey);
+        inside = (r <= R*0.8660254) && (q*0.8660254 + r*0.5 <= R*0.8660254);
+      } else {
+        inside = mind <= R2;
+      }
+      removed[a] = inside ? 1 : 0;
+    }
+    // edge = present atom that has a nearest-neighbour removed by a hole
+    for(let a=0;a<N;a++){
+      if(removed[a]){ edge[a]=0; continue; }
+      const s=a&1, cell=a>>1, i=cell%n, j=(cell-i)/n;
+      let e=0;
+      if(s===0){
+        if(removed[(j*n+i)*2+1]) e=1;
+        else if(i>0 && removed[(j*n+i-1)*2+1]) e=1;
+        else if(j>0 && removed[((j-1)*n+i)*2+1]) e=1;
+      } else {
+        if(removed[(j*n+i)*2]) e=1;
+        else if(i+1<n && removed[(j*n+i+1)*2]) e=1;
+        else if(j+1<n && removed[((j+1)*n+i)*2]) e=1;
+      }
+      edge[a]=e;
+    }
+    updateMetrics();
+  }
+
+  // ── view transforms ─────────────────────────────────────────────────────────
+  function w2sx(x){ const r=cv.getBoundingClientRect(); return (x-view.origin[0])*view.scale + r.width*0.5; }
+  function w2sy(y){ const r=cv.getBoundingClientRect(); return (y-view.origin[1])*view.scale + r.height*0.5; }
+  function fitView(){
+    const r=cv.getBoundingClientRect();
+    const w=bbox[2]-bbox[0], h=bbox[3]-bbox[1];
+    view.scale = 0.92*Math.min(r.width/w, r.height/h);
+    view.origin=[cx,cy];
+  }
+
+  // ── drawing ──────────────────────────────────────────────────────────────────
+  function draw(){
+    const r=cv.getBoundingClientRect();
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,r.width,r.height);
+    if(!removed || N===0) return;
+    const ox=view.origin[0], oy=view.origin[1], sc=view.scale, hw=r.width*0.5, hh=r.height*0.5;
+    const sx = x => (x-ox)*sc + hw, sy = y => (y-oy)*sc + hh;
+
+    // bonds (thin light grey, only between two present atoms) — batched
+    if(params.bonds){
+      ctx.strokeStyle="rgba(120,128,142,0.5)";
+      ctx.lineWidth=Math.max(0.5, 0.055*sc);
+      ctx.beginPath();
+      for(let j=0;j<n;j++) for(let i=0;i<n;i++){
+        const ia=idx(i,j,0); if(removed[ia]) continue;
+        const ax=sx(X[ia]), ay=sy(Y[ia]);
+        // A→B(i,j), B(i-1,j), B(i,j-1)
+        let b=idx(i,j,1); if(!removed[b]){ ctx.moveTo(ax,ay); ctx.lineTo(sx(X[b]),sy(Y[b])); }
+        if(i>0){ b=idx(i-1,j,1); if(!removed[b]){ ctx.moveTo(ax,ay); ctx.lineTo(sx(X[b]),sy(Y[b])); } }
+        if(j>0){ b=idx(i,j-1,1); if(!removed[b]){ ctx.moveTo(ax,ay); ctx.lineTo(sx(X[b]),sy(Y[b])); } }
+      }
+      ctx.stroke();
+    }
+
+    const rr = Math.max(0.6, params.rad*sc);
+    // grey (bulk) atoms — one batched fill
+    ctx.fillStyle="#6a6a6a"; ctx.beginPath();
+    for(let a=0;a<N;a++){ if(removed[a] || (params.markEdge && edge[a])) continue;
+      const px=sx(X[a]), py=sy(Y[a]); ctx.moveTo(px+rr,py); ctx.arc(px,py,rr,0,6.28318530718); }
+    ctx.fill();
+    // red (edge) atoms — one batched fill
+    if(params.markEdge){
+      ctx.fillStyle="#d23b30"; ctx.beginPath();
+      for(let a=0;a<N;a++){ if(removed[a] || !edge[a]) continue;
+        const px=sx(X[a]), py=sy(Y[a]); ctx.moveTo(px+rr,py); ctx.arc(px,py,rr,0,6.28318530718); }
+      ctx.fill();
+    }
+
+    if(params.showEg) drawBandgapInset(r.width);
+    drawScaleBar(r.width, r.height);
+  }
+
+  // ── scale bar (lower-left) ──────────────────────────────────────────────────
+  // White framed box, black bar + black label. Auto-picks a "nice" length in nm
+  // from the ladder so the on-screen bar sits comfortably in ~60–160 px.
+  function drawScaleBar(rw, rh){
+    const pxPerNm = view.scale / A_CC_NM;
+    const NICE = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+    const minPx = 60, maxPx = 160;
+    let nm = 5;                                        // default
+    for(let i=0;i<NICE.length;i++){
+      const w = NICE[i]*pxPerNm;
+      if(w >= minPx && w <= maxPx){ nm = NICE[i]; break; }
+      if(w > maxPx){ nm = NICE[i]; break; }             // very zoomed-in: smallest that overflows
+      nm = NICE[i];                                     // very zoomed-out: largest that still fits below minPx
+    }
+    const barPx = nm * pxPerNm;
+    const label = nm + " nm";
+    ctx.font = "600 12px system-ui";
+    const textW = ctx.measureText(label).width;
+    const padX = 10, padY = 7, barH = 6, gap = 5, textH = 12;
+    const boxW = Math.max(barPx, textW) + padX*2;
+    const boxH = barH + gap + textH + padY*2;
+    const bx = 12, by = rh - boxH - 12;
+    // white frame
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(bx+0.5, by+0.5, boxW-1, boxH-1); ctx.fill(); ctx.stroke();
+    // black bar
+    const barX = bx + (boxW - barPx)/2;
+    const barY = by + padY;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(barX, barY, barPx, barH);
+    // black label
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(label, bx + boxW/2, barY + barH + gap);
+  }
+
+  function updateMetrics(){
+    let rem=0, ed=0;
+    for(let a=0;a<N;a++){ if(removed[a]) rem++; else if(edge[a]) ed++; }
+    $("#mAtoms").textContent   = (N-rem).toLocaleString();
+    $("#mRemoved").textContent = rem.toLocaleString();
+    $("#mEdge").textContent    = ed.toLocaleString();
+    $("#mHole").textContent    = (2*params.R*A_CC_NM).toFixed(2)+" nm";
+    $("#mPeriod").textContent  = (params.P*A_CC_NM).toFixed(2)+" nm";
+    const neck = Math.max(0, params.P - 2*params.R);
+    $("#mNeck").textContent    = (neck*A_CC_NM).toFixed(2)+" nm";
+    const d = bandgapData();
+    $("#mEg").textContent      = d.Eg.toFixed(2)+" eV   (√N_rem/N_tot = "+d.xr.toFixed(3)+")";
+  }
+
+  // ── Graphene antidot band gap ────────────────────────────────────────────────
+  // Pedersen, Flindt, Pedersen, Mortensen, Jauho & Pedersen, PRL 100, 136804
+  // (2008), Fig. 3:  E_g[eV] = 25 · √(N_removed) / N_total, with N counted per
+  // antidot unit cell.  Density ρ = 2 atoms / (3√3/2 · a_cc²) = 0.76980 / a_cc².
+  //   triangular hole-lattice cell area = (√3/2)·P²  →  N_total = (2/3)·P²
+  //   circular hole area = π R²  (hexagonal: (3√3/2)R²)  →  N_removed = ρ·area
+  const RHO = 0.769800;   // C atoms per a_cc²
+  function bandgapData(){
+    const P=params.P, R=params.R;
+    const Ntot = (2/3)*P*P;
+    const holeArea = params.hex ? (3*SQ3/2)*R*R : Math.PI*R*R;
+    const Nrem = RHO*holeArea;
+    const xr = Ntot>0 ? Math.sqrt(Nrem)/Ntot : 0;   // √N_removed / N_total
+    return { xr, Eg: 25*xr, Ntot, Nrem };
+  }
+  function drawBandgapInset(rw){
+    const d = bandgapData();
+    const W=214, H=178, m=14, bx=rw-W-m, by=m;
+    ctx.fillStyle="rgba(255,255,255,0.93)"; ctx.strokeStyle="#dbe1ea"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.rect(bx+0.5,by+0.5,W-1,H-1); ctx.fill(); ctx.stroke();
+    const L=bx+40, Rr=bx+W-12, T=by+30, B=by+H-52;
+    const xMax=0.06, yMax=1.5;
+    const PX = v => L + (Math.min(v,xMax)/xMax)*(Rr-L);
+    const PY = v => B - (Math.min(v,yMax)/yMax)*(B-T);
+    // title + live value
+    ctx.fillStyle="#37465e"; ctx.font="600 11px system-ui"; ctx.textAlign="left"; ctx.textBaseline="top";
+    ctx.fillText("Band gap", bx+10, by+8);
+    ctx.font="700 12px 'Consolas',monospace"; ctx.fillStyle="#d23b30"; ctx.textAlign="right";
+    ctx.fillText("E_g ≈ "+d.Eg.toFixed(2)+" eV", bx+W-10, by+8);
+    // axes
+    ctx.strokeStyle="#aab2bd"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(L,T); ctx.lineTo(L,B); ctx.lineTo(Rr,B); ctx.stroke();
+    // fit line  E_g = 25·x
+    ctx.strokeStyle="#222"; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(PX(0),PY(0)); ctx.lineTo(PX(xMax),PY(25*xMax)); ctx.stroke();
+    // current antidot
+    ctx.fillStyle="#d23b30"; ctx.beginPath(); ctx.arc(PX(d.xr),PY(d.Eg),5,0,6.2832); ctx.fill();
+    ctx.strokeStyle="#fff"; ctx.lineWidth=1.6; ctx.stroke();
+    // ticks + axis labels
+    ctx.fillStyle="#9aa6b5"; ctx.font="9px system-ui";
+    ctx.textAlign="right"; ctx.textBaseline="middle";
+    ctx.fillText("1.0", L-4, PY(1.0)); ctx.fillText("0", L-4, PY(0));
+    ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText("0.04", PX(0.04), B+3);
+    ctx.fillStyle="#6b7890"; ctx.font="9.5px system-ui";
+    ctx.fillText("√N_rem / N_total", (L+Rr)/2, B+14);
+    ctx.save(); ctx.translate(bx+11,(T+B)/2); ctx.rotate(-Math.PI/2);
+    ctx.textAlign="center"; ctx.textBaseline="bottom"; ctx.fillText("E_g [eV]",0,0); ctx.restore();
+    // footer: current period & hole diameter in nm (1 decimal)
+    ctx.strokeStyle="#eef1f6"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(bx+10, by+H-26); ctx.lineTo(bx+W-10, by+H-26); ctx.stroke();
+    ctx.fillStyle="#37465e"; ctx.font="700 11px 'Consolas',monospace"; ctx.textAlign="center"; ctx.textBaseline="bottom";
+    ctx.fillText("period "+(params.P*A_CC_NM).toFixed(1)+" nm    ·    hole ⌀ "+(2*params.R*A_CC_NM).toFixed(1)+" nm", bx+W/2, by+H-9);
+  }
+
+  // ── controls ─────────────────────────────────────────────────────────────────
+  function clampHole(){ params.R = clamp(params.R, 0, 0.48*params.P); }
+  function syncLabels(){
+    $("#periodVal").textContent = params.P.toFixed(1)+" a  ("+(params.P*A_CC_NM).toFixed(2)+" nm)";
+    $("#holeVal").textContent   = params.R.toFixed(2)+" a  (⌀ "+(2*params.R*A_CC_NM).toFixed(2)+" nm)";
+    $("#cellsVal").textContent  = n+"×"+n+"  ("+N.toLocaleString()+" sites)";
+    $("#radVal").textContent    = params.rad.toFixed(2)+" a";
+    $("#period").value=params.P; $("#hole").value=params.R; $("#rad").value=params.rad;
+  }
+  function refresh(){ clampHole(); recompute(); syncLabels(); draw(); }
+  function rebuild(){ build(); fitView(); refresh(); }
+
+  $("#period").addEventListener("input", e=>{ params.P=+e.target.value; refresh(); });
+  $("#hole").addEventListener("input",   e=>{ params.R=+e.target.value; refresh(); });
+  $("#cells").addEventListener("input",  e=>{ n=+e.target.value; rebuild(); });
+  $("#rad").addEventListener("input",    e=>{ params.rad=+e.target.value; syncLabels(); draw(); });
+  $("#showBonds").addEventListener("change", e=>{ params.bonds=e.target.checked; draw(); });
+  $("#showEdge").addEventListener("change",  e=>{ params.markEdge=e.target.checked; draw(); });
+  $("#hexHoles").addEventListener("change",  e=>{ params.hex=e.target.checked; refresh(); });
+  $("#showEgPlot").addEventListener("change", e=>{ params.showEg=e.target.checked; draw(); });
+
+  // ── control panel: reveal by hovering the right edge, hide on leave ───────────
+  const panel=$("#panel");
+  window.addEventListener("mousemove", (e)=>{
+    if(e.clientX >= window.innerWidth - 34) panel.classList.add("visible");
+  });
+  // Close when the pointer leaves the panel — but not mid-drag (e.buttons set).
+  panel.addEventListener("mouseleave", (e)=>{ if(e.buttons===0) panel.classList.remove("visible"); });
+
+  // ── pan / zoom / shift+ctrl-drag shortcuts ───────────────────────────────────
+  let panning=false, last=[0,0];
+  const drag={ active:false, mode:null, sx:0, sy:0, P0:0, R0:0 };
+  cv.addEventListener("mousedown", e=>{
+    if(e.shiftKey || e.ctrlKey || e.metaKey){
+      drag.active=true; drag.mode = e.shiftKey ? "period" : "hole";
+      drag.sx=e.clientX; drag.sy=e.clientY; drag.P0=params.P; drag.R0=params.R;
+      cv.style.cursor="ns-resize"; e.preventDefault(); return;
+    }
+    panning=true; last=[e.clientX,e.clientY]; cv.style.cursor="move";
+  });
+  window.addEventListener("mouseup", ()=>{ drag.active=false; drag.mode=null; panning=false; cv.style.cursor="crosshair"; });
+  window.addEventListener("mousemove", e=>{
+    if(drag.active){
+      const dy = drag.sy - e.clientY, dx = e.clientX - drag.sx;
+      const d = Math.abs(dx)>Math.abs(dy) ? dx : dy;
+      if(drag.mode==="period"){ params.P = clamp(drag.P0 + d*0.06, 5, 106); }
+      else { params.R = clamp(drag.R0 + d*0.045, 0, 21); }
+      refresh(); return;
+    }
+    if(panning){
+      const dx=e.clientX-last[0], dy=e.clientY-last[1]; last=[e.clientX,e.clientY];
+      view.origin[0]-=dx/view.scale; view.origin[1]-=dy/view.scale; draw();
+    }
+  });
+  cv.addEventListener("wheel", e=>{ e.preventDefault();
+    const f=Math.exp(-e.deltaY*0.0012); view.scale=clamp(view.scale*f, 3, 240); draw();
+  }, {passive:false});
+
+  // ── DPR-crisp resize ─────────────────────────────────────────────────────────
+  function resize(){
+    const dpr=Math.max(1,Math.min(window.devicePixelRatio||1,3));
+    const r=cv.getBoundingClientRect();
+    cv.width=Math.max(2,Math.round(r.width*dpr));
+    cv.height=Math.max(2,Math.round(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+  window.addEventListener("resize", ()=>{ resize(); });
+
+  // ── init ─────────────────────────────────────────────────────────────────────
+  build(); fitView(); resize(); refresh();
+})();
+</script>
+</body>
+</html>

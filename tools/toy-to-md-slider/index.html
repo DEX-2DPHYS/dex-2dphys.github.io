@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toy model → Molecular Dynamics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  * { box-sizing: border-box; }
+  #app {
+    min-height: 100vh; background: #fff; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; padding: 5vh 0;
+    font-family: 'Instrument Sans', Helvetica, Arial, sans-serif; color: #1c1c1a;
+    user-select: none;
+  }
+  .wrap { width: min(1400px, 92vw); display: flex; flex-direction: column; gap: 2.5vh; }
+  .canvas-wrap { align-self: center; width: min(880px, 100%); }
+  canvas { width: 100%; height: 300px; display: block; }
+  .eq {
+    align-self: center; height: 160px; display: flex; align-items: center;
+    justify-content: center; color: #2a2a26;
+  }
+  .eq-col { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+  .text { max-width: 840px; align-self: center; text-align: center; height: 200px; }
+  .headline { font-size: clamp(25px, 2.5vw, 36px); font-weight: 700; line-height: 1.18; letter-spacing: -0.015em; margin-bottom: 16px; text-wrap: balance; }
+  .body { font-size: clamp(15px, 1.2vw, 18px); line-height: 1.6; color: #55554f; text-wrap: pretty; }
+  .ends { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 22px; }
+  .ends div { font-size: clamp(17px, 1.5vw, 23px); font-weight: 700; letter-spacing: -0.01em; }
+  .track { position: relative; height: 56px; cursor: pointer; touch-action: none; margin-bottom: 44px; }
+  .rail { position: absolute; left: 0; right: 0; top: 50%; height: 12px; transform: translateY(-50%); border-radius: 6px;
+          background: linear-gradient(90deg, oklch(0.58 0.16 25), oklch(0.68 0.14 75), oklch(0.62 0.15 145)); }
+  .rest { position: absolute; right: 0; top: 50%; height: 12px; transform: translateY(-50%); border-radius: 0 6px 6px 0;
+          background: rgba(255,255,255,0.78); transition: width 0.35s cubic-bezier(0.22,1,0.36,1); }
+  .stop { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .stop-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #cccbc6; background: #fff; box-sizing: border-box; transition: all 0.25s ease; }
+  .thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); transition: left 0.35s cubic-bezier(0.22,1,0.36,1); pointer-events: none; }
+  .thumb-dot { width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 3px solid #1c1c1a; box-sizing: border-box; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
+  .num { position: absolute; top: 60px; transform: translateX(-50%); font-size: 22px; color: #b5b4af; transition: color 0.25s ease; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="wrap">
+    <div class="canvas-wrap"><canvas id="cv"></canvas></div>
+    <div class="eq" id="eq"></div>
+    <div class="text">
+      <div class="headline" id="headline"></div>
+      <div class="body" id="body"></div>
+    </div>
+    <div class="ends"><div>Toy model</div><div>Molecular Dynamics</div></div>
+    <div class="track" id="track">
+      <div class="rail"></div>
+      <div class="rest" id="rest"></div>
+      <div class="thumb" id="thumb"><div class="thumb-dot"></div></div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var stops = [
+    { hue: 250, headline: "Ball-and-spring visualisation",
+      body: "Simple pairwise springs on a honeycomb lattice — qualitative dynamics for intuition and idea generation. Arbitrary units, no thermostat, no real energy scale." },
+    { hue: 205, headline: "Harmonic lattice with realistic parameters",
+      body: "Force constants fitted to graphene's phonon spectrum, correct C–C bond length and carbon mass. Real units (eV, Å, fs) with proper Verlet integration. Small-amplitude physics is quantitatively right — but bonds can never break." },
+    { hue: 160, headline: "Anharmonic valence force fields",
+      body: "Angular terms for local curvature stiffness, dihedrals for out-of-plane bending rigidity, Lennard-Jones for interlayer and substrate interactions. Captures rippling, bending modulus and stacking — connectivity still fixed." },
+    { hue: 35, headline: "Reactive bond-order potentials",
+      body: "Tersoff/Brenner, REBO/AIREBO or ReaxFF: bond order depends on the local environment, so bonds break and reform. Proper ensembles (Nosé–Hoover, NPT), periodic boundaries, defect and edge chemistry — the standard for fracture, vacancies and CVD growth." },
+    { hue: 320, headline: "Machine-learned, first-principles-accurate potentials",
+      body: "GAP, NequIP/MACE or moment-tensor potentials trained on DFT data reproduce quantum energy surfaces across phases and defects. Registry-dependent interlayer potentials (Kolmogorov–Crespi) for twisted bilayers and moiré relaxation; long timescales via accelerated sampling." },
+  ];
+  var N = stops.length, idx = 0, sim = null;
+
+  function accent(i, l, c) { return "oklch(" + (l == null ? 0.52 : l) + " " + (c == null ? 0.1 : c) + " " + stops[i].hue + ")"; }
+
+  function V(i, u) {
+    if (i === 1) return 0.5 * u * u;
+    if (i === 2 || i === 3) { var e = Math.exp(-1.2 * u); return (1 - e) * (1 - e); }
+    if (i === 4) { var q = (u / 1.9) * (u / 1.9) - 1; return 0.9 * q * q + 0.05 * Math.sin(3.2 * u); }
+    return 0;
+  }
+  function domain(i) { return [[-1,1],[-1.5,1.5],[-0.5,4.4],[-0.5,4.4],[-2.7,2.7]][i]; }
+  function initSim(i) {
+    if (i === 2) return { x: 0.85 };
+    if (i === 3) return { x: 3.5 };
+    if (i === 4) return { x: -1.9 };
+    return { x: 0.85 };
+  }
+
+  function eqLines(i) {
+    var f = "<mfrac><mn>1</mn><mn>2</mn></mfrac>";
+    if (i === 0) return [
+      "<math><mi>F</mi><mo>=</mo><mo>&#8722;</mo><mi>k</mi><mspace width='.15em'></mspace><mi>x</mi><mspace width='1.6em'></mspace><mi>V</mi><mo>=</mo>" + f + "<mi>k</mi><msup><mi>x</mi><mn>2</mn></msup></math>" ];
+    if (i === 1) return [
+      "<math><mi>V</mi><mo>(</mo><mi>r</mi><mo>)</mo><mo>=</mo>" + f + "<mi>k</mi><msup><mrow><mo>(</mo><mi>r</mi><mo>&#8722;</mo><msub><mi>r</mi><mn>0</mn></msub><mo>)</mo></mrow><mn>2</mn></msup></math>",
+      "<math><mi>m</mi><mover><mi>r</mi><mo>&#168;</mo></mover><mo>=</mo><mo>&#8722;</mo><mfrac><mrow><mi>d</mi><mi>V</mi></mrow><mrow><mi>d</mi><mi>r</mi></mrow></mfrac><mspace width='1.6em'></mspace><msub><mi>r</mi><mn>0</mn></msub><mo>=</mo><mn>1.42</mn><mspace width='.25em'></mspace><mtext>&#8491;</mtext></math>" ];
+    if (i === 2) return [
+      "<math><msub><mi>V</mi><mtext>bond</mtext></msub><mo>=</mo>" + f + "<msub><mi>k</mi><mi>r</mi></msub><msup><mrow><mo>(</mo><mi>r</mi><mo>&#8722;</mo><msub><mi>r</mi><mn>0</mn></msub><mo>)</mo></mrow><mn>2</mn></msup></math>",
+      "<math><msub><mi>V</mi><mtext>angle</mtext></msub><mo>=</mo>" + f + "<msub><mi>k</mi><mi>&#952;</mi></msub><msup><mrow><mo>(</mo><mi>&#952;</mi><mo>&#8722;</mo><msub><mi>&#952;</mi><mn>0</mn></msub><mo>)</mo></mrow><mn>2</mn></msup></math>",
+      "<math><msub><mi>V</mi><mtext>dih</mtext></msub><mo>=</mo>" + f + "<msub><mi>V</mi><mi>n</mi></msub><mo>[</mo><mn>1</mn><mo>+</mo><mi>cos</mi><mo>(</mo><mi>n</mi><mi>&#966;</mi><mo>&#8722;</mo><mi>&#947;</mi><mo>)</mo><mo>]</mo></math>",
+      "<math><msub><mi>V</mi><mtext>vdW</mtext></msub><mo>=</mo><mn>4</mn><mi>&#949;</mi><mo>[</mo><msup><mrow><mo>(</mo><mfrac><mi>&#963;</mi><mi>r</mi></mfrac><mo>)</mo></mrow><mn>12</mn></msup><mo>&#8722;</mo><msup><mrow><mo>(</mo><mfrac><mi>&#963;</mi><mi>r</mi></mfrac><mo>)</mo></mrow><mn>6</mn></msup><mo>]</mo></math>" ];
+    if (i === 3) return [
+      "<math><mi>E</mi><mo>=</mo><munder><mo>&#8721;</mo><mrow><mi>i</mi><mo>&lt;</mo><mi>j</mi></mrow></munder><msub><mi>f</mi><mtext>c</mtext></msub><mo>(</mo><msub><mi>r</mi><mrow><mi>ij</mi></mrow></msub><mo>)</mo><mo>[</mo><msub><mi>V</mi><mtext>R</mtext></msub><mo>&#8722;</mo><msub><mi>b</mi><mrow><mi>ij</mi></mrow></msub><msub><mi>V</mi><mtext>A</mtext></msub><mo>]</mo></math>",
+      "<math><msub><mi>b</mi><mrow><mi>ij</mi></mrow></msub><mo>=</mo><mi>b</mi><mo>(</mo><mtext>local&#160;environment</mtext><mo>)</mo><mspace width='1.6em'></mspace><mover><mi>p</mi><mo>&#729;</mo></mover><mo>=</mo><mi>F</mi><mo>&#8722;</mo><mi>&#958;</mi><mspace width='.1em'></mspace><mi>p</mi></math>" ];
+    return [
+      "<math><mi>E</mi><mo>=</mo><munder><mo>&#8721;</mo><mi>i</mi></munder><mi>&#949;</mi><mo>(</mo><msub><mi>q</mi><mi>i</mi></msub><mo>)</mo></math>",
+      "<math><mi>&#949;</mi><mo>(</mo><mi>q</mi><mo>)</mo><mo>=</mo><munder><mo>&#8721;</mo><mi>t</mi></munder><msub><mi>&#945;</mi><mi>t</mi></msub><mspace width='.15em'></mspace><mi>k</mi><mo>(</mo><mi>q</mi><mo>,</mo><msub><mi>q</mi><mi>t</mi></msub><mo>)</mo><mspace width='1.4em'></mspace><mtext>trained&#160;on&#160;DFT</mtext></math>" ];
+  }
+
+  // fixed pseudo-random DFT training points for stop 5
+  var dftPts = [];
+  (function () {
+    var s = 7; function rnd() { s = (s * 16807) % 2147483647; return s / 2147483647; }
+    for (var k = 0; k < 22; k++) { var u = -2.6 + 5.2 * rnd(); dftPts.push([u, V(4, u) + (rnd() - 0.5) * 0.08]); }
+  })();
+
+  function drawSpring(ctx, x1, x2, y, color) {
+    var n = 9, seg = (x2 - x1) / (n + 1);
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.beginPath();
+    ctx.moveTo(x1, y);
+    for (var k = 1; k <= n; k++) ctx.lineTo(x1 + seg * k, y + (k % 2 ? -9 : 9));
+    ctx.lineTo(x2, y); ctx.stroke();
+  }
+  function ball(ctx, x, y, r, fill) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = fill; ctx.fill(); }
+
+  var cv = document.getElementById("cv");
+  function draw() {
+    if (!cv) return;
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    var i = idx, acc = accent(i), accSoft = accent(i, 0.75, 0.06);
+    var ink = "#1c1c1a", faint = "#d9d9d4", mut = "#9a9a94";
+    ctx.font = "500 12px 'Instrument Sans', Helvetica, sans-serif";
+    if (i === 0) {
+      ctx.strokeStyle = "#efefeb"; ctx.lineWidth = 1.5;
+      var a = 34, cy0 = h * 0.5;
+      for (var row = -2; row <= 2; row++) for (var col = -6; col <= 6; col++) {
+        var cx = w / 2 + col * a * 1.5, cyy = cy0 + row * a * Math.sqrt(3) + (col % 2 ? a * Math.sqrt(3) / 2 : 0);
+        ctx.beginPath();
+        for (var k = 0; k <= 6; k++) { var ang = Math.PI / 6 + k * Math.PI / 3; var px = cx + a * Math.cos(ang), py = cyy + a * Math.sin(ang); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.stroke();
+      }
+      var d = 185, y = h * 0.5;
+      var x1 = w / 2 - d / 2, x2 = w / 2 + d / 2;
+      drawSpring(ctx, x1 + 16, x2 - 16, y, acc);
+      ball(ctx, x1, y, 16, ink); ball(ctx, x2, y, 16, ink);
+      return;
+    }
+    var dm = domain(i), u0 = dm[0], u1 = dm[1];
+    var padL = 56, padR = 30, top = 26, base = h - 40;
+    function X(u) { return padL + (u - u0) / (u1 - u0) * (w - padL - padR); }
+    var vmax = [0, 1.15, 1.35, 1.35, 1.15][i];
+    function Y(v) { return base - v / vmax * (base - top); }
+    ctx.strokeStyle = faint; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, top - 8); ctx.lineTo(padL, base); ctx.lineTo(w - padR, base); ctx.stroke();
+    ctx.fillStyle = mut; ctx.textAlign = "left";
+    ctx.save(); ctx.translate(16, (top + base) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(i === 1 || i === 2 ? "E (eV)" : "E", 0, 0); ctx.restore();
+    ctx.textAlign = "right"; ctx.fillText(i <= 2 ? "r (Å)" : "r", w - padR, base + 18);
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = "#c9c9c4"; ctx.lineWidth = 1.4;
+    if (i === 2 || i === 3) { var yD = Y(1); ctx.beginPath(); ctx.moveTo(padL, yD); ctx.lineTo(w - padR, yD); ctx.stroke(); ctx.fillStyle = mut; ctx.textAlign = "left"; ctx.fillText("dissociation energy D", padL + 8, yD - 7); }
+    ctx.setLineDash([]);
+    if (i === 4) {
+      for (var p = 0; p < dftPts.length; p++) { var uu = dftPts[p][0], vv = dftPts[p][1]; if (vv >= 0 && vv < vmax) ball(ctx, X(uu), Y(vv), 3, accSoft); }
+      ctx.fillStyle = mut; ctx.textAlign = "right"; ctx.fillText("· DFT training data", w - padR, top + 2);
+    }
+    ctx.strokeStyle = acc; ctx.lineWidth = 2.4; ctx.beginPath();
+    var started = false;
+    for (var px2 = 0; px2 <= 1; px2 += 0.003) {
+      var u = u0 + (u1 - u0) * px2, v = V(i, u);
+      if (v > vmax * 1.02 || v < -0.02) { started = false; continue; }
+      var xx = X(u), yy = Y(v);
+      started ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); started = true;
+    }
+    ctx.stroke();
+    var bx = Math.min(Math.max(sim.x, u0), u1), bv = V(i, bx);
+    ball(ctx, X(bx), Y(Math.min(bv, vmax)), 8, ink);
+    ctx.fillStyle = mut; ctx.textAlign = "center";
+    if (i === 1) { ctx.fillText("r₀ = 1.42 Å", X(0), base + 18); }
+  }
+
+  // build slider stops + numbers
+  var track = document.getElementById("track");
+  var stopEls = [], numEls = [];
+  for (var i = 0; i < N; i++) {
+    (function (i) {
+      var left = (i / (N - 1)) * 100 + "%";
+      var s = document.createElement("div"); s.className = "stop"; s.style.left = left;
+      var sd = document.createElement("div"); sd.className = "stop-dot"; s.appendChild(sd);
+      s.addEventListener("click", function () { setIdx(i); });
+      track.appendChild(s); stopEls.push(sd);
+      var num = document.createElement("div"); num.className = "num"; num.style.left = left; num.textContent = (i + 1);
+      track.appendChild(num); numEls.push(num);
+    })(i);
+  }
+  var thumb = document.getElementById("thumb"), rest = document.getElementById("rest");
+  var eqEl = document.getElementById("eq"), headlineEl = document.getElementById("headline"), bodyEl = document.getElementById("body");
+
+  function render() {
+    var pct = (idx / (N - 1)) * 100;
+    thumb.style.left = pct + "%";
+    rest.style.width = (100 - pct) + "%";
+    for (var i = 0; i < N; i++) {
+      stopEls[i].style.background = i <= idx ? "#1c1c1a" : "#fff";
+      stopEls[i].style.borderColor = i <= idx ? "#1c1c1a" : "#cccbc6";
+      numEls[i].style.color = i === idx ? "#1c1c1a" : "#b5b4af";
+      numEls[i].style.fontWeight = i === idx ? 700 : 400;
+    }
+    headlineEl.textContent = stops[idx].headline;
+    bodyEl.textContent = stops[idx].body;
+    var lines = eqLines(idx);
+    var size = lines.length >= 4 ? "20px" : (lines.length >= 2 ? "26px" : "34px");
+    var gap = lines.length >= 4 ? "12px" : "16px";
+    var html = '<div class="eq-col" style="gap:' + gap + ';font-size:' + size + '">';
+    for (var j = 0; j < lines.length; j++) html += "<div>" + lines[j] + "</div>";
+    html += "</div>";
+    eqEl.innerHTML = html;
+    draw();
+  }
+
+  function setIdx(i) { idx = Math.max(0, Math.min(N - 1, i)); sim = initSim(idx); render(); }
+
+  track.addEventListener("mousedown", function (e) {
+    function move(ev) {
+      var r = track.getBoundingClientRect();
+      var fr = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+      var i = Math.round(fr * (N - 1));
+      if (i !== idx) setIdx(i);
+    }
+    move(e);
+    function up() { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); }
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+  });
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight") setIdx(idx + 1);
+    if (e.key === "ArrowLeft") setIdx(idx - 1);
+  });
+  window.addEventListener("resize", draw);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  sim = initSim(0);
+  render();
+})();
+</script>
+</body>
+</html>

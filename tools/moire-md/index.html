@@ -186,104 +186,233 @@
     opacity: 0.55;
     cursor: not-allowed;
   }
-
-  /* --- Slider help tooltips --- */
-  .help-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 15px;
-    height: 15px;
-    margin-left: 6px;
-    border-radius: 50%;
-    border: 1px solid rgba(0, 0, 0, 0.4);
-    background: rgba(0, 0, 0, 0.06);
-    color: #333;
-    font-size: 10px;
-    font-weight: 700;
-    font-style: normal;
-    line-height: 1;
-    cursor: help;
-    vertical-align: middle;
-    user-select: none;
-    transition: background 120ms ease, color 120ms ease;
-  }
-
-  .help-icon:hover,
-  .help-icon:focus {
-    background: #111;
-    color: #fff;
-    border-color: #111;
-    outline: none;
-  }
-
-  .tooltip-pop {
-    position: fixed;
-    display: none;
-    z-index: 9999;
-    width: 320px;
-    max-width: min(92vw, 320px);
-    max-height: 82vh;
-    overflow-y: auto;
-    box-sizing: border-box;
-    padding: 14px 16px 16px;
-    background: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid rgba(0, 0, 0, 0.16);
-    border-radius: 10px;
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
-    font-family: "Segoe UI", Tahoma, sans-serif;
-    font-size: 12.5px;
-    line-height: 1.42;
-  }
-
-  .tooltip-pop .tip-title {
-    font-size: 13.5px;
-    font-weight: 700;
-    margin: 0 0 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  }
-
-  .tooltip-pop .tip-h {
-    display: block;
-    margin: 10px 0 3px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: #2b6cb0;
-  }
-
-  .tooltip-pop .tip-h:first-of-type {
-    margin-top: 2px;
-  }
-
-  .tooltip-pop p {
-    margin: 0;
-  }
-
-  .tooltip-pop .eq {
-    display: block;
-    margin: 6px 0 2px;
-    padding: 6px 8px;
-    background: rgba(0, 0, 0, 0.05);
-    border-left: 3px solid rgba(43, 108, 176, 0.6);
-    border-radius: 4px;
-    font-family: "Cambria Math", "Latin Modern Math", Georgia, "Times New Roman", serif;
-    font-size: 13.5px;
-    line-height: 1.5;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-  .tooltip-pop .eq i,
-  .tooltip-pop .var {
-    font-style: italic;
-  }
 </style>
 </head>
 <body>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.  The <style> below is per-sim: it shifts the info bubble down so it
+  doesn't overlap the existing top-left CSL toggle.
+-->
+<style>#siminfo-bubble{ top:44px; }</style>
+<script>
+  window.SIM_INFO = {
+    title: "Moiré MD explorer",
+    about: "Interactive moiré view of two stacked 2D lattices with an on-the-fly MD-style lateral relaxation. Adjust twist, disorder, and per-layer parameters to see how registry patterns and domain walls form, and how relaxation reshapes them.",
+    howto: [
+      "Hover the right edge to open the control panel.",
+      "Choose lattice types and per-layer colours / opacity.",
+      "The small circle at the top-left toggles the coincidence-site-lattice (CSL) view.",
+      "Use the presets and MD controls to trigger lateral relaxation."
+    ],
+    shortcuts: [
+      ["Drag",  "pan"],
+      ["Wheel", "zoom"],
+      ["I",     "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
 <div id="simFrame">
   <canvas id="simCanvas" aria-label="Graphene bilayer simulation"></canvas>
   <button id="cslQuickToggle" type="button" aria-label="Toggle CSL mode" aria-pressed="false"></button>
@@ -432,6 +561,30 @@
       </div>
       <input id="mdStiff" type="range" min="0.05" max="5" step="0.05" value="1">
 
+      <label for="mdPotential" style="margin-top:10px;">Bond potential</label>
+      <select id="mdPotential">
+        <option value="harmonic">Harmonic springs</option>
+        <option value="morse">Morse (anharmonic)</option>
+      </select>
+      <div id="mdMorseSettings" class="hidden-section">
+        <div class="row" style="margin-top:8px;">
+          <label for="mdMorseBeta">Morse &beta; (&Aring;&#8315;&#185;)</label>
+          <input id="mdMorseBetaNumber" type="number" min="1" max="6" step="0.025" value="2.625">
+        </div>
+        <input id="mdMorseBeta" type="range" min="1" max="6" step="0.025" value="2.625">
+        <div class="small" id="mdMorseInfo"></div>
+      </div>
+
+      <button id="mdBreakToggle" type="button" class="toggle-button">Bond breaking</button>
+      <div id="mdBreakSettings" class="hidden-section">
+        <div class="row" style="margin-top:8px;">
+          <label for="mdBreakStrain">Breaking strain (%)</label>
+          <input id="mdBreakStrainNumber" type="number" min="5" max="100" step="1" value="25">
+        </div>
+        <input id="mdBreakStrain" type="range" min="5" max="100" step="1" value="25">
+        <button id="mdHeal" type="button">Heal broken bonds</button>
+      </div>
+
       <button id="mdRun" type="button">Run</button>
       <button id="mdStep" type="button">Step</button>
       <button id="mdRelax" type="button">Relax to minimum</button>
@@ -493,6 +646,10 @@
         relax under bond springs + interlayer registry; the frame is the boundary condition.
         Bubbles/ridges detach the sheet and push it out of plane (centred on the disk centre) —
         watch with "Toggle 3D relief"; set Core radius small to see a free bubble.
+        Bond breaking snaps any spring stretched past the breaking strain (drive the disk hard
+        to tear the sheet open); "Heal broken bonds" or "Reset disk" restores them.
+        The Morse potential makes first-neighbour bonds anharmonic: same stiffness at small
+        strain, but they soften and stop pulling as they stretch, so tears localise realistically.
         Keys: Space run/pause, S step, R relax, G toggle MD, V 3D relief.
       </div>
     </div>
@@ -610,6 +767,16 @@
     mdRegNumber: document.getElementById("mdRegNumber"),
     mdStiff: document.getElementById("mdStiff"),
     mdStiffNumber: document.getElementById("mdStiffNumber"),
+    mdPotential: document.getElementById("mdPotential"),
+    mdMorseSettings: document.getElementById("mdMorseSettings"),
+    mdMorseBeta: document.getElementById("mdMorseBeta"),
+    mdMorseBetaNumber: document.getElementById("mdMorseBetaNumber"),
+    mdMorseInfo: document.getElementById("mdMorseInfo"),
+    mdBreakToggle: document.getElementById("mdBreakToggle"),
+    mdBreakSettings: document.getElementById("mdBreakSettings"),
+    mdBreakStrain: document.getElementById("mdBreakStrain"),
+    mdBreakStrainNumber: document.getElementById("mdBreakStrainNumber"),
+    mdHeal: document.getElementById("mdHeal"),
     mdRun: document.getElementById("mdRun"),
     mdStep: document.getElementById("mdStep"),
     mdRelax: document.getElementById("mdRelax"),
@@ -719,6 +886,8 @@
       shiftY: 0,
       regStrength: 0.03,
       stiffness: 1.0,
+      potential: "harmonic",
+      morseBeta: 2.625, // C-C Morse width, Belytschko et al. PRB 65, 235430 (2002)
       rate: 0.02,
       maxStep: 0.08,
       substeps: 3,
@@ -726,6 +895,7 @@
       adhesion: 0.4,
       bubble: { on: false, radius: 25, pressure: 0.15 },
       ridge: { on: false, length: 80, angle: 0, halfWidth: 6, pressure: 0.2 },
+      breaking: { on: false, strain: 0.25, count: 0 },
       counts: { core: 0, free: 0, frame: 0 }
     },
     cslPalette: [],
@@ -1288,19 +1458,20 @@
   }
 
   function collectBondSegments(layer, projected, color) {
-    const segments = new Array(layer.bonds.length);
+    const segments = [];
     for (let k = 0; k < layer.bonds.length; k += 1) {
       const b = layer.bonds[k];
+      if (b.broken) { continue; } // torn by MD bond breaking
       const p1 = projected[b.i];
       const p2 = projected[b.j];
-      segments[k] = {
+      segments.push({
         x1: p1.sx,
         y1: p1.sy,
         x2: p2.sx,
         y2: p2.sy,
         d: 0.5 * (p1.depth + p2.depth),
         color: color
-      };
+      });
     }
     return segments;
   }
@@ -1890,6 +2061,52 @@
       }
     }
     state.topFirstNbrs = firstN;
+
+    // A fresh network is intact: restore any bonds hidden by an earlier tear, and
+    // link each first-neighbour spring to its display bond so a snap can hide it.
+    healBrokenBonds();
+    const vbIndex = new Map();
+    const vb = state.topLayer.bonds;
+    for (let k = 0; k < vb.length; k += 1) {
+      const lo = Math.min(vb[k].i, vb[k].j);
+      const hi = Math.max(vb[k].i, vb[k].j);
+      vbIndex.set(lo + "," + hi, k);
+    }
+    for (let s = 0; s < springs.length; s += 1) {
+      const sp = springs[s];
+      if (sp.k === 1.0) {
+        sp.vb = vbIndex.get(sp.i + "," + sp.j); // springs store i < j
+      }
+    }
+  }
+
+  // Clear all torn-bond state: display bonds reappear, counter resets.
+  function healBrokenBonds() {
+    const vb = state.topLayer.bonds;
+    for (let k = 0; k < vb.length; k += 1) {
+      if (vb[k].broken) { vb[k].broken = false; }
+    }
+    state.md.breaking.count = 0;
+  }
+
+  // Snap one spring: it stops carrying force forever (until the network is rebuilt).
+  // For first neighbours also hide the drawn bond and open the bending adjacency,
+  // so the plate term does not keep stitching the crack shut.
+  function breakSpring(sp) {
+    sp.broken = true;
+    state.md.breaking.count += 1;
+    if (sp.k === 1.0) {
+      if (sp.vb !== undefined && state.topLayer.bonds[sp.vb]) {
+        state.topLayer.bonds[sp.vb].broken = true;
+      }
+      const FN = state.topFirstNbrs;
+      if (FN && FN[sp.i] && FN[sp.j]) {
+        const ai = FN[sp.i].indexOf(sp.j);
+        if (ai !== -1) { FN[sp.i].splice(ai, 1); }
+        const aj = FN[sp.j].indexOf(sp.i);
+        if (aj !== -1) { FN[sp.j].splice(aj, 1); }
+      }
+    }
   }
 
   // Mark which atoms are delaminated (adhesion off) and under trapped-gas pressure, from the
@@ -1990,11 +2207,24 @@
     }
     let E = 0;
 
-    // 3D harmonic springs (in-plane stretch + membrane coupling to dz).
+    // 3D bond network (in-plane stretch + membrane coupling to dz).
+    // With bond breaking on, a spring stretched past r0*(1+strain) snaps: it is
+    // dropped from the network for good and its drawn bond disappears.
+    // Potential per first-neighbour bond: harmonic 1/2 k d^2, or a Morse well
+    // De(1-e^(-b*d))^2 with De = k/(2 b^2) so its curvature at the minimum equals
+    // the harmonic k (identical small-strain response, softening at large strain;
+    // b = 2.625 1/A for C-C from Belytschko et al. PRB 65, 235430 (2002), giving
+    // peak bond force at ~19% strain). Second-neighbour springs stay harmonic in
+    // both modes - they stand in for angle stiffness, not a chemical bond.
     const K = state.md.stiffness;
     const springs = state.topSprings;
+    const brk = state.md.breaking;
+    const breakFac = 1 + brk.strain;
+    const morseOn = state.md.potential === "morse";
+    const mb = state.md.morseBeta;
     for (let s = 0; s < springs.length; s += 1) {
       const sp = springs[s];
+      if (sp.broken) { continue; }
       const a = atoms[sp.i];
       const b = atoms[sp.j];
       const dx = (b.x0 + b.dx) - (a.x0 + a.dx);
@@ -2002,10 +2232,23 @@
       const dz = (b.dz || 0) - (a.dz || 0);
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (L < 1e-9) { continue; }
+      if (brk.on && L > sp.r0 * breakFac) {
+        breakSpring(sp);
+        continue;
+      }
       const diff = L - sp.r0;
       const kk = K * sp.k;
-      E += 0.5 * kk * diff * diff;
-      const f = kk * diff / L;
+      let f;
+      if (morseOn && sp.k === 1.0) {
+        const ex = Math.exp(-mb * diff);
+        const om = 1 - ex;
+        const De = kk / (2 * mb * mb);
+        E += De * om * om;
+        f = 2 * De * mb * om * ex / L;
+      } else {
+        E += 0.5 * kk * diff * diff;
+        f = kk * diff / L;
+      }
       const fx = f * dx;
       const fy = f * dy;
       const fz = f * dz;
@@ -2109,6 +2352,18 @@
     state.md.steps += 1;
   }
 
+  // Morse bonds pull hardest at the curve's inflection (r0 + ln2/beta); past it
+  // they let go on their own. Quote that as a first-neighbour strain so the
+  // breaking-strain slider can be set to match.
+  function syncMorseInfo() {
+    if (!ui.mdMorseInfo) { return; }
+    const pct = 100 * Math.log(2) / (state.md.morseBeta * A_CC);
+    ui.mdMorseInfo.textContent =
+      "C–C literature value: β = 2.625 Å⁻¹ (Belytschko et al., PRB 65, 235430 (2002)); " +
+      "well depth is curvature-matched to the Elastic stiffness slider. At current β the bond " +
+      "force peaks at ~" + pct.toFixed(0) + "% strain — set Breaking strain there for realistic tearing.";
+  }
+
   function syncMdReadout() {
     if (ui.mdRun) {
       ui.mdRun.textContent = state.md.running ? "Pause" : "Run";
@@ -2128,7 +2383,8 @@
       ui.mdInfo.textContent =
         "free " + c.free + " | core " + c.core + " | frame " + c.frame +
         "  •  E=" + state.md.energy.toFixed(1) +
-        "  •  steps " + state.md.steps;
+        "  •  steps " + state.md.steps +
+        (state.md.breaking.count > 0 ? "  •  broken " + state.md.breaking.count : "");
     }
   }
 
@@ -2152,6 +2408,7 @@
       if (ui.mdSettings) { ui.mdSettings.classList.add("hidden-section"); }
       state.md.running = false;
       state.topSprings = [];
+      healBrokenBonds();
       for (let i = 0; i < state.topLayer.atoms.length; i += 1) {
         state.topLayer.atoms[i].role = 0;
       }
@@ -2167,6 +2424,7 @@
     state.md.steps = 0;
     state.md.energy = 0;
     resetTopDisplacement();
+    if (state.md.enabled) { buildElasticNetwork(); } // a reset sheet is untorn
     assignRoles();
     applyCoreConstraint();
     syncMdReadout();
@@ -2664,6 +2922,41 @@
       requestRender();
     });
 
+    ui.mdPotential.addEventListener("change", function () {
+      state.md.potential = ui.mdPotential.value;
+      ui.mdMorseSettings.classList.toggle("hidden-section", state.md.potential !== "morse");
+      syncMorseInfo();
+      requestRender();
+    });
+
+    bindSliderPair(ui.mdMorseBeta, ui.mdMorseBetaNumber, function (v) {
+      return parseFloat(v);
+    }, function (v) {
+      state.md.morseBeta = v;
+      syncMorseInfo();
+    });
+    syncMorseInfo();
+
+    ui.mdBreakToggle.addEventListener("click", function () {
+      const br = state.md.breaking;
+      br.on = !br.on;
+      ui.mdBreakToggle.setAttribute("aria-pressed", br.on ? "true" : "false");
+      ui.mdBreakSettings.classList.toggle("hidden-section", !br.on);
+      requestRender();
+    });
+
+    bindSliderPair(ui.mdBreakStrain, ui.mdBreakStrainNumber, function (v) {
+      return Math.round(parseFloat(v));
+    }, function (v) {
+      state.md.breaking.strain = v / 100;
+    });
+
+    ui.mdHeal.addEventListener("click", function () {
+      if (state.md.enabled) { buildElasticNetwork(); } else { healBrokenBonds(); }
+      syncMdReadout();
+      requestRender();
+    });
+
     ui.mdRun.addEventListener("click", function () {
       if (!state.md.enabled) { mdSetEnabled(true); }
       state.md.running = !state.md.running;
@@ -2881,252 +3174,6 @@
   }
 
   init();
-})();
-</script>
-
-<script>
-/* Slider help tooltips: a "?" icon next to each slider label opens a popup
-   (What is this / Physics behind / How to use it) rendered on top of the
-   panel, positioned to the left of it so it is never clipped. */
-(function () {
-  "use strict";
-
-  var TIPS = {
-    bottomAlpha: {
-      title: "Bottom opacity",
-      what: "Sets how opaque the bottom (fixed substrate) layer is drawn, from fully transparent (0) to solid (1).",
-      physics: "A moiré pattern is a beat between two overlaid lattices — you only perceive it when both layers are simultaneously visible. Partial transparency lets the eye superimpose top and bottom and read out the interference envelope, exactly as two overlaid meshes reveal a moiré.",
-      how: "Lower it to look <em>through</em> the substrate at where top atoms sit relative to it; raise it to emphasise the fixed reference lattice. Purely a rendering control — it changes nothing physical."
-    },
-    topAlpha: {
-      title: "Top opacity",
-      what: "Sets how opaque the top (movable) layer is drawn, from transparent (0) to solid (1).",
-      physics: "The top layer carries the twist, shift and relaxation. Its registry with the substrate defines the local stacking (AA / AB / BA); rendering it semi-transparent lets that registry read against the layer beneath.",
-      how: "Balance it against the bottom opacity so both lattices are legible. If the CSL colouring looks washed out, nudge this up."
-    },
-    bottomCells: {
-      title: "Bottom size (N)",
-      what: "Number of unit cells along one edge of the bottom layer — i.e. how large the fixed substrate patch is.",
-      physics: "To display a moiré you need a patch several moiré periods wide. The moiré period grows as the twist shrinks:<span class=\"eq\">λ<sub>m</sub> ≈ <i>a</i> / (2&nbsp;sin(θ/2)) ≈ <i>a</i>/θ</span>so at θ = 1°, λ<sub>m</sub> ≈ 57&nbsp;<i>a</i> — you need N of that order to fit even one super-cell.",
-      how: "Increase N at small twist angles to capture whole moiré cells; decrease it to keep the atom count (and frame rate) manageable."
-    },
-    topCells: {
-      title: "Top size (N)",
-      what: "Number of unit cells along one edge of the top layer.",
-      physics: "The overlap region of the two layers sets how many moiré super-cells are visible. Matching top and bottom sizes gives a clean, fully-overlapped field; mismatched sizes leave a bare rim.",
-      how: "Keep it close to the bottom size for a filled field of view. Reduce both together if the simulation feels heavy."
-    },
-    atomSize: {
-      title: "Atom size",
-      what: "Screen radius of each atom dot, in pixels.",
-      physics: "No physics — a visualisation aid. Large dots merge neighbouring atoms into filled domains, making AB/BA triangular regions and AA nodes pop out as areas of colour; small dots expose the individual lattice.",
-      how: "Use large dots to read the moiré domain map at a glance; shrink them to inspect individual atomic positions and bonds."
-    },
-    gaussianSigma: {
-      title: "Gaussian size σ (Å)",
-      what: "Spatial width of the Gaussian brush used when you Shift/Ctrl/Alt-drag to deform the top layer by hand.",
-      physics: "The manual displacement field is a localized Gaussian bump:<span class=\"eq\"><b>u</b>(<b>r</b>) = <b>u</b><sub>0</sub>&nbsp;exp(−|<b>r</b>−<b>r</b><sub>drag</sub>|<sup>2</sup> / 2σ<sup>2</sup>)</span>σ sets the region that moves together. A wide σ imposes a smooth, low-strain distortion; a narrow σ concentrates the same displacement into a high strain ∇<b>u</b>.",
-      how: "Shift+drag translates, Ctrl+drag twists, Alt+drag lifts (dz) — all with this radius. Widen σ for gentle global warps, narrow it to paint a tight local defect."
-    },
-    cslSensitivity: {
-      title: "CSL sensitivity",
-      what: "Contrast (gamma) of the coincidence-site-lattice colouring that highlights how well the two layers register locally.",
-      physics: "Each top atom is coloured by the interlayer registry order parameter — the first Fourier harmonic of the stacking:<span class=\"eq\"><i>s</i>(<b>r</b>) = Σ<sub>i</sub> cos(<b>G</b><sub>i</sub>·(<b>r</b>−<b>r</b><sub>0</sub>))</span>Its maxima mark AA registry (atom-over-atom). The slider applies a power law with exponent γ = 1/sensitivity, so small values sharpen the AA coincidence sites against the AB/BA background.",
-      how: "Lower it to isolate just the bright AA nodes (the moiré lattice points); raise it toward 1 for a smooth continuous registry map. Toggle “Invert CSL scale” to flip the colour direction."
-    },
-    mdCoreRadius: {
-      title: "Core radius (Å)",
-      what: "Radius of the central disk that is rigidly driven (twisted/shifted) while the surrounding atoms relax freely.",
-      physics: "The disk is a Dirichlet boundary condition: inside it the stacking is forced, outside it minimizes energy. At the disk edge the mismatch is absorbed by a network of domain walls (solitons) — the same reconstruction that turns a rigid twist into AB/BA triangular domains joined at AA nodes.",
-      how: "Make it small to watch a single driven region shed strain into the relaxed surroundings; make it large to drive most of the field and study the wall network at its rim. Shift+drag moves the disk, Ctrl+drag rotates it."
-    },
-    mdFrame: {
-      title: "Frame thickness (Å)",
-      what: "Width of the outer ring of atoms used as the far-field boundary condition around the relaxing region.",
-      physics: "The frame stands in for the surrounding infinite crystal. Pinning it fixes the far-field registry so the interior can develop a genuine soliton network rather than drifting as a whole; a free edge instead lets the boundary relax and relieves stress.",
-      how: "Keep a finite clamped frame for realistic domain-wall patterns; set it to zero (or choose “Free edge”) to let the whole flake slide and rotate unconstrained."
-    },
-    mdTheta: {
-      title: "Core angle (deg)",
-      what: "Twist angle applied to the driven core relative to the substrate.",
-      physics: "Twist is the master knob of moiré physics. It sets the super-lattice period<span class=\"eq\">λ<sub>m</sub> = <i>a</i> / (2&nbsp;sin(θ/2))</span>Below the magic-angle range (≈ 1.1°) the adhesion energy wins over elasticity and the uniform twist <em>reconstructs</em> into sharp AB/BA triangular domains separated by AA-rich domain walls.",
-      how: "Sweep through 0–2° to see large reconstructed domains; increase toward 5–30° for a fine, nearly-rigid moiré. Keys: <b>[</b> and <b>]</b> also nudge the twist."
-    },
-    mdShiftXNumber: {
-      title: "Core shift X (Å)",
-      what: "Rigid in-plane translation of the driven core along x.",
-      physics: "A relative interlayer slide moves the system across the generalized stacking-fault energy (GSFE) landscape, selecting AA, AB or BA registry. Because that landscape is lattice-periodic, a shift by a full lattice vector is physically invisible — only the fractional offset matters.",
-      how: "Combine X and Y to place the core in a chosen stacking, or to slide existing domain walls back and forth. Arrow keys also nudge the translation."
-    },
-    mdShiftYNumber: {
-      title: "Core shift Y (Å)",
-      what: "Rigid in-plane translation of the driven core along y.",
-      physics: "Together with the X shift this sweeps the interlayer registry through the GSFE surface (AA ↔ AB ↔ BA). The elastic response of the surrounding atoms turns a uniform shift into moving solitons.",
-      how: "Use small offsets to fine-tune the domain configuration; a shift of one lattice constant returns to an equivalent stacking."
-    },
-    mdReg: {
-      title: "Registry strength",
-      what: "Amplitude V₀ of the interlayer adhesion potential that pulls the layers toward commensurate (AB/BA) stacking.",
-      physics: "The adhesion is modelled as the analytic generalized stacking-fault energy<span class=\"eq\"><i>V</i>(<b>r</b>) = V<sub>0</sub> Σ<sub>i</sub> cos(<b>G</b><sub>i</sub>·(<b>r</b>−<b>r</b><sub>0</sub>))</span>It competes with elastic energy; their balance sets the domain-wall width<span class=\"eq\"><i>w</i> ∝ √(<i>K</i>/V<sub>0</sub>)</span>Larger V₀ → narrower, sharper walls and stronger reconstruction.",
-      how: "Raise it to force crisp AB/BA domains with thin walls; lower it toward zero to recover an unreconstructed, rigid moiré. Trade it off against Elastic stiffness."
-    },
-    mdStiff: {
-      title: "Elastic stiffness",
-      what: "In-plane spring constant K of the intralayer bonds — how strongly the lattice resists being sheared.",
-      physics: "Elasticity opposes the shear the adhesion wants to impose. The dimensionless ratio K/V₀ governs reconstruction, again through<span class=\"eq\"><i>w</i> ∝ √(<i>K</i>/V<sub>0</sub>)</span>Stiff layers spread the mismatch smoothly (wide walls, weak reconstruction); soft layers localize it into sharp solitons.",
-      how: "Lower K (or raise Registry strength) to sharpen domain walls; raise K to keep the lattice nearly rigid. It is the natural partner of the Registry-strength slider."
-    },
-    mdBend: {
-      title: "Bending stiffness",
-      what: "Out-of-plane bending rigidity κ of the sheet — its resistance to curving.",
-      physics: "The bending energy penalizes curvature:<span class=\"eq\"><i>E</i><sub>bend</sub> = ½ κ ∫ (∇<sup>2</sup><i>h</i>)<sup>2</sup> dA</span>It sets how gently bubbles and ridges curve and, balanced against adhesion, fixes the width of wrinkles:<span class=\"eq\">λ<sub>w</sub> ∝ (κ / Γ)<sup>1/4</sup></span>where Γ is the adhesion energy.",
-      how: "Increase κ for broad, smooth blisters and wide ridges; decrease it for sharp, tightly-curved features. Only matters once a bubble or ridge is active."
-    },
-    mdAdh: {
-      title: "Adhesion",
-      what: "Strength of the van der Waals adhesion pulling the top sheet down flat onto the substrate.",
-      physics: "Adhesion Γ competes with bending and internal pressure. For a pressurized blister the membrane balance fixes the aspect ratio; for a wrinkle it sets the width via λ<sub>w</sub> ∝ (κ/Γ)<sup>1/4</sup>. Stronger adhesion means flatter sheets and steeper, narrower out-of-plane features.",
-      how: "Raise it to flatten the sheet and shrink bubbles/ridges; lower it to let the membrane detach and lift more easily."
-    },
-    mdBubR: {
-      title: "Bubble radius (Å)",
-      what: "Radius of the pressurized circular blister where the top sheet detaches from the substrate.",
-      physics: "A clamped pressurized membrane follows Hencky’s solution; its central height scales as<span class=\"eq\"><i>h</i>₀ / R ∝ (<i>p</i> R / <i>Et</i>)<sup>1/3</sup></span>The radial stretch inside the bubble strains the lattice and locally distorts the moiré into a target-like pattern.",
-      how: "Set a large radius (and small core radius) to see a free, well-developed bubble; small radii give tight blisters. Pair with the Pressure slider."
-    },
-    mdBubP: {
-      title: "Bubble pressure",
-      what: "Internal pressure inflating the bubble.",
-      physics: "Pressure p is the normal load in the membrane balance above; it fights adhesion (which wants the sheet down) and bending (which resists curvature). Higher p raises the blister and increases the in-plane stretch, so the moiré distortion grows.",
-      how: "Increase it to inflate and strain the bubble; drop it toward zero to let adhesion re-flatten the sheet. Watch the deflection with “Toggle 3D relief.”"
-    },
-    mdRidgeLen: {
-      title: "Ridge length (Å)",
-      what: "Length of the wrinkle/ridge line — a one-dimensional detached fold in the sheet.",
-      physics: "A ridge is a delamination buckle: under in-plane compression the sheet buckles upward along a line to relieve strain, the 2D analogue of a buckled strut. Its length is the extent of that folded region.",
-      how: "Lengthen it to run a wrinkle across the field of view; shorten it for a localized fold. Orientation and width are set by the neighbouring sliders."
-    },
-    mdRidgeAng: {
-      title: "Ridge angle (deg)",
-      what: "In-plane orientation of the ridge line.",
-      physics: "The ridge direction relative to the crystal axes sets which shear component of the moiré it couples to — wrinkles aligned with high-symmetry directions distort the domain network differently from oblique ones.",
-      how: "Rotate it to align the wrinkle with a lattice or moiré axis and study how it cuts through the AB/BA domains."
-    },
-    mdRidgeW: {
-      title: "Ridge half width (Å)",
-      what: "Half the lateral width of the ridge cross-section.",
-      physics: "The natural wrinkle width comes from the competition between bending (wants broad folds) and adhesion (wants the sheet flat):<span class=\"eq\">λ<sub>w</sub> ∝ (κ / Γ)<sup>1/4</sup></span>This slider lets you impose that width directly; very narrow ridges concentrate curvature and strain.",
-      how: "Widen it for a gentle, low-curvature fold; narrow it for a sharp crease. Keep it consistent with your Bending and Adhesion settings for a physical shape."
-    },
-    mdRidgeP: {
-      title: "Ridge pressure",
-      what: "Drive amplitude that lifts the ridge out of plane — effectively its buckling amplitude.",
-      physics: "It plays the role of the post-buckling load: larger values push the fold higher, increasing curvature (bending energy ∝ κ(∇²h)²) and the in-plane stretch that warps the surrounding moiré.",
-      how: "Raise it to make the ridge stand tall and strongly distort nearby domains; lower it for a shallow wrinkle. View the profile with “Toggle 3D relief.”"
-    }
-  };
-
-  var panel = document.getElementById("panel");
-
-  var pop = document.createElement("div");
-  pop.className = "tooltip-pop";
-  pop.setAttribute("role", "tooltip");
-  document.body.appendChild(pop);
-
-  var hideTimer = null;
-  var activeIcon = null;
-
-  function buildHtml(t) {
-    return "<div class=\"tip-title\">" + t.title + "</div>" +
-      "<span class=\"tip-h\">What is this</span><p>" + t.what + "</p>" +
-      "<span class=\"tip-h\">Physics behind</span><p>" + t.physics + "</p>" +
-      "<span class=\"tip-h\">How to use it</span><p>" + t.how + "</p>";
-  }
-
-  function positionPop(icon) {
-    var iconRect = icon.getBoundingClientRect();
-    var panelRect = panel.getBoundingClientRect();
-    var popRect = pop.getBoundingClientRect();
-    var gap = 12;
-
-    // Prefer placing the popup to the LEFT of the panel so it is never
-    // clipped underneath it. Fall back to the right of the icon if there
-    // is no room on the left (narrow screens).
-    var left = panelRect.left - popRect.width - gap;
-    if (left < 8) {
-      left = Math.min(iconRect.right + gap, window.innerWidth - popRect.width - 8);
-      if (left < 8) { left = 8; }
-    }
-
-    var top = iconRect.top - 6;
-    if (top + popRect.height > window.innerHeight - 8) {
-      top = window.innerHeight - popRect.height - 8;
-    }
-    if (top < 8) { top = 8; }
-
-    pop.style.left = left + "px";
-    pop.style.top = top + "px";
-  }
-
-  function showPop(icon) {
-    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-    activeIcon = icon;
-    pop.innerHTML = icon._tipHtml;
-    pop.style.display = "block";
-    pop.style.left = "-9999px";
-    pop.style.top = "0px";
-    // Two-pass: render off-screen to measure, then place.
-    positionPop(icon);
-  }
-
-  function scheduleHide() {
-    if (hideTimer) { clearTimeout(hideTimer); }
-    hideTimer = setTimeout(function () {
-      pop.style.display = "none";
-      activeIcon = null;
-    }, 140);
-  }
-
-  pop.addEventListener("mouseenter", function () {
-    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-  });
-  pop.addEventListener("mouseleave", scheduleHide);
-
-  Object.keys(TIPS).forEach(function (key) {
-    var label = document.querySelector('label[for="' + key + '"]');
-    if (!label) { return; }
-
-    var icon = document.createElement("span");
-    icon.className = "help-icon";
-    icon.textContent = "?";
-    icon.setAttribute("tabindex", "0");
-    icon.setAttribute("role", "button");
-    icon.setAttribute("aria-label", TIPS[key].title + " — help");
-    icon._tipHtml = buildHtml(TIPS[key]);
-
-    icon.addEventListener("mouseenter", function () { showPop(icon); });
-    icon.addEventListener("mouseleave", scheduleHide);
-    icon.addEventListener("focus", function () { showPop(icon); });
-    icon.addEventListener("blur", scheduleHide);
-    icon.addEventListener("click", function (e) {
-      e.preventDefault();
-      if (activeIcon === icon && pop.style.display === "block") {
-        pop.style.display = "none";
-        activeIcon = null;
-      } else {
-        showPop(icon);
-      }
-    });
-
-    label.appendChild(icon);
-  });
-
-  window.addEventListener("scroll", function () {
-    if (activeIcon && pop.style.display === "block") { positionPop(activeIcon); }
-  }, true);
-  window.addEventListener("resize", function () {
-    if (activeIcon && pop.style.display === "block") { positionPop(activeIcon); }
-  });
 })();
 </script>
 </body>

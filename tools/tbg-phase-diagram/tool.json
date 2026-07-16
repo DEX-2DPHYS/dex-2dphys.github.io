@@ -1,0 +1,12 @@
+{
+  "slug": "tbg-phase-diagram",
+  "name": "TBG Phase Diagram",
+  "description": "Annotated transport phase diagram of magic-angle twisted bilayer graphene — slide between the raw data and labelled overlays of superconducting domes, correlated insulators, pseudogap, Chern and quantum-Hall regions.",
+  "status": "live",
+  "url": "tools/tbg-phase-diagram/index.html",
+  "icon": "chart",
+  "tags": [
+    "visualisations",
+    "educational"
+  ]
+}
