@@ -40,13 +40,9 @@
     "graphene-vdw",
     "funding",
     "labtcad",
-    "twist-disorder-transport",
-    "tbg-phase-diagram",
     "graphene-md",
     "moire-disorder",
     "graphene-antidot-lattice",
-    "tbg-chaos",
-    "toy-to-md-slider",
     "ebl-spot-size"
   ]
 }
