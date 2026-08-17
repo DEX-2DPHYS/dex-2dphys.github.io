@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heterostructure Builder</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#ffffff;}
+  *{box-sizing:border-box;}
+  canvas{display:block;}
+  #root{position:relative;width:100%;height:100vh;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1d2531;overflow:hidden;}
+  #viewport{position:absolute;inset:0;cursor:grab;}
+  #reset{position:absolute;top:14px;left:14px;z-index:5;font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.04em;color:#5b6675;background:#fff;border:1px solid #d8dde3;border-radius:6px;padding:6px 13px;cursor:pointer;transition:border-color .15s,color .15s;}
+  #reset:hover{border-color:#b3bcc6;color:#1d2531;}
+  #layers{position:absolute;top:14px;right:14px;z-index:5;display:flex;flex-direction:column;gap:7px;width:172px;}
+  #layers .label{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:0.14em;color:#7a8696;padding:0 2px 1px;}
+  .layer{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e2e6ec;border-radius:8px;background:#fff;cursor:grab;transition:border-color .15s;}
+  .layer:hover{border-color:#b9c1cb;}
+  .layer:active{cursor:grabbing;background:#f2f5f8;}
+  .layer .sw{width:15px;height:15px;border-radius:4px;flex-shrink:0;}
+  .layer .nm{font-size:12.5px;font-weight:600;color:#27303a;}
+  #hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+  #hint .box{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:0.05em;color:#aab2bd;border:1.5px dashed #cdd4dc;border-radius:12px;padding:15px 22px;}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="viewport">
+    <div id="hint"><div class="box">Drag a layer here  →</div></div>
+  </div>
+  <button id="reset">↻ Reset</button>
+  <div id="layers">
+    <div class="label">LAYERS</div>
+    <div class="layer" draggable="true" data-layer="graphene"><span class="sw" style="background:#5a5a62;"></span><span class="nm">Graphene</span></div>
+    <div class="layer" draggable="true" data-layer="hbn"><span class="sw" style="background:linear-gradient(135deg,#e39aa0 50%,#6f86d6 50%);"></span><span class="nm">hBN</span></div>
+    <div class="layer" draggable="true" data-layer="mos2"><span class="sw" style="background:linear-gradient(135deg,#8a5cc4 50%,#e6c84a 50%);"></span><span class="nm">MoS₂</span></div>
+    <div class="layer" draggable="true" data-layer="mote2"><span class="sw" style="background:linear-gradient(135deg,#8a5cc4 50%,#c77a3a 50%);"></span><span class="nm">MoTe₂</span></div>
+    <div class="layer" draggable="true" data-layer="sto"><span class="sw" style="background:#49b6ad;"></span><span class="nm">SrTiO₃</span></div>
+    <div class="layer" draggable="true" data-layer="bto"><span class="sw" style="background:#e0a23a;"></span><span class="nm">BaTiO₃</span></div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var LAYERS = {
+    graphene: { kind: 'hex',   colA: 0x44444b, colB: 0x44444b, T: 0.14 },
+    hbn:      { kind: 'hex',   colA: 0xe39aa0, colB: 0x6f86d6, T: 0.14 },
+    mos2:     { kind: 'tmd',   metal: 0x8a5cc4, chalc: 0xe6c84a, T: 0.5 },
+    mote2:    { kind: 'tmd',   metal: 0x8a5cc4, chalc: 0xc77a3a, T: 0.56 },
+    sto:      { kind: 'perov', metal: 0x49b6ad, aSite: 0xa59cba, T: 0.62 },
+    bto:      { kind: 'perov', metal: 0xe0a23a, aSite: 0x6cbf57, T: 0.62 },
+  };
+
+  var viewport = document.getElementById('viewport');
+  var hintEl = document.getElementById('hint');
+  var THREE, scene, camera, renderer, stack, keyLight, ground;
+  var cam = { az: 0.7, pol: 1.04, r: 0 };
+  var zoom = 1.15, fitR = 4, auto = true, topY = 0, layers = [];
+  var fovR, raf;
+
+  function buildLayer(cfg) {
+    var g = new THREE.Group(); var R = 2.4;
+    if (cfg.kind === 'hex' || cfg.kind === 'tmd') {
+      var a = 0.66, d = a / Math.sqrt(3), N = 6;
+      var a1 = [a, 0], a2 = [a / 2, a * Math.sqrt(3) / 2];
+      var r = cfg.kind === 'tmd' ? 0.22 : 0.18;
+      var geo = new THREE.SphereGeometry(r, 14, 12);
+      var matA = new THREE.MeshStandardMaterial({ color: cfg.kind === 'tmd' ? cfg.metal : cfg.colA, roughness: 0.42, metalness: 0.18 });
+      var matB = new THREE.MeshStandardMaterial({ color: cfg.kind === 'tmd' ? cfg.chalc : cfg.colB, roughness: 0.42, metalness: 0.15 });
+      var dy = cfg.kind === 'tmd' ? 0.2 : 0;
+      for (var i = -N; i <= N; i++) for (var j = -N; j <= N; j++) {
+        var bx = i * a1[0] + j * a2[0], bz = i * a1[1] + j * a2[1];
+        if (Math.hypot(bx, bz) <= R) { var m = new THREE.Mesh(geo, matA); m.position.set(bx, 0, bz); m.castShadow = true; m.receiveShadow = true; g.add(m); }
+        var Bx = bx, Bz = bz + d;
+        if (Math.hypot(Bx, Bz) <= R) {
+          if (cfg.kind === 'tmd') { [1, -1].forEach(function (sgn) { var mm = new THREE.Mesh(geo, matB); mm.position.set(Bx, sgn * dy, Bz); mm.castShadow = true; mm.receiveShadow = true; g.add(mm); }); }
+          else { var mb = new THREE.Mesh(geo, matB); mb.position.set(Bx, 0, Bz); mb.castShadow = true; mb.receiveShadow = true; g.add(mb); }
+        }
+      }
+    } else {
+      var pa = 0.7, pN = 3, h = pa / 2;
+      var inR = function (x, z) { return Math.hypot(x, z) <= R; };
+      var tiMat = new THREE.MeshStandardMaterial({ color: cfg.metal, roughness: 0.4, metalness: 0.35 });
+      var aMat = new THREE.MeshStandardMaterial({ color: cfg.aSite, roughness: 0.55, metalness: 0.15 });
+      var oMat = new THREE.MeshStandardMaterial({ color: 0xd9694f, roughness: 0.5, metalness: 0.1 });
+      var tiGeo = new THREE.SphereGeometry(0.16, 16, 12), aGeo = new THREE.SphereGeometry(0.17, 16, 12), oGeo = new THREE.SphereGeometry(0.085, 12, 10);
+      var y0 = -h / 2, y1 = h / 2;
+      for (var i2 = -pN; i2 <= pN; i2++) for (var j2 = -pN; j2 <= pN; j2++) {
+        var x = i2 * pa, z = j2 * pa;
+        if (inR(x, z)) { var m2 = new THREE.Mesh(tiGeo, tiMat); m2.position.set(x, y0, z); m2.castShadow = true; m2.receiveShadow = true; g.add(m2); }
+      }
+      for (var i3 = -pN; i3 <= pN; i3++) for (var j3 = -pN; j3 <= pN; j3++) {
+        var bx3 = i3 * pa, bz3 = j3 * pa;
+        [[h, 0], [0, h]].forEach(function (dd) { var x3 = bx3 + dd[0], z3 = bz3 + dd[1]; if (inR(x3, z3)) { var o = new THREE.Mesh(oGeo, oMat); o.position.set(x3, y0, z3); g.add(o); } });
+      }
+      for (var i4 = -pN; i4 <= pN; i4++) for (var j4 = -pN; j4 <= pN; j4++) {
+        var x4 = i4 * pa, z4 = j4 * pa;
+        if (inR(x4, z4)) { var o4 = new THREE.Mesh(oGeo, oMat); o4.position.set(x4, y1, z4); g.add(o4); }
+      }
+      for (var i5 = -pN; i5 <= pN; i5++) for (var j5 = -pN; j5 <= pN; j5++) {
+        var x5 = i5 * pa + h, z5 = j5 * pa + h;
+        if (inR(x5, z5)) { var s = new THREE.Mesh(aGeo, aMat); s.position.set(x5, y1, z5); s.castShadow = true; s.receiveShadow = true; g.add(s); }
+      }
+    }
+    return g;
+  }
+
+  function addLayer(type) {
+    var cfg = LAYERS[type]; if (!cfg || !stack) return;
+    var g = buildLayer(cfg);
+    g.position.y = topY + cfg.T / 2;
+    topY += cfg.T + 0.3;
+    stack.add(g); layers.push(g);
+    if (hintEl) hintEl.style.display = 'none';
+    reframe();
+  }
+
+  function resetStack() {
+    if (!stack) return;
+    layers.forEach(function (g) { stack.remove(g); });
+    layers = []; topY = 0;
+    if (hintEl) hintEl.style.display = 'flex';
+    reframe();
+  }
+
+  function reframe() {
+    if (!stack) return;
+    stack.position.y = 0;
+    var box = new THREE.Box3().setFromObject(stack);
+    if (box.isEmpty()) { ground.visible = false; fitR = 4; return; }
+    var c = box.getCenter(new THREE.Vector3());
+    stack.position.y = -c.y;
+    box = new THREE.Box3().setFromObject(stack);
+    ground.visible = true; ground.position.y = box.min.y - 0.12;
+    var sph = box.getBoundingSphere(new THREE.Sphere());
+    fitR = Math.max(3, sph.radius);
+    var d = fitR * 1.7, k = keyLight;
+    k.shadow.camera.left = -d; k.shadow.camera.right = d; k.shadow.camera.top = d; k.shadow.camera.bottom = -d;
+    k.shadow.camera.far = fitR * 9; k.shadow.camera.updateProjectionMatrix();
+  }
+
+  function attachOrbit(dom) {
+    var down = false, px = 0, py = 0;
+    dom.addEventListener('pointerdown', function (e) { down = true; auto = false; px = e.clientX; py = e.clientY; dom.style.cursor = 'grabbing'; try { dom.setPointerCapture(e.pointerId); } catch (x) {} });
+    dom.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      cam.az -= (e.clientX - px) * 0.006;
+      cam.pol = Math.max(0.18, Math.min(1.5, cam.pol - (e.clientY - py) * 0.006));
+      px = e.clientX; py = e.clientY;
+    });
+    dom.addEventListener('pointerup', function () { down = false; dom.style.cursor = 'grab'; });
+    dom.addEventListener('wheel', function (e) { e.preventDefault(); zoom = Math.max(0.7, Math.min(2.1, zoom + e.deltaY * 0.0013)); }, { passive: false });
+  }
+
+  function fitRenderer() {
+    if (!viewport || !renderer) return;
+    var W = viewport.clientWidth, H = viewport.clientHeight;
+    renderer.setSize(W, H); camera.aspect = W / H; camera.updateProjectionMatrix();
+  }
+
+  function animate() {
+    raf = requestAnimationFrame(animate);
+    try {
+      if (!renderer) return;
+      if (auto) cam.az += 0.0016;
+      var rT = (fitR / Math.sin(fovR / 2)) * zoom;
+      cam.r = cam.r ? cam.r + (rT - cam.r) * 0.09 : rT;
+      camera.position.set(
+        cam.r * Math.sin(cam.pol) * Math.sin(cam.az),
+        cam.r * Math.cos(cam.pol),
+        cam.r * Math.sin(cam.pol) * Math.cos(cam.az)
+      );
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
+    } catch (err) {}
+  }
+
+  function init() {
+    THREE = window.THREE;
+    var host = viewport;
+    var W = host.clientWidth || 400, H = host.clientHeight || 300;
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0xffffff, 16, 36);
+    camera = new THREE.PerspectiveCamera(40, W / H, 0.1, 200);
+    fovR = camera.fov * Math.PI / 180;
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(W, H); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    host.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xc4ccd6, 0.72));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+    keyLight = new THREE.DirectionalLight(0xffffff, 1.0); keyLight.position.set(5, 10, 6);
+    keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 0.5; keyLight.shadow.bias = -0.0009; keyLight.shadow.radius = 6;
+    scene.add(keyLight);
+    var fill = new THREE.DirectionalLight(0x8fb6d8, 0.25); fill.position.set(-6, 3, -5); scene.add(fill);
+
+    stack = new THREE.Group(); scene.add(stack);
+    ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.2 }));
+    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; ground.visible = false; scene.add(ground);
+
+    attachOrbit(renderer.domElement);
+    animate();
+
+    addLayer('sto'); addLayer('graphene');
+  }
+
+  // --- wiring ---
+  document.getElementById('reset').addEventListener('click', resetStack);
+  document.querySelectorAll('.layer').forEach(function (el) {
+    el.addEventListener('dragstart', function (e) { try { e.dataTransfer.setData('text/plain', el.dataset.layer); e.dataTransfer.effectAllowed = 'copy'; } catch (x) {} });
+    el.addEventListener('click', function () { addLayer(el.dataset.layer); });
+  });
+  viewport.addEventListener('dragover', function (e) { e.preventDefault(); try { e.dataTransfer.dropEffect = 'copy'; } catch (x) {} });
+  viewport.addEventListener('drop', function (e) { e.preventDefault(); var t = ''; try { t = e.dataTransfer.getData('text/plain'); } catch (x) {} if (t) addLayer(t); });
+  window.addEventListener('resize', function () { if (renderer) fitRenderer(); });
+
+  function waitThree() { if (window.THREE) { try { init(); } catch (e) { console.error(e); } } else setTimeout(waitThree, 40); }
+  waitThree();
+})();
+</script>
+</body>
+</html>

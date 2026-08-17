@@ -1,0 +1,9 @@
+{
+  "slug": "biomicroscope",
+  "name": "Virtual Microscope",
+  "description": "Screen an unknown stained sample on a simulated light microscope — swap objectives, focus, adjust illumination, add immersion oil, and log the fields you find.",
+  "status": "live",
+  "url": "tools/biomicroscope/index.html",
+  "icon": "device",
+  "tags": ["simulations", "educational", "applications"]
+}

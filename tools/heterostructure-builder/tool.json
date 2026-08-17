@@ -1,0 +1,9 @@
+{
+  "slug": "heterostructure-builder",
+  "name": "Heterostructure Builder",
+  "description": "Drag graphene, hBN, TMDs, and perovskites onto a stack and orbit the resulting van der Waals heterostructure in 3D, layer by atomic layer.",
+  "status": "live",
+  "url": "tools/heterostructure-builder/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational"]
+}

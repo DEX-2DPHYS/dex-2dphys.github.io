@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double pendulum</title>
+<style>
+  html,body{margin:0;height:100%;width:100%;overflow:hidden}
+  /* Cool grey-blue ground: a high, soft light from above, a faint blue pool
+     under the swing, and a slight darkening at the edges so the frame reads
+     as a recessed panel rather than a flat fill. */
+  body{
+    background:
+      radial-gradient(120% 85% at 50% -8%, rgba(255,255,255,.92), rgba(255,255,255,0) 58%),
+      radial-gradient(85% 65% at 50% 108%, rgba(37,99,235,.11), rgba(37,99,235,0) 72%),
+      radial-gradient(140% 120% at 50% 50%, rgba(15,23,42,0) 55%, rgba(15,23,42,.07) 100%),
+      linear-gradient(180deg, #eef1f7 0%, #e5eaf3 46%, #d9dfeb 100%);
+    background-color:#e5eaf3;
+  }
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:default}
+  /* A single, self-effacing affordance line — not a control. Delete this rule
+     and the #hint element if the divider should be completely bare. */
+  #hint{
+    position:fixed;left:50%;bottom:2.5%;transform:translateX(-50%);
+    font:500 clamp(9px,1.15vw,13px)/1.4 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+    letter-spacing:.02em;color:#8a94a2;white-space:nowrap;pointer-events:none;
+    opacity:0;transition:opacity .7s ease;user-select:none;
+  }
+  #hint.show{opacity:1}
+  #hint b{font-weight:700;color:#6b7480}
+
+  /* The only chrome on the page: a near-invisible switch for the trace, so the
+     graph can be dropped entirely on a machine that needs the frames back. */
+  #gtoggle{
+    position:fixed;right:14px;bottom:14px;
+    width:30px;height:30px;padding:0;
+    display:grid;place-items:center;
+    border-radius:9px;
+    border:1px solid rgba(15,23,42,.10);
+    background:rgba(255,255,255,.72);
+    box-shadow:0 1px 3px rgba(15,23,42,.08);
+    color:#2563eb;opacity:.34;cursor:pointer;
+    transition:opacity .25s ease,color .25s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #gtoggle:hover,#gtoggle:focus-visible{opacity:.95}
+  #gtoggle.off{color:#94a3b8}
+  #gtoggle svg{width:19px;height:11px;display:block}
+  #gtoggle svg path{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+  /* Progressive explanation: the question-mark control mirrors the trace
+     switch, while the soft glass layer sits above (not beside) the physics. */
+  #help-toggle{
+    position:fixed;left:14px;bottom:14px;z-index:40;
+    width:30px;height:30px;padding:0;
+    display:grid;place-items:center;
+    border-radius:9px;border:1px solid rgba(15,23,42,.10);
+    background:rgba(255,255,255,.72);
+    box-shadow:0 1px 3px rgba(15,23,42,.08);
+    color:#475569;opacity:.42;cursor:pointer;
+    font:700 16px/1 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+    transition:opacity .25s ease,color .25s ease,background .25s ease,transform .25s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #help-toggle:hover,#help-toggle:focus-visible{opacity:.98}
+  #help-toggle.open{opacity:1;color:#fff;background:#2563eb;border-color:rgba(37,99,235,.55);transform:rotate(8deg)}
+  #help-layer{
+    position:fixed;inset:0;z-index:30;
+    display:grid;place-items:center;padding:clamp(18px,4vw,48px);
+    background:rgba(226,232,240,.72);
+    backdrop-filter:blur(15px) saturate(.9);
+    -webkit-backdrop-filter:blur(15px) saturate(.9);
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .32s ease,visibility 0s linear .32s;
+  }
+  #help-layer.open{opacity:1;visibility:visible;pointer-events:auto;transition-delay:0s}
+  .help-window{
+    position:relative;width:min(820px,100%);max-height:min(760px,calc(100vh - 36px));
+    display:flex;flex-direction:column;overflow:hidden;
+    border:1px solid rgba(255,255,255,.84);border-radius:24px;
+    background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(242,246,252,.91));
+    box-shadow:0 24px 80px rgba(15,23,42,.18),0 2px 8px rgba(15,23,42,.08);
+    color:#1e293b;
+    transform:translateY(12px) scale(.985);
+    transition:transform .36s cubic-bezier(.2,.75,.2,1);
+  }
+  #help-layer.open .help-window{transform:translateY(0) scale(1)}
+  .help-top{padding:clamp(22px,4vw,38px) clamp(22px,5vw,46px) 13px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+  .help-kicker{margin:0 0 6px;color:#2563eb;font:700 11px/1.2 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.13em;text-transform:uppercase}
+  .help-top h2{margin:0;color:#0f172a;font:650 clamp(25px,4vw,38px)/1.08 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:-.035em}
+  #help-close{flex:0 0 auto;width:38px;height:38px;border:0;border-radius:12px;background:rgba(148,163,184,.13);color:#64748b;cursor:pointer;font:400 25px/1 system-ui,sans-serif;transition:background .2s,color .2s,transform .2s}
+  #help-close:hover,#help-close:focus-visible{background:rgba(148,163,184,.24);color:#0f172a;transform:rotate(4deg)}
+  .help-progress{display:flex;align-items:center;gap:7px;padding:4px clamp(22px,5vw,46px) 20px}
+  .help-step{width:28px;height:4px;padding:0;border:0;border-radius:5px;background:#cbd5e1;cursor:pointer;transition:width .25s,background .25s}
+  .help-step.active{width:48px;background:#2563eb}.help-step.past{background:#93c5fd}
+  #help-progress-label{margin-left:auto;color:#94a3b8;font:600 11px/1 system-ui,sans-serif;letter-spacing:.08em}
+  .help-pages{position:relative;overflow:auto;overscroll-behavior:contain;padding:0 clamp(22px,5vw,46px);min-height:310px;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+  .help-page{display:none;animation:helpPageIn .3s ease both}.help-page.active{display:block}
+  @keyframes helpPageIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+  .help-page h3{margin:2px 0 13px;color:#0f172a;font:650 clamp(20px,3vw,27px)/1.18 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:-.025em}
+  .help-page p{margin:0 0 14px;color:#475569;font:400 clamp(14px,1.8vw,16px)/1.65 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+  .help-page strong{color:#1e293b;font-weight:650}
+  .help-callout{margin:19px 0;padding:15px 17px;border-left:3px solid #2563eb;border-radius:0 13px 13px 0;background:rgba(219,234,254,.48);color:#334155;font:500 14px/1.55 system-ui,sans-serif}
+  .help-duo{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:18px 0}.help-duo>div{padding:15px 16px;border-radius:15px;background:rgba(226,232,240,.56)}.help-duo b{display:block;margin-bottom:5px;color:#0f172a;font:650 13px/1.25 system-ui,sans-serif}.help-duo span{color:#64748b;font:400 13px/1.48 system-ui,sans-serif}
+  .equation{margin:18px 0;padding:15px 18px;overflow-x:auto;border-radius:16px;background:rgba(15,23,42,.045);color:#0f172a;text-align:center}.equation math{font-size:clamp(17px,2.5vw,23px)}
+  .help-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px clamp(22px,5vw,46px) clamp(22px,4vw,34px);border-top:1px solid rgba(148,163,184,.18);margin-top:18px}
+  .help-nav{min-width:94px;height:42px;padding:0 17px;border:0;border-radius:12px;cursor:pointer;font:650 13px/1 system-ui,sans-serif;transition:transform .18s,background .18s,color .18s}
+  .help-nav:active{transform:scale(.97)}#help-prev{background:rgba(148,163,184,.13);color:#64748b}#help-next{background:#0f172a;color:#fff}.help-nav:disabled{opacity:.28;cursor:default}
+  .help-level{color:#94a3b8;font:600 11px/1.3 system-ui,sans-serif;text-align:center;letter-spacing:.05em;text-transform:uppercase}
+  @media(max-width:560px){#help-layer{padding:10px}.help-window{max-height:calc(100vh - 20px);border-radius:20px}.help-duo{grid-template-columns:1fr}.help-top{padding-top:24px}.help-pages{min-height:0}.help-bottom{padding-bottom:19px}.help-level{display:none}}
+  @media(prefers-reduced-motion:reduce){#help-layer,.help-window,.help-page,#help-toggle{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">drag a sphere &nbsp;·&nbsp; <b>shift</b>-drag: rod length &nbsp;·&nbsp; <b>ctrl</b>-drag: mass &nbsp;·&nbsp; <b>click</b>: pause &nbsp;·&nbsp; <b>double click</b>: reset</div>
+<button id="gtoggle" aria-pressed="true" aria-label="Show the x(t) trace" title="x(t) trace">
+  <svg viewBox="0 0 22 12" aria-hidden="true"><path d="M1 6 C2.5 1.5 4.5 1.5 6 6 C7.5 10.5 9.5 10.5 11 6 C12.5 1.5 14.5 1.5 16 6 C17.5 10.5 19.5 10.5 21 6"/></svg>
+</button>
+<button id="help-toggle" type="button" aria-expanded="false" aria-controls="help-layer" aria-label="About the double pendulum" title="What is happening?">?</button>
+<div id="help-layer" role="dialog" aria-modal="true" aria-labelledby="help-title" aria-hidden="true">
+  <div class="help-window">
+    <div class="help-top">
+      <div><p class="help-kicker">From motion to chaos</p><h2 id="help-title">Inside the double pendulum</h2></div>
+      <button id="help-close" type="button" aria-label="Close explanation">&times;</button>
+    </div>
+    <div class="help-progress" aria-label="Explanation progress">
+      <button class="help-step active" type="button" data-page="0" aria-label="Part 1: What you see"></button>
+      <button class="help-step" type="button" data-page="1" aria-label="Part 2: Coupled motion"></button>
+      <button class="help-step" type="button" data-page="2" aria-label="Part 3: Chaos"></button>
+      <button class="help-step" type="button" data-page="3" aria-label="Part 4: Physics"></button>
+      <button class="help-step" type="button" data-page="4" aria-label="Part 5: What is measured"></button>
+      <span id="help-progress-label">1 / 5</span>
+    </div>
+    <div class="help-pages">
+      <section class="help-page active" data-title="Start with the motion">
+        <h3>Two swings, joined together</h3>
+        <p>A double pendulum is simply one pendulum hanging from another. The orange mass pulls on the blue mass, and the blue mass pulls back. That connection turns two familiar swings into one surprisingly rich motion.</p>
+        <div class="help-duo"><div><b>Try a gentle release</b><span>Small displacements often produce smooth, repeating motion.</span></div><div><b>Try a forceful throw</b><span>More energy opens many competing paths through the same space.</span></div></div>
+        <div class="help-callout">The fading trails show where each mass has recently been. The lower trace shows the blue mass's horizontal position, <strong>x(t)</strong>, changing with time.</div>
+      </section>
+      <section class="help-page" data-title="See the coupling">
+        <h3>Energy moves between the links</h3>
+        <p>Neither arm has its own independent rhythm. Motion of the upper arm moves the pivot of the lower arm; motion of the lower arm pushes back through the joint. Energy continually shifts between height, speed, and the two links.</p>
+        <div class="help-duo"><div><b>Potential energy</b><span>Raised masses store gravitational energy.</span></div><div><b>Kinetic energy</b><span>Moving masses carry energy through both rotations.</span></div></div>
+        <p>This is <strong>nonlinear coupling</strong>: doubling an angle does not simply double the response. The geometry itself changes the forces as the pendulum moves.</p>
+      </section>
+      <section class="help-page" data-title="Understand chaos">
+        <h3>Deterministic, yet unpredictable</h3>
+        <p>The pendulum obeys precise equations—there is no randomness in the simulation. Yet two releases that differ by an almost invisible amount can eventually follow completely different paths. This is <strong>sensitive dependence on initial conditions</strong>.</p>
+        <div class="equation"><math display="block"><mrow><mi>&delta;</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>&asymp;</mo><msub><mi>&delta;</mi><mn>0</mn></msub><msup><mi>e</mi><mrow><mi>&lambda;</mi><mi>t</mi></mrow></msup></mrow></math></div>
+        <p>Here <math><msub><mi>&delta;</mi><mn>0</mn></msub></math> is a tiny initial separation and <math><mi>&lambda;</mi></math> is a Lyapunov exponent. When <math><mi>&lambda;</mi><mo>&gt;</mo><mn>0</mn></math>, nearby motions separate exponentially: practical long-term prediction becomes impossible.</p>
+        <div class="help-callout"><strong>Chaos is not disorder.</strong> It is structured motion whose details become extremely sensitive to how accurately the starting state is known.</div>
+      </section>
+      <section class="help-page" data-title="Read the mechanics">
+        <h3>The physics beneath the picture</h3>
+        <p>The state is described by two angles, <math><msub><mi>&theta;</mi><mn>1</mn></msub></math> and <math><msub><mi>&theta;</mi><mn>2</mn></msub></math>, and their angular velocities. For point masses and massless rods, the kinetic and gravitational energies are:</p>
+        <div class="equation"><math display="block"><mtable columnalign="left"><mtr><mtd><mi>T</mi><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>(</mo><msub><mi>m</mi><mn>1</mn></msub><mo>+</mo><msub><mi>m</mi><mn>2</mn></msub><mo>)</mo><msubsup><mi>l</mi><mn>1</mn><mn>2</mn></msubsup><msubsup><mover><mi>&theta;</mi><mo>&#x2D9;</mo></mover><mn>1</mn><mn>2</mn></msubsup><mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><msub><mi>m</mi><mn>2</mn></msub><msubsup><mi>l</mi><mn>2</mn><mn>2</mn></msubsup><msubsup><mover><mi>&theta;</mi><mo>&#x2D9;</mo></mover><mn>2</mn><mn>2</mn></msubsup><mo>+</mo><msub><mi>m</mi><mn>2</mn></msub><msub><mi>l</mi><mn>1</mn></msub><msub><mi>l</mi><mn>2</mn></msub><msub><mover><mi>&theta;</mi><mo>&#x2D9;</mo></mover><mn>1</mn></msub><msub><mover><mi>&theta;</mi><mo>&#x2D9;</mo></mover><mn>2</mn></msub><mo>cos</mo><mo>(</mo><msub><mi>&theta;</mi><mn>1</mn></msub><mo>-</mo><msub><mi>&theta;</mi><mn>2</mn></msub><mo>)</mo></mtd></mtr><mtr><mtd><mi>V</mi><mo>=</mo><mo>-</mo><mo>(</mo><msub><mi>m</mi><mn>1</mn></msub><mo>+</mo><msub><mi>m</mi><mn>2</mn></msub><mo>)</mo><mi>g</mi><msub><mi>l</mi><mn>1</mn></msub><mo>cos</mo><msub><mi>&theta;</mi><mn>1</mn></msub><mo>-</mo><msub><mi>m</mi><mn>2</mn></msub><mi>g</mi><msub><mi>l</mi><mn>2</mn></msub><mo>cos</mo><msub><mi>&theta;</mi><mn>2</mn></msub></mtd></mtr></mtable></math></div>
+        <p>With <math><mi>L</mi><mo>=</mo><mi>T</mi><mo>-</mo><mi>V</mi></math>, the coupled equations follow from:</p>
+        <div class="equation"><math display="block"><mrow><mfrac><mi>d</mi><mrow><mi>d</mi><mi>t</mi></mrow></mfrac><mfrac><mrow><mo>&part;</mo><mi>L</mi></mrow><mrow><mo>&part;</mo><msub><mover><mi>&theta;</mi><mo>&#x2D9;</mo></mover><mi>i</mi></msub></mrow></mfrac><mo>-</mo><mfrac><mrow><mo>&part;</mo><mi>L</mi></mrow><mrow><mo>&part;</mo><msub><mi>&theta;</mi><mi>i</mi></msub></mrow></mfrac><mo>=</mo><mn>0</mn></mrow></math></div>
+      </section>
+      <section class="help-page" data-title="Connect it to the app">
+        <h3>What this simulation is doing</h3>
+        <p>The equations are advanced in tiny time steps with a fourth-order Runge–Kutta method. A small damping term gradually removes energy, representing losses that a real pivot and air resistance would introduce.</p>
+        <p>At the same time, an invisible “shadow” pendulum starts only <strong>one millionth of a unit</strong> away. The app repeatedly measures how fast that shadow separates from the visible pendulum.</p>
+        <div class="help-duo"><div><b>REGULAR</b><span>Nearby trajectories remain close or separate only slowly.</span></div><div><b>CHAOTIC</b><span>Nearby trajectories separate rapidly, giving a positive Lyapunov estimate.</span></div></div>
+        <div class="help-callout">Drag a sphere to choose the initial state. Use <strong>Shift-drag</strong> at rest for rod length and <strong>Ctrl-drag</strong> for mass. Then watch how a small physical change can transform the motion.</div>
+      </section>
+    </div>
+    <div class="help-bottom"><button class="help-nav" id="help-prev" type="button" disabled>Back</button><div class="help-level" id="help-level">Start with the motion</div><button class="help-nav" id="help-next" type="button">Go deeper</button></div>
+  </div>
+</div>
+<script>
+"use strict";
+(() => {
+/* ------------------------------------------------------------------ *
+ * Double pendulum for a section-divider frame.
+ * No dependencies, no controls, fits whatever box it is given.
+ * ------------------------------------------------------------------ */
+
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+const hintEl = document.getElementById("hint");
+const gbtn = document.getElementById("gtoggle");
+const helpBtn = document.getElementById("help-toggle");
+const helpLayer = document.getElementById("help-layer");
+const helpClose = document.getElementById("help-close");
+const helpPrev = document.getElementById("help-prev");
+const helpNext = document.getElementById("help-next");
+const helpPages = Array.from(document.querySelectorAll(".help-page"));
+const helpSteps = Array.from(document.querySelectorAll(".help-step"));
+const helpProgressLabel = document.getElementById("help-progress-label");
+const helpLevel = document.getElementById("help-level");
+let helpPage = 0;
+
+/* ---------------- physical parameters (SI-ish, metres/kg) ---------------- */
+const P = { g: 9.81, m1: 1.4, m2: 1.0, l1: 1.45, l2: 1.15, damping: 0.05 };
+const R0 = 0.135;                                    // radius of a unit mass
+const L_MIN = 0.45, L_MAX = 2.40;
+const R_MIN = 0.075, R_MAX = 0.42;
+const massFromRadius = r => Math.pow(r / R0, 3);
+const radiusFromMass = m => R0 * Math.cbrt(m);
+let r1 = radiusFromMass(P.m1), r2 = radiusFromMass(P.m2);
+
+/* ---------------- colours ---------------- */
+const C1 = { r: 0xf9, g: 0x73, b: 0x16 };            // upper sphere, amber
+const C2 = { r: 0x25, g: 0x63, b: 0xeb };            // lower sphere, blue
+const rgba = (c, a) => `rgba(${c.r},${c.g},${c.b},${a})`;
+const shade = (c, k) => ({ r: Math.round(c.r * k), g: Math.round(c.g * k), b: Math.round(c.b * k) });
+const tint = (c, k) => ({
+  r: Math.round(c.r + (255 - c.r) * k),
+  g: Math.round(c.g + (255 - c.g) * k),
+  b: Math.round(c.b + (255 - c.b) * k)
+});
+const css = c => `rgb(${c.r},${c.g},${c.b})`;
+
+/* ---------------- state ---------------- */
+let S = { a1: 0, a2: 0, w1: 0, w2: 0 };              // starts hanging, at rest
+let restT = 1, atRest = true;
+let last = performance.now();
+
+/* trails: {x,y,t} in world units, newest last */
+const TRAIL_LIFE = 2.6;                              // seconds until fully gone
+const TRAIL_MAX = 260;
+const trail1 = [], trail2 = [];
+let trailClock = 0;
+
+/* view fit */
+let W = 1, H = 1, DPR = 1;
+let scale = 100, scaleTarget = 100, originX = 0, originY = 0;
+
+/* interaction */
+const drag = { on: false, target: 0, mode: "swing", id: -1, lastT: 0, label: "" };
+let hoverTarget = 0, hoverMode = "swing";
+let paused = false;                                  // click freezes / unfreezes
+
+/* ---------------- helpers ---------------- */
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const angNorm = a => Math.atan2(Math.sin(a), Math.cos(a));
+
+function p1World() { return { x: P.l1 * Math.sin(S.a1), y: -P.l1 * Math.cos(S.a1) }; }
+function p2World() {
+  const p = p1World();
+  return { x: p.x + P.l2 * Math.sin(S.a2), y: p.y - P.l2 * Math.cos(S.a2) };
+}
+const toScreenX = x => originX + x * scale;
+const toScreenY = y => originY - y * scale;
+function toWorld(px, py) { return { x: (px - originX) / scale, y: (originY - py) / scale }; }
+
+/* ---------------- dynamics (RK4) ---------------- */
+function deriv(s) {
+  const { g, m1, m2, l1, l2, damping } = P;
+  const d = s.a1 - s.a2;
+  const den = 2 * m1 + m2 - m2 * Math.cos(2 * d);
+  const dw1 = (
+    -g * (2 * m1 + m2) * Math.sin(s.a1)
+    - m2 * g * Math.sin(s.a1 - 2 * s.a2)
+    - 2 * Math.sin(d) * m2 * (s.w2 * s.w2 * l2 + s.w1 * s.w1 * l1 * Math.cos(d))
+  ) / (l1 * den) - damping * s.w1;
+  const dw2 = (
+    2 * Math.sin(d) * (
+      s.w1 * s.w1 * l1 * (m1 + m2)
+      + g * (m1 + m2) * Math.cos(s.a1)
+      + s.w2 * s.w2 * l2 * m2 * Math.cos(d)
+    )
+  ) / (l2 * den) - damping * s.w2;
+  return { a1: s.w1, a2: s.w2, w1: dw1, w2: dw2 };
+}
+const step = (s, k, h) => ({ a1: s.a1 + k.a1 * h, a2: s.a2 + k.a2 * h, w1: s.w1 + k.w1 * h, w2: s.w2 + k.w2 * h });
+/* One RK4 step of an arbitrary state — the shadow trajectory below needs the
+   very same integrator, so this is factored out rather than inlined into S. */
+function rk4State(s, dt) {
+  const k1 = deriv(s);
+  const k2 = deriv(step(s, k1, dt * 0.5));
+  const k3 = deriv(step(s, k2, dt * 0.5));
+  const k4 = deriv(step(s, k3, dt));
+  return {
+    a1: s.a1 + dt * (k1.a1 + 2 * k2.a1 + 2 * k3.a1 + k4.a1) / 6,
+    a2: s.a2 + dt * (k1.a2 + 2 * k2.a2 + 2 * k3.a2 + k4.a2) / 6,
+    w1: s.w1 + dt * (k1.w1 + 2 * k2.w1 + 2 * k3.w1 + k4.w1) / 6,
+    w2: s.w2 + dt * (k1.w2 + 2 * k2.w2 + 2 * k3.w2 + k4.w2) / 6
+  };
+}
+function rk4(dt) { S = rk4State(S, dt); }
+
+/* ================================================================== *
+ * x(t) trace of the lower bob
+ * ================================================================== */
+let graphOn = true;                                  // the discreet switch
+let bandPresence = 1;                                // eased space reservation
+let graphAlpha = 0;                                  // eased visibility
+
+const G = {
+  HZ: 60,                                            // samples per second
+  WINDOW: 8,                                         // seconds shown
+  N: 480,                                            // HZ * WINDOW
+  buf: new Float32Array(480),
+  head: 0, count: 0, total: 0,
+  acc: 0,                                            // sub-sample phase, seconds
+  ref: P.l1 + P.l2                                   // world x at full deflection
+};
+const SDT = 1 / G.HZ;
+
+function pushSample(x) {
+  G.buf[G.head] = x;
+  G.head = (G.head + 1) % G.N;
+  if (G.count < G.N) G.count++;
+  G.total++;
+}
+function sampleAt(i) {                               // i = 0 oldest … count-1 newest
+  return G.buf[(G.head - G.count + i + G.N * 2) % G.N];
+}
+function clearTrace() { G.head = 0; G.count = 0; G.total = 0; G.acc = 0; }
+
+/* The band is reserved out of the frame height, so the pendulum is fitted
+   above the graph instead of swinging through it. */
+function bandHeight() { return Math.min(H * 0.26, 200) * bandPresence; }
+
+/* ---------------- regular or chaotic? ----------------
+   Measured, not guessed: a second pendulum is started a hair away from the
+   first and integrated with the same steps. The rate at which the two
+   separate is the largest Lyapunov exponent (Benettin's method — renormalise
+   the gap back to d0 every frame so the pair stays in the linear regime).
+   Positive means neighbouring states run apart: chaos. Around zero, or
+   negative under damping, means the motion is regular. The band between the
+   two thresholds is deliberately wide, and prints nothing.               */
+const LY = { s2: null, d0: 1e-6, est: 0, age: 0 };
+const LY_TAU = 2.0;                                  // s, smoothing of the estimate
+const LY_CHAOS = 0.55;                               // 1/s, above this: chaotic
+const LY_REG = 0.12;                                 // 1/s, below this: regular
+const LY_WARMUP = 2.5;                               // s before the estimate is trusted
+
+function lyReset() {
+  LY.s2 = { a1: S.a1 + LY.d0, a2: S.a2, w1: S.w1, w2: S.w2 };
+  LY.est = 0; LY.age = 0;
+}
+function lyStep(dt) {
+  if (!LY.s2) { lyReset(); return; }
+  let s = LY.s2, remaining = dt;
+  const h = 1 / 480;
+  while (remaining > 0) { const hh = Math.min(h, remaining); s = rk4State(s, hh); remaining -= hh; }
+
+  const da1 = s.a1 - S.a1, da2 = s.a2 - S.a2, dw1 = s.w1 - S.w1, dw2 = s.w2 - S.w2;
+  const d = Math.sqrt(da1 * da1 + da2 * da2 + dw1 * dw1 + dw2 * dw2);
+  if (!isFinite(d) || d <= 0) { lyReset(); return; }
+
+  const rate = Math.log(d / LY.d0) / dt;
+  if (isFinite(rate)) {
+    LY.est += (rate - LY.est) * Math.min(1, dt / LY_TAU);
+    LY.age += dt;
+  }
+  const f = LY.d0 / d;                               // pull the shadow back in
+  LY.s2 = { a1: S.a1 + da1 * f, a2: S.a2 + da2 * f, w1: S.w1 + dw1 * f, w2: S.w2 + dw2 * f };
+}
+
+/* label cross-fade — a candidate has to hold before it is shown at all */
+let labelText = "", labelCand = "", labelHold = 0, labelAlpha = 0;
+/* Asymmetric thresholds: getting a verdict on screen needs a clear reading,
+   keeping one there needs only a plausible one. Without that, a run whose
+   exponent grazes the dead zone on its way down would blink the word on and
+   off rather than simply reporting that the motion has calmed. */
+const LY_HOLD_CHAOS = 0.30, LY_HOLD_REG = 0.22;
+function regimeCandidate() {
+  if (!graphOn || drag.on || paused || atRest) return "";
+  if (LY.age < LY_WARMUP) return "";
+  const e = LY.est;
+  if (labelText === "CHAOTIC") return e > LY_HOLD_CHAOS ? "CHAOTIC" : (e < LY_REG ? "REGULAR" : "");
+  if (labelText === "REGULAR") return e < LY_HOLD_REG ? "REGULAR" : (e > LY_CHAOS ? "CHAOTIC" : "");
+  if (e > LY_CHAOS) return "CHAOTIC";
+  if (e < LY_REG) return "REGULAR";
+  return "";                                         // in doubt: say nothing
+}
+function updateLabel(dt) {
+  const want = regimeCandidate();
+  if (want === labelCand) labelHold += dt; else { labelCand = want; labelHold = 0; }
+  const confirmed = labelHold > 0.7 ? labelCand : labelText;
+  if (confirmed !== labelText) {
+    labelAlpha -= dt * 2.4;                          // swap only once faded out
+    if (labelAlpha <= 0) { labelAlpha = 0; labelText = confirmed; }
+  } else if (labelText) {
+    labelAlpha = Math.min(1, labelAlpha + dt * 1.5);
+  } else {
+    labelAlpha = Math.max(0, labelAlpha - dt * 2.4);
+  }
+}
+
+/* ---------------- view fitting ----------------
+   The whole reachable disc plus a margin is fitted into the frame, so the
+   pendulum stays inside a wide, short divider band as well as a tall one.  */
+function computeFitTarget() {
+  const reach = P.l1 + P.l2 + Math.max(r1, r2);
+  const topPad = reach * 0.13;
+  const Heff = Math.max(60, H - bandHeight());
+  const pad = Math.min(W, Heff) * 0.08 + 10;
+  scaleTarget = Math.min((W - 2 * pad) / (2 * reach), (Heff - 2 * pad) / (reach + topPad));
+  if (!isFinite(scaleTarget) || scaleTarget <= 0) scaleTarget = 1;
+  return { reach, topPad, Heff };
+}
+/* Place the pivot so the reachable disc is centred in whatever box we are in. */
+function layout(reach, topPad, Heff) {
+  originX = W / 2;
+  originY = (Heff - (reach + topPad) * scale) / 2 + topPad * scale;
+}
+function fitView(instant) {
+  const { reach, topPad, Heff } = computeFitTarget();
+  if (instant || !isFinite(scale) || scale <= 0) scale = scaleTarget;
+  layout(reach, topPad, Heff);
+}
+
+/* offscreen for the trace, so its edge fade cannot erase the pendulum */
+let goff = null, gctx = null;
+
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = cv.clientWidth || window.innerWidth;
+  H = cv.clientHeight || window.innerHeight;
+  cv.width = Math.max(1, Math.round(W * DPR));
+  cv.height = Math.max(1, Math.round(H * DPR));
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  fitView(true);
+}
+
+/* ---------------- trails ---------------- */
+function pushTrail(arr, p) {
+  const n = arr.length;
+  if (n) {
+    const d = Math.hypot(p.x - arr[n - 1].x, p.y - arr[n - 1].y);
+    if (d < 0.004) { arr[n - 1].t = trailClock; return; }   // don't pile up while still
+  }
+  arr.push({ x: p.x, y: p.y, t: trailClock });
+  if (arr.length > TRAIL_MAX) arr.shift();
+}
+function ageOut(arr) {
+  while (arr.length && trailClock - arr[0].t > TRAIL_LIFE) arr.shift();
+}
+
+/* Banded stroking: the trail is split into a handful of runs, each drawn once
+   with its own width and alpha. Far cheaper than per-segment strokes and, with
+   round joins and one point of overlap, visually continuous. */
+function drawTrail(arr, colour, headWidth) {
+  const n = arr.length;
+  if (n < 2) return;
+  const BANDS = 18;
+  ctx.lineJoin = "round";
+  for (let pass = 0; pass < 2; pass++) {          // 0 = soft glow, 1 = core
+    for (let b = 0; b < BANDS; b++) {
+      const i0 = Math.floor((b / BANDS) * (n - 1));
+      const i1 = Math.floor(((b + 1) / BANDS) * (n - 1));
+      if (i1 <= i0) continue;
+      const mid = arr[Math.floor((i0 + i1) / 2)];
+      const age = clamp((trailClock - mid.t) / TRAIL_LIFE, 0, 1);
+      const life = 1 - age;                        // 1 at the head, 0 at the tail
+      const fade = life * life;                    // ease out so the tail dissolves
+      if (fade < 0.004) continue;
+      // Butt caps on interior joins: adjacent bands share a vertex, so round
+      // caps would overlap there and stamp a bead of doubled alpha every join.
+      ctx.lineCap = (b === BANDS - 1) ? "round" : "butt";
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(arr[i0].x), toScreenY(arr[i0].y));
+      for (let i = i0 + 1; i <= i1; i++) ctx.lineTo(toScreenX(arr[i].x), toScreenY(arr[i].y));
+      if (pass === 0) {
+        ctx.strokeStyle = rgba(colour, fade * 0.13);
+        ctx.lineWidth = headWidth * (0.6 + 3.0 * life);
+      } else {
+        ctx.strokeStyle = rgba(colour, fade * 0.95);
+        ctx.lineWidth = headWidth * (0.16 + 0.84 * life);
+      }
+      ctx.stroke();
+    }
+  }
+  ctx.lineCap = "round";
+}
+
+/* ---------------- the trace ---------------- */
+function drawGraph() {
+  const gh = bandHeight();
+  if (graphAlpha < 0.01 || gh < 26 || W < 60 || G.count < 2) return;
+
+  const gw = W;
+  // The trace is all soft gradients and glow, so it is drawn below device
+  // resolution and scaled up on the way in. Invisible in the result, and on a
+  // 2× display it is the difference between a few tenths of a millisecond a
+  // frame and eating half the 60 Hz budget on fill rate alone.
+  const GDPR = Math.min(DPR, 1.25);
+  if (!goff) { goff = document.createElement("canvas"); gctx = goff.getContext("2d"); }
+  const dw = Math.max(1, Math.round(gw * GDPR)), dh = Math.max(1, Math.round(gh * GDPR));
+  if (goff.width !== dw || goff.height !== dh) { goff.width = dw; goff.height = dh; }
+  const g = gctx;
+  g.setTransform(GDPR, 0, 0, GDPR, 0, 0);
+  g.clearRect(0, 0, gw, gh);
+
+  const mid = gh * 0.5;
+  const amp = gh * 0.40;
+  const px = gw / (G.N - 1);
+  const frac = G.acc / SDT;                          // sub-sample scroll, kills judder
+  const n = G.count;
+  const xOf = i => gw - ((n - 1 - i) + frac) * px;
+
+  /* watermark first, so the trace rides over the letters */
+  if (labelAlpha > 0.01 && labelText) {
+    const size = Math.max(13, Math.min(gh * 0.50, gw * 0.11));
+    g.save();
+    g.font = `700 ${Math.round(size)}px system-ui,-apple-system,"Segoe UI",Arial,sans-serif`;
+    if ("letterSpacing" in g) g.letterSpacing = `${Math.round(size * 0.18)}px`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    const col = labelText === "CHAOTIC" ? "249,115,22" : "22,163,74";
+    g.fillStyle = `rgba(${col},${(0.30 * labelAlpha).toFixed(3)})`;
+    g.fillText(labelText, gw / 2, mid);
+    g.restore();
+  }
+
+  /* scrolling second marks */
+  const oldestAbs = G.total - n;
+  g.strokeStyle = "rgba(37,99,235,0.10)";
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let a = Math.ceil(oldestAbs / G.HZ) * G.HZ; a < G.total; a += G.HZ) {
+    const sx = Math.round(xOf(a - oldestAbs)) + 0.5;
+    g.moveTo(sx, gh * 0.12); g.lineTo(sx, gh * 0.88);
+  }
+  g.stroke();
+
+  /* x = 0 axis */
+  g.strokeStyle = "rgba(37,99,235,0.20)";
+  g.beginPath();
+  g.moveTo(0, Math.round(mid) + 0.5); g.lineTo(gw, Math.round(mid) + 0.5);
+  g.stroke();
+
+  /* the curve, built once and reused for the ribbon and the strokes */
+  const line = new Path2D();
+  for (let i = 0; i < n; i++) {
+    const sx = xOf(i);
+    const sy = mid - clamp(sampleAt(i) / G.ref, -1.15, 1.15) * amp;
+    if (i === 0) line.moveTo(sx, sy); else line.lineTo(sx, sy);
+  }
+  const area = new Path2D(line);
+  area.lineTo(xOf(n - 1), mid);
+  area.lineTo(xOf(0), mid);
+  area.closePath();
+
+  const fg = g.createLinearGradient(0, 0, 0, gh);    // brightest along the axis
+  fg.addColorStop(0.00, "rgba(37,99,235,0.02)");
+  fg.addColorStop(0.50, "rgba(37,99,235,0.34)");
+  fg.addColorStop(1.00, "rgba(37,99,235,0.02)");
+  g.fillStyle = fg;
+  g.fill(area);
+
+  g.lineJoin = "round"; g.lineCap = "round";
+  g.strokeStyle = "rgba(37,99,235,0.13)";
+  g.lineWidth = Math.max(5, gh * 0.055); g.stroke(line);
+  g.strokeStyle = "rgba(59,130,246,0.55)";
+  g.lineWidth = Math.max(2.2, gh * 0.020); g.stroke(line);
+  g.strokeStyle = "rgba(147,197,253,0.95)";
+  g.lineWidth = Math.max(1.1, gh * 0.008); g.stroke(line);
+
+  /* dissolve both ends into the background — erase alpha, don't paint over it,
+     so whatever the page background happens to be shows through cleanly */
+  const fw = Math.min(gw * 0.17, 240);
+  g.globalCompositeOperation = "destination-out";
+  let lg = g.createLinearGradient(0, 0, fw, 0);
+  lg.addColorStop(0, "rgba(0,0,0,1)");
+  lg.addColorStop(0.45, "rgba(0,0,0,0.45)");
+  lg.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = lg; g.fillRect(0, 0, fw, gh);
+  lg = g.createLinearGradient(gw, 0, gw - fw, 0);
+  lg.addColorStop(0, "rgba(0,0,0,1)");
+  lg.addColorStop(0.45, "rgba(0,0,0,0.45)");
+  lg.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = lg; g.fillRect(gw - fw, 0, fw, gh);
+  g.globalCompositeOperation = "source-over";
+
+  ctx.globalAlpha = graphAlpha;
+  ctx.drawImage(goff, 0, H - gh, gw, gh);
+  ctx.globalAlpha = 1;
+}
+
+/* ---------------- drawing ---------------- */
+function drawRod(ax, ay, bx, by, w) {
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(15,23,42,0.16)";
+  ctx.lineWidth = w * 1.9;
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  const g = ctx.createLinearGradient(ax, ay, bx, by);
+  g.addColorStop(0, "#4b5563"); g.addColorStop(0.5, "#1f2937"); g.addColorStop(1, "#374151");
+  ctx.strokeStyle = g;
+  ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.30)";       // specular seam
+  ctx.lineWidth = Math.max(0.6, w * 0.22);
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+}
+
+function drawSphere(x, y, rPx, colour, highlighted) {
+  if (rPx < 0.6) return;
+  // ambient glow in the sphere's own colour
+  const glow = ctx.createRadialGradient(x, y, rPx * 0.55, x, y, rPx * 2.5);
+  glow.addColorStop(0, rgba(colour, 0.20));
+  glow.addColorStop(1, rgba(colour, 0));
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x, y, rPx * 2.5, 0, Math.PI * 2); ctx.fill();
+
+  // body: lit from the upper left
+  const hx = x - rPx * 0.36, hy = y - rPx * 0.40;
+  const g = ctx.createRadialGradient(hx, hy, rPx * 0.06, x, y, rPx * 1.06);
+  g.addColorStop(0, css(tint(colour, 0.72)));
+  g.addColorStop(0.34, css(tint(colour, 0.20)));
+  g.addColorStop(0.78, css(colour));
+  g.addColorStop(1, css(shade(colour, 0.55)));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, rPx, 0, Math.PI * 2); ctx.fill();
+
+  // terminator darkening on the lower right
+  const t = ctx.createRadialGradient(x + rPx * 0.42, y + rPx * 0.46, rPx * 0.1, x + rPx * 0.2, y + rPx * 0.24, rPx * 1.15);
+  t.addColorStop(0, rgba(shade(colour, 0.35), 0.42));
+  t.addColorStop(1, rgba(shade(colour, 0.35), 0));
+  ctx.fillStyle = t;
+  ctx.beginPath(); ctx.arc(x, y, rPx, 0, Math.PI * 2); ctx.fill();
+
+  // crisp specular dot
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.beginPath(); ctx.ellipse(hx, hy, rPx * 0.19, rPx * 0.14, -0.6, 0, Math.PI * 2); ctx.fill();
+
+  if (highlighted) {
+    ctx.strokeStyle = rgba(colour, 0.85);
+    ctx.lineWidth = Math.max(1.2, rPx * 0.10);
+    ctx.setLineDash([rPx * 0.5, rPx * 0.42]);
+    ctx.beginPath(); ctx.arc(x, y, rPx * 1.45, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawPivot(x, y, rPx) {
+  ctx.fillStyle = "rgba(15,23,42,0.10)";
+  ctx.beginPath(); ctx.arc(x, y, rPx * 2.1, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(x - rPx * 0.4, y - rPx * 0.4, rPx * 0.1, x, y, rPx);
+  g.addColorStop(0, "#6b7280"); g.addColorStop(1, "#111827");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, rPx, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawLabel(text, x, y, colour) {
+  ctx.font = `600 ${Math.max(10, Math.min(17, Math.round(scale * 0.11)))}px system-ui,-apple-system,"Segoe UI",Arial,sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const w = ctx.measureText(text).width + 14, h = 21;
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.strokeStyle = rgba(colour, 0.55);
+  ctx.lineWidth = 1;
+  const rx = x - w / 2, ry = y - h / 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(rx, ry, w, h, 6);
+  else ctx.rect(rx, ry, w, h);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = css(shade(colour, 0.8));
+  ctx.fillText(text, x, y + 0.5);
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  drawGraph();
+
+  const p1 = p1World(), p2 = p2World();
+  const s0x = toScreenX(0), s0y = toScreenY(0);
+  const s1x = toScreenX(p1.x), s1y = toScreenY(p1.y);
+  const s2x = toScreenX(p2.x), s2y = toScreenY(p2.y);
+  const rp1 = r1 * scale, rp2 = r2 * scale;
+
+  drawTrail(trail1, C1, Math.max(1.6, rp1 * 0.46));
+  drawTrail(trail2, C2, Math.max(1.8, rp2 * 0.52));
+
+  const rodW = Math.max(1.6, scale * 0.026);
+  drawRod(s0x, s0y, s1x, s1y, rodW);
+  drawRod(s1x, s1y, s2x, s2y, rodW);
+  drawPivot(s0x, s0y, Math.max(2.4, scale * 0.045));
+
+  drawSphere(s1x, s1y, rp1, C1, drag.on ? drag.target === 1 : hoverTarget === 1 && atRest);
+  drawSphere(s2x, s2y, rp2, C2, drag.on ? drag.target === 2 : hoverTarget === 2 && atRest);
+
+  if (drag.on && drag.label) {
+    const isFirst = drag.target === 1;
+    drawLabel(drag.label,
+      (isFirst ? s1x : s2x),
+      (isFirst ? s1y - rp1 : s2y - rp2) - 20,
+      isFirst ? C1 : C2);
+  }
+}
+
+/* ---------------- main loop ---------------- */
+function frame(now) {
+  let dt = (now - last) / 1000;
+  last = now;
+  if (!(dt > 0)) dt = 1 / 60;
+  dt = Math.min(dt, 0.05);
+  // Paused: stop the clock outright, so the trails hold instead of fading out.
+  // A drag still runs, so a frozen pendulum can be picked up and re-placed.
+  if (paused && !drag.on) dt = 0;
+  trailClock += dt;
+
+  const editing = drag.on && drag.mode !== "swing";
+  if (!drag.on) {
+    let remaining = dt;
+    const h = 1 / 480;
+    // Sampling rides inside the integration loop, so the trace advances at a
+    // true 60 Hz whatever the display refresh happens to be.
+    while (remaining > 0) {
+      const s = Math.min(h, remaining);
+      rk4(s); remaining -= s;
+      G.acc += s;
+      while (G.acc >= SDT) { pushSample(p2World().x); G.acc -= SDT; }
+    }
+    if (dt > 0 && !editing) lyStep(dt);
+  } else {
+    G.acc += dt;                                     // dragged by hand: sample it anyway
+    let guard = 0;
+    while (G.acc >= SDT && guard++ < 6) { pushSample(p2World().x); G.acc -= SDT; }
+    if (G.acc >= SDT) G.acc = 0;
+    LY.age = 0;                                      // the estimate restarts after a throw
+  }
+
+  // rest bookkeeping — settle exactly so the edit gestures become available
+  const speed = Math.abs(S.w1) + Math.abs(S.w2);
+  const swing = Math.abs(angNorm(S.a1)) + Math.abs(angNorm(S.a2));
+  if (!drag.on && !paused && speed < 0.06 && swing < 0.09) {
+    S.a1 = S.a2 = 0; S.w1 = S.w2 = 0;
+  }
+  if (editing || (speed < 0.08 && swing < 0.12)) restT += dt; else restT = 0;
+  atRest = restT > 0.22;
+
+  // the trace: present only while it is actually swinging
+  const bandTarget = graphOn ? 1 : 0;
+  bandPresence += (bandTarget - bandPresence) * Math.min(1, dt * 5);
+  if (Math.abs(bandTarget - bandPresence) < 0.002) bandPresence = bandTarget;
+  const alphaTarget = (graphOn && !atRest) ? 1 : 0;
+  graphAlpha += (alphaTarget - graphAlpha) * Math.min(1, dt * 3.2);
+  if (Math.abs(alphaTarget - graphAlpha) < 0.004) graphAlpha = alphaTarget;
+  G.ref += ((P.l1 + P.l2) - G.ref) * Math.min(1, dt * 3);
+  updateLabel(dt);
+
+  // ease the fit so changing a rod length glides instead of jumping
+  const { reach, topPad, Heff } = computeFitTarget();
+  scale += (scaleTarget - scale) * Math.min(1, dt * 7);
+  layout(reach, topPad, Heff);
+
+  pushTrail(trail1, p1World());
+  pushTrail(trail2, p2World());
+  ageOut(trail1); ageOut(trail2);
+
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- pointer interaction ---------------- */
+function hitTest(px, py) {
+  const p1 = p1World(), p2 = p2World();
+  const d2 = Math.hypot(px - toScreenX(p2.x), py - toScreenY(p2.y)) - r2 * scale;
+  const d1 = Math.hypot(px - toScreenX(p1.x), py - toScreenY(p1.y)) - r1 * scale;
+  const tol = 10;
+  if (d2 <= tol && d2 <= d1) return 2;
+  if (d1 <= tol) return 1;
+  return 0;
+}
+function modeFor(ev) {
+  if (!atRest) return "swing";
+  if (ev.shiftKey) return "length";
+  if (ev.ctrlKey || ev.metaKey) return "size";
+  return "swing";
+}
+function localPoint(ev) {
+  const r = cv.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+
+/* free swing: place the grabbed mass, solving the two-link geometry */
+function moveSwing(w, now) {
+  const prevA1 = S.a1, prevA2 = S.a2;
+  if (drag.target === 1) {
+    S.a1 = Math.atan2(w.x, -w.y);
+  } else {
+    const down = -w.y;
+    const rRaw = Math.hypot(w.x, down);
+    const rr = clamp(rRaw, Math.abs(P.l1 - P.l2) + 1e-3, P.l1 + P.l2 - 1e-3);
+    const phi = Math.atan2(w.x, down);
+    const cosA = clamp((rr * rr + P.l1 * P.l1 - P.l2 * P.l2) / (2 * rr * P.l1), -1, 1);
+    const bend = Math.sign(Math.sin(S.a2 - S.a1)) || 1;
+    S.a1 = phi - bend * Math.acos(cosA);
+    S.a2 = Math.atan2(w.x - P.l1 * Math.sin(S.a1), down - P.l1 * Math.cos(S.a1));
+  }
+  const dt = clamp((now - drag.lastT) / 1000 || 1 / 60, 1 / 240, 0.08);
+  S.w1 = clamp(angNorm(S.a1 - prevA1) / dt, -22, 22);
+  S.w2 = clamp(angNorm(S.a2 - prevA2) / dt, -22, 22);
+  drag.lastT = now;
+}
+
+function moveLength(w) {
+  if (drag.target === 1) {
+    P.l1 = clamp(Math.hypot(w.x, w.y), L_MIN, L_MAX);
+    drag.label = `L₁  ${P.l1.toFixed(2)} m`;
+  } else {
+    const p1 = p1World();
+    P.l2 = clamp(Math.hypot(w.x - p1.x, w.y - p1.y), L_MIN, L_MAX);
+    drag.label = `L₂  ${P.l2.toFixed(2)} m`;
+  }
+  S.w1 = S.w2 = 0;
+}
+
+function moveSize(w) {
+  if (drag.target === 1) {
+    const p1 = p1World();
+    r1 = clamp(Math.hypot(w.x - p1.x, w.y - p1.y), R_MIN, R_MAX);
+    P.m1 = massFromRadius(r1);
+    drag.label = `m₁  ${P.m1.toFixed(2)} kg`;
+  } else {
+    const p2 = p2World();
+    r2 = clamp(Math.hypot(w.x - p2.x, w.y - p2.y), R_MIN, R_MAX);
+    P.m2 = massFromRadius(r2);
+    drag.label = `m₂  ${P.m2.toFixed(2)} kg`;
+  }
+  S.w1 = S.w2 = 0;
+}
+
+function applyDrag(ev) {
+  const l = localPoint(ev);
+  const w = toWorld(l.x, l.y);
+  const now = performance.now();
+  if (drag.mode === "length") moveLength(w);
+  else if (drag.mode === "size") moveSize(w);
+  else moveSwing(w, now);
+}
+
+cv.addEventListener("pointerdown", ev => {
+  const l = localPoint(ev);
+  downPt = l; movedFar = false;
+  const hit = hitTest(l.x, l.y);
+  if (!hit) return;
+  ev.preventDefault();
+  cv.setPointerCapture(ev.pointerId);
+  drag.on = true; drag.id = ev.pointerId; drag.target = hit;
+  drag.mode = modeFor(ev);
+  drag.lastT = performance.now();
+  drag.label = "";
+  applyDrag(ev);   // trails are cleared on the first real movement, not on a bare click
+  showHint();
+});
+
+cv.addEventListener("pointermove", ev => {
+  if (downPt && !movedFar) {
+    const l0 = localPoint(ev);
+    if (Math.hypot(l0.x - downPt.x, l0.y - downPt.y) > CLICK_SLOP) {
+      movedFar = true;
+      if (drag.on && drag.mode === "swing") { trail1.length = 0; trail2.length = 0; clearTrace(); }
+    }
+  }
+  if (drag.on && ev.pointerId === drag.id) {
+    ev.preventDefault();
+    // let the modifier be pressed or released mid-gesture
+    const m = modeFor(ev);
+    if (m !== drag.mode && atRest) { drag.mode = m; drag.label = ""; }
+    applyDrag(ev);
+    return;
+  }
+  const l = localPoint(ev);
+  hoverTarget = hitTest(l.x, l.y);
+  updateHoverCursor(ev);
+});
+
+/* The cursor names the gesture the current modifier would perform. */
+function updateHoverCursor(ev) {
+  if (!hoverTarget) { cv.style.cursor = "default"; return; }
+  hoverMode = modeFor(ev);
+  cv.style.cursor = hoverMode === "length" ? "ns-resize"
+    : hoverMode === "size" ? "nwse-resize" : "grab";
+}
+
+function endDrag(ev) {
+  if (!drag.on || (ev && ev.pointerId !== drag.id)) return;
+  if (ev && cv.hasPointerCapture(ev.pointerId)) cv.releasePointerCapture(ev.pointerId);
+  if (drag.mode !== "swing") { S.w1 = S.w2 = 0; }      // edits leave it at rest
+  drag.on = false; drag.target = 0; drag.mode = "swing"; drag.label = ""; drag.id = -1;
+  lyReset();                                           // measure the new throw afresh
+}
+cv.addEventListener("pointerup", endDrag);
+cv.addEventListener("pointercancel", endDrag);
+cv.addEventListener("contextmenu", ev => { if (hoverTarget || drag.on) ev.preventDefault(); });
+cv.addEventListener("pointerleave", () => { if (!drag.on) { hoverTarget = 0; cv.style.cursor = "default"; } });
+
+/* ---------------- click: pause · double click: reset ----------------
+   A click is only a click if the pointer barely moved between down and up —
+   otherwise a drag that ends on the sphere would also freeze the motion.
+   The single-click action waits out the double-click window so that a
+   double click resets rather than toggling the pause twice on the way. */
+const CLICK_SLOP = 5;                                // px of travel still counts as a click
+const DBL_WINDOW = 260;                              // ms to wait for a second click
+let downPt = null, movedFar = false, sawDrag = false, clickTimer = 0;
+
+function resetToRest() {
+  S = { a1: 0, a2: 0, w1: 0, w2: 0 };
+  trail1.length = 0; trail2.length = 0;
+  clearTrace(); lyReset();
+  labelText = ""; labelCand = ""; labelHold = 0; labelAlpha = 0;
+  restT = 1; atRest = true;
+  paused = false;
+  last = performance.now();
+}
+
+cv.addEventListener("click", () => {
+  downPt = null;
+  const wasDrag = movedFar; movedFar = false;
+  clearTimeout(clickTimer);
+  sawDrag = wasDrag;
+  if (wasDrag) return;                               // that gesture was a drag, not a click
+  clickTimer = setTimeout(() => { paused = !paused; showHint(); }, DBL_WINDOW);
+});
+cv.addEventListener("dblclick", ev => {
+  ev.preventDefault();
+  clearTimeout(clickTimer);
+  if (sawDrag) { sawDrag = false; return; }          // a drag sat between the two clicks
+  resetToRest();
+  showHint();
+});
+
+/* keep the cursor honest when a modifier is pressed without moving the mouse */
+addEventListener("keydown", updateHoverCursor, true);
+addEventListener("keyup", updateHoverCursor, true);
+
+/* ---------------- the trace switch ---------------- */
+function setGraph(on) {
+  graphOn = on;
+  gbtn.setAttribute("aria-pressed", on ? "true" : "false");
+  gbtn.setAttribute("aria-label", on ? "Hide the x(t) trace" : "Show the x(t) trace");
+  gbtn.classList.toggle("off", !on);
+  if (!on) { labelText = ""; labelCand = ""; labelAlpha = 0; }
+}
+gbtn.addEventListener("click", () => setGraph(!graphOn));
+
+/* ---------------- progressive explanation ---------------- */
+function showHelpPage(index) {
+  helpPage = clamp(index, 0, helpPages.length - 1);
+  helpPages.forEach((page, i) => page.classList.toggle("active", i === helpPage));
+  helpSteps.forEach((stepEl, i) => {
+    stepEl.classList.toggle("active", i === helpPage);
+    stepEl.classList.toggle("past", i < helpPage);
+    stepEl.setAttribute("aria-current", i === helpPage ? "step" : "false");
+  });
+  helpPrev.disabled = helpPage === 0;
+  helpNext.textContent = helpPage === helpPages.length - 1 ? "Start again" : "Go deeper";
+  helpProgressLabel.textContent = `${helpPage + 1} / ${helpPages.length}`;
+  helpLevel.textContent = helpPages[helpPage].dataset.title || "";
+  document.querySelector(".help-pages").scrollTop = 0;
+}
+function setHelpOpen(open) {
+  helpLayer.classList.toggle("open", open);
+  helpBtn.classList.toggle("open", open);
+  helpLayer.setAttribute("aria-hidden", open ? "false" : "true");
+  helpBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) {
+    showHelpPage(helpPage);
+    setTimeout(() => helpClose.focus({ preventScroll: true }), 80);
+  } else {
+    helpBtn.focus({ preventScroll: true });
+  }
+}
+helpBtn.addEventListener("click", () => setHelpOpen(!helpLayer.classList.contains("open")));
+helpClose.addEventListener("click", () => setHelpOpen(false));
+helpLayer.addEventListener("click", ev => { if (ev.target === helpLayer) setHelpOpen(false); });
+helpPrev.addEventListener("click", () => showHelpPage(helpPage - 1));
+helpNext.addEventListener("click", () => showHelpPage(helpPage === helpPages.length - 1 ? 0 : helpPage + 1));
+helpSteps.forEach(stepEl => stepEl.addEventListener("click", () => showHelpPage(Number(stepEl.dataset.page))));
+addEventListener("keydown", ev => {
+  if (!helpLayer.classList.contains("open")) return;
+  if (ev.key === "Escape") setHelpOpen(false);
+  else if (ev.key === "ArrowRight") showHelpPage(helpPage + 1);
+  else if (ev.key === "ArrowLeft") showHelpPage(helpPage - 1);
+});
+
+/* ---------------- hint ---------------- */
+let hintTimer = 0;
+function showHint() {
+  hintEl.classList.add("show");
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => hintEl.classList.remove("show"), 5200);
+}
+cv.addEventListener("pointerenter", showHint);
+setTimeout(showHint, 700);
+
+/* ---------------- boot ---------------- */
+lyReset();
+if (window.ResizeObserver) new ResizeObserver(resize).observe(cv);
+addEventListener("resize", resize);
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

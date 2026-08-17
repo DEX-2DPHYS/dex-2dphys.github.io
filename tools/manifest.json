@@ -27,6 +27,9 @@
     }
   ],
   "tools": [
+    "heterostructure-builder",
+    "biomicroscope",
+    "double-pendulum",
     "camera-fft",
     "camera-motion",
     "graph-digitizer",

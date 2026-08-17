@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Microscopic Screening of an Unknown Stained Sample</title>
+<style>
+:root{
+  --bg:#c9ced6; --panel:#f8fafc; --panel2:#e9edf2; --line:#bfc7d1;
+  --ink:#18202b; --dim:#57626f; --dim2:#8792a0;
+  --accent:#1f6feb; --accent2:#0e7490; --warn:#b45309; --bad:#b91c1c; --ok:#15803d;
+  --stain:#c2415f;
+  --sh:0 1px 2px rgba(20,28,38,.06),0 4px 14px rgba(20,28,38,.07);
+  --r:10px; --fs:13px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:var(--fs)/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  overflow:hidden;
+}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- layout ---------- */
+#app{display:flex;flex-direction:column;height:100vh;
+  padding-left:var(--padL,0px);padding-right:var(--padR,0px);
+  transition:padding .24s cubic-bezier(.4,0,.2,1)}
+.topbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--sh);z-index:5;
+}
+.brand{display:flex;flex-direction:column;line-height:1.15;margin-right:4px}
+.brand b{font-size:14px;letter-spacing:.2px}
+.brand span{font-size:11px;color:var(--dim2)}
+.spacer{flex:1}
+.tb-group{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:3px 8px}
+.tb-group label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+select,input[type=text],textarea{background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.btn{background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 11px;box-shadow:0 1px 1px rgba(20,28,38,.05)}
+.btn:hover{background:var(--panel2);border-color:#a7b1bd}
+.btn.pri{background:var(--accent);border-color:#1a5fce;color:#fff}
+.btn.pri:hover{background:#1a5fce}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.on{background:#dcfce7;border-color:#4ade80;color:#14532d}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{background:transparent;border:0;padding:5px 10px;font-size:12px;color:var(--dim)}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff;font-weight:600}
+
+main{flex:1;display:flex;flex-direction:column;gap:9px;padding:9px;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:10px;box-shadow:var(--sh)}
+.card h3{margin:0 0 8px;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
+
+/* ---------- scope ---------- */
+.scopewrap{
+  flex:1;min-height:0;display:grid;place-items:center;position:relative;
+  background:radial-gradient(circle at 50% 34%,#e2e6ec,#b4bcc6 78%);
+  border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  box-shadow:inset 0 1px 4px rgba(20,28,38,.14);
+}
+#view{display:block;touch-action:none;cursor:grab;border-radius:50%;
+  box-shadow:0 0 0 11px #39414c,0 0 0 13px #8f98a4,0 14px 42px rgba(20,28,38,.38)}
+#view.dragging{cursor:grabbing}
+.hud{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 20px)}
+.chip{background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:11px;color:var(--dim);backdrop-filter:blur(4px);box-shadow:0 1px 2px rgba(20,28,38,.08)}
+.chip b{color:var(--ink);font-variant-numeric:tabular-nums}
+.hud-b{position:absolute;right:10px;bottom:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.toastwrap{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;z-index:3}
+.toast{background:rgba(255,255,255,.96);border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:8px;padding:7px 12px;font-size:12px;max-width:520px;animation:tin .25s ease;box-shadow:0 6px 22px rgba(20,28,38,.18)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+/* mini-map floating on the field */
+.minimap{position:absolute;left:12px;bottom:12px;width:150px;background:rgba(255,255,255,.93);
+  border:1px solid var(--line);border-radius:9px;padding:5px;box-shadow:var(--sh);z-index:2}
+.minimap canvas{display:block;width:100%;height:auto;border-radius:5px;cursor:crosshair;border:1px solid var(--line)}
+.minimap b{display:block;font-size:9px;letter-spacing:.7px;text-transform:uppercase;color:var(--dim2);text-align:center;margin-bottom:3px}
+
+/* ---------- controls ---------- */
+/* flex + wrap, not a fixed grid: the bar must stay usable when a pinned side
+   panel narrows the stage, rather than clipping its last group */
+.ctrlbar{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-start}
+.ctrlbar>div{flex:0 0 auto;min-width:0}
+.ctrlbar>div.grow{flex:1 1 250px}
+.nosepiece{display:flex;gap:6px}
+.obj{
+  width:58px;padding:8px 4px;border-radius:8px;border:1px solid var(--line);background:#fff;
+  display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;color:var(--dim)
+}
+.obj .band{width:100%;height:5px;border-radius:3px;background:#aaa}
+.obj b{font-size:15px;color:var(--ink)}
+.obj[aria-pressed=true]{border-color:var(--accent);background:#e8f1fe;color:var(--ink);box-shadow:0 0 0 1px var(--accent) inset}
+.focusbox{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:11px;color:var(--dim)}
+.focusbox input[type=range]{width:100%}
+.xypad{width:104px;height:104px;border-radius:10px;border:1px solid var(--line);background:linear-gradient(#fff,#e7ebf0);
+  position:relative;display:grid;place-items:center;touch-action:none;cursor:crosshair}
+.xypad:after{content:"";position:absolute;inset:12px;border:1px dashed #b9c2cd;border-radius:6px}
+.xypad .knob{width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px rgba(31,111,235,.45)}
+.xypad .lbl{position:absolute;bottom:3px;font-size:9px;color:var(--dim2);letter-spacing:.5px}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:#cbd3dc;border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 3px rgba(20,28,38,.3);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer}
+input[type=range]:disabled::-webkit-slider-thumb{background:#a3adb9}
+.row{display:flex;align-items:center;gap:8px}
+.row.wrap{flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12px}
+.kv span{color:var(--dim)}
+.kv b{font-variant-numeric:tabular-nums;font-weight:600}
+#overview{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--line);cursor:crosshair;background:#eef1f5}
+.loglist{display:flex;flex-direction:column;gap:5px;max-height:260px;overflow:auto}
+.logitem{display:grid;grid-template-columns:1fr auto;gap:4px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:11px}
+.logitem .co{color:var(--dim);font-variant-numeric:tabular-nums}
+.logitem input{width:100%;background:transparent;border:0;border-bottom:1px dashed #b9c2cd;padding:1px 0;font-size:11px}
+.mini{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;color:var(--dim)}
+.mini:hover{background:var(--panel2)}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:3px 0;color:var(--dim)}
+.check .box{width:15px;height:15px;flex:0 0 auto;border:1px solid #aeb8c4;background:#fff;border-radius:4px;display:grid;place-items:center;font-size:10px;margin-top:2px}
+.check.done{color:var(--ink)}
+.check.done .box{background:var(--ok);border-color:var(--ok);color:#fff}
+.note{font-size:11px;color:var(--dim2);line-height:1.45}
+
+/* ---------- edge-reveal drawers ---------- */
+.edge{position:fixed;top:52px;bottom:0;width:15px;z-index:44;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .15s,opacity .15s;
+  background:linear-gradient(90deg,rgba(24,32,43,.10),rgba(24,32,43,0))}
+.edge.r{right:0;background:linear-gradient(270deg,rgba(24,32,43,.10),rgba(24,32,43,0))}
+.edge.l{left:0}
+.edge span{writing-mode:vertical-rl;font-size:9px;letter-spacing:2.2px;text-transform:uppercase;color:var(--dim);opacity:.8}
+.edge.r span{transform:rotate(180deg)}
+.edge:hover{background:rgba(31,111,235,.16)}
+.edge:hover span{color:var(--accent);opacity:1}
+.edge.hidden{opacity:0;pointer-events:none}
+
+.drawer{
+  position:fixed;top:0;bottom:0;width:404px;max-width:94vw;background:var(--panel);z-index:50;
+  display:flex;flex-direction:column;transition:transform .24s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 0 34px rgba(20,28,38,.24)
+}
+.drawer.left{left:0;border-right:1px solid var(--line);transform:translateX(-102%)}
+.drawer.right{right:0;border-left:1px solid var(--line);transform:translateX(102%)}
+.drawer.open{transform:translateX(0)}
+.drawer.pinned{box-shadow:1px 0 0 var(--line)}
+.drawer .dhead{display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.drawer .dhead b{flex:1;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+.pin{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim);border:1px solid var(--line);
+  border-radius:7px;padding:2px 8px;background:#fff}
+.pin[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.tabs{display:flex;gap:4px;padding:7px 9px 0;background:var(--panel2);border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:1px solid transparent;border-bottom:0;background:transparent;padding:7px 6px;
+  border-radius:8px 8px 0 0;font-size:12px;color:var(--dim)}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected=true]{background:var(--panel);border-color:var(--line);color:var(--ink);font-weight:600;margin-bottom:-1px}
+.pane{display:none;flex:1;overflow:auto;padding:11px;flex-direction:column;gap:10px}
+.pane.on{display:flex}
+
+details{background:var(--panel2);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+details>summary{cursor:pointer;padding:9px 11px;font-weight:600;font-size:12.5px;list-style:none;display:flex;gap:8px;align-items:center}
+details>summary::-webkit-details-marker{display:none}
+details>summary:before{content:"▸";color:var(--accent);transition:.15s}
+details[open]>summary:before{transform:rotate(90deg)}
+details .inner{padding:0 12px 12px;font-size:12.5px;color:#2c3745}
+details .inner p{margin:6px 0}
+details .inner ul,details .inner ol{margin:6px 0;padding-left:18px}
+details .inner li{margin:3px 0}
+kbd{background:#fff;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:11px ui-monospace,monospace}
+table.t{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums;background:#fff}
+table.t th,table.t td{border:1px solid var(--line);padding:4px 6px;text-align:right}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t th{background:var(--panel2);color:var(--dim);font-weight:600}
+table.t tr.cur td{background:#e8f1fe}
+.field{display:flex;flex-direction:column;gap:4px;margin:8px 0}
+.field label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;display:flex;justify-content:space-between}
+.field label b{color:var(--ink);text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums}
+.callout{border-left:3px solid var(--warn);background:rgba(180,83,9,.09);padding:8px 10px;border-radius:0 8px 8px 0;font-size:12px}
+.callout.info{border-color:var(--accent);background:rgba(31,111,235,.09)}
+.callout.good{border-color:var(--ok);background:rgba(21,128,61,.09)}
+.swatchrow{display:flex;gap:8px;align-items:center;font-size:12px;margin:4px 0}
+.sw{width:26px;height:14px;border-radius:3px;flex:0 0 auto;border:1px solid rgba(20,28,38,.25)}
+
+/* ---------- modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(24,32,43,.42);opacity:0;pointer-events:none;transition:.2s;z-index:55}
+.scrim.show{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;z-index:60;display:none;place-items:center;padding:20px}
+.modal.show{display:grid}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(780px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(20,28,38,.35)}
+.sheet header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.sheet header b{flex:1;font-size:15px}
+.sheet .body{padding:16px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.sheet footer{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.choices{display:flex;gap:8px;flex-wrap:wrap}
+.choice{flex:1;min-width:150px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px;text-align:left}
+.choice[aria-pressed=true]{border-color:var(--accent);background:#e8f1fe}
+.choice b{display:block;font-size:13px}
+.choice span{font-size:11px;color:var(--dim)}
+.banner{border-radius:10px;padding:12px 14px;font-size:13px}
+.banner.ok{background:#e7f8ec;border:1px solid #86d79b}
+.banner.bad{background:#fdeaea;border:1px solid #f0a3a3}
+.banner.mid{background:#fdf3e2;border:1px solid #eac48a}
+.bar{height:9px;background:#e4e9ef;border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--accent)}
+.tut{display:flex;flex-direction:column;gap:8px}
+.tut .step{display:none}
+.tut .step.on{display:block}
+
+@media (max-width:900px){ .brand span{display:none} }
+@media (max-width:700px){
+  .xypad{width:88px;height:88px}
+  .minimap{width:112px}
+  .edge{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand">
+      <b>Microscopic screening of an unknown stained sample</b>
+      <span>Compound bright-field simulator · 10× eyepiece · 4×/10×/40×/100× objectives</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="tb-group">
+      <label for="selSample">Slide</label>
+      <select id="selSample" aria-label="Select slide"></select>
+      <button class="mini" id="btnShuffle" title="Re-assign which scenario sits behind each unknown label">Shuffle</button>
+    </div>
+    <div class="tb-group">
+      <label>Mode</label>
+      <div class="seg" role="group" aria-label="Teaching mode">
+        <button id="modeGuided" aria-pressed="true">Guided</button>
+        <button id="modeAssess" aria-pressed="false">Assessment</button>
+      </div>
+    </div>
+    <button class="btn" id="btnLearn">📖 Learn</button>
+    <button class="btn" id="btnSlide">🗺 Slide &amp; log</button>
+    <button class="btn" id="btnTask">📋 Task</button>
+    <button class="btn" id="btnAdv">⚙ Advanced</button>
+    <button class="btn" id="btnTut" title="Quick tutorial (T)">🎓</button>
+  </div>
+
+  <main>
+    <div class="scopewrap" id="scopewrap">
+      <canvas id="view" width="900" height="900" tabindex="0"
+        aria-label="Microscope field of view. Drag to move the stage, click to centre a point, Shift-click to mark."></canvas>
+      <div class="hud" id="hudTop">
+        <span class="chip">Total mag <b id="hMag">40×</b></span>
+        <span class="chip">Objective <b id="hObj">4× / NA 0.10</b></span>
+        <span class="chip">Field <b id="hFov">5000 µm</b></span>
+        <span class="chip">Resolution <b id="hRes">3.4 µm</b></span>
+        <span class="chip" id="chipOil" style="display:none">🛢 <b>oil</b></span>
+      </div>
+      <div class="hud-b">
+        <span class="chip">X <b id="hX">5.00</b> mm</span>
+        <span class="chip">Y <b id="hY">5.00</b> mm</span>
+        <span class="chip">Focus <b id="hZ">0.0</b> µm</span>
+      </div>
+      <div class="minimap" id="minimapBox">
+        <b>Slide · 10 × 10 mm</b>
+        <canvas id="minimap" width="300" height="300" aria-label="Mini slide map. Click to move the stage."></canvas>
+      </div>
+      <div class="toastwrap" id="toasts"></div>
+    </div>
+
+    <div class="card ctrlbar">
+      <div>
+        <h3>Objective (revolving nosepiece)</h3>
+        <div class="nosepiece" id="nosepiece" role="group" aria-label="Objective selector"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnOil" title="Immersion oil (100× only)">🛢 Oil: off</button>
+          <button class="btn" id="btnLow" title="Return to 4×, centre, sensible illumination">↺ Low-power setup</button>
+        </div>
+      </div>
+
+      <div class="grow">
+        <h3>Focus &amp; illumination</h3>
+        <div class="focusbox">
+          <label for="rCoarse">Coarse</label>
+          <input type="range" id="rCoarse" min="-120" max="120" step="0.5" value="0" aria-describedby="hZ">
+          <b id="vCoarse" style="font-variant-numeric:tabular-nums;min-width:56px;text-align:right">0.0 µm</b>
+
+          <label for="rFine">Fine</label>
+          <input type="range" id="rFine" min="-12" max="12" step="0.05" value="0">
+          <b id="vFine" style="font-variant-numeric:tabular-nums;min-width:56px;text-align:right">0.00 µm</b>
+
+          <label for="rLight">Light</label>
+          <input type="range" id="rLight" min="0" max="100" step="1" value="62">
+          <b id="vLight" style="min-width:56px;text-align:right">62 %</b>
+
+          <label for="rCond">Condenser</label>
+          <input type="range" id="rCond" min="0" max="100" step="1" value="58">
+          <b id="vCond" style="min-width:56px;text-align:right">58 %</b>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <h3 style="align-self:flex-start">Stage X–Y</h3>
+        <div class="xypad" id="xypad" role="application" aria-label="Stage joystick. Drag to move the stage.">
+          <div class="knob"></div><span class="lbl">DRAG</span>
+        </div>
+      </div>
+
+      <div>
+        <h3>Record</h3>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn" id="btnMark">📍 Mark field <kbd>M</kbd></button>
+          <button class="btn pri" id="btnSubmit">Submit assessment</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="edge l" id="edgeL" title="Move the pointer here to reveal the learning panel"><span>Learn · Slide · Log</span></div>
+<div class="edge r" id="edgeR" title="Move the pointer here to reveal the task and controls panel"><span>Task · Advanced</span></div>
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer left" id="drawerL" aria-hidden="true" aria-label="Learning, slide map and observation log">
+  <div class="dhead">
+    <b>Learning &amp; navigation</b>
+    <button class="pin" id="pinL" aria-pressed="false" title="Keep this panel open">📌 Pin</button>
+    <button class="btn ghost" id="closeL" aria-label="Close panel">✕</button>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Left panel tabs">
+    <button role="tab" aria-selected="true" data-pane="learnBody">📖 Learn</button>
+    <button role="tab" aria-selected="false" data-pane="paneSlide">🗺 Slide &amp; log</button>
+  </div>
+  <div class="pane on" id="learnBody" role="tabpanel"></div>
+  <div class="pane" id="paneSlide" role="tabpanel">
+    <div class="card">
+      <h3>Overview map — 10 × 10 mm</h3>
+      <canvas id="overview" width="440" height="440" aria-label="Slide overview map. Click to move the stage."></canvas>
+      <p class="note" style="margin:6px 0 0">Shading shows where the smear is thick. Click or drag to move the stage.
+      The blue wash marks what you have already scanned. Organisms are <b>not</b> shown here.</p>
+    </div>
+    <div class="card">
+      <h3>Observation log <span id="logCount" style="color:var(--dim2)"></span></h3>
+      <div class="row" style="margin-bottom:7px">
+        <button class="btn" id="btnMark2" style="flex:1">📍 Mark current field</button>
+        <button class="mini" id="btnClearMarks">Clear</button>
+      </div>
+      <div class="loglist" id="logList"></div>
+      <p class="note" id="logEmpty">No observations yet. Centre a candidate, confirm it at high power, then mark it.</p>
+    </div>
+  </div>
+</aside>
+
+<aside class="drawer right" id="drawerR" aria-hidden="true" aria-label="Task, readouts and advanced controls">
+  <div class="dhead">
+    <b>Task &amp; instrument</b>
+    <button class="pin" id="pinR" aria-pressed="false" title="Keep this panel open">📌 Pin</button>
+    <button class="btn ghost" id="closeR" aria-label="Close panel">✕</button>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Right panel tabs">
+    <button role="tab" aria-selected="true" data-pane="paneTask">📋 Task &amp; readouts</button>
+    <button role="tab" aria-selected="false" data-pane="advBody">⚙ Advanced</button>
+  </div>
+  <div class="pane on" id="paneTask" role="tabpanel">
+    <div class="card">
+      <h3>Your task</h3>
+      <p style="margin:0 0 8px;font-size:12.5px" id="taskText"></p>
+      <div id="checklist"></div>
+      <button class="btn pri" id="btnSubmit2" style="width:100%;margin-top:10px">Submit assessment</button>
+      <p class="note" style="margin-top:8px">Morphology alone can never confirm <i>Salmonella</i>. You are screening, not diagnosing.</p>
+    </div>
+    <div class="card">
+      <h3>Readouts</h3>
+      <div class="kv" id="readouts"></div>
+    </div>
+  </div>
+  <div class="pane" id="advBody" role="tabpanel"></div>
+</aside>
+
+<div class="modal" id="modalSubmit" role="dialog" aria-modal="true" aria-labelledby="subTitle">
+  <div class="sheet">
+    <header><b id="subTitle">Submit your screening result</b><button class="btn ghost" data-close="modalSubmit">✕</button></header>
+    <div class="body" id="submitBody"></div>
+    <footer>
+      <button class="btn" data-close="modalSubmit">Keep looking</button>
+      <button class="btn pri" id="btnFinalSubmit">Submit</button>
+    </footer>
+  </div>
+</div>
+
+<div class="modal" id="modalResult" role="dialog" aria-modal="true" aria-labelledby="resTitle">
+  <div class="sheet">
+    <header><b id="resTitle">Debrief</b><button class="btn ghost" data-close="modalResult">✕</button></header>
+    <div class="body" id="resultBody"></div>
+    <footer>
+      <button class="btn" id="btnRevealAfter">Show targets on the map</button>
+      <button class="btn" data-close="modalResult">Review this slide</button>
+      <button class="btn pri" id="btnNextSample">Load another slide</button>
+    </footer>
+  </div>
+</div>
+
+<div class="modal" id="modalTut" role="dialog" aria-modal="true" aria-labelledby="tutTitle">
+  <div class="sheet" style="width:min(620px,96vw)">
+    <header><b id="tutTitle">Quick tutorial</b><button class="btn ghost" data-close="modalTut">✕</button></header>
+    <div class="body tut" id="tutBody"></div>
+    <footer>
+      <span class="note" id="tutProg" style="margin-right:auto"></span>
+      <button class="btn" id="tutPrev">Back</button>
+      <button class="btn pri" id="tutNext">Next</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =======================================================================
+   PART 1 — maths, optics constants, scenario definitions
+   ======================================================================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const smoothstep=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
+const TAU=Math.PI*2;
+
+/* seeded PRNG */
+function hashStr(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(r){let u=0,v=0;while(!u)u=r();while(!v)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);}
+
+/* ------------------------- OPTICS ------------------------- */
+const LAMBDA=0.55;                 // µm, green light
+const SLIDE=10000;                 // µm — inspectable slide is 10 × 10 mm
+const EYEPIECES=[{mag:10,fn:20},{mag:15,fn:14},{mag:20,fn:11}];
+const OBJECTIVES=[
+  {mag:4,   na:0.10, wd:17.0, oil:false, band:'#e11d48', name:'Scanning'},
+  {mag:10,  na:0.25, wd:6.50, oil:false, band:'#eab308', name:'Low power'},
+  {mag:40,  na:0.65, wd:0.60, oil:false, band:'#2f6fe0', name:'High dry'},
+  {mag:100, na:1.25, wd:0.13, oil:true,  band:'#e8eef5', name:'Oil immersion'}
+];
+// small, deterministic parfocal error (µm) — you must always touch the fine focus
+const PARFOCAL=[0,+0.9,-1.6,+2.3];
+
+/* Everything the renderer needs, derived from the current instrument state. */
+function optics(st){
+  const ob=OBJECTIVES[st.objIdx], ey=EYEPIECES[st.eyeIdx];
+  const oiled = ob.oil && st.oil;
+  const n = oiled?1.515:1.0;
+  // dry 100× is used out of its design medium: NA collapses and spherical aberration appears
+  const naObj = (ob.oil&&!st.oil) ? 0.75 : ob.na;
+  const condMax = oiled?1.30:0.95;
+  const naCond = 0.05+(st.cond/100)*condMax;
+  // illumination NA beyond the objective aperture cannot contribute to resolution
+  const naEff  = Math.min(naObj,naCond);
+  const dRes   = 1.22*LAMBDA/(naObj+naEff);           // Abbe/Rayleigh-style two-NA form
+  const dof    = LAMBDA*n/(naObj*naObj) + n*7/(ob.mag*ey.mag*naObj);
+  const fovUm  = ey.fn*1000/ob.mag;
+  const ratio  = naCond/naObj;                        // condenser matching
+  let contrast = clamp(1.30-0.55*clamp(ratio,0,1.6),0.30,1.35);
+  let extra    = 0;                                    // extra blur, µm
+  if(ratio<0.35) extra += (0.35-ratio)*dRes*2.2;       // closed-down diffraction artefacts
+  if(ratio>1.05) contrast *= 1-0.28*clamp(ratio-1.05,0,0.6); // glare / veiling
+  if(ob.oil&&!st.oil){ extra += 0.95; contrast *= 0.55; }    // dry 100× is visibly bad
+  if(st.dirty[st.objIdx]) { extra += 0.35; contrast *= 0.8; } // oil left on a dry lens
+  // brightness: lamp × condenser aperture × objective light-gathering
+  let bright = (0.10+1.02*st.light/100)*(0.62+0.50*clamp(ratio,0,1.2));
+  if(ob.oil&&!st.oil) bright *= 0.5;
+  return {ob,ey,oiled,n,naObj,naCond,naEff,dRes,dof,fovUm,ratio,contrast,extra,bright,
+          totalMag:ob.mag*ey.mag};
+}
+
+/* ------------------------- SCENARIOS ------------------------- */
+// tgt: {zones, per:[min,max], singles}. Multipliers scale background populations.
+const SCENARIOS={
+  training:{key:'training',title:'Training slide (targets can be revealed)',
+    blurb:'Known positive control smear, Gram-stained. Use it to learn what a 1 × 3 µm Gram-negative rod looks like at 100×.',
+    tgt:{zones:46,per:[5,14],singles:130}, other:0.8, precip:0.7, pseudo:0.6, crystal:0.5, bubble:0.5, cell:1.0, training:true},
+  posMod:{key:'posMod',title:'Enrichment broth smear',
+    blurb:'Selective enrichment broth, smeared, heat-fixed, Gram-stained.',
+    tgt:{zones:52,per:[4,13],singles:120}, other:1.0, precip:1.0, pseudo:1.0, crystal:0.8, bubble:0.8, cell:1.0},
+  posSparse:{key:'posSparse',title:'Direct food homogenate smear',
+    blurb:'Direct smear from a food homogenate — any target present will be scarce.',
+    tgt:{zones:15,per:[2,6],singles:22}, other:1.2, precip:1.1, pseudo:1.1, crystal:0.9, bubble:1.0, cell:1.2},
+  negative:{key:'negative',title:'Environmental swab smear',
+    blurb:'Swab rinse, concentrated and Gram-stained.',
+    tgt:{zones:0,per:[0,0],singles:0}, other:1.9, precip:1.3, pseudo:1.3, crystal:1.0, bubble:0.9, cell:1.1},
+  contaminated:{key:'contaminated',title:'Poorly prepared smear',
+    blurb:'Thick, unevenly fixed smear with heavy stain deposit and trapped air.',
+    tgt:{zones:4,per:[2,5],singles:5}, other:1.3, precip:3.4, pseudo:3.6, crystal:3.0, bubble:2.8, cell:0.7, poor:true}
+};
+const UNKNOWN_KEYS=['posMod','posSparse','negative','contaminated'];
+
+/* object type codes */
+const T={CELL:1,DEBRIS:2,PRECIP:3,FIBRE:4,BUBBLE:5,SCRATCH:6,TARGET:7,ROD:8,COCCUS:9,YEAST:10,CRYSTAL:11,FILAMENT:12,PSEUDO:13};
+const TYPE_CLASS={
+  [T.TARGET]:'target',[T.ROD]:'other',[T.COCCUS]:'other',[T.FILAMENT]:'other',[T.YEAST]:'other',
+  [T.CELL]:'host',[T.DEBRIS]:'artefact',[T.PRECIP]:'artefact',[T.FIBRE]:'artefact',
+  [T.BUBBLE]:'artefact',[T.SCRATCH]:'artefact',[T.CRYSTAL]:'artefact',[T.PSEUDO]:'artefact'
+};
+const TYPE_NAME={
+  [T.TARGET]:'Gram-negative rod, 1 × 3 µm — <b>suspected Salmonella-like</b>',
+  [T.ROD]:'Other bacillus (larger / Gram-positive) — not the target morphology',
+  [T.COCCUS]:'Coccus (single, pair or chain) — not a rod',
+  [T.FILAMENT]:'Filamentous organism / hypha',
+  [T.YEAST]:'Yeast cell, budding',
+  [T.CELL]:'Host / food matrix cell',
+  [T.DEBRIS]:'Amorphous debris',
+  [T.PRECIP]:'Stain precipitate granule',
+  [T.FIBRE]:'Textile or plant fibre',
+  [T.BUBBLE]:'Trapped air bubble',
+  [T.SCRATCH]:'Scratch in the glass (focuses at a different depth)',
+  [T.CRYSTAL]:'Stain crystal / refractile artefact',
+  [T.PSEUDO]:'Rod-shaped stain deposit — an <b>artefact that mimics a bacillus</b>'
+};
+
+/* ------------------------- SPECIMEN GENERATOR ------------------------- */
+const GRID=500, GN=SLIDE/GRID;                       // 20 × 20 spatial hash
+
+function makeSpecimen(scn,seedStr){
+  const rnd=mulberry32(hashStr(seedStr+'|'+scn.key));
+  const objs=[], zones=[];
+  // ---- smear footprint: an irregular blob, not the whole slide
+  const ph=[rnd()*TAU,rnd()*TAU,rnd()*TAU], R0=3550;
+  const edgeAt=th=>R0*(1+0.19*Math.sin(3*th+ph[0])+0.11*Math.sin(5*th+ph[1])+0.07*Math.sin(8*th+ph[2]));
+  // ---- density hot-spots (thicker parts of the smear)
+  const blobs=[];
+  for(let i=0,nb=5+((rnd()*4)|0);i<nb;i++){
+    const th=rnd()*TAU, rr=rnd()*R0*0.8;
+    blobs.push({x:5000+Math.cos(th)*rr,y:5000+Math.sin(th)*rr,r:900+rnd()*2100,a:0.45+rnd()*0.95});
+  }
+  function density(x,y){
+    const dx=x-5000,dy=y-5000,r=Math.hypot(dx,dy),th=Math.atan2(dy,dx);
+    const e=edgeAt(th);
+    let m=smoothstep(e+150,e-700,r);                   // feathered smear edge
+    if(m<=0)return 0;
+    let d=0.30;
+    for(const b of blobs){const ax=x-b.x,ay=y-b.y;d+=b.a*Math.exp(-(ax*ax+ay*ay)/(2*b.r*b.r));}
+    return m*Math.min(1.7,d);
+  }
+  function pick(){                                     // rejection-sample a dense point
+    for(let i=0;i<40;i++){
+      const x=rnd()*SLIDE,y=rnd()*SLIDE,d=density(x,y);
+      if(d>0 && rnd()<d/1.7) return {x,y,d};
+    }
+    return null;
+  }
+  const zOff=(rnd()*2-1)*22;                           // where the smear actually sits in z
+  const zAt=(spread)=>zOff+gauss(rnd)*spread;
+  const push=o=>{objs.push(o);};
+
+  const N=(base,mul)=>Math.round(base*(mul==null?1:mul));
+
+  /* -- host / matrix cells -- */
+  for(let i=0,n=N(4200,scn.cell);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const r=16+rnd()*22, pts=[];
+    for(let k=0;k<14;k++)pts.push(0.72+rnd()*0.5);
+    const tint=rnd();
+    push({t:T.CELL,x:p.x,y:p.y,z:zAt(3.2),r,w:r*1.3,rot:rnd()*TAU,pts,
+      c:`hsla(${318+tint*34},42%,${58+rnd()*14}%,1)`,a:0.16+rnd()*0.12,
+      c2:`hsla(${272+rnd()*26},46%,42%,1)`,nr:r*(0.18+rnd()*0.14),
+      nx:(rnd()*2-1)*r*0.28,ny:(rnd()*2-1)*r*0.28});
+  }
+  /* -- amorphous debris -- */
+  for(let i=0,n=N(5200,scn.precip);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const r=1.2+rnd()*7, pts=[];
+    for(let k=0;k<9;k++)pts.push(0.5+rnd()*0.9);
+    push({t:T.DEBRIS,x:p.x,y:p.y,z:zAt(4.2),r,w:r,rot:rnd()*TAU,pts,
+      c:`hsla(${28+rnd()*40},22%,${26+rnd()*22}%,1)`,a:0.24+rnd()*0.3});
+  }
+  /* -- stain precipitate granules (the classic coccus mimic) -- */
+  for(let i=0,n=N(9000,scn.precip);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const r=0.22+rnd()*0.75;
+    push({t:T.PRECIP,x:p.x,y:p.y,z:zAt(4.6),r,w:r*2,rot:0,
+      c:`hsla(${288+rnd()*30},34%,${16+rnd()*16}%,1)`,a:0.55+rnd()*0.4});
+  }
+  /* -- rod-shaped stain deposits: artefacts that look like bacilli -- */
+  for(let i=0,n=N(220,scn.pseudo);i<n;i++){
+    const p=pick(); if(!p)continue;
+    push({t:T.PSEUDO,x:p.x,y:p.y,z:zOff+(rnd()<0.55?(rnd()*2-1)*1.6:-7-rnd()*4), // often a different plane
+      l:2.2+rnd()*4.2,w:0.7+rnd()*0.9,rot:rnd()*TAU,
+      c:`hsla(${282+rnd()*24},30%,${13+rnd()*12}%,1)`,a:0.62+rnd()*0.34});
+  }
+  /* -- fibres -- */
+  for(let i=0,n=260;i<n;i++){
+    const p=pick(); if(!p)continue;
+    const len=90+rnd()*700, th=rnd()*TAU, pts=[];
+    let x=p.x,y=p.y,a=th;
+    for(let k=0;k<7;k++){pts.push(x,y);a+=(rnd()*2-1)*0.5;x+=Math.cos(a)*len/6;y+=Math.sin(a)*len/6;}
+    push({t:T.FIBRE,x:p.x,y:p.y,z:zAt(5),pts,w:1.6+rnd()*5,r:len/2,
+      c:`hsla(${rnd()<0.5?205:335},26%,${44+rnd()*18}%,1)`,a:0.22+rnd()*0.22});
+  }
+  /* -- air bubbles -- */
+  for(let i=0,n=N(16,scn.bubble);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const r=18+rnd()*160;
+    push({t:T.BUBBLE,x:p.x,y:p.y,z:zOff+2+rnd()*4,r,w:r*0.35,
+      c:'hsla(220,14%,18%,1)',a:0.5+rnd()*0.3});
+  }
+  /* -- scratches: sit on the glass, focus well below the smear -- */
+  for(let i=0;i<14;i++){
+    const x=rnd()*SLIDE,y=rnd()*SLIDE,th=rnd()*TAU,len=600+rnd()*3200;
+    push({t:T.SCRATCH,x,y,z:zOff-11-rnd()*4,rot:th,l:len,w:0.6+rnd()*1.4,r:len/2,
+      c:'hsla(210,10%,30%,1)',a:0.3+rnd()*0.25});
+  }
+  /* -- stain crystals -- */
+  for(let i=0,n=N(120,scn.crystal);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const r=1.5+rnd()*9, pts=[];
+    for(let k=0;k<6;k++)pts.push(0.35+rnd()*1.1);
+    push({t:T.CRYSTAL,x:p.x,y:p.y,z:zAt(5),r,w:r*0.8,rot:rnd()*TAU,pts,
+      c:`hsla(${268+rnd()*20},44%,${12+rnd()*10}%,1)`,a:0.6+rnd()*0.35});
+  }
+  /* -- yeasts -- */
+  for(let i=0,n=N(360,scn.other);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const r=2.2+rnd()*2.4;
+    push({t:T.YEAST,x:p.x,y:p.y,z:zAt(3),r,w:r*1.6,rot:rnd()*TAU,
+      bud:rnd()<0.45?r*0.55:0,c:`hsla(${272+rnd()*22},40%,34%,1)`,a:0.45+rnd()*0.3});
+  }
+  /* -- non-target cocci (often Gram-positive: deep violet) -- */
+  for(let i=0,n=N(3200,scn.other);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const style=rnd(), cnt=style<0.45?1:style<0.75?2:2+((rnd()*5)|0);
+    const th=rnd()*TAU, d=0.95+rnd()*0.35, r=0.42+rnd()*0.22;
+    const col=`hsla(${rnd()<0.75?278+rnd()*16:340+rnd()*16},${rnd()<0.75?52:46}%,${26+rnd()*12}%,1)`;
+    for(let k=0;k<cnt;k++)
+      push({t:T.COCCUS,x:p.x+Math.cos(th)*d*k,y:p.y+Math.sin(th)*d*k,z:zAt(2.6),
+        r,w:r*2,c:col,a:0.6+rnd()*0.32});
+  }
+  /* -- non-target bacilli: bigger, or Gram-positive, or curved -- */
+  for(let i=0,n=N(1250,scn.other);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const gp=rnd()<0.55;
+    push({t:T.ROD,x:p.x,y:p.y,z:zAt(2.6),rot:rnd()*TAU,
+      l:gp?(5.5+rnd()*9):(1.4+rnd()*1.1), w:gp?(1.4+rnd()*1.0):(0.8+rnd()*0.4),
+      c:gp?`hsla(${276+rnd()*14},54%,${25+rnd()*10}%,1)`:`hsla(${346+rnd()*14},48%,${36+rnd()*10}%,1)`,
+      a:0.55+rnd()*0.35});
+  }
+  /* -- filaments -- */
+  for(let i=0,n=N(110,scn.other);i<n;i++){
+    const p=pick(); if(!p)continue;
+    const len=25+rnd()*140, th=rnd()*TAU, pts=[];
+    let x=p.x,y=p.y,a=th;
+    for(let k=0;k<6;k++){pts.push(x,y);a+=(rnd()*2-1)*0.35;x+=Math.cos(a)*len/5;y+=Math.sin(a)*len/5;}
+    push({t:T.FILAMENT,x:p.x,y:p.y,z:zAt(2.6),pts,w:0.7+rnd()*0.6,r:len/2,
+      c:`hsla(${280+rnd()*20},44%,32%,1)`,a:0.5+rnd()*0.3});
+  }
+  /* -- THE TARGETS: 0.7–1.5 × 2–5 µm Gram-negative (pink) rods -- */
+  function makeTarget(x,y,zs){
+    const w=0.7+rnd()*0.8, l=Math.max(w*2.0,2.0+rnd()*3.0);
+    return {t:T.TARGET,x,y,z:zs,rot:rnd()*TAU,l,w,
+      c:`hsla(${344+rnd()*14},${52+rnd()*16}%,${34+rnd()*14}%,1)`, a:0.52+rnd()*0.38};
+  }
+  for(let i=0;i<scn.tgt.zones;i++){
+    const p=pick(); if(!p)continue;
+    const cnt=scn.tgt.per[0]+((rnd()*(scn.tgt.per[1]-scn.tgt.per[0]+1))|0);
+    const spread=9+rnd()*26;
+    const zone={x:p.x,y:p.y,n:cnt};
+    for(let k=0;k<cnt;k++)
+      push(makeTarget(p.x+gauss(rnd)*spread,p.y+gauss(rnd)*spread,zAt(2.2)));
+    zones.push(zone);
+  }
+  for(let i=0;i<scn.tgt.singles;i++){
+    const p=pick(); if(!p)continue;
+    push(makeTarget(p.x,p.y,zAt(2.4)));
+    zones.push({x:p.x,y:p.y,n:1});
+  }
+
+  /* ---- spatial hash ---- */
+  const cells=new Array(GN*GN); for(let i=0;i<cells.length;i++)cells[i]=[];
+  for(let i=0;i<objs.length;i++){
+    const o=objs[i];
+    const gx=clamp((o.x/GRID)|0,0,GN-1), gy=clamp((o.y/GRID)|0,0,GN-1);
+    cells[gy*GN+gx].push(i);
+    if(o.r>GRID*0.5||o.l>GRID*0.5){ // big things also live in neighbouring cells
+      const rad=Math.ceil(Math.max(o.r||0,(o.l||0)/2)/GRID);
+      for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
+        if(!dx&&!dy)continue;
+        const nx=gx+dx,ny=gy+dy; if(nx<0||ny<0||nx>=GN||ny>=GN)continue;
+        cells[ny*GN+nx].push(i);
+      }
+    }
+  }
+  const nTargets=objs.reduce((s,o)=>s+(o.t===T.TARGET?1:0),0);
+  return {objs,cells,zones,density,zOff,blobs,edgeAt,nTargets,positive:nTargets>0,scn};
+}
+function queryRegion(sp,x0,y0,x1,y1,fn){
+  const gx0=clamp((x0/GRID)|0,0,GN-1),gx1=clamp((x1/GRID)|0,0,GN-1);
+  const gy0=clamp((y0/GRID)|0,0,GN-1),gy1=clamp((y1/GRID)|0,0,GN-1);
+  const seen=new Set();
+  for(let gy=gy0;gy<=gy1;gy++)for(let gx=gx0;gx<=gx1;gx++){
+    const list=sp.cells[gy*GN+gx];
+    for(let i=0;i<list.length;i++){const id=list[i];if(!seen.has(id)){seen.add(id);fn(sp.objs[id],id);}}
+  }
+}
+/* =======================================================================
+   PART 2 — the optical renderer
+   Objects are stored in physical slide coordinates (µm) and drawn at their
+   true size. Everything you cannot see is lost to blur, never to a switch.
+   ======================================================================= */
+const cv=$('#view'), ctx=cv.getContext('2d',{alpha:false});
+const scratches={}; // blur-bucket work canvases, keyed by downscale factor
+function scratch(f){
+  let s=scratches[f];
+  if(!s||s.c.width!==Math.round(cv.width*f)||s.c.height!==Math.round(cv.height*f)){
+    const c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(cv.width*f)); c.height=Math.max(1,Math.round(cv.height*f));
+    s=scratches[f]={c,g:c.getContext('2d')};
+  }
+  return s;
+}
+const HAS_FILTER=(()=>{const c=document.createElement('canvas').getContext('2d');c.filter='blur(2px)';return c.filter==='blur(2px)';})();
+// blur buckets, in screen pixels of σ
+const BUCKETS=[0,0.7,1.5,3,6,12,24];
+function bucketOf(s){let bi=0;for(let i=1;i<BUCKETS.length;i++)if(Math.abs(s-BUCKETS[i])<Math.abs(s-BUCKETS[bi]))bi=i;return bi;}
+
+/* noise tile, built once */
+const noiseTile=(()=>{
+  const c=document.createElement('canvas');c.width=c.height=180;
+  const g=c.getContext('2d'),d=g.createImageData(180,180);
+  for(let i=0;i<d.data.length;i+=4){const v=128+(Math.random()*2-1)*60;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255;}
+  g.putImageData(d,0,0);return c;
+})();
+
+function drawShape(g,o,x,y,ppu){
+  switch(o.t){
+    case T.CELL:{
+      const rr=o.r*ppu, p=o.pts, n=p.length;
+      g.beginPath();
+      for(let i=0;i<=n;i++){const a=(i%n)/n*TAU+o.rot,rad=rr*p[i%n];
+        const px=x+Math.cos(a)*rad,py=y+Math.sin(a)*rad; i?g.lineTo(px,py):g.moveTo(px,py);}
+      g.closePath(); g.fillStyle=o.c; g.fill();
+      const ga=g.globalAlpha; g.globalAlpha=Math.min(1,ga*2.2); g.fillStyle=o.c2;
+      g.beginPath(); g.ellipse(x+o.nx*ppu,y+o.ny*ppu,o.nr*ppu,o.nr*0.78*ppu,o.rot,0,TAU); g.fill();
+      g.globalAlpha=ga; break;
+    }
+    case T.DEBRIS: case T.CRYSTAL:{
+      const rr=o.r*ppu,p=o.pts,n=p.length;
+      g.beginPath();
+      for(let i=0;i<=n;i++){const a=(i%n)/n*TAU+o.rot,rad=rr*p[i%n];
+        const px=x+Math.cos(a)*rad,py=y+Math.sin(a)*rad; i?g.lineTo(px,py):g.moveTo(px,py);}
+      g.closePath(); g.fillStyle=o.c; g.fill(); break;
+    }
+    case T.PRECIP:{
+      g.beginPath(); g.arc(x,y,Math.max(o.r*ppu,0.12),0,TAU); g.fillStyle=o.c; g.fill(); break;
+    }
+    case T.COCCUS:{
+      g.beginPath(); g.arc(x,y,Math.max(o.r*ppu,0.12),0,TAU); g.fillStyle=o.c; g.fill(); break;
+    }
+    case T.YEAST:{
+      g.fillStyle=o.c;
+      g.beginPath(); g.ellipse(x,y,o.r*ppu,o.r*0.78*ppu,o.rot,0,TAU); g.fill();
+      if(o.bud){g.beginPath();
+        g.arc(x+Math.cos(o.rot)*o.r*ppu,y+Math.sin(o.rot)*o.r*ppu,o.bud*ppu,0,TAU);g.fill();}
+      break;
+    }
+    case T.TARGET: case T.ROD: case T.PSEUDO:{
+      const L=o.l*ppu/2, W=Math.max(o.w*ppu/2,0.09);
+      g.save(); g.translate(x,y); g.rotate(o.rot); g.fillStyle=o.c;
+      g.beginPath();
+      if(g.roundRect) g.roundRect(-L,-W,L*2,W*2,W); else g.ellipse(0,0,L,W,0,0,TAU);
+      g.fill(); g.restore(); break;
+    }
+    case T.FIBRE: case T.FILAMENT:{
+      const p=o.pts;
+      g.beginPath();
+      g.moveTo(x+(p[0]-o.x)*ppu,y+(p[1]-o.y)*ppu);
+      for(let i=2;i<p.length;i+=2) g.lineTo(x+(p[i]-o.x)*ppu,y+(p[i+1]-o.y)*ppu);
+      g.strokeStyle=o.c; g.lineWidth=Math.max(o.w*ppu,0.2); g.lineCap='round'; g.stroke(); break;
+    }
+    case T.SCRATCH:{
+      g.save(); g.translate(x,y); g.rotate(o.rot);
+      g.beginPath(); g.moveTo(-o.l*ppu/2,0); g.lineTo(o.l*ppu/2,0);
+      g.strokeStyle=o.c; g.lineWidth=Math.max(o.w*ppu,0.15); g.stroke(); g.restore(); break;
+    }
+    case T.BUBBLE:{
+      const rr=o.r*ppu;
+      g.beginPath(); g.arc(x,y,rr*0.93,0,TAU);
+      g.strokeStyle=o.c; g.lineWidth=Math.max(rr*0.13,0.4); g.stroke();
+      const ga=g.globalAlpha; g.globalAlpha=ga*0.35;
+      g.beginPath(); g.arc(x,y,rr*0.72,0,TAU); g.lineWidth=Math.max(rr*0.05,0.3); g.stroke();
+      g.globalAlpha=ga; break;
+    }
+  }
+}
+
+/* characteristic minimum dimension of an object, µm — used for visibility culling */
+function minDim(o){
+  switch(o.t){
+    case T.TARGET:case T.ROD:case T.PSEUDO:return o.w;
+    case T.FIBRE:case T.FILAMENT:case T.SCRATCH:return o.w;
+    case T.BUBBLE:return o.r*0.3;
+    default:return (o.r||1)*1.2;
+  }
+}
+
+let lastDrawStats={drawn:0,ms:0};
+function render(){
+  const O=optics(state);
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)/2;
+  const ppu=(2*R)/O.fovUm;                       // backing pixels per µm
+  const t0=performance.now();
+
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.globalCompositeOperation='source-over'; ctx.filter='none'; ctx.globalAlpha=1;
+  ctx.fillStyle='#05080c'; ctx.fillRect(0,0,W,H);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.clip();
+
+  /* ---- illumination: lamp colour shifts warm when dimmed (tungsten) ---- */
+  const b=clamp(O.bright,0,1.25);
+  const warm=1-clamp(state.light/100,0,1);
+  const base=[clamp(252*b,0,255),clamp((250-warm*26)*b,0,255),clamp((244-warm*62)*b,0,255)];
+  const gr=ctx.createRadialGradient(cx,cy,R*0.05,cx,cy,R*1.02);
+  gr.addColorStop(0,`rgb(${base.map(v=>Math.round(v)).join(',')})`);
+  gr.addColorStop(0.75,`rgb(${base.map(v=>Math.round(v*0.955)).join(',')})`);
+  gr.addColorStop(1,`rgb(${base.map(v=>Math.round(v*0.82)).join(',')})`);
+  ctx.fillStyle=gr; ctx.fillRect(0,0,W,H);
+
+  /* ---- collect visible objects into blur buckets ---- */
+  const half=O.fovUm/2, pad=O.fovUm*0.12;
+  const x0=state.x-half-pad,x1=state.x+half+pad,y0=state.y-half-pad,y1=state.y+half+pad;
+  const buckets=Array.from(BUCKETS,()=>[]);
+  const inv=state.invert?-1:1;
+  const focusZ=state.coarse+state.fine+PARFOCAL[state.objIdx];
+  const kDefocus=O.naObj/O.n*0.92;
+  let drawn=0;
+  queryRegion(state.sp,x0,y0,x1,y1,o=>{
+    const dz=o.z-focusZ;
+    const sUm=0.42*Math.sqrt(O.dRes*O.dRes+(2*Math.abs(dz)*kDefocus)**2)+O.extra*0.42;
+    const md=minDim(o);
+    const vis=o.a*Math.pow(md/(md+2.3*sUm),1.7)*O.contrast;
+    if(vis<0.012)return;
+    const sPx=Math.min(sUm*ppu,30);
+    buckets[bucketOf(sPx)].push(o);
+    drawn++;
+  });
+
+  /* ---- draw each bucket, blur it once, multiply it onto the field ---- */
+  for(let bi=0;bi<BUCKETS.length;bi++){
+    const list=buckets[bi]; if(!list.length)continue;
+    const sig=BUCKETS[bi];
+    const f=sig<=4?1:sig<=12?0.5:0.25;
+    const {c:sc,g}=scratch(f);
+    g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,sc.width,sc.height);
+    g.setTransform(f,0,0,f,0,0);
+    for(const o of list){
+      const sx=cx+inv*(o.x-state.x)*ppu, sy=cy+inv*(o.y-state.y)*ppu;
+      const dz=o.z-focusZ;
+      const sUm=0.42*Math.sqrt(O.dRes*O.dRes+(2*Math.abs(dz)*kDefocus)**2)+O.extra*0.42;
+      const md=minDim(o);
+      g.globalAlpha=clamp(o.a*O.contrast*Math.pow(md/(md+0.55*sUm),0.55),0,1);
+      drawShape(g,o,sx,sy,ppu);
+    }
+    ctx.filter=(HAS_FILTER&&sig>0)?`blur(${(sig*f).toFixed(2)}px)`:'none';
+    ctx.globalCompositeOperation='multiply';
+    ctx.globalAlpha=1;
+    ctx.imageSmoothingQuality='high';
+    ctx.drawImage(sc,0,0,sc.width,sc.height,0,0,W,H);
+  }
+  ctx.filter='none'; ctx.globalCompositeOperation='source-over';
+
+  /* ---- veiling glare when the condenser is wide open ---- */
+  if(O.ratio>1.02){
+    ctx.globalAlpha=clamp((O.ratio-1.02)*0.5,0,0.3);
+    ctx.fillStyle=`rgb(${base.map(v=>Math.round(Math.min(255,v*1.05))).join(',')})`;
+    ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+  }
+  /* ---- spherical-aberration haze of a dry 100× ---- */
+  if(O.ob.oil&&!state.oil){
+    ctx.globalAlpha=0.16; ctx.fillStyle='#cfd8e2'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+  }
+  /* ---- field diaphragm (Köhler) ---- */
+  if(state.fieldDia<99){
+    const fr=R*(0.22+0.78*state.fieldDia/100);
+    const g2=ctx.createRadialGradient(cx,cy,fr*0.93,cx,cy,fr*1.10);
+    g2.addColorStop(0,'rgba(6,9,13,0)'); g2.addColorStop(1,'rgba(6,9,13,0.97)');
+    ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+  }
+  /* ---- sensor / visual noise: grows as the lamp is turned down ---- */
+  if(state.noise>0){
+    const amt=state.noise/100*(0.05+0.16*(1-clamp(state.light/100,0,1)));
+    ctx.globalAlpha=clamp(amt,0,0.3);
+    ctx.globalCompositeOperation='overlay';
+    const ox=-(state.x*ppu)%180, oy=-(state.y*ppu)%180;
+    const pat=ctx.createPattern(noiseTile,'repeat');
+    ctx.save(); ctx.translate(ox,oy); ctx.fillStyle=pat; ctx.fillRect(-180,-180,W+360,H+360); ctx.restore();
+    ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+  }
+  ctx.restore();
+
+  drawOverlays(O,cx,cy,R,ppu,inv);
+  lastDrawStats={drawn,ms:performance.now()-t0};
+}
+
+/* graticule, scale bar, marks, and the training-mode reveal ring */
+function drawOverlays(O,cx,cy,R,ppu,inv){
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.clip();
+
+  if(state.reveal&&(state.sp.scn.training||state.revealed)){
+    ctx.strokeStyle='#0284c7'; ctx.lineWidth=Math.max(1.5,R*0.004);
+    const half=O.fovUm/2;
+    queryRegion(state.sp,state.x-half,state.y-half,state.x+half,state.y+half,o=>{
+      if(o.t!==T.TARGET)return;
+      const sx=cx+inv*(o.x-state.x)*ppu, sy=cy+inv*(o.y-state.y)*ppu;
+      const rr=Math.max(o.l*ppu*0.9,7);
+      ctx.beginPath(); ctx.arc(sx,sy,rr,0,TAU); ctx.stroke();
+    });
+  }
+  // marks
+  for(const m of state.marks){
+    const sx=cx+inv*(m.x-state.x)*ppu, sy=cy+inv*(m.y-state.y)*ppu;
+    if(Math.hypot(sx-cx,sy-cy)>R+20)continue;
+    ctx.strokeStyle='#c2410c'; ctx.lineWidth=Math.max(1.6,R*0.0035);
+    ctx.beginPath(); ctx.arc(sx,sy,R*0.035,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx,sy-R*0.055); ctx.lineTo(sx,sy-R*0.02); ctx.stroke();
+    ctx.fillStyle='#c2410c'; ctx.font=`600 ${Math.round(R*0.045)}px system-ui`;
+    ctx.textAlign='center'; ctx.fillText(String(m.id),sx,sy-R*0.065);
+  }
+  if(state.crosshair){
+    ctx.strokeStyle='rgba(20,30,45,.38)'; ctx.lineWidth=Math.max(1,R*0.0022);
+    ctx.beginPath(); ctx.moveTo(cx-R*0.07,cy); ctx.lineTo(cx+R*0.07,cy);
+    ctx.moveTo(cx,cy-R*0.07); ctx.lineTo(cx,cy+R*0.07); ctx.stroke();
+  }
+  if(state.graticule){
+    ctx.strokeStyle='rgba(20,30,45,.20)'; ctx.lineWidth=1;
+    for(let i=-4;i<=4;i++){
+      const p=i*R/4.5;
+      ctx.beginPath();ctx.moveTo(cx+p,cy-R);ctx.lineTo(cx+p,cy+R);
+      ctx.moveTo(cx-R,cy+p);ctx.lineTo(cx+R,cy+p);ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  if(state.scalebar){
+    // choose a round bar length that is 15–40 % of the field
+    const cand=[1,2,5,10,20,50,100,200,500,1000,2000];
+    let L=cand.find(v=>v>=O.fovUm*0.16)||1000;
+    const px=L*ppu, x=cx-R*0.46, y=cy+R*0.66;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.clip();
+    ctx.fillStyle='rgba(8,12,18,.66)';
+    ctx.fillRect(x-9,y-22,px+18,32);
+    ctx.strokeStyle='#e6edf3'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+px,y);
+    ctx.moveTo(x,y-6); ctx.lineTo(x,y+6); ctx.moveTo(x+px,y-6); ctx.lineTo(x+px,y+6); ctx.stroke();
+    ctx.fillStyle='#e6edf3'; ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText(L>=1000?(L/1000)+' mm':L+' µm',x,y-8);
+    ctx.restore();
+  }
+}
+/* =======================================================================
+   PART 3 — state, instrument controls, navigation, overview map
+   ======================================================================= */
+const state={
+  seed:'10321', labelMap:UNKNOWN_KEYS.slice(), sampleKey:'training', sp:null,
+  objIdx:0, eyeIdx:0, oil:false, dirty:[false,false,false,false],
+  x:5000, y:5000, coarse:0, fine:0, light:62, cond:58, fieldDia:100, noise:45,
+  invert:false, crosshair:true, graticule:false, scalebar:true, reveal:false, revealed:false, minimap:true,
+  lockCoarse:true, guided:true,
+  marks:[], markId:0, submitted:false,
+  timeByObj:[0,0,0,0], tStart:Date.now(), tLast:Date.now(),
+  visited:new Set(), coarseAtHigh:0, centredSwitches:0, objSwitches:0,
+  cheatSeen:new Set(), cheatUsed:0,
+  usedFine:false, usedLight:false, usedCond:false, lastCentre:0, firstObj:null,
+  history:[]
+};
+let dirty=false, raf=0;
+/* true while the stage is being dragged, so a drag towards the screen edge does
+   not pop a side panel open under the pointer */
+let uiDragging=false;
+function invalidate(){ if(!dirty){dirty=true; raf=requestAnimationFrame(frame);} }
+function frame(){ raf=0; if(!dirty||!state.sp)return; dirty=false; render(); paintOverview(); updateHUD(); }
+
+/* ---------- toasts ---------- */
+let toastSeen={};
+function toast(msg,once,ms){
+  if(once){ if(toastSeen[once])return; toastSeen[once]=1; }
+  const el=document.createElement('div'); el.className='toast'; el.innerHTML=msg;
+  $('#toasts').appendChild(el);
+  setTimeout(()=>{el.style.transition='opacity .4s';el.style.opacity='0';setTimeout(()=>el.remove(),400);},ms||4200);
+}
+
+/* ---------- canvas sizing ---------- */
+function resizeCanvas(){
+  const wrap=$('#scopewrap');
+  const s=Math.max(260,Math.min(wrap.clientWidth,wrap.clientHeight)-28);
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.style.width=cv.style.height=s+'px';
+  const px=Math.round(Math.min(s*dpr,1180));
+  if(cv.width!==px){cv.width=cv.height=px;}
+  invalidate();
+}
+new ResizeObserver(resizeCanvas).observe($('#scopewrap'));
+
+/* ---------- slide loading ---------- */
+function slideLabel(key){
+  if(key==='training')return 'Training slide — known positive control';
+  const i=state.labelMap.indexOf(key);
+  return 'Unknown '+String.fromCharCode(65+i);
+}
+function buildSampleSelect(){
+  const sel=$('#selSample'); sel.innerHTML='';
+  const add=(k,txt)=>{const o=document.createElement('option');o.value=k;o.textContent=txt;sel.appendChild(o);};
+  add('training',slideLabel('training'));
+  state.labelMap.forEach(k=>add(k,slideLabel(k)));
+  sel.value=state.sampleKey;
+}
+function loadSample(key,keepSeed){
+  state.sampleKey=key;
+  const scn=SCENARIOS[key];
+  state.sp=makeSpecimen(scn,state.seed+(keepSeed?'':''));
+  state.x=5000; state.y=5000;
+  state.coarse=Math.round(state.sp.zOff*0.35); state.fine=0;
+  state.objIdx=0; state.oil=false; state.dirty=[false,false,false,false];
+  state.marks=[]; state.markId=0; state.submitted=false; state.revealed=false;
+  state.reveal=false;
+  state.timeByObj=[0,0,0,0]; state.tStart=Date.now(); state.tLast=Date.now();
+  state.visited=new Set(); state.coarseAtHigh=0; state.centredSwitches=0; state.objSwitches=0;
+  state.cheatSeen=new Set(); state.cheatUsed=0;
+  state.usedFine=false; state.usedLight=false; state.usedCond=false; state.firstObj=null;
+  toastSeen={};
+  ovCache=null;
+  syncControls(); renderLog(); renderChecklist(); renderTask();
+  $('#btnRevealAfter').style.display='none';
+  invalidate();
+  toast(`Slide loaded: <b>${slideLabel(key)}</b> — ${scn.blurb}`,'load'+key);
+}
+
+/* ---------- nosepiece ---------- */
+function buildNosepiece(){
+  const np=$('#nosepiece'); np.innerHTML='';
+  OBJECTIVES.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='obj'; b.type='button'; b.setAttribute('aria-pressed',i===state.objIdx);
+    b.title=`${o.mag}× ${o.name} · NA ${o.na.toFixed(2)}${o.oil?' · oil immersion':''} · press ${i+1}`;
+    b.innerHTML=`<span class="band" style="background:${o.band}"></span><b>${o.mag}×</b>
+      <span>NA ${o.na.toFixed(2)}</span>`;
+    b.onclick=()=>setObjective(i);
+    np.appendChild(b);
+  });
+}
+function setObjective(i){
+  if(i===state.objIdx)return;
+  const prev=state.objIdx;
+  if(state.firstObj===null)state.firstObj=prev;
+  if(i>prev){
+    state.objSwitches++;
+    if(Date.now()-state.lastCentre<20000)state.centredSwitches++;
+    else if(state.guided)toast('You changed to a higher power without recently centring. Click a candidate to bring it to the centre <i>first</i> — at 100× the field is only 200 µm wide.','centre');
+  }
+  if(state.oil&&!OBJECTIVES[i].oil){
+    state.dirty[i]=true;
+    toast('Immersion oil is now on a dry objective. In the lab you would clean it with lens tissue — see <b>Advanced ▸ Clean objectives</b>.','dirty');
+  }
+  state.objIdx=i;
+  const o=OBJECTIVES[i];
+  if(o.oil&&!state.oil) toast('The 100× objective is designed for immersion oil. Without it the numerical aperture collapses and the image is hazy. Press <kbd>O</kbd>.','nooil');
+  if(o.mag>=40) toast('High power: use the <b>fine</b> focus only.','fine'+i);
+  state.history.push({t:Date.now(),what:'obj',v:o.mag});
+  syncControls(); renderChecklist(); invalidate();
+}
+
+/* ---------- movement ---------- */
+let animTo=null;
+function moveTo(nx,ny,animate){
+  nx=clamp(nx,0,SLIDE); ny=clamp(ny,0,SLIDE);
+  if(animate){ animTo={x0:state.x,y0:state.y,x1:nx,y1:ny,t0:performance.now(),d:180}; stepAnim(); }
+  else { state.x=nx; state.y=ny; markVisited(); invalidate(); }
+}
+function stepAnim(){
+  if(!animTo)return;
+  const k=clamp((performance.now()-animTo.t0)/animTo.d,0,1), e=k<0.5?2*k*k:1-((-2*k+2)**2)/2;
+  state.x=lerp(animTo.x0,animTo.x1,e); state.y=lerp(animTo.y0,animTo.y1,e);
+  markVisited(); invalidate();
+  if(k<1)requestAnimationFrame(stepAnim); else animTo=null;
+}
+function markVisited(){
+  const fov=optics(state).fovUm, step=250, r=fov/2;
+  if(fov>2600)return;                                  // 4× coverage is too coarse to count
+  const gx0=Math.max(0,((state.x-r)/step)|0),gx1=Math.min(39,((state.x+r)/step)|0);
+  const gy0=Math.max(0,((state.y-r)/step)|0),gy1=Math.min(39,((state.y+r)/step)|0);
+  for(let gy=gy0;gy<=gy1;gy++)for(let gx=gx0;gx<=gx1;gx++)state.visited.add(gy*40+gx);
+}
+function nudge(dx,dy,scale){
+  const fov=optics(state).fovUm;
+  moveTo(state.x+dx*fov*scale,state.y+dy*fov*scale,false);
+}
+
+/* viewport pointer: drag = pan, click = centre, shift-click = mark */
+(function(){
+  let down=false,moved=false,px=0,py=0,sx=0,sy=0;
+  cv.addEventListener('pointerdown',e=>{
+    down=true;moved=false;uiDragging=true;px=e.clientX;py=e.clientY;sx=state.x;sy=state.y;
+    cv.setPointerCapture(e.pointerId);cv.classList.add('dragging');cv.focus();
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(!down)return;
+    const dx=e.clientX-px,dy=e.clientY-py;
+    if(Math.abs(dx)+Math.abs(dy)>4)moved=true;
+    const rect=cv.getBoundingClientRect(), ppu=rect.width/optics(state).fovUm;
+    const inv=state.invert?-1:1;
+    moveTo(sx-inv*dx/ppu,sy-inv*dy/ppu,false);
+  });
+  cv.addEventListener('pointerup',e=>{
+    down=false;uiDragging=false;cv.classList.remove('dragging');
+    if(moved)return;
+    const rect=cv.getBoundingClientRect(), ppu=rect.width/optics(state).fovUm, inv=state.invert?-1:1;
+    const ox=e.clientX-rect.left-rect.width/2, oy=e.clientY-rect.top-rect.height/2;
+    const wx=state.x+inv*ox/ppu, wy=state.y+inv*oy/ppu;
+    if(e.shiftKey||e.altKey) addMark(wx,wy);
+    else { moveTo(wx,wy,true); state.lastCentre=Date.now(); renderChecklist(); }
+  });
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const d=e.deltaY>0?-1:1;
+    if(e.shiftKey) setFocus(state.coarse,state.fine+d*0.1);
+    else setFocus(state.coarse,state.fine+d*0.25);
+  },{passive:false});
+})();
+
+/* joystick */
+(function(){
+  const pad=$('#xypad'), knob=pad.querySelector('.knob');
+  let down=false,tid=0;
+  const stop=()=>{down=false;uiDragging=false;clearInterval(tid);knob.style.transform='';};
+  pad.addEventListener('pointerdown',e=>{
+    down=true;uiDragging=true;pad.setPointerCapture(e.pointerId);
+    let vx=0,vy=0;
+    const upd=ev=>{
+      const r=pad.getBoundingClientRect();
+      vx=clamp((ev.clientX-r.left-r.width/2)/(r.width/2),-1,1);
+      vy=clamp((ev.clientY-r.top-r.height/2)/(r.height/2),-1,1);
+      knob.style.transform=`translate(${vx*32}px,${vy*32}px)`;
+    };
+    upd(e);
+    pad.onpointermove=ev=>{if(down)upd(ev);};
+    clearInterval(tid);
+    tid=setInterval(()=>{if(down)nudge(vx*Math.abs(vx),vy*Math.abs(vy),0.055);},16);
+  });
+  pad.addEventListener('pointerup',stop); pad.addEventListener('pointercancel',stop);
+})();
+
+/* ---------- focus / illumination ---------- */
+function setFocus(c,f){
+  const o=OBJECTIVES[state.objIdx];
+  if(c!==state.coarse){
+    if(o.mag>=40){
+      state.coarseAtHigh++;
+      if(state.lockCoarse){
+        toast('Coarse focus is locked at ' + o.mag + '×: the working distance is only ' +
+              o.wd.toFixed(2) + ' mm and coarse focus would drive the lens into the slide. Use fine focus.','lock');
+        c=state.coarse;
+      } else toast('⚠ Coarse focus at ' + o.mag + '× risks cracking the slide and the front lens.','coarsewarn');
+    }
+  }
+  if(f!==state.fine)state.usedFine=true;
+  state.coarse=clamp(c,-120,120); state.fine=clamp(f,-12,12);
+  syncControls(); renderChecklist(); invalidate();
+}
+$('#rCoarse').oninput=e=>setFocus(+e.target.value,state.fine);
+$('#rFine').oninput=e=>setFocus(state.coarse,+e.target.value);
+$('#rLight').oninput=e=>{state.light=+e.target.value;state.usedLight=true;syncControls();renderChecklist();invalidate();};
+$('#rCond').oninput=e=>{state.cond=+e.target.value;state.usedCond=true;syncControls();renderChecklist();invalidate();};
+
+$('#btnOil').onclick=()=>toggleOil();
+function toggleOil(){
+  state.oil=!state.oil;
+  if(state.oil&&!OBJECTIVES[state.objIdx].oil)
+    toast('Oil applied, but the objective in place is a dry lens. Switch to 100× — or clean it.','oilwrong');
+  syncControls(); renderChecklist(); invalidate();
+}
+$('#btnLow').onclick=()=>{
+  state.objIdx=0; state.light=62; state.cond=58; state.fieldDia=100;
+  state.coarse=Math.round(state.sp.zOff*0.35); state.fine=0;
+  moveTo(5000,5000,true);
+  syncControls(); invalidate();
+  toast('Reset to the standard starting condition: 4× objective, centred stage, moderate illumination.','low');
+};
+
+/* ---------- marks ---------- */
+function addMark(x,y){
+  if(state.submitted){toast('This slide has already been submitted.');return;}
+  const o=OBJECTIVES[state.objIdx];
+  state.markId++;
+  state.marks.push({id:state.markId,x,y,objMag:o.mag,fov:optics(state).fovUm,
+    t:Date.now()-state.tStart,note:''});
+  renderLog(); renderChecklist(); invalidate();
+  if(o.mag<40&&state.guided)
+    toast('Marked at ' + o.mag + '×. At this power a 1 µm rod is below the resolving limit — confirm the morphology at 40× or 100× before you trust the mark.','marklow');
+}
+$('#btnMark').onclick=()=>addMark(state.x,state.y);
+$('#btnMark2').onclick=()=>addMark(state.x,state.y);
+$('#btnClearMarks').onclick=()=>{if(state.marks.length&&confirm('Delete all observations?')){state.marks=[];renderLog();invalidate();}};
+function renderLog(){
+  const wrap=$('#logList'); wrap.innerHTML='';
+  $('#logCount').textContent=state.marks.length?`(${state.marks.length})`:'';
+  $('#logEmpty').style.display=state.marks.length?'none':'block';
+  state.marks.forEach(m=>{
+    const d=document.createElement('div'); d.className='logitem';
+    d.innerHTML=`<div><b>#${m.id}</b> <span class="co">${(m.x/1000).toFixed(2)}, ${(m.y/1000).toFixed(2)} mm · at ${m.objMag}×</span>
+      <input placeholder="observation…" aria-label="Note for observation ${m.id}" value="${m.note.replace(/"/g,'&quot;')}"></div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <button class="mini" title="Return to this position">↩</button>
+        <button class="mini" title="Delete">✕</button></div>`;
+    d.querySelector('input').oninput=e=>{m.note=e.target.value;};
+    const btns=d.querySelectorAll('.mini');
+    btns[0].onclick=()=>{moveTo(m.x,m.y,true);state.lastCentre=Date.now();};
+    btns[1].onclick=()=>{state.marks=state.marks.filter(k=>k!==m);renderLog();invalidate();};
+    wrap.appendChild(d);
+  });
+}
+
+/* ---------- overview map ---------- */
+/* One cached bitmap of the smear, painted into the full map in the side panel
+   and into the mini-map floating on the field. */
+const OV_CANVASES=[$('#overview'),$('#minimap')];
+let ovCache=null;
+function buildOvCache(){
+  const N=440, c=document.createElement('canvas'); c.width=c.height=N;
+  const g=c.getContext('2d');
+  g.fillStyle='#eef1f5'; g.fillRect(0,0,N,N);
+  const step=3, sp=state.sp;
+  for(let py=0;py<N;py+=step)for(let px=0;px<N;px+=step){
+    const d=sp.density((px+step/2)/N*SLIDE,(py+step/2)/N*SLIDE);
+    if(d<=0.02)continue;
+    const v=clamp(d/1.7,0,1);
+    g.fillStyle=`hsla(${340-v*8},${18+v*16}%,${88-v*28}%,${0.32+v*0.44})`;
+    g.fillRect(px,py,step,step);
+  }
+  // coarse landmarks students can genuinely navigate by
+  for(const o of sp.objs){
+    if(o.t===T.BUBBLE){
+      g.strokeStyle='rgba(70,90,120,.45)';g.lineWidth=1;
+      g.beginPath();g.arc(o.x/SLIDE*N,o.y/SLIDE*N,Math.max(1.5,o.r/SLIDE*N),0,TAU);g.stroke();
+    } else if(o.t===T.FIBRE){
+      g.strokeStyle='rgba(80,100,130,.22)';g.lineWidth=0.8;
+      g.beginPath();
+      for(let i=0;i<o.pts.length;i+=2){const X=o.pts[i]/SLIDE*N,Y=o.pts[i+1]/SLIDE*N;i?g.lineTo(X,Y):g.moveTo(X,Y);}
+      g.stroke();
+    }
+  }
+  ovCache=c;
+}
+function paintMap(cvs){
+  const N=cvs.width, g=cvs.getContext('2d'), k=N/440;
+  g.clearRect(0,0,N,N);
+  g.drawImage(ovCache,0,0,440,440,0,0,N,N);
+  g.fillStyle='rgba(31,111,235,.18)';
+  state.visited.forEach(v=>{const gx=v%40,gy=(v/40)|0;g.fillRect(gx*N/40,gy*N/40,N/40+0.5,N/40+0.5);});
+  if(state.reveal&&(state.sp.scn.training||state.revealed)){
+    g.fillStyle='#0284c7';
+    for(const z of state.sp.zones){g.beginPath();g.arc(z.x/SLIDE*N,z.y/SLIDE*N,2.6*k,0,TAU);g.fill();}
+  }
+  for(const m of state.marks){
+    g.strokeStyle='#c2410c'; g.lineWidth=1.8*k;
+    g.beginPath(); g.arc(m.x/SLIDE*N,m.y/SLIDE*N,4*k,0,TAU); g.stroke();
+  }
+  const fov=optics(state).fovUm, r=Math.max(2.2*k,fov/2/SLIDE*N);
+  const X=state.x/SLIDE*N, Y=state.y/SLIDE*N;
+  g.strokeStyle='#1f6feb'; g.lineWidth=2*k;
+  g.beginPath(); g.arc(X,Y,r,0,TAU); g.stroke();
+  g.strokeStyle='rgba(31,111,235,.5)'; g.lineWidth=1*k;
+  g.beginPath(); g.moveTo(X-8*k,Y);g.lineTo(X+8*k,Y);g.moveTo(X,Y-8*k);g.lineTo(X,Y+8*k);g.stroke();
+}
+function paintOverview(){
+  if(!state.sp)return;
+  if(!ovCache)buildOvCache();
+  for(const c of OV_CANVASES){
+    if(c.id==='minimap'&&!state.minimap)continue;
+    if(c.offsetParent===null&&c.id!=='minimap')continue;   // pane hidden — skip
+    paintMap(c);
+  }
+}
+OV_CANVASES.forEach(cvs=>{
+  let d=false;
+  const go=e=>{const r=cvs.getBoundingClientRect();
+    moveTo((e.clientX-r.left)/r.width*SLIDE,(e.clientY-r.top)/r.height*SLIDE,true);};
+  cvs.addEventListener('pointerdown',e=>{d=true;cvs.setPointerCapture(e.pointerId);go(e);e.stopPropagation();});
+  cvs.addEventListener('pointermove',e=>{if(d)go(e);});
+  cvs.addEventListener('pointerup',()=>d=false);
+});
+
+/* ---------- readouts ---------- */
+function updateHUD(){
+  const O=optics(state);
+  $('#hMag').textContent=O.totalMag+'×';
+  $('#hObj').textContent=`${O.ob.mag}× / NA ${O.naObj.toFixed(2)}`;
+  $('#hFov').textContent=O.fovUm>=1000?(O.fovUm/1000).toFixed(2)+' mm':Math.round(O.fovUm)+' µm';
+  $('#hRes').textContent=O.dRes.toFixed(2)+' µm';
+  $('#hX').textContent=(state.x/1000).toFixed(3);
+  $('#hY').textContent=(state.y/1000).toFixed(3);
+  $('#hZ').textContent=(state.coarse+state.fine).toFixed(2);
+  $('#chipOil').style.display=state.oil?'':'none';
+  const scanned=(state.visited.size/1600*100);
+  $('#readouts').innerHTML=`
+    <span>Total magnification</span><b>${O.totalMag}×</b>
+    <span>Eyepiece × objective</span><b>${O.ey.mag}× × ${O.ob.mag}×</b>
+    <span>Numerical aperture</span><b>${O.naObj.toFixed(2)}</b>
+    <span>Condenser NA</span><b>${O.naCond.toFixed(2)}</b>
+    <span>Resolving limit</span><b>${O.dRes.toFixed(2)} µm</b>
+    <span>Depth of field</span><b>${O.dof<1?O.dof.toFixed(2):O.dof.toFixed(1)} µm</b>
+    <span>Field of view</span><b>${O.fovUm>=1000?(O.fovUm/1000).toFixed(2)+' mm':Math.round(O.fovUm)+' µm'}</b>
+    <span>Focus depth</span><b>${(state.coarse+state.fine).toFixed(2)} µm</b>
+    <span>Stage X, Y</span><b>${(state.x/1000).toFixed(2)}, ${(state.y/1000).toFixed(2)} mm</b>
+    <span>Smear scanned</span><b>${scanned.toFixed(0)} %</b>
+    <span>Objects in field</span><b>${lastDrawStats.drawn}</b>`;
+  advStats();
+}
+function syncControls(){
+  const o=OBJECTIVES[state.objIdx];
+  $$('#nosepiece .obj').forEach((b,i)=>b.setAttribute('aria-pressed',i===state.objIdx));
+  $('#rCoarse').value=state.coarse; $('#vCoarse').textContent=state.coarse.toFixed(1)+' µm';
+  $('#rFine').value=state.fine;     $('#vFine').textContent=state.fine.toFixed(2)+' µm';
+  $('#rLight').value=state.light;   $('#vLight').textContent=state.light+' %';
+  $('#rCond').value=state.cond;     $('#vCond').textContent=state.cond+' %';
+  $('#rCoarse').disabled=state.lockCoarse&&o.mag>=40;
+  $('#btnOil').textContent='🛢 Oil: '+(state.oil?'on':'off');
+  $('#btnOil').classList.toggle('on',state.oil);
+  const a=$('#advBody'); if(a&&a.dataset.built)syncAdvanced();
+}
+
+/* ---------- keyboard ---------- */
+window.addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;
+  const sc=e.shiftKey?0.55:e.altKey?0.05:0.2;
+  const k=e.key.toLowerCase();
+  let used=true;
+  switch(k){
+    case 'arrowleft':case 'a': nudge(-1,0,sc); break;
+    case 'arrowright':case 'd': nudge(1,0,sc); break;
+    case 'arrowup':case 'w': nudge(0,-1,sc); break;
+    case 'arrowdown':case 's': nudge(0,1,sc); break;
+    case '1':case '2':case '3':case '4': setObjective(+k-1); break;
+    case 'z': setFocus(state.coarse-(e.shiftKey?5:1),state.fine); break;
+    case 'x': setFocus(state.coarse+(e.shiftKey?5:1),state.fine); break;
+    case ',': setFocus(state.coarse,state.fine-(e.shiftKey?0.5:0.1)); break;
+    case '.': setFocus(state.coarse,state.fine+(e.shiftKey?0.5:0.1)); break;
+    case 'm': addMark(state.x,state.y); break;
+    case 'o': toggleOil(); break;
+    case '+':case '=': state.light=clamp(state.light+5,0,100);state.usedLight=true;syncControls();invalidate(); break;
+    case '-': state.light=clamp(state.light-5,0,100);state.usedLight=true;syncControls();invalidate(); break;
+    case 'l': DR.left.open?hidePanel('left',true):openTab('left','learnBody'); break;
+    case 'e': DR.right.open?hidePanel('right',true):openTab('right','advBody'); break;
+    case 'k': DR.left.open?hidePanel('left',true):openTab('left','paneSlide'); break;
+    case 't': openTutorial(); break;
+    case 'c': moveTo(5000,5000,true); break;
+    case 'f': cheatFind(); break;
+    case 'escape': closeAll(); break;
+    default: used=false;
+  }
+  if(used)e.preventDefault();
+});
+
+/* ---------- time accounting ---------- */
+setInterval(()=>{
+  if(document.hidden||state.submitted)  { state.tLast=Date.now(); return; }
+  const now=Date.now(); state.timeByObj[state.objIdx]+=now-state.tLast; state.tLast=now;
+  renderChecklist();
+},1000);
+/* =======================================================================
+   PART 4 — drawers: Learn (left) and Advanced controls (right)
+   ======================================================================= */
+/* Both side panels slide in when the pointer approaches the screen edge, follow
+   the pointer away again, and stay put once pinned. A pin is released by the pin
+   button itself or by clicking out on the stage. */
+const DR={
+  left :{el:$('#drawerL'),edge:$('#edgeL'),pin:$('#pinL'),open:false,pinned:false},
+  right:{el:$('#drawerR'),edge:$('#edgeR'),pin:$('#pinR'),open:false,pinned:false}
+};
+const hideTimer={left:0,right:0};
+const EDGE_PX=26;
+
+function applyPad(){
+  const L=(DR.left.open&&DR.left.pinned)?DR.left.el.offsetWidth:0;
+  const R=(DR.right.open&&DR.right.pinned)?DR.right.el.offsetWidth:0;
+  const s=document.documentElement.style;
+  s.setProperty('--padL',L+'px'); s.setProperty('--padR',R+'px');
+}
+function showPanel(side,pin){
+  const d=DR[side]; clearTimeout(hideTimer[side]);
+  d.open=true; d.el.classList.add('open'); d.el.setAttribute('aria-hidden','false');
+  d.edge.classList.add('hidden');
+  if(pin)setPinned(side,true); else applyPad();
+  if(side==='left')refreshLearnTable();
+}
+function hidePanel(side,unpin){
+  const d=DR[side]; clearTimeout(hideTimer[side]);
+  if(d.pinned&&!unpin)return;
+  if(unpin&&d.pinned)setPinned(side,false,true);
+  d.open=false; d.el.classList.remove('open'); d.el.setAttribute('aria-hidden','true');
+  d.edge.classList.remove('hidden');
+  applyPad();
+}
+function setPinned(side,v,quiet){
+  const d=DR[side]; d.pinned=v;
+  d.pin.setAttribute('aria-pressed',v?'true':'false');
+  d.pin.textContent=v?'📌 Pinned':'📌 Pin';
+  d.el.classList.toggle('pinned',v);
+  applyPad();
+  if(v&&!quiet)toast('Panel pinned — it will stay open. Click the pin again, or click on the microscope field, to release it.','pin');
+  setTimeout(resizeCanvas,260);
+}
+function openTab(side,paneId){
+  const d=DR[side];
+  d.el.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.pane===paneId?'true':'false'));
+  d.el.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===paneId));
+  showPanel(side,true);
+}
+/* closeAll() is used before opening a modal: it dismisses modals and any
+   un-pinned panel, but leaves a deliberately pinned panel alone. */
+function closeAll(){
+  $$('.modal').forEach(m=>m.classList.remove('show'));
+  $('#scrim').classList.remove('show');
+  hidePanel('left',false); hidePanel('right',false);
+}
+const modalOpen=()=>!!$$('.modal.show').length;
+
+['left','right'].forEach(side=>{
+  const d=DR[side];
+  d.edge.addEventListener('pointerenter',()=>{ if(!modalOpen())showPanel(side,false); });
+  d.edge.addEventListener('click',()=>showPanel(side,true));
+  d.el.addEventListener('pointerenter',()=>clearTimeout(hideTimer[side]));
+  d.el.addEventListener('pointerleave',()=>{
+    if(d.pinned)return;
+    hideTimer[side]=setTimeout(()=>hidePanel(side,false),340);
+  });
+  d.pin.onclick=()=>{ if(d.pinned)hidePanel(side,true); else setPinned(side,true); };
+});
+$('#closeL').onclick=()=>hidePanel('left',true);
+$('#closeR').onclick=()=>hidePanel('right',true);
+
+document.addEventListener('pointermove',e=>{
+  if(e.pointerType==='touch'||modalOpen()||uiDragging)return;
+  if(e.clientY<50)return;                                   // leave the top bar alone
+  if(e.clientX<=EDGE_PX){ if(!DR.left.open)showPanel('left',false); }
+  else if(e.clientX>=innerWidth-EDGE_PX){ if(!DR.right.open)showPanel('right',false); }
+});
+/* clicking out on the stage releases a pin */
+document.addEventListener('pointerdown',e=>{
+  if(modalOpen())return;
+  if(e.target.closest('.topbar')||e.target.closest('.ctrlbar'))return;   // instrument controls don't release
+  ['left','right'].forEach(side=>{
+    const d=DR[side];
+    if(!d.open||d.el.contains(e.target)||d.edge.contains(e.target))return;
+    hidePanel(side,true);
+  });
+});
+$$('.tabs').forEach(tb=>tb.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-pane]'); if(!b)return;
+  const dr=tb.closest('.drawer');
+  dr.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));
+  dr.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===b.dataset.pane));
+  if(b.dataset.pane==='learnBody')refreshLearnTable();
+  if(b.dataset.pane==='paneSlide'||b.dataset.pane==='paneTask')invalidate();
+}));
+$('#btnLearn').onclick=()=>openTab('left','learnBody');
+$('#btnSlide').onclick=()=>openTab('left','paneSlide');
+$('#btnTask').onclick =()=>openTab('right','paneTask');
+$('#btnAdv').onclick  =()=>openTab('right','advBody');
+$('#scrim').onclick=()=>{$$('.modal').forEach(m=>m.classList.remove('show'));$('#scrim').classList.remove('show');};
+$$('[data-close]').forEach(b=>b.onclick=()=>{
+  $('#'+b.dataset.close).classList.remove('show');
+  if(!modalOpen())$('#scrim').classList.remove('show');
+});
+window.addEventListener('resize',applyPad);
+
+/* ---------------- LEARN ---------------- */
+function opticsTable(){
+  const rows=OBJECTIVES.map((o,i)=>{
+    const ey=EYEPIECES[state.eyeIdx];
+    const oiled=o.oil&&state.oil, n=oiled?1.515:1;
+    const na=(o.oil&&!state.oil)?0.75:o.na;
+    const condMax=oiled?1.30:0.95, naC=0.05+(state.cond/100)*condMax;
+    const d=1.22*LAMBDA/(na+Math.min(na,naC)), dof=LAMBDA*n/(na*na)+n*7/(o.mag*ey.mag*na);
+    const fov=ey.fn*1000/o.mag;
+    return `<tr class="${i===state.objIdx?'cur':''}"><td>${o.mag}×</td><td>${(o.mag*ey.mag)}×</td>
+      <td>${na.toFixed(2)}</td><td>${fov>=1000?(fov/1000).toFixed(1)+' mm':Math.round(fov)+' µm'}</td>
+      <td>${d.toFixed(2)}</td><td>${dof<1?dof.toFixed(2):dof.toFixed(1)}</td></tr>`;
+  }).join('');
+  return `<table class="t"><thead><tr><th>Obj.</th><th>Total</th><th>NA</th><th>Field</th>
+    <th>Resolve (µm)</th><th>DoF (µm)</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function refreshLearnTable(){ const el=$('#opticsTable'); if(el)el.innerHTML=opticsTable(); }
+
+$('#learnBody').innerHTML=`
+<div class="callout info"><b>The point of this exercise.</b> You are performing a <b>screening</b>: deciding
+whether a smear contains rods with a morphology <i>compatible with</i> <i>Salmonella</i>. Finding something that
+resembles a pathogen is not the same as identifying it. Nothing you see down a bright-field microscope can
+confirm a species.</div>
+
+<details open><summary>1 · The workflow, in order</summary><div class="inner">
+<ol>
+<li><b>Start at 4×.</b> The field is 5 mm wide — you can see where the smear actually is. Set the light so the
+background is bright but not glaring.</li>
+<li><b>Find material.</b> Use the overview map: the pale-pink shading is where the smear is thick. Empty glass
+tells you nothing.</li>
+<li><b>Scan at 10×</b> in a systematic pattern — boustrophedon (left–right, step down, right–left). The
+readout <i>Smear scanned</i> tells you how much you have actually covered.</li>
+<li><b>Centre a candidate</b> before changing objective. Click on it: it moves to the middle of the field.
+Skipping this is the single most common reason students "lose" the thing they just found.</li>
+<li><b>Go to 40×</b>, refocus with the <b>fine</b> focus only.</li>
+<li><b>Apply oil, go to 100×</b>, refocus again. Only now can you judge whether an object is a 1 × 3 µm rod.</li>
+<li><b>Mark and describe</b> what you see, then submit a screening result with a confidence rating.</li>
+</ol></div></details>
+
+<details><summary>2 · Why you must start low</summary><div class="inner">
+<p>The field of view shrinks in proportion to the objective magnification, so the <i>area</i> you see falls with
+its square. Going from 4× to 100× shrinks the field 25-fold and the area <b>625-fold</b>.</p>
+<p>Searching the whole 10 × 10 mm slide at 100× would need about 2 500 fields. At 10× it takes 25. You search at
+low power and confirm at high power — never the other way round.</p>
+<div id="opticsTable">${opticsTable()}</div>
+<p class="note">This table is live: it recomputes from your current condenser and oil settings.</p>
+</div></details>
+
+<details><summary>3 · Magnification is not resolution</summary><div class="inner">
+<p>Resolution is set by the <b>numerical aperture</b>, not by how big the image is:</p>
+<p style="text-align:center"><b>d &asymp; 1.22 λ / (NA<sub>obj</sub> + NA<sub>cond</sub>)</b></p>
+<p>With λ = 550 nm, a 4× (NA 0.10) objective resolves about 3.4 µm — a 1 µm bacterium simply cannot be
+separated from its background, no matter how much you enlarge it. A 100× oil lens (NA 1.25) reaches roughly
+0.25 µm, and the rod becomes a rod.</p>
+<p><b>Empty magnification:</b> switch the eyepiece to 15× or 20× in the Advanced panel. The total magnification
+rises, the image gets bigger — and not one new detail appears. Enlargement beyond about 1000 × NA buys nothing.</p>
+</div></details>
+
+<details><summary>4 · Depth of field and focusing</summary><div class="inner">
+<p>Depth of field falls roughly as 1/NA². At 4× nearly the whole smear is in focus at once (≈ 55 µm). At 100×
+oil it is about <b>0.5 µm</b> — thinner than the bacterium you are looking at.</p>
+<p>That is why high power feels twitchy: a 2 µm turn of the focus takes an object from crisp to invisible. It is
+also useful — <b>continually rock the fine focus</b> at 100×. Objects at different depths appear and disappear,
+and that tells you whether something lies in the smear or on the glass.</p>
+<p>Defocus here is modelled as real optical blur, not as objects being switched off. An out-of-focus rod spreads
+into a faint smudge and loses contrast, exactly as it does on a real instrument.</p>
+<div class="callout">Coarse focus at 40× and 100× is how objectives and slides get destroyed: the working
+distance at 100× is 0.13 mm. It is locked here by default.</div>
+</div></details>
+
+<details><summary>5 · Illumination and the condenser</summary><div class="inner">
+<p>Two separate controls, doing different things:</p>
+<ul>
+<li><b>Lamp intensity</b> sets brightness only. Too low and you lose contrast into noise; too high and pale
+structures wash out.</li>
+<li><b>Condenser aperture</b> sets NA<sub>cond</sub>, and trades resolution against contrast. Closing it makes
+unstained material look crisper and darker but introduces diffraction fringes and destroys real resolution.
+Opening it fully floods the image with glare.</li>
+</ul>
+<p>The classical compromise is NA<sub>cond</sub> ≈ 0.7–0.9 × NA<sub>obj</sub>. Watch the <i>Resolving limit</i>
+readout as you drag the condenser — you can see the trade-off numerically.</p>
+<p>The <b>field diaphragm</b> (Advanced panel) does not change brightness; it restricts the illuminated area to
+what you are looking at, cutting stray light. Closing it down until the edge just leaves the field is a step of
+Köhler illumination.</p>
+</div></details>
+
+<details><summary>6 · Why the 100× needs oil</summary><div class="inner">
+<p>NA = n · sin θ. In air, n = 1, so NA can never exceed 1. Immersion oil (n = 1.515) matched to the glass
+removes the air gap, lets steeply-angled rays reach the lens, and pushes NA to 1.25.</p>
+<p>Use the 100× dry in this simulator and you will see exactly what happens: the aperture collapses, spherical
+aberration adds a haze, and the image loses both light and contrast. Toggle the oil on and off at 100× while
+looking at a rod — it is the most convincing demonstration in the whole exercise.</p>
+</div></details>
+
+<details><summary>7 · What you are looking for — and what fools you</summary><div class="inner">
+<p><b>Target morphology:</b> straight rods, roughly <b>0.7–1.5 µm wide and 2–5 µm long</b>, pink/red after a Gram
+stain (Gram-negative), single or in small loose groups, lying at various angles, all sitting at about the same
+depth as the rest of the smear.</p>
+<div class="swatchrow"><span class="sw" style="background:#c2415f"></span> suspected target rod — Gram-negative, 1 × 3 µm</div>
+<div class="swatchrow"><span class="sw" style="background:#5b3a86"></span> Gram-positive bacillus — larger, deep violet</div>
+<div class="swatchrow"><span class="sw" style="background:#4a2f63"></span> cocci, singly, in pairs or chains — round, not rods</div>
+<div class="swatchrow"><span class="sw" style="background:#241a2e"></span> stain precipitate — granular, very dark, often on the glass</div>
+<p><b>Common confusers:</b></p>
+<ul>
+<li><b>Rod-shaped stain deposit.</b> Very dark, sharply refractile, often focuses at a clearly different depth
+from the smear. Rock the fine focus — real bacteria sit with the cells.</li>
+<li><b>Precipitate granules.</b> Round, near-black, everywhere. Easily mistaken for cocci, occasionally chained
+into something rod-like.</li>
+<li><b>Fibres and scratches.</b> Far too long, and scratches lie about 10 µm below the smear.</li>
+<li><b>Air bubbles.</b> Dark circular outlines with a bright centre; the poorly prepared slide is full of them.</li>
+<li><b>Other Gram-negative rods.</b> <i>E. coli</i>, <i>Citrobacter</i>, <i>Enterobacter</i>, <i>Proteus</i> and
+dozens more look <b>identical</b> to <i>Salmonella</i> at 100×. This is not a limitation of your technique. It is
+a limitation of light microscopy.</li>
+</ul>
+</div></details>
+
+<details><summary>8 · How Salmonella is actually confirmed</summary><div class="inner">
+<p>A positive microscopic screen is a reason to keep testing, never a result on its own. A real workflow is
+roughly:</p>
+<ol>
+<li>Pre-enrichment in buffered peptone water, then selective enrichment (RVS / MKTTn).</li>
+<li>Plating on selective differential agar — XLD, BGA, or a chromogenic medium.</li>
+<li>Biochemical confirmation (TSI, urease, lysine decarboxylase) or a rapid identification system.</li>
+<li>Serotyping of O and H antigens, or MALDI-TOF, or PCR of an invA-type target.</li>
+</ol>
+<p>Only after that would anyone write the word <i>Salmonella</i> on a report. In this exercise the correct
+language is <b>"rods of a morphology consistent with <i>Salmonella</i>, not identified"</b>.</p>
+</div></details>
+
+<details><summary>9 · Keyboard shortcuts</summary><div class="inner">
+<table class="t"><tbody>
+<tr><td>Move stage</td><td><kbd>←↑→↓</kbd> or <kbd>W A S D</kbd></td></tr>
+<tr><td>Move far / very fine</td><td><kbd>Shift</kbd> + move / <kbd>Alt</kbd> + move</td></tr>
+<tr><td>Objectives 4× 10× 40× 100×</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></td></tr>
+<tr><td>Coarse focus</td><td><kbd>Z</kbd> / <kbd>X</kbd></td></tr>
+<tr><td>Fine focus</td><td><kbd>,</kbd> / <kbd>.</kbd> or scroll wheel</td></tr>
+<tr><td>Lamp brighter / dimmer</td><td><kbd>+</kbd> / <kbd>−</kbd></td></tr>
+<tr><td>Immersion oil</td><td><kbd>O</kbd></td></tr>
+<tr><td>Mark this field</td><td><kbd>M</kbd></td></tr>
+<tr><td>Centre a point</td><td>click in the field</td></tr>
+<tr><td>Mark a point</td><td><kbd>Shift</kbd> + click</td></tr>
+<tr><td>Recentre the slide</td><td><kbd>C</kbd></td></tr>
+<tr><td>Reveal a side panel</td><td>move the pointer to the left or right screen edge</td></tr>
+<tr><td>Learn / Slide map / Advanced</td><td><kbd>L</kbd> / <kbd>K</kbd> / <kbd>E</kbd></td></tr>
+<tr><td>Tutorial</td><td><kbd>T</kbd></td></tr>
+<tr><td>Close a panel or dialogue</td><td><kbd>Esc</kbd></td></tr>
+</tbody></table>
+<p class="note">Both side panels appear when the pointer nears a screen edge and slide away again when you move
+off them. Press <b>📌 Pin</b> to keep one open — the stage then shrinks so nothing is hidden behind it. Clicking
+out on the microscope field releases the pin; the top bar and the control bar do not.</p>
+</div></details>
+
+<details><summary>10 · Glossary</summary><div class="inner">
+<p><b>Numerical aperture (NA)</b> — n·sin θ; the light-gathering half-angle of the lens. Sets resolution.<br>
+<b>Resolving limit</b> — the smallest separation that still appears as two objects.<br>
+<b>Depth of field</b> — the thickness of specimen acceptably in focus at one time.<br>
+<b>Parfocal</b> — objectives designed so the image stays nearly in focus when you rotate the nosepiece. Nearly.<br>
+<b>Field number</b> — the eyepiece diaphragm diameter in mm; field of view = FN / objective magnification.<br>
+<b>Köhler illumination</b> — an alignment giving even illumination and maximum contrast.<br>
+<b>Empty magnification</b> — enlargement past the point where the optics can deliver new detail.</p>
+</div></details>`;
+
+/* ---------------- ADVANCED ---------------- */
+$('#advBody').innerHTML=`
+<div class="callout info">These controls exist on a real instrument but are usually set once and left alone.
+Everything here changes the physics of the simulated image, not just its appearance.</div>
+
+<details open><summary>Optics</summary><div class="inner">
+  <div class="field"><label for="aEye">Eyepiece <b id="aEyeV"></b></label>
+    <select id="aEye">${EYEPIECES.map((e,i)=>`<option value="${i}">${e.mag}× (field number ${e.fn})</option>`).join('')}</select>
+    <span class="note">Raising the eyepiece power raises total magnification and shrinks the field — but adds no
+    resolution. This is how you demonstrate empty magnification.</span></div>
+  <div class="field"><label for="aFD">Field diaphragm (Köhler) <b id="aFDV"></b></label>
+    <input type="range" id="aFD" min="20" max="100" step="1">
+    <span class="note">Restricts the illuminated area. Close it until its edge just clears the field.</span></div>
+  <div class="field"><label for="aCond2">Condenser aperture <b id="aCond2V"></b></label>
+    <input type="range" id="aCond2" min="0" max="100" step="1">
+    <span class="note">Aim for NA<sub>cond</sub> ≈ 0.7–0.9 × NA<sub>obj</sub>.</span></div>
+  <div class="row wrap">
+    <button class="btn" id="aOil">🛢 Immersion oil</button>
+    <button class="btn" id="aClean">🧻 Clean objectives</button>
+  </div>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aLock"> Lock coarse focus at 40× and 100×</label>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aInvert"> Invert the image (as a real compound microscope does)</label>
+  <span class="note">With inversion on, moving the stage right moves the image left. Real, and genuinely
+  disorienting — which is the lesson.</span>
+</div></details>
+
+<details><summary>Image and display</summary><div class="inner">
+  <div class="field"><label for="aNoise">Visual noise <b id="aNoiseV"></b></label>
+    <input type="range" id="aNoise" min="0" max="100" step="1">
+    <span class="note">Noise rises as the lamp is dimmed, as it does for a real detector or a dark-adapted eye.</span></div>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aMini"> Mini-map floating on the field</label>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aCross"> Centre crosshair</label>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aGrat"> Graticule grid</label>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aScale"> Scale bar</label>
+  <label class="check" style="cursor:pointer"><input type="checkbox" id="aReveal"> Highlight target organisms
+    <span class="note" style="display:block">Training slide only, or after you have submitted.</span></label>
+</div></details>
+
+<details><summary>Specimen and session</summary><div class="inner">
+  <div class="field"><label for="aSeed">Random seed</label>
+    <input type="text" id="aSeed" spellcheck="false">
+    <span class="note">The same seed always regenerates exactly the same slide, so a class can be examined on
+    identical material and results can be compared.</span></div>
+  <div class="row wrap">
+    <button class="btn" id="aRegen">Regenerate slides from seed</button>
+    <button class="btn" id="aShuffle">Shuffle unknown labels</button>
+  </div>
+  <div class="row wrap" style="margin-top:8px">
+    <button class="btn" id="aReset">Reset this slide</button>
+    <button class="btn" id="aResetPos">Recentre stage</button>
+  </div>
+  <p class="note" id="aStats"></p>
+</div></details>
+
+<details><summary>🎯 Instructor / demo tools</summary><div class="inner">
+  <div class="callout">This reveals the answer. It exists for demonstrating the exercise from the front of a
+  room — not for working through it. Every use is counted and reported in the debrief.</div>
+  <button class="btn" id="aCheat" style="width:100%;margin-top:8px">🎯 Go to the nearest target rod</button>
+  <p class="note">Jumps the stage to the closest suspected <i>Salmonella</i>-like rod, switches to 100× with oil,
+  focuses on its exact depth and rings it. Press again to step to the next nearest. If the slide is a true
+  negative it says so instead. Shortcut: <kbd>F</kbd>.</p>
+</div></details>`;
+$('#advBody').dataset.built='1';
+
+function syncAdvanced(){
+  $('#aEye').value=state.eyeIdx; $('#aEyeV').textContent=EYEPIECES[state.eyeIdx].mag+'×';
+  $('#aFD').value=state.fieldDia; $('#aFDV').textContent=state.fieldDia+' %';
+  $('#aCond2').value=state.cond;  $('#aCond2V').textContent=state.cond+' %';
+  $('#aNoise').value=state.noise; $('#aNoiseV').textContent=state.noise+' %';
+  $('#aLock').checked=state.lockCoarse; $('#aInvert').checked=state.invert;
+  $('#aMini').checked=state.minimap; $('#minimapBox').style.display=state.minimap?'':'none';
+  $('#aCross').checked=state.crosshair; $('#aGrat').checked=state.graticule;
+  $('#aScale').checked=state.scalebar; $('#aReveal').checked=state.reveal;
+  $('#aOil').classList.toggle('on',state.oil);
+  $('#aSeed').value=state.seed;
+  const canReveal=state.sp&&(state.sp.scn.training||state.revealed);
+  $('#aReveal').disabled=!canReveal;
+  advStats();
+}
+function advStats(){
+  const el=$('#aStats'); if(!el)return;
+  el.textContent=`${state.sp?state.sp.objs.length.toLocaleString():0} objects on this slide · `+
+    `${lastDrawStats.drawn} in the current field · ${lastDrawStats.ms.toFixed(1)} ms per frame`;
+}
+$('#aEye').onchange=e=>{state.eyeIdx=+e.target.value;syncControls();refreshLearnTable();invalidate();
+  toast('Eyepiece changed. Watch the <i>Resolving limit</i> readout: total magnification moved, resolution did not.','empty');};
+$('#aFD').oninput=e=>{state.fieldDia=+e.target.value;syncAdvanced();invalidate();};
+$('#aCond2').oninput=e=>{state.cond=+e.target.value;state.usedCond=true;syncControls();refreshLearnTable();invalidate();};
+$('#aNoise').oninput=e=>{state.noise=+e.target.value;syncAdvanced();invalidate();};
+$('#aLock').onchange=e=>{state.lockCoarse=e.target.checked;syncControls();};
+$('#aInvert').onchange=e=>{state.invert=e.target.checked;invalidate();};
+$('#aMini').onchange=e=>{state.minimap=e.target.checked;syncAdvanced();invalidate();};
+$('#aCross').onchange=e=>{state.crosshair=e.target.checked;invalidate();};
+$('#aGrat').onchange=e=>{state.graticule=e.target.checked;invalidate();};
+$('#aScale').onchange=e=>{state.scalebar=e.target.checked;invalidate();};
+$('#aReveal').onchange=e=>{state.reveal=e.target.checked;invalidate();};
+$('#aOil').onclick=toggleOil;
+$('#aClean').onclick=()=>{state.dirty=[false,false,false,false];state.oil=false;syncControls();invalidate();
+  toast('Objectives cleaned. Oil removed.','clean');};
+$('#aSeed').onchange=e=>{state.seed=e.target.value||'10321';};
+$('#aRegen').onclick=()=>{ovCache=null;loadSample(state.sampleKey);};
+$('#aShuffle').onclick=()=>doShuffle();
+$('#aReset').onclick=()=>loadSample(state.sampleKey);
+$('#aResetPos').onclick=()=>moveTo(5000,5000,true);
+
+/* ---------------- instructor locator ("cheat") ----------------
+   Steps through the real target rods, nearest first, or states plainly that the
+   slide has none. Bypasses the coarse-focus lock deliberately: it is a demo aid,
+   not a technique to be learnt. */
+$('#aCheat').onclick=cheatFind;
+function cheatFind(){
+  const sp=state.sp;
+  if(!sp.targetIdx){
+    sp.targetIdx=[];
+    for(let i=0;i<sp.objs.length;i++) if(sp.objs[i].t===T.TARGET) sp.targetIdx.push(i);
+  }
+  const list=sp.targetIdx;
+  state.revealed=true;
+  if(!list.length){
+    state.cheatUsed++; syncAdvanced();
+    toast('<b>There are no target rods on this slide.</b> Nothing of the suspected '+
+      '<i>Salmonella</i>-like morphology exists anywhere in the 10 × 10 mm area — this one is a true negative. '+
+      'Every rod-shaped thing you can find here is another organism or an artefact.',null,14000);
+    beep(); return;
+  }
+  let best=-1,bd=Infinity;
+  const nearest=skipSeen=>{
+    best=-1; bd=Infinity;
+    for(const i of list){
+      if(skipSeen&&state.cheatSeen.has(i))continue;
+      const o=sp.objs[i], d=Math.hypot(o.x-state.x,o.y-state.y);
+      if(d<bd){bd=d;best=i;}
+    }
+  };
+  nearest(true);
+  if(best<0){ state.cheatSeen.clear(); nearest(false); }   // been to them all — start again
+  const o=sp.objs[best];
+  state.cheatSeen.add(best); state.cheatUsed++;
+  state.reveal=true;
+  if(OBJECTIVES[state.objIdx].mag<40){ state.objIdx=3; state.oil=true; }
+  const fz=o.z-PARFOCAL[state.objIdx];                     // put its exact depth in focus
+  state.coarse=clamp(Math.round(fz*2)/2,-120,120);
+  state.fine=clamp(fz-state.coarse,-12,12);
+  moveTo(o.x,o.y,true); state.lastCentre=Date.now();
+  syncControls(); syncAdvanced(); renderChecklist(); invalidate();
+  toast(`🎯 Centred on a suspected <i>Salmonella</i>-like rod — <b>${o.l.toFixed(1)} × ${o.w.toFixed(1)} µm</b> `+
+    `at ${(o.x/1000).toFixed(2)}, ${(o.y/1000).toFixed(2)} mm, ringed in the field. This slide holds `+
+    `<b>${list.length}</b> such rods; press again for the next nearest.`);
+}
+
+function doShuffle(){
+  const r=mulberry32(hashStr(state.seed+'|labels'+Date.now()));
+  const a=UNKNOWN_KEYS.slice();
+  for(let i=a.length-1;i>0;i--){const j=(r()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}
+  state.labelMap=a; buildSampleSelect();
+  toast('Unknown labels reshuffled — A–D now sit behind different scenarios.','shuf');
+}
+$('#btnShuffle').onclick=doShuffle;
+$('#selSample').onchange=e=>loadSample(e.target.value);
+/* =======================================================================
+   PART 5 — task, checklist, submission, debrief, tutorial, boot
+   ======================================================================= */
+function setMode(guided){
+  state.guided=guided;
+  $('#modeGuided').setAttribute('aria-pressed',guided);
+  $('#modeAssess').setAttribute('aria-pressed',!guided);
+  renderTask(); renderChecklist(); invalidate();
+}
+$('#modeGuided').onclick=()=>setMode(true);
+$('#modeAssess').onclick=()=>setMode(false);
+
+function renderTask(){
+  $('#taskText').innerHTML = state.sampleKey==='training'
+    ? `This is a <b>known positive control</b>. Learn the target appearance: switch on
+       <i>Highlight target organisms</i> in the Advanced panel, go to 100× with oil, and study what a
+       0.7–1.5 × 2–5 µm Gram-negative rod really looks like.`
+    : `Screen this smear for rods with a morphology <b>consistent with</b> <i>Salmonella</i>.
+       Work low power to high power, mark what you find, then submit a screening result with a confidence rating.
+       You are not being asked to identify a species.`;
+  $('#checklist').style.display=state.guided?'':'none';
+}
+
+const STEPS=[
+  {k:'start', t:'Begin at 4× or 10× and set the illumination',
+   f:()=>state.firstObj===null?OBJECTIVES[state.objIdx].mag<=10:OBJECTIVES[state.firstObj].mag<=10},
+  {k:'light',t:'Adjust lamp and condenser', f:()=>state.usedLight&&state.usedCond},
+  {k:'scan', t:'Scan at least 25 % of the smear at ≤ 10×', f:()=>state.visited.size/1600>=0.25,
+   p:()=>Math.round(state.visited.size/1600*100)+' %'},
+  {k:'centre',t:'Centre a candidate before changing objective', f:()=>state.centredSwitches>0},
+  {k:'fine', t:'Refocus with the fine focus at high power', f:()=>state.usedFine&&state.timeByObj[2]+state.timeByObj[3]>4000},
+  {k:'oil',  t:'Apply oil and examine at 100×', f:()=>state.oil&&state.timeByObj[3]>6000},
+  {k:'mark', t:'Record at least one observation', f:()=>state.marks.length>0},
+  {k:'submit',t:'Submit a screening result with a confidence rating', f:()=>state.submitted}
+];
+function renderChecklist(){
+  if(!state.guided){$('#checklist').innerHTML='';return;}
+  $('#checklist').innerHTML=STEPS.map(s=>{
+    const done=!!s.f();
+    return `<div class="check ${done?'done':''}"><span class="box">${done?'✓':''}</span>
+      <span>${s.t}${s.p&&!done?` <span class="note">(${s.p()})</span>`:''}</span></div>`;
+  }).join('');
+}
+
+/* ---------------- submission ---------------- */
+let answer={call:null,conf:3,note:''};
+function openSubmit(){
+  if(state.submitted){openResult();return;}
+  answer={call:null,conf:3,note:''};
+  $('#submitBody').innerHTML=`
+    <p style="margin:0">Report what you <b>observed</b>, not what you think the sample is.</p>
+    <div class="choices" id="callBtns">
+      <button class="choice" data-c="pos" aria-pressed="false"><b>Rods observed</b>
+        <span>Rods of a morphology consistent with <i>Salmonella</i> were seen (suspected only).</span></button>
+      <button class="choice" data-c="neg" aria-pressed="false"><b>None observed</b>
+        <span>No rods of the target morphology found in the material examined.</span></button>
+      <button class="choice" data-c="inc" aria-pressed="false"><b>Inconclusive</b>
+        <span>The preparation or my coverage does not allow a call.</span></button>
+    </div>
+    <div class="field"><label for="sConf">Confidence <b id="sConfV">Moderate</b></label>
+      <input type="range" id="sConf" min="1" max="5" step="1" value="3"></div>
+    <div class="field"><label for="sNote">Notes for the record</label>
+      <textarea id="sNote" rows="3" style="background:#0f151d;border:1px solid var(--line);border-radius:8px;padding:8px"
+        placeholder="e.g. straight rods ~1 × 3 µm, pink, single and in loose groups, in the same focal plane as the cells…"></textarea></div>
+    <div class="callout">Whatever you choose, the wording in a real report would be
+    <i>"bacilli consistent with Enterobacteriaceae; identification requires culture and confirmation"</i>.</div>`;
+  const CONF=['','Very low','Low','Moderate','High','Very high'];
+  $('#callBtns').onclick=e=>{
+    const b=e.target.closest('.choice'); if(!b)return;
+    answer.call=b.dataset.c;
+    $$('#callBtns .choice').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  };
+  $('#sConf').oninput=e=>{answer.conf=+e.target.value;$('#sConfV').textContent=CONF[answer.conf];};
+  $('#sNote').oninput=e=>{answer.note=e.target.value;};
+  closeAll(); $('#modalSubmit').classList.add('show'); $('#scrim').classList.add('show');
+}
+$('#btnSubmit').onclick=openSubmit;
+$('#btnSubmit2').onclick=openSubmit;
+$('#btnFinalSubmit').onclick=()=>{
+  if(!answer.call){toast('Choose one of the three findings first.');return;}
+  state.submitted=true; state.revealed=true;
+  $('#modalSubmit').classList.remove('show');
+  renderChecklist(); syncAdvanced(); openResult();
+};
+
+/* classify every mark against the actual specimen */
+/* One radius rule, used both for classifying a mark and for deciding whether a
+   target location counts as found — so the two figures in the debrief agree. */
+function markRadius(m){ return clamp(m.fov*0.12,18,60); }
+function classifyMark(m){
+  const R=markRadius(m);
+  let best=null,bd=1e9;
+  queryRegion(state.sp,m.x-R,m.y-R,m.x+R,m.y+R,o=>{
+    const d=Math.hypot(o.x-m.x,o.y-m.y);
+    const reach=R+(o.r||Math.max(o.l||0,o.w||0)/2||0);
+    if(d>reach)return;
+    // prefer the biologically interesting object if several overlap
+    const pri=o.t===T.TARGET?0:(TYPE_CLASS[o.t]==='other'?1:2);
+    const score=d+pri*R*0.55;
+    if(score<bd){bd=score;best=o;}
+  });
+  return best;
+}
+function fmtTime(ms){const s=Math.round(ms/1000);return s<60?s+' s':Math.floor(s/60)+' min '+(s%60)+' s';}
+
+function openResult(){
+  const sp=state.sp, scn=sp.scn;
+  const rows=state.marks.map(m=>{
+    const o=classifyMark(m);
+    const cls=o?TYPE_CLASS[o.t]:'none';
+    const label=o?TYPE_NAME[o.t]:'Nothing resolvable at this position';
+    const tag=cls==='target'?'<b style="color:var(--ok)">TARGET</b>'
+      :cls==='other'?'<b style="color:var(--warn)">OTHER ORGANISM</b>'
+      :cls==='host'?'<b style="color:var(--dim)">HOST MATERIAL</b>'
+      :cls==='artefact'?'<b style="color:var(--bad)">ARTEFACT</b>':'<b style="color:var(--dim2)">EMPTY</b>';
+    return {m,cls,html:`<tr><td>#${m.id}</td><td>${(m.x/1000).toFixed(2)}, ${(m.y/1000).toFixed(2)}</td>
+      <td>${m.objMag}×</td><td style="text-align:left">${tag}<br><span class="note">${label}</span>
+      ${m.note?`<br><span class="note">“${m.note.replace(/</g,'&lt;')}”</span>`:''}</td></tr>`};
+  });
+  const nTrue=rows.filter(r=>r.cls==='target').length;
+  const nOther=rows.filter(r=>r.cls==='other').length;
+  const nArt=rows.filter(r=>r.cls==='artefact'||r.cls==='none'||r.cls==='host').length;
+
+  // target zones found vs missed
+  let found=0; const missed=[];
+  for(const z of sp.zones){
+    if(state.marks.some(m=>Math.hypot(m.x-z.x,m.y-z.y)<markRadius(m)+18))found++; else missed.push(z);
+  }
+  const totalZones=sp.zones.length;
+  missed.sort((a,b)=>b.n-a.n);
+  const missTop=missed.slice(0,8);
+
+  // was the call right?
+  const truthPos=sp.positive;
+  let verdict,cls;
+  if(answer.call==='inc'){ verdict='You declined to call this slide.'; cls='mid';
+    verdict+=truthPos?' The slide did contain target-morphology rods.':' The slide contained no target-morphology rods.';
+  } else if(answer.call==='pos'&&truthPos){
+    cls=nTrue>0?'ok':'mid';
+    verdict=nTrue>0
+      ? 'Correct, and supported by your own marks — you found and recorded genuine target-morphology rods.'
+      : 'Your conclusion matches the slide, but none of the fields you marked actually contained a target rod. The right answer for the wrong reason is not a result you could defend.';
+  } else if(answer.call==='neg'&&!truthPos){
+    cls='ok'; verdict='Correct. This smear contained no rods of the target morphology — only other organisms and preparation artefacts.';
+  } else if(answer.call==='pos'&&!truthPos){
+    cls='bad'; verdict='False positive. This smear contained no target-morphology rods. Look at what you marked below: the usual culprits are rod-shaped stain deposits and Gram-positive bacilli.';
+  } else {
+    cls='bad'; verdict=`Missed. This smear did contain ${sp.nTargets} target-morphology rods in ${totalZones} separate locations.`;
+  }
+  const CONF=['','very low','low','moderate','high','very high'];
+  const wrong=(cls==='bad');
+  const calib=wrong&&answer.conf>=4
+    ? 'You were <b>confident and wrong</b> — the most expensive combination in a laboratory. Confidence should track coverage and image quality, not how much you want an answer.'
+    : (!wrong&&answer.conf<=2 ? 'You were right but hedged. With a properly scanned slide and a clean 100× oil image you are entitled to more confidence than that.'
+    : 'Your confidence was reasonably calibrated to what you actually did.');
+
+  // workflow scoring
+  const tLow=state.timeByObj[0]+state.timeByObj[1], tHigh=state.timeByObj[2]+state.timeByObj[3];
+  const cov=state.visited.size/1600;
+  const wf=[
+    {ok:state.firstObj===null?OBJECTIVES[state.objIdx].mag<=10:OBJECTIVES[state.firstObj].mag<=10,
+     t:'Started at low power', bad:'You began at high power. On an unknown slide you cannot find anything that way.'},
+    {ok:tLow>15000, t:`Spent time searching at low power (${fmtTime(tLow)})`, bad:'Almost no time at 4×/10× — searching was skipped.'},
+    {ok:cov>=0.25, t:`Scanned ${(cov*100).toFixed(0)} % of the smear at ≤10×`, bad:`Only ${(cov*100).toFixed(0)} % of the smear was covered. A negative call on that coverage is not supportable.`},
+    {ok:state.centredSwitches>0, t:'Centred a candidate before switching objectives', bad:'You changed magnification without first centring — the classic way to lose your target.'},
+    {ok:state.usedFine, t:'Used the fine focus', bad:'The fine focus was never touched. Objectives are only approximately parfocal.'},
+    {ok:state.timeByObj[3]>6000, t:`Confirmed at 100× (${fmtTime(state.timeByObj[3])})`, bad:'You never really examined anything at 100×. Below that, rod morphology is not resolvable.'},
+    {ok:!(state.timeByObj[3]>3000&&!state.oil), t:'Used immersion oil with the 100× objective', bad:'You used the 100× dry. Its NA collapses from 1.25 to about 0.75 and the image is not diagnostic.'},
+    {ok:state.coarseAtHigh===0, t:'Never reached for the coarse focus at high power', bad:`Coarse focus was used ${state.coarseAtHigh}× at 40×/100× — on a real instrument that breaks slides and objectives.`}
+  ];
+  const wfScore=wf.filter(w=>w.ok).length;
+
+  const timeBars=OBJECTIVES.map((o,i)=>{
+    const tot=Math.max(1,state.timeByObj.reduce((a,b)=>a+b,0));
+    return `<div style="display:grid;grid-template-columns:52px 1fr 70px;gap:8px;align-items:center;margin:3px 0">
+      <span class="note">${o.mag}×</span><div class="bar"><i style="width:${state.timeByObj[i]/tot*100}%"></i></div>
+      <span class="note" style="text-align:right">${fmtTime(state.timeByObj[i])}</span></div>`;
+  }).join('');
+
+  $('#resTitle').textContent=`Debrief — ${slideLabel(state.sampleKey)}`;
+  $('#resultBody').innerHTML=`
+    <div class="banner ${cls}"><b>${verdict}</b><br>
+      <span class="note" style="color:inherit">You reported <b>${
+        answer.call==='pos'?'rods observed':answer.call==='neg'?'none observed':'inconclusive'
+      }</b> with ${CONF[answer.conf]} confidence. ${calib}</span></div>
+
+    <div class="callout"><b>Whatever the outcome, this was a screen, not an identification.</b>
+      Rod shape, size and Gram reaction are shared by <i>Escherichia</i>, <i>Citrobacter</i>, <i>Enterobacter</i>,
+      <i>Klebsiella</i>, <i>Proteus</i>, <i>Shigella</i> and many others. Confirming <i>Salmonella</i> requires
+      selective culture, biochemical testing and serotyping or a validated molecular method.</div>
+
+    ${state.cheatUsed?`<div class="banner mid"><b>Instructor locator used ${state.cheatUsed} time${state.cheatUsed>1?'s':''}.</b>
+      ${state.sp.positive?'Target rods were shown to you rather than located by you, so this attempt does not measure your searching or your judgement.'
+      :'You asked the locator whether any targets existed, so the negative call was given to you rather than earned by systematic scanning.'}</div>`:''}
+
+    <div>
+      <h3 style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)">What was actually on the slide</h3>
+      <div class="kv" style="font-size:12.5px">
+        <span>Scenario</span><b>${scn.title}</b>
+        <span>Target-morphology rods present</span><b style="color:${truthPos?'var(--ok)':'var(--dim)'}">${truthPos?'Yes — '+sp.nTargets+' rods':'No'}</b>
+        <span>Separate target locations</span><b>${totalZones}</b>
+        <span>Locations you marked</span><b>${found} of ${totalZones}${totalZones?` (${(found/totalZones*100).toFixed(0)} %)`:''}</b>
+        <span>Total objects on the slide</span><b>${sp.objs.length.toLocaleString()}</b>
+      </div>
+      ${totalZones?`<p class="note">You are not expected to find every location — a screen only has to find
+      <i>enough</i>. What matters is that the locations you did mark were real, and that your coverage was wide
+      enough to justify the call you made.</p>`:''}
+      ${missTop.length?`<div style="margin-top:6px"><span class="note">Target locations you did not visit —
+      click to go there at 100×:</span><div class="row wrap" style="margin-top:5px" id="missBtns">
+      ${missTop.map((z,i)=>`<button class="mini" data-mx="${z.x.toFixed(1)}" data-my="${z.y.toFixed(1)}">
+        ${(z.x/1000).toFixed(2)}, ${(z.y/1000).toFixed(2)} mm · ${z.n} rod${z.n>1?'s':''}</button>`).join('')}
+      </div></div>`:''}
+      ${scn.poor?`<div class="callout" style="margin-top:8px">This smear was <b>poorly prepared</b>: heavy stain
+      deposit, trapped air and uneven fixation. A handful of genuine target rods were present, buried among
+      artefacts. In the laboratory the correct action is to <b>request a new smear</b> — and to say so in the report.</div>`:''}
+    </div>
+
+    ${state.marks.length?`<div>
+      <h3 style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)">Your ${state.marks.length} observation(s): ${nTrue} target · ${nOther} other organism · ${nArt} artefact, host material or empty</h3>
+      <table class="t"><thead><tr><th>#</th><th>X, Y (mm)</th><th>Obj.</th><th style="text-align:left">What was actually there</th></tr></thead>
+      <tbody>${rows.map(r=>r.html).join('')}</tbody></table></div>`
+      :`<div class="callout">You submitted without recording a single observation. Even a negative screen should
+       document which fields were examined.</div>`}
+
+    <div>
+      <h3 style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)">Time at each objective — total ${fmtTime(state.timeByObj.reduce((a,b)=>a+b,0))}</h3>
+      ${timeBars}
+      <p class="note">A healthy screening profile is most of the time at 10×, short bursts at 40×, and focused
+      confirmation at 100×. ${tHigh>tLow*2?'Yours was inverted — you searched at high power, which is slow and unreliable.':''}</p>
+    </div>
+
+    <div>
+      <h3 style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--dim)">Workflow — ${wfScore} of ${wf.length}</h3>
+      ${wf.map(w=>`<div class="check ${w.ok?'done':''}"><span class="box">${w.ok?'✓':'!'}</span>
+        <span>${w.ok?w.t:'<span style="color:var(--warn)">'+w.bad+'</span>'}</span></div>`).join('')}
+    </div>`;
+  const mb=$('#missBtns');
+  if(mb) mb.onclick=e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    state.reveal=true; state.objIdx=3; state.oil=true;
+    state.coarse=Math.round(state.sp.zOff-PARFOCAL[3]); state.fine=0;
+    moveTo(+b.dataset.mx,+b.dataset.my,false);
+    syncControls(); syncAdvanced(); closeAll(); invalidate();
+    toast('Moved to a target location you missed, at 100× with oil. Rock the fine focus — the rods are ringed.','miss');
+  };
+  $('#btnRevealAfter').style.display='';
+  closeAll(); $('#modalResult').classList.add('show'); $('#scrim').classList.add('show');
+  beep();
+}
+$('#btnRevealAfter').onclick=()=>{
+  state.reveal=true; syncAdvanced(); invalidate();
+  $('#modalResult').classList.remove('show'); $('#scrim').classList.remove('show');
+  toast('Target rods are now ringed in the field of view and dotted on the overview map. Go back to 100× and compare them with what you marked.','rev');
+};
+$('#btnNextSample').onclick=()=>{
+  const opts=['training',...state.labelMap];
+  const i=(opts.indexOf(state.sampleKey)+1)%opts.length;
+  $('#selSample').value=opts[i]; loadSample(opts[i]); closeAll();
+};
+
+/* ---------------- tutorial ---------------- */
+const TUT=[
+ ['What this is','<p>A compound bright-field microscope, simulated with real optics: field of view, resolving limit, depth of field and brightness are computed from the numerical aperture of whichever objective you select.</p><p>Your job is to <b>screen an unknown stained smear</b> for rods with a morphology consistent with <i>Salmonella</i> — and to understand why that is not the same as finding <i>Salmonella</i>.</p>'],
+ ['The two side panels','<p>The screen is kept clear so the field of view stays as large as possible. Everything else lives in two panels that <b>appear when you move the pointer to the left or right edge</b> of the screen, and slide away when you move off them.</p><p><b>Left</b> — the Learn notes, the full slide map and your observation log.<br><b>Right</b> — your task, the live readouts and the advanced instrument controls.</p><p>Press <b>📌 Pin</b> in a panel’s header to keep it open; the stage shrinks so nothing is hidden. Click out on the microscope field to release it.</p>'],
+ ['Move the stage','<p>Drag inside the circular field to move the slide. <b>Click</b> anywhere to bring that point to the centre. Drag on the mini-map in the corner (or the full map in the left panel) to jump across the slide, or use <kbd>←↑→↓</kbd> / <kbd>WASD</kbd>.</p><p>The pale pink shading on the map is where the smear is thick. Start there.</p>'],
+ ['Change objective','<p>Click the nosepiece buttons, or press <kbd>1</kbd>–<kbd>4</kbd>. Whatever is in the centre of the field stays in the centre — so <b>centre your candidate first</b>.</p><p>At 100× the field is only 200 µm across. A target 100 µm off-centre at 10× will be nowhere to be seen.</p>'],
+ ['Focus','<p><kbd>Z</kbd>/<kbd>X</kbd> are coarse, <kbd>,</kbd>/<kbd>.</kbd> and the scroll wheel are fine. Coarse focus is locked at 40× and 100× — the working distance there is a fraction of a millimetre.</p><p>Objectives are only <i>approximately</i> parfocal: expect to touch the fine focus after every change. At 100× the depth of field is about half a micrometre, so rock the focus constantly.</p>'],
+ ['Light and condenser','<p>The lamp sets brightness. The condenser aperture trades contrast against resolution — around 0.7–0.9 of the objective NA is the classical compromise. Both readouts update live.</p><p>More controls, including the field diaphragm, eyepiece power and image inversion, live behind <b>⚙ Advanced controls</b> on the right.</p>'],
+ ['Oil at 100×','<p>The 100× objective is designed for immersion oil. Press <kbd>O</kbd> to apply it. Try it dry first, then oiled, while looking at the same rod — the difference is the whole reason oil immersion exists.</p>'],
+ ['Record and submit','<p>Press <kbd>M</kbd> to mark the centre of the field, or <kbd>Shift</kbd>-click on a specific object. Write what you saw in the log — size, shape, colour, focal plane.</p><p>Then <b>Submit assessment</b>, choose one of three findings, and rate your confidence. The debrief shows what each of your marks really was, which targets you missed, how you spent your time, and whether your workflow was sound.</p><p>Open <b>📖 Learn</b> on the left at any time. Start with the <b>Training slide</b>.</p>']
+];
+let tutI=0;
+function openTutorial(){ tutI=0; renderTut(); closeAll(); $('#modalTut').classList.add('show'); $('#scrim').classList.add('show'); }
+function renderTut(){
+  $('#tutBody').innerHTML=TUT.map((s,i)=>`<div class="step ${i===tutI?'on':''}"><h2 style="margin:0 0 8px;font-size:16px">${s[0]}</h2>${s[1]}</div>`).join('');
+  $('#tutProg').textContent=`${tutI+1} / ${TUT.length}`;
+  $('#tutPrev').disabled=tutI===0;
+  $('#tutNext').textContent=tutI===TUT.length-1?'Start':'Next';
+}
+$('#tutPrev').onclick=()=>{if(tutI>0){tutI--;renderTut();}};
+$('#tutNext').onclick=()=>{if(tutI<TUT.length-1){tutI++;renderTut();}else closeAll();};
+$('#btnTut').onclick=openTutorial;
+
+/* a short, quiet chime — no external assets */
+function beep(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
+    const ac=new AC(), t=ac.currentTime;
+    [[880,0],[1174.7,0.13],[1567.98,0.26]].forEach(([f,dt])=>{
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0,t+dt);
+      g.gain.linearRampToValueAtTime(0.16,t+dt+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dt+0.42);
+      o.connect(g).connect(ac.destination); o.start(t+dt); o.stop(t+dt+0.45);
+    });
+    setTimeout(()=>ac.close(),1200);
+  }catch(e){}
+}
+
+/* ---------------- boot ---------------- */
+/* Optional deep link, e.g.  file.html#sample=posMod&obj=4&oil&x=4.2&y=6.1&notut
+   so a specific field can be linked directly from a lecture slide.            */
+function applyHash(){
+  const h=location.hash.replace(/^#/,''); if(!h)return;
+  const q={}; h.split('&').forEach(p=>{const [k,v]=p.split('=');q[k]=v===undefined?'1':decodeURIComponent(v);});
+  if(q.seed){state.seed=q.seed;}
+  if(q.sample&&SCENARIOS[q.sample]){$('#selSample').value=q.sample;loadSample(q.sample);}
+  else if(q.seed){loadSample(state.sampleKey);}
+  if(q.obj){const i=OBJECTIVES.findIndex(o=>o.mag===+q.obj);if(i>=0)state.objIdx=i;}
+  if(q.oil==='1')state.oil=true;
+  if(q.light)state.light=clamp(+q.light,0,100);
+  if(q.cond)state.cond=clamp(+q.cond,0,100);
+  if(q.focus)state.coarse=clamp(+q.focus,-120,120);
+  if(q.reveal==='1'&&state.sp.scn.training)state.reveal=true;
+  if(q.assess==='1')setMode(false);
+  if(q.x!==undefined&&q.y!==undefined){state.x=clamp(+q.x*1000,0,SLIDE);state.y=clamp(+q.y*1000,0,SLIDE);}
+  if(q.zone!==undefined&&state.sp.zones.length){
+    const z=state.sp.zones[clamp(+q.zone,0,state.sp.zones.length-1)|0];
+    state.x=z.x; state.y=z.y; state.coarse=Math.round(state.sp.zOff); state.fine=0;
+  }
+}
+buildNosepiece(); buildSampleSelect(); setMode(true);
+loadSample('training');
+applyHash();
+resizeCanvas(); syncControls(); syncAdvanced(); markVisited(); invalidate();
+window.addEventListener('resize',resizeCanvas);
+// add #notut to the URL to suppress the automatic tutorial (handy when embedding in a lecture deck)
+if(!/notut/.test(location.hash)&&!sessionStorage.getItem('micro_tut')){
+  sessionStorage.setItem('micro_tut','1'); setTimeout(openTutorial,450);
+}
+</script>
+</body>
+</html>

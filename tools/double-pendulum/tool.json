@@ -1,0 +1,9 @@
+{
+  "slug": "double-pendulum",
+  "name": "Double Pendulum",
+  "description": "Throw a double pendulum and watch deterministic chaos unfold — drag the bobs to set the initial state and leave a trace of the tip.",
+  "status": "live",
+  "url": "tools/double-pendulum/index.html",
+  "icon": "chart",
+  "tags": ["simulations", "educational"]
+}
