@@ -49,22 +49,27 @@
 
   /* ---------- buttons ---------- */
   .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  button{
+  button,select{
     font:600 17px/1 inherit;padding:16px 8px;border-radius:12px;border:2px solid var(--ink);
     background:#fff;color:var(--ink);min-height:54px;cursor:pointer;
   }
   button.primary{background:var(--ink);color:#fff}
   button.go{background:var(--green);border-color:var(--green);color:#fff}
   button.stop{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.alt{background:#fff;border-color:var(--blue);color:var(--blue)}
+  button.alt.on{background:var(--blue);color:#fff}
   button:disabled{opacity:.35}
   button:active:not(:disabled){transform:translateY(1px)}
   .btns .wide{grid-column:1 / -1}
+  .btns .wide.small{font-size:15px;min-height:48px;padding:12px 8px}
 
   /* ---------- sliders ---------- */
   .ctrl{margin:0 0 12px}
   .ctrl label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:4px}
   .ctrl label span{color:var(--muted);font-weight:500}
   input[type=range]{width:100%;height:40px;accent-color:var(--ink)}
+  select{width:100%;font-size:16px;font-weight:600;min-height:48px;padding:12px 10px}
+  .hint{font-size:12.5px;color:var(--muted);margin:-6px 0 12px}
 
   /* ---------- result ---------- */
   #result{
@@ -105,13 +110,13 @@
 <body>
 
 <h1>Camera Motion Analyzer
-  <small>Track a red marker on a pendulum and measure x(t), v(t), a(t) and frequency.</small>
+  <small>Track a coloured marker on a pendulum and measure x(t), v(t), a(t) and frequency.</small>
 </h1>
 
 <div id="stage">
   <video id="video" playsinline autoplay muted></video>
   <canvas id="overlay"></canvas>
-  <div id="placeholder">Press <b>Start Camera</b><br>then tap the red marker</div>
+  <div id="placeholder">Press <b>Start Camera</b><br>then tap the coloured marker</div>
 </div>
 
 <div id="status" class="info">Camera off</div>
@@ -123,16 +128,27 @@
   <button id="btnStop" class="stop" disabled>Stop</button>
   <button id="btnReset">Reset</button>
   <button id="btnDemo">Demo</button>
+  <button id="btnRef" class="alt wide small" disabled>Set anti-shake reference</button>
 </div>
 
 <div class="ctrl">
-  <label for="tol">Color tolerance <span id="tolVal">45</span></label>
+  <label for="tol">Colour tolerance <span id="tolVal">45</span></label>
   <input type="range" id="tol" min="10" max="120" step="5" value="45">
 </div>
+<p class="hint">Starting value only – the tracker widens or tightens it by itself while following the marker.</p>
 
 <div class="ctrl">
   <label for="smooth">Smoothing (frames) <span id="smoothVal">5</span></label>
   <input type="range" id="smooth" min="1" max="21" step="2" value="5">
+</div>
+
+<div class="ctrl">
+  <label for="axis">Motion axis <span id="axisVal">auto</span></label>
+  <select id="axis">
+    <option value="auto">Auto (dominant direction)</option>
+    <option value="x">Horizontal</option>
+    <option value="y">Vertical</option>
+  </select>
 </div>
 
 <div id="result">
@@ -158,14 +174,29 @@
   <div>Tracked frames<br><b id="sFrames">–</b></div>
   <div>Average frame rate<br><b id="sFps">–</b></div>
   <div>Amplitude<br><b id="sAmp">–</b></div>
+  <div>Tracking quality<br><b id="sQual">–</b></div>
+  <div>Frames lost<br><b id="sDrop">–</b></div>
 </div>
+
+<details>
+  <summary>How the tracker works</summary>
+  <ul>
+    <li>Tapping the marker builds a <b>colour model</b> from the surrounding patch: the hue-like ratios r:g:b, which barely change when the light does, plus how much the patch colour varies.</li>
+    <li>Each frame the tracker predicts where the marker went from its last velocity, and searches only a small window around that prediction.</li>
+    <li>Matching pixels are grouped into <b>connected blobs</b>. The blob closest to the prediction and closest in size to the marker wins, so a second red object elsewhere in the frame cannot drag the measurement away.</li>
+    <li>If nothing is found the window grows, the colour tolerance is relaxed step by step, and finally the whole frame is searched – so a briefly hidden marker is picked up again automatically.</li>
+    <li>The colour model and the expected blob size drift slowly with the light, but are held near the colour you originally tapped so the tracker cannot creep onto the background.</li>
+    <li>The analysis resolution is tuned to the speed of your phone, and frames are sampled as the camera delivers them, which keeps the time axis honest.</li>
+    <li><b>Anti-shake reference:</b> tap a second, stationary coloured point and its motion is subtracted, removing most of the effect of a hand-held phone.</li>
+  </ul>
+</details>
 
 <details>
   <summary>Limitations</summary>
   <ul>
     <li>Position is measured in pixels, not meters.</li>
-    <li>Camera motion looks like pendulum motion — hold the phone still or use a support.</li>
-    <li>Lighting changes may disturb colour tracking.</li>
+    <li>Camera motion looks like pendulum motion – hold the phone still, use a support, or set an anti-shake reference.</li>
+    <li>Strong lighting changes or a marker colour close to the background will still confuse colour tracking.</li>
     <li>Velocity and especially acceleration amplify camera noise.</li>
     <li>Camera frame rate limits temporal resolution.</li>
     <li>This is a simple educational measurement tool, not a calibrated laboratory instrument.</li>
@@ -185,6 +216,13 @@ const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => v<a?a:(v>b?b:v);
 const fin = v => (typeof v === "number" && isFinite(v));
 function fmt(v, d){ return fin(v) ? v.toFixed(d) : "–"; }
+
+function median(a){
+  if (!a.length) return 0;
+  const s = a.slice().sort((p,q)=>p-q);
+  const m = s.length >> 1;
+  return (s.length % 2) ? s[m] : 0.5*(s[m-1]+s[m]);
+}
 
 /* =========================================================================
    ANALYSIS PIPELINE  (shared by live measurement and demo mode)
@@ -233,25 +271,18 @@ function analyse(t, xRaw, smoothWin){
 }
 
 // Frequency from positive-going zero crossings of the mean-subtracted signal.
-// Returns { hz, periods, amp, reason }.  hz is null when not measurable.
-function estimateFrequency(t, x){
+function crossingFrequency(t, x){
   const n = x.length;
-  if (n < 20) return { hz:null, periods:0, amp:0, reason:"Not enough data" };
-
   let mean = 0;
   for (let i = 0; i < n; i++) mean += x[i];
   mean /= n;
 
   const y = new Array(n);
-  let rms = 0, mx = 0;
+  let mx = 0;
   for (let i = 0; i < n; i++){
     y[i] = x[i] - mean;
-    rms += y[i]*y[i];
     if (Math.abs(y[i]) > mx) mx = Math.abs(y[i]);
   }
-  rms = Math.sqrt(rms / n);
-  const amp = rms * Math.SQRT2;           // amplitude of an equivalent sine
-  if (!fin(amp) || mx < 3) return { hz:null, periods:0, amp:amp, reason:"Movement too small" };
 
   // Hysteresis band suppresses noise crossings near zero.
   const band = 0.25 * mx;
@@ -260,7 +291,6 @@ function estimateFrequency(t, x){
   for (let i = 0; i < n; i++){
     if (y[i] < -band){ armed = true; continue; }
     if (armed && y[i] > band){
-      // find the actual zero crossing just before index i
       let j = i;
       while (j > 0 && y[j-1] > 0) j--;
       if (j > 0){
@@ -272,47 +302,128 @@ function estimateFrequency(t, x){
       armed = false;
     }
   }
-
-  if (cross.length < 4) return { hz:null, periods:Math.max(0,cross.length-1), amp:amp, reason:"Not enough oscillations to measure frequency" };
+  if (cross.length < 4) return null;
 
   // Reject obviously wrong periods (half/double detections) using the median.
-  let per = [];
+  const per = [];
   for (let i = 1; i < cross.length; i++) per.push(cross[i] - cross[i-1]);
-  const sorted = per.slice().sort((a,b)=>a-b);
-  const med = sorted[Math.floor(sorted.length/2)];
+  const med = median(per);
   const good = per.filter(p => fin(p) && p > 0.4*med && p < 1.6*med);
-  if (good.length < 3) return { hz:null, periods:good.length, amp:amp, reason:"Not enough oscillations to measure frequency" };
+  if (good.length < 3) return null;
 
   let sum = 0;
   for (const p of good) sum += p;
   const avg = sum / good.length;
   const hz = 1 / avg;
-  if (!fin(hz) || hz <= 0.02 || hz > 30) return { hz:null, periods:good.length, amp:amp, reason:"Frequency out of range" };
-  return { hz:hz, periods:good.length, amp:amp, reason:"" };
+  if (!fin(hz) || hz <= 0.02 || hz > 30) return null;
+  return { hz:hz, periods:good.length };
+}
+
+// Autocorrelation fallback: works on noisy or partly clipped signals where the
+// zero-crossing detector gives up. Uniformly resampled and decimated first.
+function acfFrequency(t, x){
+  const n = x.length;
+  if (n < 32) return null;
+  const span = t[n-1] - t[0];
+  if (!(span > 0.5)) return null;
+
+  const N  = Math.min(2048, n);
+  const dt = span / (N - 1);
+  const y  = new Float64Array(N);
+  let j = 0;
+  for (let i = 0; i < N; i++){
+    const tt = t[0] + i*dt;
+    while (j < n-2 && t[j+1] < tt) j++;
+    const t0 = t[j], t1 = t[j+1];
+    const f = (t1 > t0) ? clamp((tt - t0)/(t1 - t0), 0, 1) : 0;
+    y[i] = x[j] + (x[j+1] - x[j]) * f;
+  }
+  let mean = 0;
+  for (let i = 0; i < N; i++) mean += y[i];
+  mean /= N;
+  let r0 = 0;
+  for (let i = 0; i < N; i++){ y[i] -= mean; r0 += y[i]*y[i]; }
+  if (!(r0 > 0)) return null;
+
+  const maxLag = Math.floor(N/2);
+  const ac = new Float64Array(maxLag+1);
+  for (let L = 0; L <= maxLag; L++){
+    let s = 0;
+    for (let i = 0; i + L < N; i++) s += y[i]*y[i+L];
+    ac[L] = s / r0;
+  }
+  let L = 1;
+  while (L < maxLag && ac[L] > 0) L++;      // skip the central lobe
+  let bi = -1, bv = 0.2;
+  for (let k = L+1; k < maxLag; k++){
+    if (ac[k] > bv && ac[k] >= ac[k-1] && ac[k] >= ac[k+1]){ bv = ac[k]; bi = k; break; }
+  }
+  if (bi < 2) return null;
+  // parabolic refinement of the peak position
+  const a0 = ac[bi-1], a1 = ac[bi], a2 = ac[bi+1];
+  const den = (a0 - 2*a1 + a2);
+  const shift = Math.abs(den) > 1e-12 ? clamp(0.5*(a0 - a2)/den, -1, 1) : 0;
+  const period = (bi + shift) * dt;
+  const hz = 1/period;
+  if (!fin(hz) || hz <= 0.02 || hz > 30) return null;
+  return { hz:hz, periods:Math.max(1, Math.round(span/period)) };
+}
+
+// Returns { hz, periods, amp, method, reason }.  hz is null when not measurable.
+function estimateFrequency(t, x){
+  const n = x.length;
+  if (n < 20) return { hz:null, periods:0, amp:0, method:"", reason:"Not enough data" };
+
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += x[i];
+  mean /= n;
+  let rms = 0, mx = 0;
+  for (let i = 0; i < n; i++){
+    const d = x[i] - mean;
+    rms += d*d;
+    if (Math.abs(d) > mx) mx = Math.abs(d);
+  }
+  rms = Math.sqrt(rms/n);
+  const amp = rms * Math.SQRT2;           // amplitude of an equivalent sine
+  if (!fin(amp) || mx < 3) return { hz:null, periods:0, amp:amp, method:"", reason:"Movement too small" };
+
+  const zc = crossingFrequency(t, x);
+  if (zc) return { hz:zc.hz, periods:zc.periods, amp:amp, method:"zero crossings", reason:"" };
+
+  const ac = acfFrequency(t, x);
+  if (ac) return { hz:ac.hz, periods:ac.periods, amp:amp, method:"autocorrelation", reason:"" };
+
+  return { hz:null, periods:0, amp:amp, method:"", reason:"Not enough clean oscillations to measure frequency" };
 }
 
 /* =========================================================================
    State
    ========================================================================= */
 const MAX_SAMPLES = 12000;      // ~6.5 min at 30 fps – hard safety cap
-const PROC_W = 240;             // analysis resolution (video pixels are reported)
+const PROC_MIN = 176, PROC_MAX = 384;
 
 const S = {
   stream:null,
   cameraOn:false,
-  target:null,                  // {r,g,b}
-  lastPos:null,                 // {x,y} in processing-canvas coords
-  misses:0,
-  lost:false,
   measuring:false,
   demo:false,
+  tapMode:"marker",             // "marker" | "ref"
+  procW:288,                    // adaptive analysis width
+  scanMs:0,                     // EMA of per-frame tracking cost
+  lastTune:0,
+  frameCount:0,
   t0:0,
-  t:[], x:[],                   // raw samples (t in s, x in video pixels, zeroed)
-  x0:null,
+  t:[], px:[], py:[],           // raw samples (t in s, position in video px, zeroed)
+  p0:null,                      // {x,y} first recorded marker position
+  refBase:null,                 // {x,y} reference position at measurement start
+  dropped:0,
+  qual:0,                       // EMA of tracking quality 0..1
   res:null,                     // analysed data for plotting
+  usedAxis:"x",
   tab:"pos",
   lastPlot:0,
-  lastStat:0
+  lastStat:0,
+  frame:null                    // ImageData of the current processing frame
 };
 
 const video   = $("video");
@@ -332,6 +443,320 @@ function status(msg, kind){
   const el = $("status");
   el.textContent = msg;
   el.className = kind || "info";
+}
+
+/* =========================================================================
+   Colour model
+   -------------------------------------------------------------------------
+   The model lives in normalised chromaticity (r,g,b divided by r+g+b), which
+   is largely insensitive to how brightly the marker happens to be lit.  The
+   spread measured in the tapped patch gives a lower bound on the tolerance,
+   so a speckled marker is not held to an impossibly tight match.
+   ========================================================================= */
+function buildModel(data, w, h, px, py, rad){
+  const crs = [], cgs = [], sums = [];
+  const x0 = clamp(px-rad,0,w-1), x1 = clamp(px+rad,0,w-1);
+  const y0 = clamp(py-rad,0,h-1), y1 = clamp(py+rad,0,h-1);
+  for (let y = y0; y <= y1; y++){
+    let i = (y*w + x0)*4;
+    for (let x = x0; x <= x1; x++, i += 4){
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const s = r + g + b;
+      if (s < 36) continue;                    // near-black: chromaticity is meaningless
+      crs.push(r/s); cgs.push(g/s); sums.push(s);
+    }
+  }
+  if (crs.length < 5) return null;
+  const cr = median(crs), cg = median(cgs), sum = median(sums);
+  const dev = [];
+  for (let i = 0; i < crs.length; i++){
+    const a = crs[i]-cr, b = cgs[i]-cg;
+    dev.push(Math.sqrt(a*a + b*b));
+  }
+  const spread = 1.4826 * median(dev);
+  const cb = 1 - cr - cg;
+  // how far the colour is from neutral grey – used to allow/deny blown-out pixels
+  const gr = 1/3;
+  const chroma = Math.sqrt((cr-gr)*(cr-gr) + (cg-gr)*(cg-gr) + (cb-gr)*(cb-gr));
+  return {
+    cr, cg, cb, sum, chroma,
+    spread: clamp(spread, 0.004, 0.08),
+    dark:   clamp(0.30*sum, 30, 110)
+  };
+}
+
+// Chromatic tolerance actually used: the slider value expressed in chromaticity
+// units, but never tighter than the natural spread of the tapped patch.
+function tolFor(model, sliderTol, mul){
+  const base = sliderTol / Math.max(120, model.sum);
+  return clamp(Math.max(base, 2.2*model.spread) * mul, 0.02, 0.34);
+}
+
+function scoreOf(r, g, b, m, tol2){
+  const s = r + g + b;
+  if (s < m.dark) return 0;
+  if (m.chroma > 0.03 && r > 246 && g > 246 && b > 246) return 0;   // blown-out highlight
+  const k = 1/s;
+  const dr = r*k - m.cr, dg = g*k - m.cg, db = b*k - m.cb;
+  const d2 = dr*dr + dg*dg + db*db;
+  if (d2 >= tol2) return 0;
+  return 1 - d2/tol2;
+}
+
+/* =========================================================================
+   Connected-blob detection inside a window of the processing frame
+   ========================================================================= */
+let _sc = null, _lab = null, _stk = null, _cap = 0;
+function ensureBuf(n){
+  if (n > _cap){
+    _cap = n;
+    _sc  = new Float32Array(n);
+    _lab = new Uint8Array(n);
+    _stk = new Int32Array(n);
+  }
+}
+
+const MEMBER = 0.18;            // minimum score for a pixel to join a blob
+
+function findBlobs(data, w, h, x0, y0, x1, y1, m, tol2, maxBlobs){
+  const rw = x1 - x0 + 1, rh = y1 - y0 + 1;
+  if (rw < 1 || rh < 1) return [];
+  const n = rw*rh;
+  ensureBuf(n);
+  const sc = _sc, lab = _lab, stk = _stk;
+  lab.fill(0, 0, n);
+
+  let any = false;
+  for (let y = 0; y < rh; y++){
+    let i = ((y+y0)*w + x0)*4;
+    let o = y*rw;
+    for (let x = 0; x < rw; x++, i += 4, o++){
+      const v = scoreOf(data[i], data[i+1], data[i+2], m, tol2);
+      sc[o] = v >= MEMBER ? v : 0;
+      if (v >= MEMBER) any = true;
+    }
+  }
+  if (!any) return [];
+
+  const blobs = [];
+  for (let seed = 0; seed < n; seed++){
+    if (!sc[seed] || lab[seed]) continue;
+    let sp = 0;
+    stk[sp++] = seed; lab[seed] = 1;
+    let sw = 0, sx = 0, sy = 0, area = 0, sr = 0, sg = 0, sb = 0;
+    let bx0 = rw, bx1 = 0, by0 = rh, by1 = 0;
+    while (sp > 0){
+      const p  = stk[--sp];
+      const py = (p / rw) | 0, pxx = p - py*rw;
+      const wgt = sc[p];
+      sw += wgt; sx += wgt*(pxx+0.5); sy += wgt*(py+0.5); area++;
+      const di = ((py+y0)*w + (pxx+x0))*4;
+      sr += data[di]; sg += data[di+1]; sb += data[di+2];
+      if (pxx < bx0) bx0 = pxx; if (pxx > bx1) bx1 = pxx;
+      if (py  < by0) by0 = py;  if (py  > by1) by1 = py;
+      for (let dy = -1; dy <= 1; dy++){
+        const ny = py + dy;
+        if (ny < 0 || ny >= rh) continue;
+        for (let dx = -1; dx <= 1; dx++){
+          const nx = pxx + dx;
+          if (nx < 0 || nx >= rw) continue;
+          const q = ny*rw + nx;
+          if (sc[q] && !lab[q]){ lab[q] = 1; stk[sp++] = q; }
+        }
+      }
+    }
+    if (area < 3 || sw <= 0) continue;
+    blobs.push({
+      cx: x0 + sx/sw, cy: y0 + sy/sw,
+      area: area, q: sw/area,
+      r: sr/area, g: sg/area, b: sb/area,
+      rw: bx1-bx0+1, rh: by1-by0+1
+    });
+    if (blobs.length >= (maxBlobs || 64)) break;
+  }
+  return blobs;
+}
+
+/* =========================================================================
+   Tracker
+   ========================================================================= */
+function makeTracker(name, colour){
+  return {
+    name, colour,
+    model:null, anchor:null,
+    pos:null, vel:{x:0,y:0},
+    lastT:0, misses:0, lost:false,
+    ok:false, quality:0, area:0, areaExp:0,
+    trail:[], active:false, recovering:false
+  };
+}
+const MARK = makeTracker("marker", "#00ff66");
+const REF  = makeTracker("reference", "#3aa0ff");
+
+function resetTracker(tr){
+  tr.model = tr.anchor = null;
+  tr.pos = null; tr.vel.x = tr.vel.y = 0;
+  tr.lastT = 0; tr.misses = 0; tr.lost = false;
+  tr.ok = false; tr.quality = 0; tr.area = tr.areaExp = 0;
+  tr.trail.length = 0; tr.active = false; tr.recovering = false;
+}
+
+// Rescale tracker geometry when the processing resolution changes.
+function rescaleTracker(tr, f){
+  if (!tr.active) return;
+  if (tr.pos){ tr.pos.x *= f; tr.pos.y *= f; }
+  tr.vel.x *= f; tr.vel.y *= f;
+  tr.areaExp *= f*f;
+  for (const p of tr.trail){ p.x *= f; p.y *= f; }
+}
+
+function acquire(tr, px, py, data, w, h){
+  const m = buildModel(data, w, h, px, py, 4);
+  if (!m) return false;
+  tr.model  = m;
+  tr.anchor = { cr:m.cr, cg:m.cg, cb:m.cb };
+  tr.active = true;
+  tr.pos = { x:px, y:py };
+  tr.vel.x = tr.vel.y = 0;
+  tr.lastT = 0; tr.misses = 0; tr.lost = false; tr.recovering = false;
+  tr.areaExp = 0; tr.trail.length = 0;
+
+  // immediately locate the blob so size and centre start out right
+  const R = Math.max(18, Math.round(w*0.12));
+  const tol = tolFor(m, sliderTol(), 1);
+  const blobs = findBlobs(data, w, h,
+    clamp(px-R,0,w-1), clamp(py-R,0,h-1), clamp(px+R,0,w-1), clamp(py+R,0,h-1),
+    m, tol*tol, 40);
+  const best = pickBlob(blobs, {x:px,y:py}, tr, R);
+  if (best){
+    tr.pos = { x:best.cx, y:best.cy };
+    tr.area = best.area;
+    tr.areaExp = best.area;
+    tr.quality = best.q;
+    tr.ok = true;
+  } else {
+    tr.ok = false;
+  }
+  return true;
+}
+
+function pickBlob(blobs, pred, tr, R){
+  let best = null, bestS = 0;
+  for (const b of blobs){
+    let s = b.q;                                     // mean colour match
+    if (tr.areaExp > 0){
+      const rr = b.area / tr.areaExp;
+      s *= Math.sqrt(clamp(rr > 1 ? 1/rr : rr, 0.04, 1));
+    }
+    if (pred){
+      const dx = b.cx - pred.x, dy = b.cy - pred.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      s *= 1 / (1 + d / Math.max(6, R*0.6));
+    }
+    s *= Math.min(1, b.area/6);                      // ignore single-pixel speckle
+    if (s > bestS){ bestS = s; best = b; }
+  }
+  return best;
+}
+
+function sliderTol(){ return Number($("tol").value) || 45; }
+
+// One tracking step on the current frame. Returns true if the marker was found.
+function trackerStep(tr, data, w, h, tNow, allowGlobal){
+  if (!tr.active || !tr.model) return false;
+
+  const dt = tr.lastT ? clamp((tNow - tr.lastT)/1000, 0.004, 0.25) : 0;
+  tr.lastT = tNow;
+
+  const step = { x: tr.vel.x*dt, y: tr.vel.y*dt };
+  const speed = Math.sqrt(step.x*step.x + step.y*step.y);
+  const rBase = Math.max(12, Math.round(w*0.09));
+  let pred = null;
+  if (tr.pos){
+    const cap = Math.max(rBase, 3*rBase);
+    const sx = clamp(step.x, -cap, cap), sy = clamp(step.y, -cap, cap);
+    pred = { x: clamp(tr.pos.x + sx, 0, w-1), y: clamp(tr.pos.y + sy, 0, h-1) };
+  }
+
+  // progressive search: tight window first, then wider and looser, then the
+  // whole frame once the marker has been missing for a couple of frames
+  const R1 = clamp(rBase + 2.5*speed + rBase*Math.min(tr.misses,3), rBase, Math.max(w,h));
+  const passes = [ {R:R1, mul:1.0, strict:true} ];
+  if (tr.misses >= 1) passes.push({ R:Math.min(R1*2.2, Math.max(w,h)), mul:1.25, strict:false });
+  if ((tr.misses >= 3 || !tr.pos) && allowGlobal) passes.push({ R:1e9, mul:1.55, strict:false });
+
+  let best = null, usedPass = null;
+  for (const p of passes){
+    const c  = pred || tr.pos || { x:w/2, y:h/2 };
+    const x0 = clamp(Math.round(c.x - p.R), 0, w-1), x1 = clamp(Math.round(c.x + p.R), 0, w-1);
+    const y0 = clamp(Math.round(c.y - p.R), 0, h-1), y1 = clamp(Math.round(c.y + p.R), 0, h-1);
+    const tol = tolFor(tr.model, sliderTol(), p.mul);
+    const blobs = findBlobs(data, w, h, x0, y0, x1, y1, tr.model, tol*tol, 64);
+    const cand = pickBlob(blobs, pred, tr, Math.min(p.R, Math.max(w,h)));
+    if (!cand) continue;
+    // a relaxed pass must produce a blob of believable size before it is trusted
+    if (!p.strict && tr.areaExp > 0){
+      const rr = cand.area / tr.areaExp;
+      if (rr < 0.25 || rr > 4.5) continue;
+    }
+    best = cand; usedPass = p;
+    break;
+  }
+
+  if (!best){
+    tr.misses++;
+    tr.ok = false;
+    if (tr.pos && tr.misses <= 6){                  // coast along the last velocity
+      tr.pos.x = clamp(tr.pos.x + step.x*0.6, 0, w-1);
+      tr.pos.y = clamp(tr.pos.y + step.y*0.6, 0, h-1);
+      tr.vel.x *= 0.8; tr.vel.y *= 0.8;
+    } else {
+      tr.vel.x = tr.vel.y = 0;
+    }
+    if (tr.misses > 8) tr.lost = true;
+    tr.recovering = tr.misses > 0;
+    return false;
+  }
+
+  // accepted
+  const prev = tr.pos;
+  if (prev && dt > 0){
+    const vx = (best.cx - prev.x)/dt, vy = (best.cy - prev.y)/dt;
+    const k = tr.misses ? 0.5 : 0.65;               // trust a fresh re-acquisition less
+    tr.vel.x = k*vx + (1-k)*tr.vel.x;
+    tr.vel.y = k*vy + (1-k)*tr.vel.y;
+  }
+  tr.pos = { x:best.cx, y:best.cy };
+  tr.area = best.area;
+  tr.quality = best.q;
+  tr.ok = true;
+  tr.misses = 0;
+  tr.lost = false;
+  tr.recovering = (usedPass && !usedPass.strict);
+
+  // slow, bounded adaptation of the colour model and the expected blob size
+  if (!tr.recovering && best.q > 0.45){
+    const s = best.r + best.g + best.b;
+    if (s > tr.model.dark){
+      const cr = best.r/s, cg = best.g/s;
+      const rate = 0.04;
+      let ncr = tr.model.cr + rate*(cr - tr.model.cr);
+      let ncg = tr.model.cg + rate*(cg - tr.model.cg);
+      // never drift further than half a tolerance away from the tapped colour
+      const lim = 0.5 * tolFor(tr.model, sliderTol(), 1);
+      const dx = ncr - tr.anchor.cr, dy = ncg - tr.anchor.cg;
+      const d  = Math.sqrt(dx*dx + dy*dy);
+      if (d > lim){ const f = lim/d; ncr = tr.anchor.cr + dx*f; ncg = tr.anchor.cg + dy*f; }
+      tr.model.cr = ncr; tr.model.cg = ncg; tr.model.cb = 1 - ncr - ncg;
+      tr.model.sum += 0.04*(s - tr.model.sum);
+      tr.model.dark = clamp(0.30*tr.model.sum, 30, 110);
+    }
+    tr.areaExp = tr.areaExp ? tr.areaExp + 0.06*(best.area - tr.areaExp) : best.area;
+  }
+
+  tr.trail.push({ x:tr.pos.x, y:tr.pos.y });
+  if (tr.trail.length > 45) tr.trail.shift();
+  return true;
 }
 
 /* =========================================================================
@@ -369,8 +794,10 @@ async function startCamera(){
   $("placeholder").style.display = "none";
   $("btnCam").textContent = "Camera On";
   $("btnCam").disabled = true;
-  status("Tap the red marker in the image", "info");
-  requestAnimationFrame(loop);
+  S.tapMode = "marker";
+  status("Tap the coloured marker in the image", "info");
+  updateButtons();
+  scheduleFrame();
 }
 
 function stopCamera(){
@@ -393,14 +820,16 @@ function geom(){
     offY: (r.height - vh*scale) / 2
   };
 }
+const toVideoX = (g,x) => x * g.vw / proc.width;
+const toVideoY = (g,y) => y * g.vh / proc.height;
 
 /* =========================================================================
-   Colour picking + tracking
+   Tapping
    ========================================================================= */
 stage.addEventListener("click", onTap, false);
 
 function onTap(ev){
-  if (!S.cameraOn || !pctx) return;
+  if (!S.cameraOn || !pctx || !S.frame) return;
   const g = geom();
   if (!g) return;
   const cx = ev.clientX - g.rect.left - g.offX;
@@ -409,148 +838,167 @@ function onTap(ev){
   if (fx < 0 || fy < 0 || fx >= g.vw || fy >= g.vh) return;
   const px = Math.round(fx * proc.width  / g.vw);
   const py = Math.round(fy * proc.height / g.vh);
-  const col = sampleColor(px, py);
-  if (!col){ status("Could not read the image – try again", "warn"); return; }
-  S.target  = col;
-  S.lastPos = { x:px, y:py };
-  S.misses  = 0;
-  S.lost    = false;
-  status("Marker selected – press Start Measurement", "ok");
+
+  const tr = (S.tapMode === "ref") ? REF : MARK;
+  const okAcq = acquire(tr, px, py, S.frame.data, proc.width, proc.height);
+  if (!okAcq){
+    status("That patch is too dark to track – pick a brighter, more colourful point", "warn");
+    return;
+  }
+  if (S.tapMode === "ref"){
+    S.tapMode = "marker";
+    if (S.measuring) S.refBase = { x:toVideoX(g,REF.pos.x), y:toVideoY(g,REF.pos.y) };
+    status("Reference set – camera shake will be subtracted", "ok");
+  } else {
+    status(S.measuring ? "Measuring…" : "Marker selected – press Start Measurement", "ok");
+  }
   updateButtons();
 }
 
-// Average colour of a small patch, ignoring the darkest/brightest outliers.
-function sampleColor(px, py){
-  const w = proc.width, h = proc.height;
-  if (!w || !h) return null;
-  const x0 = clamp(px-3,0,w-1), x1 = clamp(px+3,0,w-1);
-  const y0 = clamp(py-3,0,h-1), y1 = clamp(py+3,0,h-1);
-  let d;
-  try { d = pctx.getImageData(x0, y0, x1-x0+1, y1-y0+1).data; }
-  catch(e){ return null; }
-  let r=0,g=0,b=0,c=0;
-  for (let i = 0; i < d.length; i += 4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; c++; }
-  if (!c) return null;
-  return { r:r/c, g:g/c, b:b/c };
-}
-
-// Search a rectangle for pixels matching the target colour; return the centroid.
-function search(data, w, h, x0, y0, x1, y1, tol2){
-  const T = S.target;
-  const tsum = Math.max(1, T.r + T.g + T.b);
-  let sx = 0, sy = 0, n = 0;
-  for (let y = y0; y <= y1; y++){
-    let i = (y * w + x0) * 4;
-    for (let x = x0; x <= x1; x++, i += 4){
-      const r = data[i], g = data[i+1], b = data[i+2];
-      const s = r + g + b;
-      if (s < 45) continue;                       // near-black: hue is meaningless
-      const k = tsum / s;                         // brightness normalisation
-      const dr = r*k - T.r, dg = g*k - T.g, db = b*k - T.b;
-      if (dr*dr + dg*dg + db*db <= tol2){ sx += x; sy += y; n++; }
-    }
-  }
-  return n ? { x:sx/n, y:sy/n, n:n } : null;
-}
-
-function track(){
-  const w = proc.width, h = proc.height;
-  if (!w || !h || !S.target) return null;
-  let data;
-  try { data = pctx.getImageData(0, 0, w, h).data; }
-  catch(e){ return null; }
-
-  const tol  = Number($("tol").value) || 45;
-  const tol2 = tol * tol;
-  const minN = 4;
-
-  let hit = null;
-  if (S.lastPos){                                  // fast local search first
-    const R = Math.max(24, Math.round(w * 0.20));
-    hit = search(data, w, h,
-      clamp(Math.round(S.lastPos.x - R), 0, w-1), clamp(Math.round(S.lastPos.y - R), 0, h-1),
-      clamp(Math.round(S.lastPos.x + R), 0, w-1), clamp(Math.round(S.lastPos.y + R), 0, h-1), tol2);
-  }
-  if (!hit || hit.n < minN) hit = search(data, w, h, 0, 0, w-1, h-1, tol2);   // full frame
-  if (!hit || hit.n < minN) return null;
-  return hit;
-}
-
 /* =========================================================================
-   Main frame loop
+   Main frame loop – driven by real video frames where the browser allows it
    ========================================================================= */
+const hasRVFC = typeof video.requestVideoFrameCallback === "function";
+let framePending = false;
+
+function scheduleFrame(){
+  if (framePending || !S.cameraOn) return;
+  framePending = true;
+  if (hasRVFC) video.requestVideoFrameCallback((now)=>{ framePending = false; onFrame(now); });
+  else requestAnimationFrame((now)=>{ framePending = false; onFrame(now); });
+}
+
 let lastProc = 0;
 
-function loop(now){
+function onFrame(now){
   if (!S.cameraOn){ octx.clearRect(0,0,overlay.width,overlay.height); return; }
-  requestAnimationFrame(loop);
+  scheduleFrame();
+
+  if (!hasRVFC){
+    if (now - lastProc < 22) return;               // cap the rAF path at ~45 Hz
+    lastProc = now;
+  }
 
   const g = geom();
   if (!g) return;
 
   // keep the analysis canvas matched to the stream aspect ratio
-  const pw = PROC_W, ph = Math.max(1, Math.round(PROC_W * g.vh / g.vw));
-  if (proc.width !== pw || proc.height !== ph){ proc.width = pw; proc.height = ph; }
+  const pw = S.procW, ph = Math.max(1, Math.round(S.procW * g.vh / g.vw));
+  if (proc.width !== pw || proc.height !== ph){
+    const f = proc.width ? pw / proc.width : 1;
+    proc.width = pw; proc.height = ph;
+    if (f !== 1){ rescaleTracker(MARK, f); rescaleTracker(REF, f); }
+  }
 
   // keep the overlay canvas matched to the displayed element
   const dw = Math.round(g.rect.width), dh = Math.round(g.rect.height);
   if (overlay.width !== dw || overlay.height !== dh){ overlay.width = dw; overlay.height = dh; }
 
-  if (now - lastProc < 25) return;                 // cap processing at ~35 Hz
-  lastProc = now;
-
   try { pctx.drawImage(video, 0, 0, pw, ph); }
   catch(e){ return; }
+  try { S.frame = pctx.getImageData(0, 0, pw, ph); }
+  catch(e){ return; }
+
+  S.frameCount++;
+  const allowGlobal = (S.frameCount % 3) === 0;    // full-frame rescans are expensive
+
+  const t0 = performance.now();
+  const wasLost = MARK.lost;
+  const hadMark = MARK.active;
+  if (REF.active)  trackerStep(REF,  S.frame.data, pw, ph, now, allowGlobal);
+  if (MARK.active) trackerStep(MARK, S.frame.data, pw, ph, now, allowGlobal);
+  const scanMs = performance.now() - t0;
+  S.scanMs = S.scanMs ? S.scanMs*0.9 + scanMs*0.1 : scanMs;
+  tuneResolution(now);
 
   octx.clearRect(0, 0, overlay.width, overlay.height);
-  if (!S.target) return;
+  if (REF.active)  drawTracker(g, REF, false);
+  if (MARK.active) drawTracker(g, MARK, true);
 
-  const hit = track();
-  if (hit){
-    S.lastPos = { x:hit.x, y:hit.y };
-    S.misses = 0;
-    if (S.lost){ S.lost = false; status(S.measuring ? "Measuring…" : "Tracking", S.measuring ? "ok" : "info"); }
-    drawMarker(g, hit);
-    if (S.measuring) record(now, hit, g);
-  } else {
-    S.misses++;
-    if (S.misses > 5 && !S.lost){
-      S.lost = true;
-      status("Target lost – tap the marker again", "warn");
+  if (hadMark){
+    if (MARK.ok && wasLost){
+      status(S.measuring ? "Measuring…" : "Tracking", S.measuring ? "ok" : "info");
+    } else if (MARK.lost && !wasLost){
+      status("Marker lost – tap it again, or hold it in view", "warn");
     }
+  }
+
+  if (S.measuring){
+    if (MARK.ok) record(now, g);
+    else S.dropped++;
   }
 }
 
-function drawMarker(g, hit){
-  const vx = hit.x * g.vw / proc.width;            // -> video-frame px
-  const vy = hit.y * g.vh / proc.height;
-  const sx = g.offX + vx * g.scale;                // -> element px
-  const sy = g.offY + vy * g.scale;
-  const R  = 18;
-  octx.lineWidth = 3;
-  octx.strokeStyle = "#00ff66";
-  octx.beginPath(); octx.arc(sx, sy, R, 0, Math.PI*2); octx.stroke();
-  octx.beginPath();
-  octx.moveTo(sx - R - 8, sy); octx.lineTo(sx - 4, sy);
-  octx.moveTo(sx + 4, sy);     octx.lineTo(sx + R + 8, sy);
-  octx.moveTo(sx, sy - R - 8); octx.lineTo(sx, sy - 4);
-  octx.moveTo(sx, sy + 4);     octx.lineTo(sx, sy + R + 8);
-  octx.stroke();
+// Keep the analysis resolution as high as this phone can actually sustain.
+function tuneResolution(now){
+  if (now - S.lastTune < 1200) return;
+  S.lastTune = now;
+  if (S.scanMs > 13 && S.procW > PROC_MIN)      S.procW = Math.max(PROC_MIN, Math.round(S.procW*0.85/2)*2);
+  else if (S.scanMs < 5 && S.procW < PROC_MAX)  S.procW = Math.min(PROC_MAX, Math.round(S.procW*1.12/2)*2);
 }
 
-function record(now, hit, g){
-  const vx = hit.x * g.vw / proc.width;            // horizontal position, video px
-  if (!fin(vx)) return;
-  if (S.x0 === null) S.x0 = vx;
+function drawTracker(g, tr, main){
+  if (!tr.pos) return;
+  const map = p => ({
+    x: g.offX + toVideoX(g, p.x) * g.scale,
+    y: g.offY + toVideoY(g, p.y) * g.scale
+  });
+  const c = map(tr.pos);
+
+  if (main && tr.trail.length > 2){
+    octx.strokeStyle = "rgba(0,255,102,.45)";
+    octx.lineWidth = 2;
+    octx.beginPath();
+    for (let i = 0; i < tr.trail.length; i++){
+      const p = map(tr.trail[i]);
+      if (i === 0) octx.moveTo(p.x, p.y); else octx.lineTo(p.x, p.y);
+    }
+    octx.stroke();
+  }
+
+  const col = tr.ok ? (tr.recovering ? "#ffb000" : tr.colour) : "#ff3b30";
+  const R = main ? 18 : 13;
+  octx.setLineDash(tr.ok ? [] : [5,4]);
+  octx.lineWidth = main ? 3 : 2;
+  octx.strokeStyle = col;
+  octx.beginPath(); octx.arc(c.x, c.y, R, 0, Math.PI*2); octx.stroke();
+  octx.beginPath();
+  octx.moveTo(c.x - R - 8, c.y); octx.lineTo(c.x - 4, c.y);
+  octx.moveTo(c.x + 4, c.y);     octx.lineTo(c.x + R + 8, c.y);
+  octx.moveTo(c.x, c.y - R - 8); octx.lineTo(c.x, c.y - 4);
+  octx.moveTo(c.x, c.y + 4);     octx.lineTo(c.x, c.y + R + 8);
+  octx.stroke();
+  octx.setLineDash([]);
+  if (!main){
+    octx.fillStyle = col;
+    octx.font = "bold 11px -apple-system,sans-serif";
+    octx.fillText("REF", c.x + R + 6, c.y - R - 2);
+  }
+}
+
+function record(now, g){
+  let vx = toVideoX(g, MARK.pos.x);
+  let vy = toVideoY(g, MARK.pos.y);
+  if (!fin(vx) || !fin(vy)) return;
+
+  // subtract camera shake measured on the stationary reference marker
+  if (S.refBase && REF.active && REF.pos && !REF.lost){
+    vx -= toVideoX(g, REF.pos.x) - S.refBase.x;
+    vy -= toVideoY(g, REF.pos.y) - S.refBase.y;
+  }
+
+  if (S.p0 === null) S.p0 = { x:vx, y:vy };
   const t = (now - S.t0) / 1000;
   if (!fin(t) || t < 0) return;
   if (S.t.length >= MAX_SAMPLES){ stopMeasurement("Measurement limit reached"); return; }
   S.t.push(t);
-  S.x.push(vx - S.x0);
+  S.px.push(vx - S.p0.x);
+  S.py.push(vy - S.p0.y);
+  S.qual = S.qual ? S.qual*0.95 + MARK.quality*0.05 : MARK.quality;
 
   if (now - S.lastPlot > 250){
     S.lastPlot = now;
-    S.res = analyse(S.t, S.x, Number($("smooth").value) || 5);
+    S.res = analyse(S.t, chooseAxis(), Number($("smooth").value) || 5);
     drawChart();
   }
   if (now - S.lastStat > 250){
@@ -559,11 +1007,45 @@ function record(now, hit, g){
   }
 }
 
+// Which recorded direction carries the oscillation.
+function chooseAxis(){
+  const mode = $("axis").value;
+  let use = mode;
+  if (mode === "auto"){
+    use = (variance(S.py) > variance(S.px)) ? "y" : "x";
+  }
+  S.usedAxis = use;
+  $("axisVal").textContent = (mode === "auto")
+    ? "auto → " + (use === "y" ? "vertical" : "horizontal")
+    : (use === "y" ? "vertical" : "horizontal");
+  return use === "y" ? S.py : S.px;
+}
+
+function variance(a){
+  const n = a.length;
+  if (n < 2) return 0;
+  let m = 0;
+  for (let i = 0; i < n; i++) m += a[i];
+  m /= n;
+  let s = 0;
+  for (let i = 0; i < n; i++){ const d = a[i]-m; s += d*d; }
+  return s/n;
+}
+
 function liveStats(t){
   $("sTime").textContent   = fmt(t, 1) + " s";
   $("sFrames").textContent = String(S.t.length);
   $("sFps").textContent    = (t > 0.5) ? fmt(S.t.length / t, 1) + " fps" : "–";
   $("sAmp").textContent    = "–";
+  $("sQual").textContent   = qualText();
+  $("sDrop").textContent   = String(S.dropped);
+}
+
+function qualText(){
+  if (!S.qual) return "–";
+  const pct = Math.round(clamp(S.qual, 0, 1) * 100);
+  const word = pct > 65 ? "good" : (pct > 40 ? "fair" : "weak");
+  return pct + "% · " + word;
 }
 
 /* =========================================================================
@@ -572,11 +1054,15 @@ function liveStats(t){
 function startMeasurement(){
   if (S.demo) resetAll(true);
   if (!S.cameraOn){ status("Start the camera first", "warn"); return; }
-  if (!S.target){ status("Tap the red marker first", "warn"); return; }
-  S.t = []; S.x = []; S.x0 = null; S.res = null;
+  if (!MARK.active){ status("Tap the marker first", "warn"); return; }
+  S.t = []; S.px = []; S.py = []; S.p0 = null; S.res = null;
+  S.dropped = 0; S.qual = 0;
   S.t0 = performance.now();
   S.measuring = true;
   S.lastPlot = 0; S.lastStat = 0;
+  const g = geom();
+  S.refBase = (g && REF.active && REF.pos && !REF.lost)
+    ? { x:toVideoX(g,REF.pos.x), y:toVideoY(g,REF.pos.y) } : null;
   $("freq").textContent = "–";
   $("freqNote").textContent = "Measuring…";
   $("demoBadge").classList.remove("on");
@@ -595,18 +1081,20 @@ function stopMeasurement(note){
 
 function finish(dur, note){
   const win = Number($("smooth").value) || 5;
-  S.res = analyse(S.t, S.x, win);
+  S.res = analyse(S.t, chooseAxis(), win);
   drawChart();
 
   $("sTime").textContent   = fmt(dur, 1) + " s";
   $("sFrames").textContent = String(S.t.length);
   $("sFps").textContent    = (dur > 0.2) ? fmt(S.t.length / dur, 1) + " fps" : "–";
+  $("sQual").textContent   = S.demo ? "–" : qualText();
+  $("sDrop").textContent   = S.demo ? "–" : String(S.dropped);
 
   if (S.t.length < 20){
     $("freq").textContent = "–";
     $("freqNote").textContent = note || "Not enough data – let it swing longer";
     $("sAmp").textContent = "–";
-    status(S.cameraOn ? "Stopped" : "Stopped", "info");
+    status("Stopped", "info");
     return;
   }
 
@@ -617,7 +1105,8 @@ function finish(dur, note){
     $("freqNote").textContent = f.reason || "Not enough oscillations to measure frequency";
   } else {
     $("freq").textContent = fmt(f.hz, 2) + " Hz";
-    $("freqNote").textContent = "from " + f.periods + " periods · period " + fmt(1/f.hz, 2) + " s";
+    $("freqNote").textContent = "from " + f.periods + " periods · period " + fmt(1/f.hz, 2) +
+                               " s · " + f.method;
   }
   status(note || "Measurement finished", "info");
 }
@@ -625,21 +1114,35 @@ function finish(dur, note){
 function resetAll(quiet){
   S.measuring = false;
   S.demo = false;
-  S.t = []; S.x = []; S.x0 = null; S.res = null;
-  S.lost = false; S.misses = 0;
+  S.t = []; S.px = []; S.py = []; S.p0 = null; S.res = null;
+  S.refBase = null; S.dropped = 0; S.qual = 0;
+  MARK.trail.length = 0; REF.trail.length = 0;   // keep the selected colours, drop the data
+  S.tapMode = "marker";
   $("freq").textContent = "–";
   $("freqNote").textContent = "No measurement yet";
   $("demoBadge").classList.remove("on");
-  $("sTime").textContent = $("sFrames").textContent = $("sFps").textContent = $("sAmp").textContent = "–";
+  $("sTime").textContent = $("sFrames").textContent = $("sFps").textContent =
+  $("sAmp").textContent  = $("sQual").textContent   = $("sDrop").textContent = "–";
   drawChart();
-  if (!quiet) status(S.cameraOn ? (S.target ? "Ready – press Start Measurement" : "Tap the red marker in the image") : "Camera off", "info");
+  if (!quiet) status(S.cameraOn
+    ? (MARK.active ? "Ready – press Start Measurement" : "Tap the coloured marker in the image")
+    : "Camera off", "info");
   updateButtons();
 }
 
 function updateButtons(){
-  $("btnStart").disabled = S.measuring || !S.cameraOn || !S.target;
+  $("btnStart").disabled = S.measuring || !S.cameraOn || !MARK.active;
   $("btnStop").disabled  = !S.measuring;
   $("btnDemo").disabled  = S.measuring;
+  const rb = $("btnRef");
+  rb.disabled = !S.cameraOn;
+  if (REF.active){
+    rb.textContent = "Clear anti-shake reference";
+    rb.classList.add("on");
+  } else {
+    rb.textContent = (S.tapMode === "ref") ? "Now tap a stationary point…" : "Set anti-shake reference";
+    rb.classList.toggle("on", S.tapMode === "ref");
+  }
 }
 
 /* =========================================================================
@@ -648,14 +1151,15 @@ function updateButtons(){
 function runDemo(){
   if (S.measuring) return;
   S.demo = true;
-  S.t = []; S.x = []; S.x0 = null;
+  S.t = []; S.px = []; S.py = []; S.p0 = null;
   const F = 0.74, DUR = 10, FPS = 30;
   let t = 0, i = 0;
   // deterministic pseudo-noise (no reliance on Math.random for reproducibility)
   const noise = k => 3 * (Math.sin(k*12.9898)*43758.5453 % 1 - 0.5) * 2;
   while (t < DUR){
-    const x = 100 * Math.sin(2*Math.PI*F*t) + noise(i);
-    S.t.push(t); S.x.push(x);
+    S.t.push(t);
+    S.px.push(100 * Math.sin(2*Math.PI*F*t) + noise(i));
+    S.py.push(0.4 * noise(i+500));
     t += (1/FPS) * (0.85 + 0.3 * ((Math.sin(i*7.13)+1)/2));   // jittered frame times
     i++;
   }
@@ -780,18 +1284,35 @@ $("btnStart").addEventListener("click", startMeasurement);
 $("btnStop").addEventListener("click", () => stopMeasurement());
 $("btnReset").addEventListener("click", () => resetAll(false));
 $("btnDemo").addEventListener("click", runDemo);
+$("btnRef").addEventListener("click", () => {
+  if (REF.active){
+    resetTracker(REF);
+    S.refBase = null;
+    status("Anti-shake reference cleared", "info");
+  } else {
+    S.tapMode = (S.tapMode === "ref") ? "marker" : "ref";
+    status(S.tapMode === "ref"
+      ? "Tap a stationary coloured point (a clamp, a sticker on the stand…)"
+      : "Tap the coloured marker in the image", "info");
+  }
+  updateButtons();
+});
 
 $("tol").addEventListener("input", e => { $("tolVal").textContent = e.target.value; });
 $("smooth").addEventListener("input", e => {
   $("smoothVal").textContent = e.target.value;
-  if (!S.measuring && S.t.length > 1){ finishQuiet(); } else if (S.t.length > 1){
-    S.res = analyse(S.t, S.x, Number(e.target.value) || 5); drawChart();
-  }
+  reanalyse();
 });
-function finishQuiet(){
-  const dur = S.t.length ? S.t[S.t.length-1] : 0;
-  const note = $("status").textContent;
-  finish(dur, note);
+$("axis").addEventListener("change", reanalyse);
+
+function reanalyse(){
+  if (S.t.length < 2) return;
+  if (S.measuring){
+    S.res = analyse(S.t, chooseAxis(), Number($("smooth").value) || 5);
+    drawChart();
+  } else {
+    finish(S.t[S.t.length-1], $("status").textContent);
+  }
 }
 
 document.querySelectorAll('.tabs button').forEach(b => {
@@ -810,6 +1331,11 @@ window.addEventListener("pagehide", stopCamera);
 window.addEventListener("error", () => { /* never let a stray error freeze the UI */ });
 
 updateButtons();
+
+// small hook so the tracker can be exercised head-less during development
+window.__cma = { S, MARK, REF, makeTracker, buildModel, findBlobs, pickBlob,
+                 trackerStep, acquire, tolFor, analyse, estimateFrequency,
+                 crossingFrequency, acfFrequency, proc };
 
 })();
 </script>

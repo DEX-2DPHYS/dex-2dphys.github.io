@@ -1,7 +1,7 @@
 {
   "slug": "camera-motion",
   "name": "Camera Motion Analyzer",
-  "description": "Measure a swinging pendulum with a phone camera — tap a coloured marker, track it live, and read position, velocity, acceleration and oscillation frequency. All video analysis runs locally in the browser.",
+  "description": "Measure a swinging pendulum with a phone camera — tap a coloured marker and an adaptive tracker follows it through changing light, brief occlusions and camera shake, giving position, velocity, acceleration and oscillation frequency. All video analysis runs locally in the browser.",
   "status": "live",
   "url": "tools/camera-motion/index.html",
   "icon": "device",
