@@ -27,6 +27,7 @@
     }
   ],
   "tools": [
+    "camera-motion",
     "transim",
     "moire-md",
     "moire-atomview",

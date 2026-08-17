@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Camera Motion Analyzer</title>
+<style>
+  :root{
+    --ink:#111;
+    --muted:#5a5a5a;
+    --line:#d8d8d8;
+    --accent:#c8102e;
+    --blue:#0b5fff;
+    --green:#0a7a3d;
+    --bg:#fff;
+    --pad:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
+  body{
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:10px var(--pad) 40px;
+    max-width:560px;margin:0 auto;
+    -webkit-text-size-adjust:100%;
+    touch-action:manipulation;
+  }
+  h1{font-size:20px;margin:6px 0 10px;letter-spacing:-.2px}
+  h1 small{display:block;font-weight:400;font-size:13px;color:var(--muted);margin-top:2px}
+
+  /* ---------- video ---------- */
+  #stage{
+    position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;
+    min-height:180px;display:flex;align-items:center;justify-content:center;
+  }
+  #video{width:100%;height:auto;max-height:52vh;object-fit:contain;display:block;background:#000}
+  #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  #placeholder{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:15px;text-align:center;padding:20px;line-height:1.5;
+  }
+  #status{
+    margin:8px 0 4px;font-size:15px;font-weight:600;min-height:22px;
+  }
+  #status.ok{color:var(--green)}
+  #status.warn{color:var(--accent)}
+  #status.info{color:var(--muted);font-weight:500}
+  .privacy{font-size:12.5px;color:var(--muted);margin:2px 0 12px}
+
+  /* ---------- buttons ---------- */
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  button{
+    font:600 17px/1 inherit;padding:16px 8px;border-radius:12px;border:2px solid var(--ink);
+    background:#fff;color:var(--ink);min-height:54px;cursor:pointer;
+  }
+  button.primary{background:var(--ink);color:#fff}
+  button.go{background:var(--green);border-color:var(--green);color:#fff}
+  button.stop{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.35}
+  button:active:not(:disabled){transform:translateY(1px)}
+  .btns .wide{grid-column:1 / -1}
+
+  /* ---------- sliders ---------- */
+  .ctrl{margin:0 0 12px}
+  .ctrl label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:4px}
+  .ctrl label span{color:var(--muted);font-weight:500}
+  input[type=range]{width:100%;height:40px;accent-color:var(--ink)}
+
+  /* ---------- result ---------- */
+  #result{
+    border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center;margin:6px 0 14px;
+  }
+  #freqLabel{font-size:13px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  #freq{font-size:44px;font-weight:700;line-height:1.1;margin:2px 0;font-variant-numeric:tabular-nums}
+  #freqNote{font-size:13px;color:var(--muted);min-height:18px}
+  #demoBadge{
+    display:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+    letter-spacing:.1em;padding:4px 10px;border-radius:99px;margin-bottom:8px;
+  }
+  #demoBadge.on{display:inline-block}
+
+  /* ---------- tabs + chart ---------- */
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+  .tabs button{padding:12px 4px;font-size:15px;min-height:46px;border-radius:10px;border-width:2px}
+  .tabs button[aria-selected="true"]{background:var(--ink);color:#fff}
+  #chartWrap{position:relative;height:230px;border:1px solid var(--line);border-radius:10px;padding:4px}
+  #chart{width:100%;height:100%;display:block}
+  #chartEmpty{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:14px;text-align:center;padding:16px
+  }
+
+  /* ---------- stats ---------- */
+  #stats{
+    display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:12px 0 14px;font-size:13.5px;color:var(--muted)
+  }
+  #stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+  details{border-top:1px solid var(--line);padding-top:10px;font-size:14px}
+  summary{font-weight:600;cursor:pointer;padding:6px 0}
+  details ul{margin:6px 0 0;padding-left:20px;color:var(--muted);line-height:1.5}
+  details li{margin-bottom:5px}
+</style>
+</head>
+<body>
+
+<h1>Camera Motion Analyzer
+  <small>Track a red marker on a pendulum and measure x(t), v(t), a(t) and frequency.</small>
+</h1>
+
+<div id="stage">
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="overlay"></canvas>
+  <div id="placeholder">Press <b>Start Camera</b><br>then tap the red marker</div>
+</div>
+
+<div id="status" class="info">Camera off</div>
+<p class="privacy">All video analysis happens locally on your phone. No video is uploaded or stored.</p>
+
+<div class="btns">
+  <button id="btnCam" class="primary wide">Start Camera</button>
+  <button id="btnStart" class="go" disabled>Start Measurement</button>
+  <button id="btnStop" class="stop" disabled>Stop</button>
+  <button id="btnReset">Reset</button>
+  <button id="btnDemo">Demo</button>
+</div>
+
+<div class="ctrl">
+  <label for="tol">Color tolerance <span id="tolVal">45</span></label>
+  <input type="range" id="tol" min="10" max="120" step="5" value="45">
+</div>
+
+<div class="ctrl">
+  <label for="smooth">Smoothing (frames) <span id="smoothVal">5</span></label>
+  <input type="range" id="smooth" min="1" max="21" step="2" value="5">
+</div>
+
+<div id="result">
+  <span id="demoBadge">DEMO DATA</span>
+  <div id="freqLabel">Measured frequency</div>
+  <div id="freq">–</div>
+  <div id="freqNote">No measurement yet</div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button role="tab" data-tab="pos" aria-selected="true">Position</button>
+  <button role="tab" data-tab="vel" aria-selected="false">Velocity</button>
+  <button role="tab" data-tab="acc" aria-selected="false">Acceleration</button>
+</div>
+
+<div id="chartWrap">
+  <canvas id="chart"></canvas>
+  <div id="chartEmpty">No data yet</div>
+</div>
+
+<div id="stats">
+  <div>Measurement time<br><b id="sTime">–</b></div>
+  <div>Tracked frames<br><b id="sFrames">–</b></div>
+  <div>Average frame rate<br><b id="sFps">–</b></div>
+  <div>Amplitude<br><b id="sAmp">–</b></div>
+</div>
+
+<details>
+  <summary>Limitations</summary>
+  <ul>
+    <li>Position is measured in pixels, not meters.</li>
+    <li>Camera motion looks like pendulum motion — hold the phone still or use a support.</li>
+    <li>Lighting changes may disturb colour tracking.</li>
+    <li>Velocity and especially acceleration amplify camera noise.</li>
+    <li>Camera frame rate limits temporal resolution.</li>
+    <li>This is a simple educational measurement tool, not a calibrated laboratory instrument.</li>
+  </ul>
+</details>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+        onerror="window.__chartFailed=true"></script>
+<script>
+"use strict";
+(function(){
+
+/* =========================================================================
+   Small helpers
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const fin = v => (typeof v === "number" && isFinite(v));
+function fmt(v, d){ return fin(v) ? v.toFixed(d) : "–"; }
+
+/* =========================================================================
+   ANALYSIS PIPELINE  (shared by live measurement and demo mode)
+   ========================================================================= */
+
+// Centred moving average. win is forced odd and >= 1; window shrinks at edges.
+function movingAverage(arr, win){
+  const n = arr.length;
+  const out = new Array(n);
+  let w = Math.max(1, Math.round(win));
+  if (w % 2 === 0) w += 1;
+  if (w === 1 || n === 0) return arr.slice();
+  const h = (w - 1) / 2;
+  for (let i = 0; i < n; i++){
+    const a = Math.max(0, i - h), b = Math.min(n - 1, i + h);
+    let s = 0, c = 0;
+    for (let k = a; k <= b; k++){ const v = arr[k]; if (fin(v)){ s += v; c++; } }
+    out[i] = c ? s / c : 0;
+  }
+  return out;
+}
+
+// Numerical derivative: central difference inside, one-sided at the ends.
+function derivative(y, t){
+  const n = y.length;
+  const out = new Array(n).fill(0);
+  if (n < 2) return out;
+  for (let i = 0; i < n; i++){
+    let dt, dy;
+    if (i === 0){ dt = t[1] - t[0]; dy = y[1] - y[0]; }
+    else if (i === n - 1){ dt = t[n-1] - t[n-2]; dy = y[n-1] - y[n-2]; }
+    else { dt = t[i+1] - t[i-1]; dy = y[i+1] - y[i-1]; }
+    out[i] = (fin(dt) && Math.abs(dt) > 1e-6 && fin(dy)) ? dy / dt : 0;
+  }
+  return out;
+}
+
+// Full pipeline: raw x(t) -> smoothed position, velocity, acceleration.
+function analyse(t, xRaw, smoothWin){
+  const x = movingAverage(xRaw, smoothWin);
+  const v = derivative(x, t);
+  // mild extra smoothing of velocity before differentiating again
+  const vs = movingAverage(v, Math.max(3, smoothWin));
+  const a = movingAverage(derivative(vs, t), Math.max(3, smoothWin));
+  return { t, x, v, a };
+}
+
+// Frequency from positive-going zero crossings of the mean-subtracted signal.
+// Returns { hz, periods, amp, reason }.  hz is null when not measurable.
+function estimateFrequency(t, x){
+  const n = x.length;
+  if (n < 20) return { hz:null, periods:0, amp:0, reason:"Not enough data" };
+
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += x[i];
+  mean /= n;
+
+  const y = new Array(n);
+  let rms = 0, mx = 0;
+  for (let i = 0; i < n; i++){
+    y[i] = x[i] - mean;
+    rms += y[i]*y[i];
+    if (Math.abs(y[i]) > mx) mx = Math.abs(y[i]);
+  }
+  rms = Math.sqrt(rms / n);
+  const amp = rms * Math.SQRT2;           // amplitude of an equivalent sine
+  if (!fin(amp) || mx < 3) return { hz:null, periods:0, amp:amp, reason:"Movement too small" };
+
+  // Hysteresis band suppresses noise crossings near zero.
+  const band = 0.25 * mx;
+  const cross = [];
+  let armed = false;                       // true once the signal has gone below -band
+  for (let i = 0; i < n; i++){
+    if (y[i] < -band){ armed = true; continue; }
+    if (armed && y[i] > band){
+      // find the actual zero crossing just before index i
+      let j = i;
+      while (j > 0 && y[j-1] > 0) j--;
+      if (j > 0){
+        const y0 = y[j-1], y1 = y[j], t0 = t[j-1], t1 = t[j];
+        const dy = y1 - y0;
+        const tc = (Math.abs(dy) > 1e-9) ? t0 + (-y0) * (t1 - t0) / dy : t0;
+        if (fin(tc) && (cross.length === 0 || tc > cross[cross.length-1] + 1e-3)) cross.push(tc);
+      }
+      armed = false;
+    }
+  }
+
+  if (cross.length < 4) return { hz:null, periods:Math.max(0,cross.length-1), amp:amp, reason:"Not enough oscillations to measure frequency" };
+
+  // Reject obviously wrong periods (half/double detections) using the median.
+  let per = [];
+  for (let i = 1; i < cross.length; i++) per.push(cross[i] - cross[i-1]);
+  const sorted = per.slice().sort((a,b)=>a-b);
+  const med = sorted[Math.floor(sorted.length/2)];
+  const good = per.filter(p => fin(p) && p > 0.4*med && p < 1.6*med);
+  if (good.length < 3) return { hz:null, periods:good.length, amp:amp, reason:"Not enough oscillations to measure frequency" };
+
+  let sum = 0;
+  for (const p of good) sum += p;
+  const avg = sum / good.length;
+  const hz = 1 / avg;
+  if (!fin(hz) || hz <= 0.02 || hz > 30) return { hz:null, periods:good.length, amp:amp, reason:"Frequency out of range" };
+  return { hz:hz, periods:good.length, amp:amp, reason:"" };
+}
+
+/* =========================================================================
+   State
+   ========================================================================= */
+const MAX_SAMPLES = 12000;      // ~6.5 min at 30 fps – hard safety cap
+const PROC_W = 240;             // analysis resolution (video pixels are reported)
+
+const S = {
+  stream:null,
+  cameraOn:false,
+  target:null,                  // {r,g,b}
+  lastPos:null,                 // {x,y} in processing-canvas coords
+  misses:0,
+  lost:false,
+  measuring:false,
+  demo:false,
+  t0:0,
+  t:[], x:[],                   // raw samples (t in s, x in video pixels, zeroed)
+  x0:null,
+  res:null,                     // analysed data for plotting
+  tab:"pos",
+  lastPlot:0,
+  lastStat:0
+};
+
+const video   = $("video");
+const overlay = $("overlay");
+const octx    = overlay.getContext("2d");
+const stage   = $("stage");
+
+const proc = document.createElement("canvas");
+let pctx = null;
+try { pctx = proc.getContext("2d", { willReadFrequently:true }); }
+catch(e){ pctx = proc.getContext("2d"); }
+
+/* =========================================================================
+   Status line
+   ========================================================================= */
+function status(msg, kind){
+  const el = $("status");
+  el.textContent = msg;
+  el.className = kind || "info";
+}
+
+/* =========================================================================
+   Camera
+   ========================================================================= */
+async function startCamera(){
+  if (S.cameraOn) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    status("Camera not available in this browser. Use the Demo button.", "warn");
+    return;
+  }
+  $("btnCam").disabled = true;
+  status("Starting camera…", "info");
+  try{
+    S.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:{ ideal:"environment" }, width:{ ideal:1280 }, height:{ ideal:720 } },
+      audio: false
+    });
+  }catch(err){
+    $("btnCam").disabled = false;
+    const name = (err && err.name) || "";
+    if (name === "NotAllowedError" || name === "SecurityError")
+      status("Camera permission denied. Allow camera access, or use Demo.", "warn");
+    else if (name === "NotFoundError" || name === "OverconstrainedError")
+      status("No usable camera found. Use the Demo button.", "warn");
+    else
+      status("Could not start the camera. Use the Demo button.", "warn");
+    return;
+  }
+  video.srcObject = S.stream;
+  try { await video.play(); } catch(e){ /* iOS sometimes resolves late; loop handles it */ }
+  S.cameraOn = true;
+  S.demo = false;
+  $("demoBadge").classList.remove("on");
+  $("placeholder").style.display = "none";
+  $("btnCam").textContent = "Camera On";
+  $("btnCam").disabled = true;
+  status("Tap the red marker in the image", "info");
+  requestAnimationFrame(loop);
+}
+
+function stopCamera(){
+  if (S.stream){ S.stream.getTracks().forEach(tr => { try{ tr.stop(); }catch(e){} }); }
+  S.stream = null; S.cameraOn = false;
+  try{ video.srcObject = null; }catch(e){}
+}
+
+/* =========================================================================
+   Geometry: element <-> video-frame <-> processing-canvas
+   ========================================================================= */
+function geom(){
+  const vw = video.videoWidth || 0, vh = video.videoHeight || 0;
+  const r  = video.getBoundingClientRect();
+  if (!vw || !vh || !r.width || !r.height) return null;
+  const scale = Math.min(r.width / vw, r.height / vh);   // object-fit: contain
+  return {
+    vw, vh, rect:r, scale,
+    offX: (r.width  - vw*scale) / 2,
+    offY: (r.height - vh*scale) / 2
+  };
+}
+
+/* =========================================================================
+   Colour picking + tracking
+   ========================================================================= */
+stage.addEventListener("click", onTap, false);
+
+function onTap(ev){
+  if (!S.cameraOn || !pctx) return;
+  const g = geom();
+  if (!g) return;
+  const cx = ev.clientX - g.rect.left - g.offX;
+  const cy = ev.clientY - g.rect.top  - g.offY;
+  const fx = cx / g.scale, fy = cy / g.scale;                  // video-frame px
+  if (fx < 0 || fy < 0 || fx >= g.vw || fy >= g.vh) return;
+  const px = Math.round(fx * proc.width  / g.vw);
+  const py = Math.round(fy * proc.height / g.vh);
+  const col = sampleColor(px, py);
+  if (!col){ status("Could not read the image – try again", "warn"); return; }
+  S.target  = col;
+  S.lastPos = { x:px, y:py };
+  S.misses  = 0;
+  S.lost    = false;
+  status("Marker selected – press Start Measurement", "ok");
+  updateButtons();
+}
+
+// Average colour of a small patch, ignoring the darkest/brightest outliers.
+function sampleColor(px, py){
+  const w = proc.width, h = proc.height;
+  if (!w || !h) return null;
+  const x0 = clamp(px-3,0,w-1), x1 = clamp(px+3,0,w-1);
+  const y0 = clamp(py-3,0,h-1), y1 = clamp(py+3,0,h-1);
+  let d;
+  try { d = pctx.getImageData(x0, y0, x1-x0+1, y1-y0+1).data; }
+  catch(e){ return null; }
+  let r=0,g=0,b=0,c=0;
+  for (let i = 0; i < d.length; i += 4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; c++; }
+  if (!c) return null;
+  return { r:r/c, g:g/c, b:b/c };
+}
+
+// Search a rectangle for pixels matching the target colour; return the centroid.
+function search(data, w, h, x0, y0, x1, y1, tol2){
+  const T = S.target;
+  const tsum = Math.max(1, T.r + T.g + T.b);
+  let sx = 0, sy = 0, n = 0;
+  for (let y = y0; y <= y1; y++){
+    let i = (y * w + x0) * 4;
+    for (let x = x0; x <= x1; x++, i += 4){
+      const r = data[i], g = data[i+1], b = data[i+2];
+      const s = r + g + b;
+      if (s < 45) continue;                       // near-black: hue is meaningless
+      const k = tsum / s;                         // brightness normalisation
+      const dr = r*k - T.r, dg = g*k - T.g, db = b*k - T.b;
+      if (dr*dr + dg*dg + db*db <= tol2){ sx += x; sy += y; n++; }
+    }
+  }
+  return n ? { x:sx/n, y:sy/n, n:n } : null;
+}
+
+function track(){
+  const w = proc.width, h = proc.height;
+  if (!w || !h || !S.target) return null;
+  let data;
+  try { data = pctx.getImageData(0, 0, w, h).data; }
+  catch(e){ return null; }
+
+  const tol  = Number($("tol").value) || 45;
+  const tol2 = tol * tol;
+  const minN = 4;
+
+  let hit = null;
+  if (S.lastPos){                                  // fast local search first
+    const R = Math.max(24, Math.round(w * 0.20));
+    hit = search(data, w, h,
+      clamp(Math.round(S.lastPos.x - R), 0, w-1), clamp(Math.round(S.lastPos.y - R), 0, h-1),
+      clamp(Math.round(S.lastPos.x + R), 0, w-1), clamp(Math.round(S.lastPos.y + R), 0, h-1), tol2);
+  }
+  if (!hit || hit.n < minN) hit = search(data, w, h, 0, 0, w-1, h-1, tol2);   // full frame
+  if (!hit || hit.n < minN) return null;
+  return hit;
+}
+
+/* =========================================================================
+   Main frame loop
+   ========================================================================= */
+let lastProc = 0;
+
+function loop(now){
+  if (!S.cameraOn){ octx.clearRect(0,0,overlay.width,overlay.height); return; }
+  requestAnimationFrame(loop);
+
+  const g = geom();
+  if (!g) return;
+
+  // keep the analysis canvas matched to the stream aspect ratio
+  const pw = PROC_W, ph = Math.max(1, Math.round(PROC_W * g.vh / g.vw));
+  if (proc.width !== pw || proc.height !== ph){ proc.width = pw; proc.height = ph; }
+
+  // keep the overlay canvas matched to the displayed element
+  const dw = Math.round(g.rect.width), dh = Math.round(g.rect.height);
+  if (overlay.width !== dw || overlay.height !== dh){ overlay.width = dw; overlay.height = dh; }
+
+  if (now - lastProc < 25) return;                 // cap processing at ~35 Hz
+  lastProc = now;
+
+  try { pctx.drawImage(video, 0, 0, pw, ph); }
+  catch(e){ return; }
+
+  octx.clearRect(0, 0, overlay.width, overlay.height);
+  if (!S.target) return;
+
+  const hit = track();
+  if (hit){
+    S.lastPos = { x:hit.x, y:hit.y };
+    S.misses = 0;
+    if (S.lost){ S.lost = false; status(S.measuring ? "Measuring…" : "Tracking", S.measuring ? "ok" : "info"); }
+    drawMarker(g, hit);
+    if (S.measuring) record(now, hit, g);
+  } else {
+    S.misses++;
+    if (S.misses > 5 && !S.lost){
+      S.lost = true;
+      status("Target lost – tap the marker again", "warn");
+    }
+  }
+}
+
+function drawMarker(g, hit){
+  const vx = hit.x * g.vw / proc.width;            // -> video-frame px
+  const vy = hit.y * g.vh / proc.height;
+  const sx = g.offX + vx * g.scale;                // -> element px
+  const sy = g.offY + vy * g.scale;
+  const R  = 18;
+  octx.lineWidth = 3;
+  octx.strokeStyle = "#00ff66";
+  octx.beginPath(); octx.arc(sx, sy, R, 0, Math.PI*2); octx.stroke();
+  octx.beginPath();
+  octx.moveTo(sx - R - 8, sy); octx.lineTo(sx - 4, sy);
+  octx.moveTo(sx + 4, sy);     octx.lineTo(sx + R + 8, sy);
+  octx.moveTo(sx, sy - R - 8); octx.lineTo(sx, sy - 4);
+  octx.moveTo(sx, sy + 4);     octx.lineTo(sx, sy + R + 8);
+  octx.stroke();
+}
+
+function record(now, hit, g){
+  const vx = hit.x * g.vw / proc.width;            // horizontal position, video px
+  if (!fin(vx)) return;
+  if (S.x0 === null) S.x0 = vx;
+  const t = (now - S.t0) / 1000;
+  if (!fin(t) || t < 0) return;
+  if (S.t.length >= MAX_SAMPLES){ stopMeasurement("Measurement limit reached"); return; }
+  S.t.push(t);
+  S.x.push(vx - S.x0);
+
+  if (now - S.lastPlot > 250){
+    S.lastPlot = now;
+    S.res = analyse(S.t, S.x, Number($("smooth").value) || 5);
+    drawChart();
+  }
+  if (now - S.lastStat > 250){
+    S.lastStat = now;
+    liveStats(t);
+  }
+}
+
+function liveStats(t){
+  $("sTime").textContent   = fmt(t, 1) + " s";
+  $("sFrames").textContent = String(S.t.length);
+  $("sFps").textContent    = (t > 0.5) ? fmt(S.t.length / t, 1) + " fps" : "–";
+  $("sAmp").textContent    = "–";
+}
+
+/* =========================================================================
+   Measurement control
+   ========================================================================= */
+function startMeasurement(){
+  if (S.demo) resetAll(true);
+  if (!S.cameraOn){ status("Start the camera first", "warn"); return; }
+  if (!S.target){ status("Tap the red marker first", "warn"); return; }
+  S.t = []; S.x = []; S.x0 = null; S.res = null;
+  S.t0 = performance.now();
+  S.measuring = true;
+  S.lastPlot = 0; S.lastStat = 0;
+  $("freq").textContent = "–";
+  $("freqNote").textContent = "Measuring…";
+  $("demoBadge").classList.remove("on");
+  status("Measuring…", "ok");
+  updateButtons();
+  drawChart();
+}
+
+function stopMeasurement(note){
+  if (!S.measuring) return;
+  S.measuring = false;
+  const dur = S.t.length ? S.t[S.t.length-1] : 0;
+  finish(dur, note);
+  updateButtons();
+}
+
+function finish(dur, note){
+  const win = Number($("smooth").value) || 5;
+  S.res = analyse(S.t, S.x, win);
+  drawChart();
+
+  $("sTime").textContent   = fmt(dur, 1) + " s";
+  $("sFrames").textContent = String(S.t.length);
+  $("sFps").textContent    = (dur > 0.2) ? fmt(S.t.length / dur, 1) + " fps" : "–";
+
+  if (S.t.length < 20){
+    $("freq").textContent = "–";
+    $("freqNote").textContent = note || "Not enough data – let it swing longer";
+    $("sAmp").textContent = "–";
+    status(S.cameraOn ? "Stopped" : "Stopped", "info");
+    return;
+  }
+
+  const f = estimateFrequency(S.res.t, S.res.x);
+  $("sAmp").textContent = fin(f.amp) ? fmt(f.amp, 0) + " px" : "–";
+  if (f.hz === null){
+    $("freq").textContent = "–";
+    $("freqNote").textContent = f.reason || "Not enough oscillations to measure frequency";
+  } else {
+    $("freq").textContent = fmt(f.hz, 2) + " Hz";
+    $("freqNote").textContent = "from " + f.periods + " periods · period " + fmt(1/f.hz, 2) + " s";
+  }
+  status(note || "Measurement finished", "info");
+}
+
+function resetAll(quiet){
+  S.measuring = false;
+  S.demo = false;
+  S.t = []; S.x = []; S.x0 = null; S.res = null;
+  S.lost = false; S.misses = 0;
+  $("freq").textContent = "–";
+  $("freqNote").textContent = "No measurement yet";
+  $("demoBadge").classList.remove("on");
+  $("sTime").textContent = $("sFrames").textContent = $("sFps").textContent = $("sAmp").textContent = "–";
+  drawChart();
+  if (!quiet) status(S.cameraOn ? (S.target ? "Ready – press Start Measurement" : "Tap the red marker in the image") : "Camera off", "info");
+  updateButtons();
+}
+
+function updateButtons(){
+  $("btnStart").disabled = S.measuring || !S.cameraOn || !S.target;
+  $("btnStop").disabled  = !S.measuring;
+  $("btnDemo").disabled  = S.measuring;
+}
+
+/* =========================================================================
+   Demo mode
+   ========================================================================= */
+function runDemo(){
+  if (S.measuring) return;
+  S.demo = true;
+  S.t = []; S.x = []; S.x0 = null;
+  const F = 0.74, DUR = 10, FPS = 30;
+  let t = 0, i = 0;
+  // deterministic pseudo-noise (no reliance on Math.random for reproducibility)
+  const noise = k => 3 * (Math.sin(k*12.9898)*43758.5453 % 1 - 0.5) * 2;
+  while (t < DUR){
+    const x = 100 * Math.sin(2*Math.PI*F*t) + noise(i);
+    S.t.push(t); S.x.push(x);
+    t += (1/FPS) * (0.85 + 0.3 * ((Math.sin(i*7.13)+1)/2));   // jittered frame times
+    i++;
+  }
+  $("demoBadge").classList.add("on");
+  finish(S.t[S.t.length-1], "Demo data (synthetic 0.74 Hz pendulum)");
+  updateButtons();
+}
+
+/* =========================================================================
+   Charts – Chart.js if available, otherwise a small built-in plotter
+   ========================================================================= */
+const TABS = {
+  pos: { key:"x", label:"Position x(t)",     unit:"pixels",   color:"#0b5fff" },
+  vel: { key:"v", label:"Velocity v(t)",     unit:"pixels/s", color:"#0a7a3d" },
+  acc: { key:"a", label:"Acceleration a(t)", unit:"pixels/s²",color:"#c8102e" }
+};
+
+const chartCanvas = $("chart");
+let chart = null;
+const haveChartJs = () => (typeof window.Chart !== "undefined" && !window.__chartFailed);
+
+function series(){
+  if (!S.res || !S.res.t.length) return null;
+  const cfg = TABS[S.tab];
+  const t = S.res.t, y = S.res[cfg.key];
+  const n = t.length;
+  const stride = Math.max(1, Math.ceil(n / 600));
+  const pts = [];
+  for (let i = 0; i < n; i += stride){
+    const yy = y[i];
+    if (fin(t[i]) && fin(yy)) pts.push({ x:t[i], y:yy });
+  }
+  return pts.length ? { pts, cfg } : null;
+}
+
+function drawChart(){
+  const s = series();
+  $("chartEmpty").style.display = s ? "none" : "flex";
+  if (!s){
+    if (chart){ chart.destroy(); chart = null; }
+    const c = chartCanvas.getContext("2d");
+    c.clearRect(0,0,chartCanvas.width,chartCanvas.height);
+    return;
+  }
+  if (haveChartJs()) drawChartJs(s); else drawFallback(s);
+}
+
+function drawChartJs(s){
+  if (!chart){
+    chart = new window.Chart(chartCanvas.getContext("2d"), {
+      type:"line",
+      data:{ datasets:[{ data:s.pts, borderColor:s.cfg.color, borderWidth:2,
+                         pointRadius:0, tension:0, fill:false }] },
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
+        interaction:{ enabled:false },
+        plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
+        scales:{
+          x:{ type:"linear", title:{ display:true, text:"time [s]" },
+              ticks:{ maxTicksLimit:6, font:{ size:11 } }, grid:{ color:"#eee" } },
+          y:{ title:{ display:true, text:s.cfg.unit },
+              ticks:{ maxTicksLimit:6, font:{ size:11 } }, grid:{ color:"#eee" } }
+        }
+      }
+    });
+  } else {
+    chart.data.datasets[0].data = s.pts;
+    chart.data.datasets[0].borderColor = s.cfg.color;
+    chart.options.scales.y.title.text = s.cfg.unit;
+    chart.update("none");
+  }
+}
+
+function drawFallback(s){
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = chartCanvas.clientWidth || 300, h = chartCanvas.clientHeight || 200;
+  chartCanvas.width = Math.round(w*dpr); chartCanvas.height = Math.round(h*dpr);
+  const c = chartCanvas.getContext("2d");
+  c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,w,h);
+
+  const L = 44, R = 8, T = 10, B = 26;
+  let x0 = s.pts[0].x, x1 = s.pts[s.pts.length-1].x;
+  if (!(x1 > x0)) x1 = x0 + 1;
+  let y0 = Infinity, y1 = -Infinity;
+  for (const p of s.pts){ if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
+  if (!fin(y0) || !fin(y1) || y1 - y0 < 1e-9){ y0 -= 1; y1 += 1; }
+  const pad = (y1-y0)*0.1; y0 -= pad; y1 += pad;
+
+  const X = v => L + (v - x0)/(x1 - x0) * (w - L - R);
+  const Y = v => T + (1 - (v - y0)/(y1 - y0)) * (h - T - B);
+
+  c.strokeStyle = "#ddd"; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(L, T); c.lineTo(L, h-B); c.lineTo(w-R, h-B); c.stroke();
+  if (y0 < 0 && y1 > 0){
+    c.strokeStyle = "#eee";
+    c.beginPath(); c.moveTo(L, Y(0)); c.lineTo(w-R, Y(0)); c.stroke();
+  }
+  c.fillStyle = "#666"; c.font = "10px -apple-system,sans-serif";
+  c.textAlign = "right";
+  c.fillText(String(Math.round(y1)), L-5, T+9);
+  c.fillText(String(Math.round(y0)), L-5, h-B);
+  c.textAlign = "center";
+  c.fillText(fmt(x0,1)+" s", L+12, h-8);
+  c.fillText(fmt(x1,1)+" s", w-R-14, h-8);
+  c.textAlign = "left";
+  c.fillText(s.cfg.unit, L+4, T+9);
+
+  c.strokeStyle = s.cfg.color; c.lineWidth = 2; c.beginPath();
+  for (let i = 0; i < s.pts.length; i++){
+    const px = X(s.pts[i].x), py = Y(s.pts[i].y);
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+}
+
+/* =========================================================================
+   Wiring
+   ========================================================================= */
+$("btnCam").addEventListener("click", () => { startCamera().catch(()=>{}); });
+$("btnStart").addEventListener("click", startMeasurement);
+$("btnStop").addEventListener("click", () => stopMeasurement());
+$("btnReset").addEventListener("click", () => resetAll(false));
+$("btnDemo").addEventListener("click", runDemo);
+
+$("tol").addEventListener("input", e => { $("tolVal").textContent = e.target.value; });
+$("smooth").addEventListener("input", e => {
+  $("smoothVal").textContent = e.target.value;
+  if (!S.measuring && S.t.length > 1){ finishQuiet(); } else if (S.t.length > 1){
+    S.res = analyse(S.t, S.x, Number(e.target.value) || 5); drawChart();
+  }
+});
+function finishQuiet(){
+  const dur = S.t.length ? S.t[S.t.length-1] : 0;
+  const note = $("status").textContent;
+  finish(dur, note);
+}
+
+document.querySelectorAll('.tabs button').forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll('.tabs button').forEach(o => o.setAttribute("aria-selected","false"));
+    b.setAttribute("aria-selected","true");
+    S.tab = b.dataset.tab;
+    if (chart){ chart.destroy(); chart = null; }
+    drawChart();
+  });
+});
+
+window.addEventListener("orientationchange", () => { setTimeout(drawChart, 300); });
+window.addEventListener("resize", () => { if (!haveChartJs()) drawChart(); });
+window.addEventListener("pagehide", stopCamera);
+window.addEventListener("error", () => { /* never let a stray error freeze the UI */ });
+
+updateButtons();
+
+})();
+</script>
+</body>
+</html>
