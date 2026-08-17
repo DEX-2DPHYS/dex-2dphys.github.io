@@ -1,0 +1,9 @@
+{
+  "slug": "graph-digitizer",
+  "name": "Graph Digitizer",
+  "description": "Turn a photograph of a graph into calibrated x/y data, entirely in your browser.",
+  "status": "live",
+  "url": "tools/graph-digitizer/index.html",
+  "icon": "chart",
+  "tags": ["visualisations", "educational", "applications"]
+}

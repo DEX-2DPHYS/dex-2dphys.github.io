@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>Graph Digitizer</title>
+  <style>
+    :root{--ink:#181818;--muted:#767676;--line:#e9e9e9;--soft:#f5f5f5;--accent:#1264e8;--danger:#b42318}
+    *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:#fff;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    button,input,select{font:inherit}button{border:0;cursor:pointer}button:disabled{cursor:default;opacity:.38}
+    .shell{width:min(100%,760px);margin:auto;padding:calc(30px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom))}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:30px}h1{font-size:28px;letter-spacing:-.035em;margin:0 0 4px}.subtitle,.muted{color:var(--muted)}.subtitle{font-size:15px;margin:0}.reset{background:transparent;color:var(--muted);padding:10px 0;min-height:44px}
+    .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:0 0 32px}.step{height:3px;border-radius:4px;background:var(--line);position:relative}.step.on{background:var(--ink)}.step span{position:absolute;top:9px;left:0;font-size:10px;color:#aaa;white-space:nowrap}.step.on span{color:var(--ink)}
+    section{margin:0 0 34px}section[hidden]{display:none}.intro{text-align:center;padding:50px 0 36px}.intro h2{font-size:25px;letter-spacing:-.03em;margin:0 0 9px}.intro p{margin:0 0 26px}
+    .actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}.primary,.secondary{min-height:50px;border-radius:13px;padding:0 22px;font-weight:650}.primary{background:var(--ink);color:#fff}.secondary{background:var(--soft);color:var(--ink)}.text-btn{background:transparent;color:var(--accent);min-height:44px;padding:0 5px}.privacy{font-size:12px;color:#999;margin-top:22px;line-height:1.5}
+    input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    .image-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:12px}.instruction{font-size:20px;font-weight:680;letter-spacing:-.02em}.hint{font-size:13px;color:var(--muted);margin-top:3px}.counter{font-size:12px;color:var(--muted);white-space:nowrap}
+    .viewer{position:relative;width:100%;background:#f4f4f4;overflow:hidden;border-radius:14px;touch-action:none;user-select:none}.viewer canvas{display:block;width:100%;height:auto}.viewer-note{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.88);backdrop-filter:blur(8px);border-radius:9px;padding:7px 10px;font-size:11px;color:#666;pointer-events:none}
+    .toolbar{display:flex;gap:4px;align-items:center;margin-top:7px;overflow-x:auto}.toolbar button{background:transparent;color:var(--muted);padding:10px 9px;min-height:44px;white-space:nowrap}.toolbar .spacer{flex:1}
+    .scale-grid{display:grid;grid-template-columns:1fr 1fr;gap:26px}.axis-block h3,.result h2{font-size:18px;letter-spacing:-.02em;margin:0 0 15px}.field{margin:0 0 13px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}.field input,.field select{width:100%;height:46px;border:0;border-bottom:1px solid #d8d8d8;border-radius:0;background:#fff;color:var(--ink);padding:0 2px;outline:none}.field input:focus,.field select:focus{border-color:var(--ink)}
+    .curve-row{display:flex;align-items:center;gap:12px;margin:18px 0}.swatch{width:26px;height:26px;border-radius:50%;border:4px solid #fff;outline:1px solid #d5d5d5;background:#ddd}.slider-wrap{flex:1}.slider-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:8px}input[type=range]{width:100%;accent-color:var(--ink)}
+    .extract{width:100%;margin-top:4px}.message{font-size:13px;margin:12px 0 0;color:var(--muted)}.message.error{color:var(--danger)}
+    .result{padding-top:6px;border-top:1px solid var(--line)}#plotCanvas{display:block;width:100%;height:auto;margin:8px 0 20px}.result-head{display:flex;justify-content:space-between;align-items:baseline}.result-head p{font-size:13px;color:var(--muted)}
+    table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px;margin:0 0 22px}th,td{text-align:left;padding:9px 2px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}.export-actions{display:flex;gap:10px}.export-actions .primary{flex:1}
+    details{margin-top:42px;color:var(--muted);font-size:12px}summary{cursor:pointer;color:var(--muted);padding:12px 0}details p{line-height:1.55;margin:4px 0}
+    .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#1d1d1f;color:#fff;padding:10px 15px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:520px){.shell{padding-left:16px;padding-right:16px}.steps span{display:none}.scale-grid{gap:18px}.primary,.secondary{padding:0 18px}.viewer{border-radius:11px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.toast{transition:none}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header><div><h1>Graph Digitizer</h1><p class="subtitle">Turn a graph into data</p></div><button class="reset" id="resetApp" hidden>Reset</button></header>
+    <nav class="steps" aria-label="Progress"><div class="step on"><span>Photo</span></div><div class="step"><span>Axes</span></div><div class="step"><span>Scale</span></div><div class="step"><span>Curve</span></div><div class="step"><span>Export</span></div></nav>
+
+    <section class="intro" id="intro">
+      <h2>Start with a clear graph</h2><p class="muted">Photograph it straight on for the best result.</p>
+      <div class="actions"><button class="primary" id="takePhoto">Take photo</button><button class="secondary" id="chooseImage">Choose image</button><button class="text-btn" id="tryDemo">Try demo</button></div>
+      <input id="cameraInput" type="file" accept="image/*" capture="environment"><input id="fileInput" type="file" accept="image/*">
+      <p class="privacy">Your image stays on your device.<br>Nothing is uploaded.</p>
+    </section>
+
+    <section id="work" hidden>
+      <div class="image-head"><div><div class="instruction" id="instruction">Mark the origin</div><div class="hint" id="hint">Tap where the axes meet.</div></div><div class="counter" id="axisCounter">1 of 3</div></div>
+      <div class="viewer" id="viewer"><canvas id="imageCanvas" aria-label="Graph image workspace"></canvas><div class="viewer-note" id="viewerNote">Tap to place point</div></div>
+      <div class="toolbar"><button id="rotateLeft">&#8634; Rotate left</button><button id="rotateRight">&#8635; Rotate right</button><span class="spacer"></span><button id="resetView">Reset view</button></div>
+    </section>
+
+    <section id="scaleSection" hidden>
+      <div class="image-head"><div><div class="instruction">Enter axis scale</div><div class="hint">Values at the origin and marked points.</div></div></div>
+      <div class="scale-grid">
+        <div class="axis-block"><h3>x-axis</h3><div class="field"><label for="x0">Origin x value</label><input id="x0" type="number" inputmode="decimal" value="0" step="any"></div><div class="field"><label for="x1">Marked x value</label><input id="x1" type="number" inputmode="decimal" value="10" step="any"></div><div class="field"><label for="xType">Scale</label><select id="xType"><option value="linear">Linear</option><option value="log">Log</option></select></div></div>
+        <div class="axis-block"><h3>y-axis</h3><div class="field"><label for="y0">Origin y value</label><input id="y0" type="number" inputmode="decimal" value="0" step="any"></div><div class="field"><label for="y1">Marked y value</label><input id="y1" type="number" inputmode="decimal" value="5" step="any"></div><div class="field"><label for="yType">Scale</label><select id="yType"><option value="linear">Linear</option><option value="log">Log</option></select></div></div>
+      </div>
+    </section>
+
+    <section id="curveSection" hidden>
+      <div class="instruction">Tap the curve</div><div class="hint">Tap a clear part in the image above, away from axes and labels.</div>
+      <div class="curve-row"><div class="swatch" id="swatch" aria-label="Selected curve color"></div><div class="slider-wrap"><div class="slider-label"><span>Sensitivity</span><span id="sensitivityValue">42</span></div><input id="sensitivity" type="range" min="12" max="120" value="42"></div></div>
+      <button class="primary extract" id="extract" disabled>Extract curve</button><p class="message" id="message"></p>
+    </section>
+
+    <section class="result" id="result" hidden>
+      <div class="result-head"><h2>Digitized data</h2><p id="pointCount"></p></div><canvas id="plotCanvas" width="720" height="390" aria-label="Plot of digitized data"></canvas>
+      <table><thead><tr><th>x</th><th>y</th></tr></thead><tbody id="rows"></tbody></table>
+      <div class="export-actions"><button class="primary" id="download">Download CSV</button><button class="secondary" id="copy">Copy data</button></div>
+    </section>
+
+    <details><summary>About accuracy</summary><p>Image resolution, perspective, line thickness, compression and lighting all limit precision. Manual axis placement also affects calibration. For best results, use a sharp image photographed straight on.</p></details>
+  </main>
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+  (()=>{
+    'use strict';
+    const $=id=>document.getElementById(id), canvas=$('imageCanvas'), ctx=canvas.getContext('2d',{willReadFrequently:true});
+    const plotCtx=$('plotCanvas').getContext('2d');
+    const state={image:null,sourceCanvas:null,points:[],selectedColor:null,data:[],extractedPixels:[],stage:0,view:{zoom:1,panX:0,panY:0},pointers:new Map(),dragPoint:-1,moved:false};
+    const els={intro:$('intro'),work:$('work'),scale:$('scaleSection'),curve:$('curveSection'),result:$('result'),instruction:$('instruction'),hint:$('hint'),counter:$('axisCounter'),note:$('viewerNote'),message:$('message'),swatch:$('swatch')};
+    const axisText=[['Mark the origin','Tap where the axes meet.'],['Mark a point on the x-axis','Tap along the positive x direction.'],['Mark a point on the y-axis','Tap along the positive y direction.']];
+
+    function updateStage(n){state.stage=Math.max(state.stage,n);document.querySelectorAll('.step').forEach((e,i)=>e.classList.toggle('on',i<=state.stage));}
+    function loadFile(file){if(!file)return;const reader=new FileReader();reader.onload=()=>loadImage(reader.result);reader.readAsDataURL(file)}
+    function loadImage(src){const img=new Image();img.onload=()=>{const max=1600,ratio=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*ratio);c.height=Math.round(img.naturalHeight*ratio);c.getContext('2d').drawImage(img,0,0,c.width,c.height);setSource(c)};img.onerror=()=>showMessage('This image could not be opened.',true);img.src=src}
+    function setSource(c){state.sourceCanvas=c;state.image=c;state.points=[];state.selectedColor=null;state.data=[];state.extractedPixels=[];state.stage=1;state.view={zoom:1,panX:0,panY:0};canvas.width=c.width;canvas.height=c.height;els.intro.hidden=true;els.work.hidden=false;els.scale.hidden=true;els.curve.hidden=true;els.result.hidden=true;$('resetApp').hidden=false;showMessage('');updateAxisPrompt();draw();updateStage(1);setTimeout(()=>els.work.scrollIntoView({behavior:'smooth',block:'start'}),50)}
+
+    function demo(){const c=document.createElement('canvas');c.width=720;c.height=420;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.strokeStyle='#e7e7e7';g.lineWidth=1;for(let x=72;x<=660;x+=84){g.beginPath();g.moveTo(x,42);g.lineTo(x,354);g.stroke()}for(let y=42;y<=354;y+=52){g.beginPath();g.moveTo(72,y);g.lineTo(660,y);g.stroke()}g.strokeStyle='#222';g.lineWidth=3;g.beginPath();g.moveTo(72,354);g.lineTo(670,354);g.moveTo(72,364);g.lineTo(72,34);g.stroke();g.fillStyle='#777';g.font='18px -apple-system,sans-serif';g.fillText('0',55,378);g.fillText('10',648,378);g.fillText('5',42,48);g.strokeStyle='#1677e8';g.lineWidth=6;g.lineCap='round';g.beginPath();for(let x=78;x<=654;x+=2){const t=(x-78)/576,y=320-238*(.18+.7*Math.sin(t*2.25+.15)*.42+.48*t);if(x===78)g.moveTo(x,y);else g.lineTo(x,y)}g.stroke();setSource(c)}
+
+    function rotate(dir){if(!state.sourceCanvas)return;const s=state.sourceCanvas,c=document.createElement('canvas');c.width=s.height;c.height=s.width;const g=c.getContext('2d');g.translate(c.width/2,c.height/2);g.rotate(dir*Math.PI/2);g.drawImage(s,-s.width/2,-s.height/2);setSource(c)}
+    function canvasPoint(ev){const r=canvas.getBoundingClientRect(),sx=canvas.width/r.width,sy=canvas.height/r.height;return{x:(ev.clientX-r.left)*sx,y:(ev.clientY-r.top)*sy}}
+    function imagePoint(p){return{x:(p.x-state.view.panX)/state.view.zoom,y:(p.y-state.view.panY)/state.view.zoom}}
+    function displayPoint(p){return{x:p.x*state.view.zoom+state.view.panX,y:p.y*state.view.zoom+state.view.panY}}
+    function nearestMarker(p){let best=-1,d=26*Math.max(canvas.width/canvas.getBoundingClientRect().width,1);state.points.forEach((q,i)=>{const v=displayPoint(q),dd=Math.hypot(v.x-p.x,v.y-p.y);if(dd<d){d=dd;best=i}});return best}
+
+    canvas.addEventListener('pointerdown',ev=>{canvas.setPointerCapture(ev.pointerId);const p=canvasPoint(ev);state.pointers.set(ev.pointerId,p);state.moved=false;state.dragPoint=nearestMarker(p)});
+    canvas.addEventListener('pointermove',ev=>{if(!state.pointers.has(ev.pointerId))return;const old=state.pointers.get(ev.pointerId),now=canvasPoint(ev);if(Math.hypot(now.x-old.x,now.y-old.y)>2)state.moved=true;state.pointers.set(ev.pointerId,now);if(state.pointers.size===2){const a=[...state.pointers.values()],oldD=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);if(!state._pinch)state._pinch={d:oldD,z:state.view.zoom};else state.view.zoom=Math.max(1,Math.min(5,state._pinch.z*oldD/state._pinch.d));draw();return}if(state.dragPoint>=0){const q=imagePoint(now);state.points[state.dragPoint]={x:clamp(q.x,0,state.image.width),y:clamp(q.y,0,state.image.height)};draw()}else if(state.points.length>=3){state.view.panX+=now.x-old.x;state.view.panY+=now.y-old.y;draw()}});
+    canvas.addEventListener('pointerup',ev=>{const p=canvasPoint(ev),ip=imagePoint(p),wasMarker=state.dragPoint>=0;state.pointers.delete(ev.pointerId);if(state.pointers.size<2)state._pinch=null;if(!state.moved&&!wasMarker)handleTap(ip);state.dragPoint=-1});
+    canvas.addEventListener('pointercancel',ev=>{state.pointers.delete(ev.pointerId);state.dragPoint=-1;state._pinch=null});
+
+    function handleTap(p){if(p.x<0||p.y<0||p.x>=state.image.width||p.y>=state.image.height)return;if(state.points.length<3){state.points.push(p);if(state.points.length===3){els.scale.hidden=false;els.curve.hidden=false;els.note.textContent='Drag points to fine-tune';updateStage(2);setTimeout(()=>els.scale.scrollIntoView({behavior:'smooth',block:'start'}),250)}updateAxisPrompt();draw();return}sampleColor(p);if(state.selectedColor){state.stage=3;updateStage(3);$('extract').disabled=false;els.note.textContent='Curve color selected'}draw()}
+    function updateAxisPrompt(){const i=Math.min(state.points.length,2);if(state.points.length<3){els.instruction.textContent=axisText[i][0];els.hint.textContent=axisText[i][1];els.counter.textContent=`${i+1} of 3`}else{els.instruction.textContent='Axes marked';els.hint.textContent='Drag any point to adjust it.';els.counter.textContent='3 of 3'}}
+    function sampleColor(p){const g=state.sourceCanvas.getContext('2d',{willReadFrequently:true}),sx=clamp(Math.round(p.x)-2,0,Math.max(0,state.image.width-5)),sy=clamp(Math.round(p.y)-2,0,Math.max(0,state.image.height-5)),d=g.getImageData(sx,sy,Math.min(5,state.image.width),Math.min(5,state.image.height)).data;let r=0,b=0,gr=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];gr+=d[i+1];b+=d[i+2];n++}state.selectedColor=[r/n,gr/n,b/n];els.swatch.style.background=`rgb(${r/n},${gr/n},${b/n})`;if(Math.min(...state.selectedColor)>238){state.selectedColor=null;$('extract').disabled=true;showMessage('That looks like the background. Tap directly on the curve.',true);return}showMessage('Color selected. Adjust sensitivity if needed.')}
+
+    function draw(){if(!state.image)return;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#f4f4f4';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(state.view.panX,state.view.panY);ctx.scale(state.view.zoom,state.view.zoom);ctx.drawImage(state.image,0,0);drawOverlays(ctx);ctx.restore()}
+    function drawOverlays(g){if(state.points.length){const [o,x,y]=state.points;g.lineWidth=Math.max(1,1.5/state.view.zoom);g.strokeStyle='rgba(18,100,232,.75)';if(x){g.beginPath();g.moveTo(o.x,o.y);g.lineTo(x.x,x.y);g.stroke()}if(y){g.beginPath();g.moveTo(o.x,o.y);g.lineTo(y.x,y.y);g.stroke()}state.points.forEach((p,i)=>{g.beginPath();g.fillStyle=i===0?'#111':i===1?'#1264e8':'#e85424';g.arc(p.x,p.y,Math.max(5,7/state.view.zoom),0,Math.PI*2);g.fill();g.lineWidth=2/state.view.zoom;g.strokeStyle='#fff';g.stroke()})}if(state.extractedPixels.length){g.beginPath();g.strokeStyle='#ff2d55';g.lineWidth=Math.max(2,3/state.view.zoom);state.extractedPixels.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.stroke()}}
+
+    function calibration(){const [o,x,y]=state.points,vx={x:x.x-o.x,y:x.y-o.y},vy={x:y.x-o.x,y:y.y-o.y},det=vx.x*vy.y-vx.y*vy.x;if(Math.abs(det)<50)throw Error('Axis points are too close together.');const vals={x0:num('x0'),x1:num('x1'),y0:num('y0'),y1:num('y1'),xt:$('xType').value,yt:$('yType').value};if(vals.x0===vals.x1||vals.y0===vals.y1)throw Error('Origin and marked values must be different.');if((vals.xt==='log'&&(vals.x0<=0||vals.x1<=0))||(vals.yt==='log'&&(vals.y0<=0||vals.y1<=0)))throw Error('Log scale values must be greater than zero.');return{o,vx,vy,det,...vals}}
+    function pointAt(c,u,v){return{x:c.o.x+c.vx.x*u+c.vy.x*v,y:c.o.y+c.vx.y*u+c.vy.y*v}}
+    function axisValue(a,b,t,type){return type==='log'?10**(Math.log10(a)+t*(Math.log10(b)-Math.log10(a))):a+t*(b-a)}
+    function extractCurve(){if(!state.selectedColor)return;let c;try{c=calibration()}catch(e){showMessage(e.message,true);return}const data=state.sourceCanvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,state.image.width,state.image.height).data,limit=+$('sensitivity').value;const samples=Math.min(520,Math.max(120,Math.round(Math.hypot(c.vx.x,c.vx.y))));let raw=[];for(let i=0;i<samples;i++){const u=i/(samples-1),hits=[];for(let j=0;j<Math.max(80,Math.round(Math.hypot(c.vy.x,c.vy.y)));j++){const v=j/(Math.max(80,Math.round(Math.hypot(c.vy.x,c.vy.y)))-1),p=pointAt(c,u,v),x=Math.round(p.x),y=Math.round(p.y);if(x<0||y<0||x>=state.image.width||y>=state.image.height)continue;const k=(y*state.image.width+x)*4,dr=data[k]-state.selectedColor[0],dg=data[k+1]-state.selectedColor[1],db=data[k+2]-state.selectedColor[2];if(Math.sqrt(dr*dr+dg*dg+db*db)<=limit)hits.push(v)}if(hits.length)raw.push({u,v:median(hits),i})}
+      raw=raw.filter((p,i,a)=>{const prev=a[i-1],next=a[i+1];return (prev&&p.i-prev.i<=4)||(next&&next.i-p.i<=4)});if(raw.length<Math.max(18,samples*.08)){state.extractedPixels=[];state.data=[];els.result.hidden=true;draw();showMessage('Curve could not be detected reliably. Try adjusting Sensitivity or tap the curve again.',true);return}
+      const smooth=raw.map((p,i,a)=>{const near=a.slice(Math.max(0,i-2),i+3).map(q=>q.v);return{u:p.u,v:median(near)}});state.extractedPixels=smooth.map(p=>pointAt(c,p.u,p.v));state.data=smooth.map(p=>({x:axisValue(c.x0,c.x1,p.u,c.xt),y:axisValue(c.y0,c.y1,p.v,c.yt)}));els.result.hidden=false;$('pointCount').textContent=`${state.data.length} points extracted`;showMessage('Curve extracted. Check the overlay against the original.');renderRows();drawPlot();draw();updateStage(4);setTimeout(()=>els.result.scrollIntoView({behavior:'smooth',block:'start'}),180)}
+    function drawPlot(){const d=state.data,w=720,h=390,p={l:64,r:20,t:24,b:52},g=plotCtx;g.clearRect(0,0,w,h);g.fillStyle='#fff';g.fillRect(0,0,w,h);const xs=d.map(q=>q.x),ys=d.map(q=>q.y),xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys),xr=xmax-xmin||1,yr=ymax-ymin||1;g.strokeStyle='#ececec';g.lineWidth=1;g.fillStyle='#777';g.font='13px -apple-system,sans-serif';for(let i=0;i<=4;i++){const x=p.l+(w-p.l-p.r)*i/4,y=p.t+(h-p.t-p.b)*i/4;g.beginPath();g.moveTo(x,p.t);g.lineTo(x,h-p.b);g.stroke();g.beginPath();g.moveTo(p.l,y);g.lineTo(w-p.r,y);g.stroke();g.textAlign='center';g.fillText(fmt(xmin+xr*i/4),x,h-p.b+25);g.textAlign='right';g.fillText(fmt(ymax-yr*i/4),p.l-10,y+4)}g.strokeStyle='#181818';g.lineWidth=1.5;g.beginPath();g.moveTo(p.l,p.t);g.lineTo(p.l,h-p.b);g.lineTo(w-p.r,h-p.b);g.stroke();g.strokeStyle='#1264e8';g.lineWidth=3;g.lineJoin='round';g.beginPath();d.forEach((q,i)=>{const x=p.l+(q.x-xmin)/xr*(w-p.l-p.r),y=p.t+(ymax-q.y)/yr*(h-p.t-p.b);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();g.fillStyle='#555';g.textAlign='center';g.fillText('x',(p.l+w-p.r)/2,h-8);g.save();g.translate(17,(p.t+h-p.b)/2);g.rotate(-Math.PI/2);g.fillText('y',0,0);g.restore()}
+    function renderRows(){$('rows').innerHTML=state.data.slice(0,7).map(p=>`<tr><td>${fmt(p.x,6)}</td><td>${fmt(p.y,6)}</td></tr>`).join('')+(state.data.length>7?'<tr><td colspan="2" class="muted">&hellip;</td></tr>':'')}
+    function csv(){return 'x,y\n'+state.data.map(p=>`${precise(p.x)},${precise(p.y)}`).join('\n')+'\n'}
+    function download(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv()],{type:'text/csv'}));a.download='digitized-graph.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+    async function copy(){try{await navigator.clipboard.writeText(csv());toast('Data copied')}catch{const t=document.createElement('textarea');t.value=csv();document.body.append(t);t.select();document.execCommand('copy');t.remove();toast('Data copied')}}
+    function reset(){state.image=null;state.sourceCanvas=null;state.points=[];state.selectedColor=null;state.data=[];state.extractedPixels=[];state.stage=0;els.intro.hidden=false;els.work.hidden=true;els.scale.hidden=true;els.curve.hidden=true;els.result.hidden=true;$('resetApp').hidden=true;$('cameraInput').value='';$('fileInput').value='';showMessage('');document.querySelectorAll('.step').forEach((e,i)=>e.classList.toggle('on',i===0));window.scrollTo({top:0,behavior:'smooth'})}
+    function resetView(){state.view={zoom:1,panX:0,panY:0};draw()}
+    function showMessage(s,error=false){els.message.textContent=s;els.message.classList.toggle('error',error)}function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),1600)}
+    function num(id){return Number($(id).value)}function clamp(v,a,b){return Math.max(a,Math.min(b,v))}function median(a){const b=[...a].sort((x,y)=>x-y),m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2}function fmt(v,d=4){return Number(v.toPrecision(d)).toString()}function precise(v){return Number(v.toPrecision(8)).toString()}
+
+    $('takePhoto').onclick=()=>$('cameraInput').click();$('chooseImage').onclick=()=>$('fileInput').click();$('cameraInput').onchange=e=>loadFile(e.target.files[0]);$('fileInput').onchange=e=>loadFile(e.target.files[0]);$('tryDemo').onclick=demo;$('rotateLeft').onclick=()=>rotate(-1);$('rotateRight').onclick=()=>rotate(1);$('resetView').onclick=resetView;$('resetApp').onclick=reset;$('extract').onclick=extractCurve;$('download').onclick=download;$('copy').onclick=copy;$('sensitivity').oninput=e=>{$('sensitivityValue').textContent=e.target.value;if(state.data.length)extractCurve()};['x0','x1','y0','y1','xType','yType'].forEach(id=>$(id).addEventListener('change',()=>{if(state.data.length)extractCurve()}));
+  })();
+  </script>
+</body>
+</html>

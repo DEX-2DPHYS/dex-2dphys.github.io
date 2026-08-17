@@ -28,6 +28,7 @@
   ],
   "tools": [
     "camera-motion",
+    "graph-digitizer",
     "transim",
     "moire-md",
     "moire-atomview",
