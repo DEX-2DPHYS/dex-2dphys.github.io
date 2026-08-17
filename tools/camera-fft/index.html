@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Camera FFT</title>
+<style>
+  :root{
+    --ink:#111;
+    --muted:#5a5a5a;
+    --line:#d8d8d8;
+    --red:#c8102e;
+    --green:#0a7a3d;
+    --blue:#0b5fff;
+    --sq: min(100%, 33vh);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:#fff;color:var(--ink)}
+  body{
+    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:8px 14px 36px;max-width:560px;margin:0 auto;
+    -webkit-text-size-adjust:100%;touch-action:manipulation;
+  }
+  h1{font-size:19px;margin:4px 0 2px;letter-spacing:-.2px}
+  h1 small{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:2px}
+
+  .panes{display:grid;grid-template-columns:1fr;gap:8px;justify-items:center;margin:10px 0 6px}
+  @media (min-width:760px){ .panes{grid-template-columns:1fr 1fr} :root{--sq:100%} }
+
+  .pane{width:var(--sq);max-width:100%}
+  .pane .cap{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:0 0 3px;display:flex;justify-content:space-between}
+  .box{position:relative;width:100%;aspect-ratio:1/1;background:#000;border-radius:10px;overflow:hidden}
+  .box canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:14px;text-align:center;padding:16px;line-height:1.5
+  }
+  #video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+  #status{margin:4px 0 2px;font-size:14px;font-weight:600;min-height:20px}
+  #status.warn{color:var(--red)}
+  #status.ok{color:var(--green)}
+  #status.info{color:var(--muted);font-weight:500}
+  .privacy{font-size:12px;color:var(--muted);margin:2px 0 10px}
+
+  #readout{
+    font-size:14px;font-variant-numeric:tabular-nums;border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;margin:6px 0 12px;min-height:38px;color:var(--muted)
+  }
+  #readout b{color:var(--ink)}
+
+  button{
+    font:600 16px/1 inherit;padding:14px 6px;border-radius:11px;border:2px solid var(--ink);
+    background:#fff;color:var(--ink);min-height:50px;cursor:pointer;width:100%
+  }
+  button.primary{background:var(--ink);color:#fff}
+  button:disabled{opacity:.35}
+  button:active:not(:disabled){transform:translateY(1px)}
+
+  .row{display:grid;gap:8px;margin-bottom:10px}
+  .row.two{grid-template-columns:1fr 1fr}
+  .row.four{grid-template-columns:repeat(4,1fr)}
+  .row.four button{font-size:14px;padding:13px 2px;min-height:48px;border-radius:10px}
+
+  .ch[data-ch="w"][aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .ch[data-ch="r"][aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff}
+  .ch[data-ch="g"][aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
+  .ch[data-ch="b"][aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+  .ch[data-ch="r"]{border-color:var(--red);color:var(--red)}
+  .ch[data-ch="g"]{border-color:var(--green);color:var(--green)}
+  .ch[data-ch="b"]{border-color:var(--blue);color:var(--blue)}
+
+  .ctrl{margin:0 0 10px}
+  .ctrl label{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:2px}
+  .ctrl label span{color:var(--muted);font-weight:500}
+  input[type=range]{width:100%;height:38px;accent-color:var(--ink)}
+
+  .seg{display:grid;grid-template-columns:auto repeat(3,1fr);gap:8px;align-items:center;margin-bottom:12px}
+  .seg .lab{font-size:13.5px;font-weight:600}
+  .seg button{font-size:14px;padding:11px 2px;min-height:44px;border-radius:10px}
+  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+
+  details{border-top:1px solid var(--line);padding-top:8px;font-size:14px;margin-top:4px}
+  summary{font-weight:600;cursor:pointer;padding:6px 0}
+  details ul{margin:6px 0 0;padding-left:20px;color:var(--muted);line-height:1.5}
+  details li{margin-bottom:5px}
+</style>
+</head>
+<body>
+
+<h1>Camera FFT
+  <small>Live 2D Fourier transform of the camera image.</small>
+</h1>
+
+<p class="privacy">All image analysis happens locally on your phone. No video is uploaded or stored.</p>
+
+<div class="row" id="camRow">
+  <button id="btnCam" class="primary">Start Camera</button>
+</div>
+
+<div class="row four">
+  <button class="ch" data-ch="w" aria-pressed="true">White</button>
+  <button class="ch" data-ch="r" aria-pressed="false">Red</button>
+  <button class="ch" data-ch="g" aria-pressed="false">Green</button>
+  <button class="ch" data-ch="b" aria-pressed="false">Blue</button>
+</div>
+
+<div class="panes">
+  <div class="pane">
+    <p class="cap"><span>Camera</span><span id="capCh">luminance</span></p>
+    <div class="box">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="cam"></canvas>
+      <div id="hint">Press <b>Start Camera</b><br>or try the test pattern</div>
+    </div>
+  </div>
+  <div class="pane">
+    <p class="cap"><span>Power spectrum</span><span>log scale</span></p>
+    <div class="box"><canvas id="fft"></canvas></div>
+  </div>
+</div>
+
+<div id="status" class="info">Camera off</div>
+
+<div id="readout">Point the camera at a striped or periodic pattern.</div>
+
+<div class="ctrl">
+  <label for="gain">Display gain <span id="gainVal">1000</span></label>
+  <input type="range" id="gain" min="0" max="100" step="1" value="50">
+</div>
+
+<div class="row two">
+  <button id="btnFreeze">Freeze</button>
+  <button id="btnTest">Test pattern</button>
+</div>
+
+<div class="seg">
+  <span class="lab">Size</span>
+  <button class="sz" data-n="128" aria-pressed="false">128</button>
+  <button class="sz" data-n="256" aria-pressed="true">256</button>
+  <button class="sz" data-n="512" aria-pressed="false">512</button>
+</div>
+
+<details>
+  <summary>How to read this</summary>
+  <ul>
+    <li>The camera image is cropped to a square and reduced to N&times;N pixels; the spectrum below is its 2D Fourier transform.</li>
+    <li>The centre of the spectrum is zero spatial frequency (DC); the edges are the Nyquist limit, 0.5 cycles per pixel.</li>
+    <li>Stripes in the image give a pair of bright spots, placed <b>perpendicular</b> to the stripes. Finer stripes sit further from the centre.</li>
+    <li>The mean is subtracted and a Hann window applied before transforming, so the DC peak and the edge-wrap cross do not swamp the plot.</li>
+    <li>Brightness is a log scale set by the gain slider — it changes the display only, not the data.</li>
+    <li>The red, green and blue buttons analyse that colour channel alone; white uses luminance (0.299R + 0.587G + 0.114B).</li>
+    <li>This is a teaching visualiser: the axis is cycles per pixel, not a calibrated spatial frequency in mm<sup>-1</sup>.</li>
+  </ul>
+</details>
+
+<script>
+"use strict";
+(function(){
+
+const $ = id => document.getElementById(id);
+const fin = v => (typeof v === "number" && isFinite(v));
+const fmt = (v,d) => fin(v) ? v.toFixed(d) : "–";
+
+/* =========================================================================
+   FFT — iterative radix-2 Cooley–Tukey, in place on Float32Arrays
+   ========================================================================= */
+function makeFFT(n){
+  const levels = Math.round(Math.log(n) / Math.LN2);
+  if (1 << levels !== n) throw new Error("FFT size must be a power of two");
+  const half = n >> 1;
+  const cosT = new Float32Array(half), sinT = new Float32Array(half);
+  for (let i = 0; i < half; i++){
+    cosT[i] = Math.cos(2*Math.PI*i/n);
+    sinT[i] = Math.sin(2*Math.PI*i/n);
+  }
+  const rev = new Uint32Array(n);
+  for (let i = 0; i < n; i++){
+    let x = i, r = 0;
+    for (let j = 0; j < levels; j++){ r = (r << 1) | (x & 1); x >>= 1; }
+    rev[i] = r;
+  }
+  return function transform(re, im){
+    for (let i = 0; i < n; i++){
+      const j = rev[i];
+      if (j > i){
+        let t = re[i]; re[i] = re[j]; re[j] = t;
+        t = im[i];     im[i] = im[j]; im[j] = t;
+      }
+    }
+    for (let size = 2; size <= n; size <<= 1){
+      const h = size >> 1, step = n / size;
+      for (let i = 0; i < n; i += size){
+        for (let j = i, k = 0; j < i + h; j++, k += step){
+          const l = j + h;
+          const c = cosT[k], s = -sinT[k];          // forward: e^(-2πi k/n)
+          const tre = re[l]*c - im[l]*s;
+          const tim = re[l]*s + im[l]*c;
+          re[l] = re[j] - tre; im[l] = im[j] - tim;
+          re[j] += tre;        im[j] += tim;
+        }
+      }
+    }
+  };
+}
+
+// 2D transform: all rows, then all columns.
+function fft2(re, im, n, tf, cre, cim){
+  for (let y = 0; y < n; y++){
+    const o = y * n;
+    tf(re.subarray(o, o + n), im.subarray(o, o + n));
+  }
+  for (let x = 0; x < n; x++){
+    for (let y = 0; y < n; y++){ const i = y*n + x; cre[y] = re[i]; cim[y] = im[i]; }
+    tf(cre, cim);
+    for (let y = 0; y < n; y++){ const i = y*n + x; re[i] = cre[y]; im[i] = cim[y]; }
+  }
+}
+
+/* =========================================================================
+   Buffers, rebuilt whenever the transform size changes
+   ========================================================================= */
+const B = {};
+function setSize(n){
+  B.n    = n;
+  B.tf   = makeFFT(n);
+  B.re   = new Float32Array(n*n);
+  B.im   = new Float32Array(n*n);
+  B.cre  = new Float32Array(n);
+  B.cim  = new Float32Array(n);
+  B.mag  = new Float32Array(n*n);
+  B.chan = new Float32Array(n*n);            // selected channel, 0..255
+  B.win  = new Float32Array(n);              // Hann window
+  for (let i = 0; i < n; i++) B.win[i] = 0.5 * (1 - Math.cos(2*Math.PI*i/(n-1)));
+  B.srcCanvas = document.createElement("canvas");            // raw square grab
+  B.srcCanvas.width = B.srcCanvas.height = n;
+  try { B.srcCtx = B.srcCanvas.getContext("2d", { willReadFrequently:true }); }
+  catch(e){ B.srcCtx = B.srcCanvas.getContext("2d"); }
+  B.raw = new Uint8ClampedArray(n*n*4);                      // last grabbed RGBA
+  B.hasRaw = false;
+  B.preCanvas = document.createElement("canvas");            // tinted preview
+  B.preCanvas.width = B.preCanvas.height = n;
+  B.preCtx = B.preCanvas.getContext("2d");
+  B.camImg = B.preCtx.createImageData(n, n);
+  B.fftCanvas = document.createElement("canvas");
+  B.fftCanvas.width = B.fftCanvas.height = n;
+  B.fftCtx = B.fftCanvas.getContext("2d");
+  B.fftImg = B.fftCtx.createImageData(n, n);
+  B.smoothMax = 0;
+}
+
+/* =========================================================================
+   State
+   ========================================================================= */
+const CH = {
+  w: { name:"luminance", col:[1,1,1]      },
+  r: { name:"red only",  col:[1,0.18,0.18]},
+  g: { name:"green only",col:[0.18,1,0.4] },
+  b: { name:"blue only", col:[0.35,0.6,1] }
+};
+
+const S = {
+  stream:null, cameraOn:false, frozen:false, test:false,
+  ch:"w", frames:0, fpsT:0, fps:0, lastRead:0
+};
+
+const video  = $("video");
+const camCv  = $("cam");
+const fftCv  = $("fft");
+const camCtx = camCv.getContext("2d");
+const fftCtx = fftCv.getContext("2d");
+
+function status(msg, kind){ const e = $("status"); e.textContent = msg; e.className = kind || "info"; }
+
+/* =========================================================================
+   Camera
+   ========================================================================= */
+async function startCamera(){
+  if (S.cameraOn) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    status("Camera not available in this browser. Use Test pattern.", "warn"); return;
+  }
+  $("btnCam").disabled = true;
+  status("Starting camera…", "info");
+  try{
+    S.stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ ideal:"environment" }, width:{ ideal:1280 }, height:{ ideal:720 } },
+      audio:false
+    });
+  }catch(err){
+    $("btnCam").disabled = false;
+    const nm = (err && err.name) || "";
+    if (nm === "NotAllowedError" || nm === "SecurityError")
+      status("Camera permission denied. Allow access, or use Test pattern.", "warn");
+    else if (nm === "NotFoundError" || nm === "OverconstrainedError")
+      status("No usable camera found. Use Test pattern.", "warn");
+    else
+      status("Could not start the camera. Use Test pattern.", "warn");
+    return;
+  }
+  video.srcObject = S.stream;
+  try { await video.play(); } catch(e){}
+  S.cameraOn = true; S.test = false; S.frozen = false;
+  $("hint").style.display = "none";
+  $("camRow").style.display = "none";          // reclaim the space once running
+  $("btnFreeze").textContent = "Freeze";
+  status("Live", "ok");
+  requestAnimationFrame(loop);
+}
+
+function stopCamera(){
+  if (S.stream) S.stream.getTracks().forEach(t => { try{ t.stop(); }catch(e){} });
+  S.stream = null; S.cameraOn = false;
+  try { video.srcObject = null; } catch(e){}
+}
+
+/* =========================================================================
+   Grab one square frame into B.chan (0..255) and paint the camera pane
+   ========================================================================= */
+function grabCamera(){
+  const n = B.n;
+  const vw = video.videoWidth || 0, vh = video.videoHeight || 0;
+  if (!vw || !vh) return false;
+  const side = Math.min(vw, vh);
+  try {
+    B.srcCtx.drawImage(video, (vw-side)/2, (vh-side)/2, side, side, 0, 0, n, n);
+  } catch(e){ return false; }
+  let d;
+  try { d = B.srcCtx.getImageData(0, 0, n, n).data; }
+  catch(e){ return false; }
+  B.raw.set(d); B.hasRaw = true;
+  extract(B.raw);
+  return true;
+}
+
+// Synthetic grating: two superposed sinusoids of known period.
+function grabTest(){
+  const n = B.n;
+  const d = B.raw;
+  const f1x = 8/n,  f1y = 4/n;                 // period n/sqrt(80) px
+  const f2x = 0,    f2y = 24/n;                // horizontal stripes
+  for (let y = 0, i = 0; y < n; y++){
+    for (let x = 0; x < n; x++, i += 4){
+      const v = 128
+        + 70 * Math.sin(2*Math.PI*(f1x*x + f1y*y))
+        + 30 * Math.sin(2*Math.PI*(f2x*x + f2y*y));
+      d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+    }
+  }
+  B.hasRaw = true;
+  extract(d);
+  return true;
+}
+
+// Pull the selected channel out of RGBA data and paint the tinted preview.
+function extract(d){
+  const n = B.n, N = n*n;
+  const ch = S.ch;
+  const px = B.camImg.data;
+  const col = CH[ch].col;
+  for (let i = 0, j = 0; i < N; i++, j += 4){
+    let v;
+    if (ch === "r") v = d[j];
+    else if (ch === "g") v = d[j+1];
+    else if (ch === "b") v = d[j+2];
+    else v = 0.299*d[j] + 0.587*d[j+1] + 0.114*d[j+2];
+    B.chan[i] = v;
+    px[j]   = v * col[0];
+    px[j+1] = v * col[1];
+    px[j+2] = v * col[2];
+    px[j+3] = 255;
+  }
+  B.preCtx.putImageData(B.camImg, 0, 0);
+  blit(camCtx, camCv, B.preCanvas);
+}
+
+/* =========================================================================
+   Transform + spectrum rendering
+   ========================================================================= */
+function transform(){
+  const n = B.n, N = n*n;
+  const re = B.re, im = B.im, w = B.win, c = B.chan;
+
+  let mean = 0;
+  for (let i = 0; i < N; i++) mean += c[i];
+  mean /= N;
+
+  for (let y = 0; y < n; y++){
+    const wy = w[y], o = y*n;
+    for (let x = 0; x < n; x++){
+      re[o+x] = (c[o+x] - mean) * wy * w[x];
+      im[o+x] = 0;
+    }
+  }
+
+  fft2(re, im, n, B.tf, B.cre, B.cim);
+
+  const mag = B.mag;
+  let mx = 0;
+  for (let i = 0; i < N; i++){
+    const m = Math.sqrt(re[i]*re[i] + im[i]*im[i]);
+    mag[i] = m;
+    if (m > mx) mx = m;
+  }
+  if (!fin(mx) || mx <= 0) mx = 1;
+
+  // slow-follow normalisation keeps the brightness from flickering
+  B.smoothMax = (B.smoothMax > 0) ? 0.82*B.smoothMax + 0.18*mx : mx;
+  return B.smoothMax > 0 ? B.smoothMax : 1;
+}
+
+function renderSpectrum(norm){
+  const n = B.n, h = n >> 1;
+  const mag = B.mag, px = B.fftImg.data;
+  const g = Math.pow(10, 1 + (Number($("gain").value) || 50)/25);   // 10 … 10^5
+  const inv = 1 / Math.log(1 + g);
+  const col = CH[S.ch].col;
+
+  for (let v = 0, p = 0; v < n; v++){
+    const ky = (v + h) % n;                     // fftshift: centre = DC
+    const row = ky * n;
+    for (let u = 0; u < n; u++, p += 4){
+      const kx = (u + h) % n;
+      let t = Math.log(1 + g * (mag[row + kx] / norm)) * inv;
+      if (!fin(t)) t = 0;
+      const val = t < 0 ? 0 : (t > 1 ? 255 : t*255);
+      px[p]   = val * col[0];
+      px[p+1] = val * col[1];
+      px[p+2] = val * col[2];
+      px[p+3] = 255;
+    }
+  }
+  B.fftCtx.putImageData(B.fftImg, 0, 0);
+  blit(fftCtx, fftCv, B.fftCanvas);
+  return drawAxes();
+}
+
+// Faint centre cross + the dominant frequency, marked and returned.
+function drawAxes(){
+  const n = B.n, h = n >> 1, mag = B.mag;
+  const W = fftCv.width, H = fftCv.height;
+
+  let best = -1, bx = 0, by = 0, sum = 0, cnt = 0;
+  for (let ky = 0; ky < n; ky++){
+    const sy = ky < h ? ky : ky - n;
+    for (let kx = 0; kx < n; kx++){
+      const sx = kx < h ? kx : kx - n;
+      if (sx*sx + sy*sy < 9) continue;          // ignore the DC neighbourhood
+      const m = mag[ky*n + kx];
+      sum += m; cnt++;
+      if (m > best){ best = m; bx = sx; by = sy; }
+    }
+  }
+  // a featureless image has no dominant frequency — say so rather than invent one
+  if (!(cnt > 0) || !(best > 4 * (sum / cnt))) best = 0;
+
+  const c = fftCtx;
+  c.save();
+  c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(W/2, 0); c.lineTo(W/2, H);
+  c.moveTo(0, H/2); c.lineTo(W, H/2);
+  c.stroke();
+
+  let out = null;
+  if (best > 0){
+    const f = Math.sqrt(bx*bx + by*by) / n;                 // cycles per pixel
+    if (f > 0){
+      const px = W/2 + (bx / n) * W;
+      const py = H/2 + (by / n) * H;
+      c.strokeStyle = "rgba(255,255,255,.9)"; c.lineWidth = 2;
+      c.beginPath(); c.arc(px, py, Math.max(6, W*0.028), 0, Math.PI*2); c.stroke();
+      out = { f:f, period:1/f, angle:(Math.atan2(-by, bx) * 180/Math.PI + 360) % 180 };
+    }
+  }
+
+  c.fillStyle = "rgba(255,255,255,.55)";
+  c.font = Math.max(10, Math.round(W*0.032)) + "px -apple-system,sans-serif";
+  c.textAlign = "left";  c.fillText("0.5 cyc/px", 6, H - 8);
+  c.textAlign = "right"; c.fillText("DC at centre", W - 6, H - 8);
+  c.restore();
+  return out;
+}
+
+// Scale an n×n offscreen canvas onto a display canvas at device resolution.
+function blit(ctx, cv, src){
+  const w = cv.clientWidth || 300, hh = cv.clientHeight || 300;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.max(1, Math.round(w*dpr)), H = Math.max(1, Math.round(hh*dpr));
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(src, 0, 0, W, H);
+}
+
+/* =========================================================================
+   Frame loop
+   ========================================================================= */
+function process(){
+  const norm = transform();
+  const peak = renderSpectrum(norm);
+  if (peak) B.peak = peak; else B.peak = null;
+}
+
+function loop(now){
+  if (!S.cameraOn || S.test) return;
+  requestAnimationFrame(loop);
+  if (S.frozen) return;
+
+  if (!grabCamera()) return;
+  process();
+
+  S.frames++;
+  if (!S.fpsT) S.fpsT = now;
+  if (now - S.fpsT > 700){
+    S.fps = S.frames * 1000 / (now - S.fpsT);
+    S.frames = 0; S.fpsT = now;
+  }
+  if (now - S.lastRead > 200){ S.lastRead = now; readout(); }
+}
+
+function readout(){
+  const p = B.peak;
+  const fpsTxt = fin(S.fps) && S.fps > 0 ? " · " + fmt(S.fps,0) + " fps" : "";
+  if (!p){
+    $("readout").innerHTML = "No dominant spatial frequency" +
+      "<span style='color:var(--muted)'>" + fpsTxt + "</span>";
+    return;
+  }
+  $("readout").innerHTML =
+    "Strongest: period <b>" + fmt(p.period,1) + " px</b> · " +
+    "<b>" + fmt(p.f,3) + "</b> cyc/px · direction <b>" + fmt(p.angle,0) + "°</b>" +
+    "<span style='color:var(--muted)'>" + fpsTxt + "</span>";
+}
+
+/* =========================================================================
+   Test pattern
+   ========================================================================= */
+function runTest(){
+  S.test = true; S.frozen = false;              // the rAF loop exits on S.test
+  B.smoothMax = 0;
+  $("hint").style.display = "none";
+  $("btnFreeze").textContent = "Live";
+  grabTest();
+  process();
+  readout();
+  const expect = B.n / Math.sqrt(8*8 + 4*4);
+  status("Test pattern — expect a period near " + fmt(expect,1) + " px", "ok");
+}
+
+function goLive(){
+  if (!S.cameraOn){ status("Start the camera first", "warn"); return; }
+  S.test = false; S.frozen = false;
+  $("btnFreeze").textContent = "Freeze";
+  status("Live", "ok");
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================================
+   Controls
+   ========================================================================= */
+// Recompute whatever is currently on screen (still image only).
+function refresh(){
+  if (!B.hasRaw) return;
+  if (S.test || S.frozen){ extract(B.raw); process(); readout(); }
+}
+
+$("btnCam").addEventListener("click", () => { startCamera().catch(()=>{}); });
+
+$("btnFreeze").addEventListener("click", () => {
+  if (S.test || S.frozen){ goLive(); return; }
+  if (!S.cameraOn){ status("Start the camera first", "warn"); return; }
+  S.frozen = true;
+  $("btnFreeze").textContent = "Live";
+  status("Frozen", "info");
+});
+
+$("btnTest").addEventListener("click", runTest);
+
+document.querySelectorAll(".ch").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".ch").forEach(o => o.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    S.ch = b.dataset.ch;
+    $("capCh").textContent = CH[S.ch].name;
+    refresh();                      // live frames pick the change up by themselves
+  });
+});
+
+$("gain").addEventListener("input", e => {
+  $("gainVal").textContent = String(Math.round(Math.pow(10, 1 + (Number(e.target.value)||50)/25)));
+  if ((S.test || S.frozen) && B.hasRaw){ renderSpectrum(B.smoothMax || 1); readout(); }
+});
+
+document.querySelectorAll(".sz").forEach(b => {
+  b.addEventListener("click", () => {
+    const n = Number(b.dataset.n) || 256;
+    document.querySelectorAll(".sz").forEach(o => o.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    try { setSize(n); } catch(e){ status("Could not change size", "warn"); return; }
+    if (S.test) runTest();                     // rebuild the pattern at the new size
+    else if (S.frozen) goLive();               // stale buffers: resume live instead
+  });
+});
+
+window.addEventListener("pagehide", stopCamera);
+window.addEventListener("orientationchange", () => setTimeout(refresh, 300));
+window.addEventListener("resize", () => { clearTimeout(S.rz); S.rz = setTimeout(refresh, 150); });
+
+/* boot */
+try { setSize(256); } catch(e){ status("This browser cannot run the transform", "warn"); }
+$("gainVal").textContent = "1000";
+
+/* expose a tiny hook so the page can be checked without a camera */
+window.__fftTest = function(n){
+  if (n) setSize(n);
+  runTest();
+  return B.peak ? { period:B.peak.period, f:B.peak.f, angle:B.peak.angle, n:B.n } : null;
+};
+
+})();
+</script>
+</body>
+</html>

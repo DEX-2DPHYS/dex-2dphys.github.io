@@ -1,0 +1,9 @@
+{
+  "slug": "camera-fft",
+  "name": "Camera FFT",
+  "description": "Live 2D Fourier transform of the phone camera image — point at a periodic pattern and watch its power spectrum, with separate red, green, blue and luminance channels. All image analysis runs locally in the browser.",
+  "status": "live",
+  "url": "tools/camera-fft/index.html",
+  "icon": "chart",
+  "tags": ["visualisations", "educational", "applications"]
+}

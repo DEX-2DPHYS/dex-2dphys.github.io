@@ -27,6 +27,7 @@
     }
   ],
   "tools": [
+    "camera-fft",
     "camera-motion",
     "graph-digitizer",
     "transim",
