@@ -231,7 +231,7 @@
   <div class="pad" id="pad-filter">
     <div class="padhead">
       <span class="padname"><b>2 · Filter</b> — colour → tone colour</span>
-      <button class="btn latch" type="button" data-latch="filter" aria-pressed="false">Latch</button>
+      <button class="btn latch" type="button" id="openFilter">Open</button>
     </div>
     <div class="stage">
       <canvas class="pad-canvas" id="canvas-filter"></canvas>
@@ -239,7 +239,7 @@
     </div>
     <div class="readout">
       <span class="swatch" id="swatch-filter"></span>
-      <span class="vals" id="vals-filter">—<span class="sub">filter open (no colour touched)</span></span>
+      <span class="vals" id="vals-filter">—<span class="sub">filter open — touch to set it</span></span>
     </div>
     <div class="padbtns">
       <button class="btn" type="button" data-pick="filter-camera">Camera</button>
@@ -404,9 +404,11 @@
     <p>Photo <b>1</b> is the oscillator: drag a finger over it and the colour under the fingertip
       becomes a tone. Photo <b>2</b> is the filter: touch it and the colour there shapes that tone.
       Both pads work at the same time — one finger on each.</p>
-    <p><b>Latch</b> leaves the cursor where you lifted your finger. On the tone pad the note keeps
-      sounding; on the filter pad the filter setting is held. Tap again to move the cursor, or turn
-      latch off to release.</p>
+    <p>The two pads behave differently on release, because they are different kinds of control.
+      The tone pad is a gesture: lifting your finger ends the note, unless <b>Latch</b> is on, which
+      leaves the cursor in place and the note sounding. The filter pad is a setting: it simply stays
+      on the colour you left it on, so the cursor and the sound always agree. <b>Open</b> clears it
+      and returns the filter to bypass.</p>
 
     <h3>The voice</h3>
     <p>The default <b>analog</b> engine is a virtual-analog monosynth running in an audio worklet:
@@ -974,7 +976,7 @@
 
   Pad.prototype.drawCursor = function (g) {
     var x = this.pos.x, y = this.pos.y;
-    var live = this.active || this.latched;
+    var live = this.active || this.latched || (this.key === "filter" && !filt.bypass);
     var R = Math.max(16, Math.min(this.w, this.h) * 0.085);
     var col = this.key === "tone" ? tone.rgb : filt.rgb;
     var css = col ? cssRGB(col) : "#888";
@@ -1092,8 +1094,10 @@
       pad.active = false;
       pad.dirty = true;
       try { cv.releasePointerCapture(ev.pointerId); } catch (e) {}
+      // The tone pad is a gesture — lifting the finger ends the note unless it
+      // is latched. The filter pad is a setting: it stays where you left it,
+      // so the cursor and the sound never disagree. "Open" resets it.
       if (pad.key === "tone") { gates.pad = false; updateGate(); }
-      else if (!pad.latched) { computeFilter(null); pushAudio(); updateReadouts(); }
     }
     cv.addEventListener("pointerup", end);
     cv.addEventListener("pointercancel", end);
@@ -1104,18 +1108,25 @@
   /* ---- latch ---------------------------------------------------------- */
   function setLatch(pad, on) {
     pad.latched = !!on;
-    document.querySelector('[data-latch="' + pad.key + '"]').setAttribute("aria-pressed", pad.latched ? "true" : "false");
+    var btn = document.querySelector('[data-latch="' + pad.key + '"]');
+    if (btn) btn.setAttribute("aria-pressed", pad.latched ? "true" : "false");
     pad.dirty = true;
-    if (pad.latched) {
-      if (pad.pos) {
-        apply(pad);
-        if (pad.key === "tone" && !audioOn) setPower(true);
-      }
-    } else if (!pad.active && pad.key === "filter") {
-      computeFilter(null); pushAudio(); updateReadouts();
+    if (pad.latched && pad.pos) {
+      apply(pad);
+      if (pad.key === "tone" && !audioOn) setPower(true);
     }
     updateGate();
   }
+
+  /* Send the filter back to bypass and take its cursor off the photo. */
+  function openFilterPad() {
+    padFilter.pos = null;
+    padFilter.dirty = true;
+    computeFilter(null);
+    pushAudio();
+    updateReadouts();
+  }
+  $("openFilter").addEventListener("click", openFilterPad);
   Array.prototype.forEach.call(document.querySelectorAll("[data-latch]"), function (b) {
     b.addEventListener("click", function () {
       var pad = b.getAttribute("data-latch") === "tone" ? padTone : padFilter;
@@ -1149,7 +1160,7 @@
         '<span class="sub">peak ' + Math.round(filt.peakF) + " Hz, +" + filt.peakG.toFixed(1) + " dB</span>";
     } else {
       sf.style.background = "#222";
-      vf.innerHTML = "—" + '<span class="sub">filter open (no colour touched)</span>';
+      vf.innerHTML = "—" + '<span class="sub">filter open — touch to set it</span>';
     }
     $("baseLabel").textContent = midiName(S.baseMidi);
   }
@@ -2076,7 +2087,8 @@
   });
   $("panic").addEventListener("click", function () {
     midiStop(true);
-    pads.forEach(function (p) { if (p.latched) setLatch(p, false); });
+    if (padTone.latched) setLatch(padTone, false);
+    openFilterPad();
     gates.pad = gates.key = false;
     keyHold = false;
     $("holdBtn").setAttribute("aria-pressed", "false");
@@ -2166,8 +2178,8 @@
 
   function reapply() {
     if (padTone.pos) apply(padTone);
-    if (padFilter.pos && (padFilter.active || padFilter.latched)) apply(padFilter);
-    else { computeFilter(filt.rgb); pushAudio(); updateReadouts(); }
+    if (padFilter.pos) apply(padFilter);
+    else { computeFilter(null); pushAudio(); updateReadouts(); }
   }
 
   /* ================================================================== *
