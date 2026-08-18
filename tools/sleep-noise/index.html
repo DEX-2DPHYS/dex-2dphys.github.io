@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#06070a">
+<meta name="description" content="Brown and green noise generator for sleeping. Sleep timer in hours, gentle fade-out, tone control and a blackout screen mode. Runs entirely in the browser.">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Sleep Noise">
+<title>Sleep Noise — brown &amp; green noise for sleeping</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --bg:#06070a;
+    --panel:#0e1015;
+    --panel-2:#12151c;
+    --line:#1f232c;
+    --line-soft:#171a21;
+    --text:#d7d2c8;
+    --muted:#8a8578;
+    --faint:#5f5b52;
+    --accent:#d9a05b;
+    --accent-dim:#8d6738;
+    --accent-soft:rgba(217,160,91,.10);
+    --radius:14px;
+    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 10px 30px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;background:var(--bg)}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 40px);
+    max-width:480px;margin:0 auto;touch-action:manipulation;
+    overscroll-behavior-y:contain;
+  }
+  ::selection{background:rgba(217,160,91,.25)}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 18px}
+  h1{font-size:17px;font-weight:600;letter-spacing:.02em;margin:0;color:var(--text)}
+  h1 span{display:block;font-weight:400;font-size:12px;color:var(--faint);letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+  .home{font-size:12px;color:var(--faint);text-decoration:none;border:1px solid var(--line-soft);border-radius:8px;padding:5px 9px;flex:none}
+  .home:active{color:var(--muted)}
+
+  /* ---------- transport ---------- */
+  .transport{display:flex;flex-direction:column;align-items:center;gap:12px;margin:6px 0 26px}
+  .dial{position:relative;width:164px;height:164px;flex:none}
+  .dial>svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+  .dial .track{fill:none;stroke:var(--line);stroke-width:2}
+  .dial .prog{fill:none;stroke:var(--accent-dim);stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset .6s linear}
+  .dial.unlimited .prog{stroke:var(--line)}
+  #playBtn{
+    position:absolute;inset:14px;border-radius:50%;
+    border:1px solid var(--line);background:radial-gradient(circle at 50% 30%, #171a22, #0d0f14 70%);
+    color:var(--accent);display:grid;place-items:center;cursor:pointer;
+    box-shadow:var(--shadow);transition:transform .12s ease, border-color .2s ease;
+  }
+  #playBtn:active{transform:scale(.97)}
+  #playBtn.on{border-color:var(--accent-dim)}
+  #playBtn svg{width:40px;height:40px}
+  #playBtn.busy{opacity:.6}
+
+  .remain{font-size:27px;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:var(--text);font-weight:300;min-height:34px}
+  .remain.idle{color:var(--muted)}
+  .sub{font-size:12.5px;color:var(--faint);text-align:center;min-height:18px;letter-spacing:.02em}
+  .sub b{color:var(--muted);font-weight:500}
+
+  /* ---------- sections ---------- */
+  section{margin:0 0 20px}
+  .lab{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 9px;display:flex;justify-content:space-between;align-items:baseline}
+  .lab em{font-style:normal;color:var(--muted);letter-spacing:.02em;text-transform:none;font-size:12px;font-variant-numeric:tabular-nums}
+
+  .chips{display:grid;gap:7px}
+  .chips.c4{grid-template-columns:repeat(4,1fr)}
+  .chips.c2{grid-template-columns:repeat(2,1fr)}
+  .chips.c3{grid-template-columns:repeat(3,1fr)}
+  .chip{
+    appearance:none;border:1px solid var(--line-soft);background:var(--panel);color:var(--muted);
+    border-radius:11px;padding:11px 4px;font:inherit;font-size:13.5px;cursor:pointer;
+    text-align:center;transition:border-color .15s, color .15s, background .15s;
+  }
+  .chip:active{background:var(--panel-2)}
+  .chip[aria-pressed="true"],.chip.on{border-color:var(--accent-dim);background:var(--accent-soft);color:var(--accent)}
+  .chip.sm{padding:9px 2px;font-size:13px}
+  .desc{font-size:12.5px;color:var(--faint);margin:9px 2px 0;line-height:1.5;min-height:38px}
+
+  /* ---------- sliders ---------- */
+  .row{display:flex;align-items:center;gap:12px}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;background:transparent;margin:0;height:30px;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:3px;background:var(--line)}
+  input[type=range]::-moz-range-track{height:3px;border-radius:3px;background:var(--line)}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:22px;height:22px;border-radius:50%;margin-top:-9.5px;
+    background:#1a1d25;border:1.5px solid var(--accent-dim);box-shadow:0 2px 6px rgba(0,0,0,.6);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:20px;height:20px;border-radius:50%;background:#1a1d25;border:1.5px solid var(--accent-dim);
+  }
+  input[type=range]:active::-webkit-slider-thumb{border-color:var(--accent)}
+  .ico{width:17px;height:17px;flex:none;color:var(--faint)}
+
+  /* ---------- timer ---------- */
+  .seg{display:flex;background:var(--panel);border:1px solid var(--line-soft);border-radius:11px;padding:3px;gap:3px;margin-bottom:10px}
+  .seg button{
+    flex:1;appearance:none;border:0;background:transparent;color:var(--muted);
+    font:inherit;font-size:13px;padding:8px 4px;border-radius:8px;cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+  .fine{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;
+        background:var(--panel);border:1px solid var(--line-soft);border-radius:11px;padding:8px 10px}
+  .fine button{
+    appearance:none;width:38px;height:34px;border-radius:9px;border:1px solid var(--line);
+    background:var(--panel-2);color:var(--muted);font:inherit;font-size:17px;line-height:1;cursor:pointer;
+  }
+  .fine button:active{color:var(--accent)}
+  .fine .val{flex:1;text-align:center;font-size:14.5px;color:var(--text);font-variant-numeric:tabular-nums}
+  input[type=time]{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--text);
+    font:inherit;font-size:15px;padding:9px 10px;width:100%;color-scheme:dark;text-align:center;
+  }
+
+  /* ---------- advanced ---------- */
+  details{border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--panel);overflow:hidden}
+  summary{
+    list-style:none;cursor:pointer;padding:13px 15px;font-size:13px;color:var(--muted);
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary .caret{color:var(--faint);font-size:11px;transition:transform .2s}
+  details[open] summary .caret{transform:rotate(90deg)}
+  .adv{padding:2px 15px 16px;border-top:1px solid var(--line-soft)}
+  .adv .lab{margin-top:16px}
+  .adv .lab:first-child{margin-top:12px}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--line-soft)}
+  .toggle:first-of-type{border-top:0}
+  .toggle .t{font-size:13.5px;color:var(--text)}
+  .toggle .h{font-size:11.5px;color:var(--faint);margin-top:3px;line-height:1.45}
+  .sw{
+    appearance:none;flex:none;width:46px;height:27px;border-radius:14px;border:1px solid var(--line);
+    background:var(--panel-2);position:relative;cursor:pointer;transition:background .18s, border-color .18s;
+  }
+  .sw::after{
+    content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+    background:#4a4740;transition:transform .18s, background .18s;
+  }
+  .sw[aria-pressed="true"]{background:rgba(217,160,91,.16);border-color:var(--accent-dim)}
+  .sw[aria-pressed="true"]::after{transform:translateX(19px);background:var(--accent)}
+
+  /* ---------- footer ---------- */
+  .dimbtn{
+    width:100%;margin-top:4px;appearance:none;border:1px solid var(--line);background:var(--panel);
+    color:var(--muted);border-radius:12px;padding:14px;font:inherit;font-size:14px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+  }
+  .dimbtn:active{background:var(--panel-2);color:var(--accent)}
+  footer{margin-top:24px;font-size:11.5px;color:#4a473f;line-height:1.6;text-align:center}
+  footer a{color:#5f5b52}
+  .note{font-size:11.5px;color:var(--faint);margin:10px 2px 0;line-height:1.5}
+  .warn{color:#b8834a}
+
+  /* ---------- blackout ---------- */
+  #dim{
+    position:fixed;inset:0;z-index:60;background:#000;display:none;
+    flex-direction:column;align-items:center;justify-content:center;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  #dim.show{display:flex}
+  #dimInner{text-align:center;opacity:.14;transition:opacity .8s ease;pointer-events:none}
+  #dim.awake #dimInner{opacity:.5}
+  #dimClock{font-size:52px;font-weight:200;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  #dimMeta{font-size:13px;color:var(--accent-dim);margin-top:10px;letter-spacing:.06em}
+  #dimBar{
+    position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 28px);
+    display:flex;gap:10px;justify-content:center;opacity:0;pointer-events:none;transition:opacity .35s ease;
+  }
+  #dim.awake #dimBar{opacity:1;pointer-events:auto}
+  #dimBar button{
+    appearance:none;border:1px solid #1a1a1a;background:#080808;color:#4a4137;
+    border-radius:11px;padding:12px 20px;font:inherit;font-size:13px;cursor:pointer;
+  }
+  #dimHint{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 10px);left:0;right:0;text-align:center;
+           font-size:10.5px;color:#1e1c19;letter-spacing:.08em}
+
+  @media (max-height:640px){ .dial{width:140px;height:140px} #playBtn svg{width:38px;height:38px} .remain{font-size:24px} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sleep Noise<span>Brown &amp; green noise</span></h1>
+  <a class="home" href="../../">DEX</a>
+</header>
+
+<div class="transport">
+  <div class="dial" id="dial">
+    <svg viewBox="0 0 164 164" aria-hidden="true">
+      <circle class="track" cx="82" cy="82" r="79"></circle>
+      <circle class="prog" id="prog" cx="82" cy="82" r="79"></circle>
+    </svg>
+    <button id="playBtn" aria-label="Play">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+        <path id="playIcon" d="M8.6 5.4v13.2L19 12z"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="remain idle" id="remain">8 h 00 m</div>
+  <div class="sub" id="sub">Brown noise · tap to start</div>
+</div>
+
+<section>
+  <div class="lab">Sound</div>
+  <div class="chips c4" id="typeChips" role="group" aria-label="Noise type">
+    <button class="chip" data-type="brown">Brown</button>
+    <button class="chip" data-type="green">Green</button>
+    <button class="chip" data-type="pink">Pink</button>
+    <button class="chip" data-type="white">White</button>
+  </div>
+  <p class="desc" id="typeDesc"></p>
+</section>
+
+<section>
+  <div class="lab">Volume <em id="volVal">55%</em></div>
+  <div class="row">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/></svg>
+    <input type="range" id="vol" min="0" max="100" step="1" aria-label="Volume">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+  </div>
+</section>
+
+<section>
+  <div class="lab">Tone <em id="toneVal">soft</em></div>
+  <div class="row">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2.5 5 3-14 2.5 9 2-4h5"/></svg>
+    <input type="range" id="tone" min="0" max="100" step="1" aria-label="Tone">
+  </div>
+  <p class="note">Rolls off the top end. Darker is gentler on the ears over a long night; brighter masks more speech and traffic.</p>
+</section>
+
+<section>
+  <div class="lab">Sleep timer <em id="timerVal"></em></div>
+  <div class="seg" role="group" aria-label="Timer mode">
+    <button id="modeFor" aria-pressed="true">Play for</button>
+    <button id="modeUntil" aria-pressed="false">Stop at</button>
+  </div>
+
+  <div id="forPane">
+    <div class="chips c4" id="durChips" role="group" aria-label="Duration"></div>
+    <div class="fine">
+      <button id="durMinus" aria-label="15 minutes less">−</button>
+      <div class="val" id="durVal">8 h 00 m</div>
+      <button id="durPlus" aria-label="15 minutes more">+</button>
+    </div>
+  </div>
+
+  <div id="untilPane" hidden>
+    <input type="time" id="untilTime" step="300" aria-label="Stop at time">
+    <p class="note" id="untilNote"></p>
+  </div>
+</section>
+
+<section>
+  <details id="advanced">
+    <summary><span>More options</span><span class="caret">›</span></summary>
+    <div class="adv">
+      <div class="lab">Fade in <em id="fiVal"></em></div>
+      <div class="chips c3" id="fiChips" role="group" aria-label="Fade in"></div>
+
+      <div class="lab">Fade out before stop <em id="foVal"></em></div>
+      <div class="chips c3" id="foChips" role="group" aria-label="Fade out"></div>
+      <p class="note">The sound sinks away slowly instead of cutting off, so the silence does not wake you.</p>
+
+      <div class="lab" style="margin-top:20px">Motion</div>
+      <div class="toggle">
+        <div>
+          <div class="t">Ocean swell</div>
+          <div class="h">Very slow rise and fall in level, like breathing surf.</div>
+        </div>
+        <button class="sw" id="wavesSw" aria-pressed="false" aria-label="Ocean swell"></button>
+      </div>
+      <div id="wavePane" hidden>
+        <div class="lab">Swell depth <em id="wdVal"></em></div>
+        <input type="range" id="waveDepth" min="5" max="70" step="1" aria-label="Swell depth">
+        <div class="lab">Swell period <em id="wpVal"></em></div>
+        <input type="range" id="wavePeriod" min="6" max="40" step="1" aria-label="Swell period">
+      </div>
+
+      <div class="lab" style="margin-top:20px">Playback</div>
+      <div class="toggle">
+        <div>
+          <div class="t">Play with screen locked</div>
+          <div class="h">Routes the sound through the system media player so it keeps going in the background and appears on the lock screen. Turn off if you hear nothing.</div>
+        </div>
+        <button class="sw" id="bgSw" aria-pressed="true" aria-label="Background playback"></button>
+      </div>
+      <div class="toggle">
+        <div>
+          <div class="t">Keep screen awake</div>
+          <div class="h">Stops the phone from sleeping, which some browsers need to keep audio alive. Uses more battery — pair it with the blackout screen.</div>
+        </div>
+        <button class="sw" id="wakeSw" aria-pressed="false" aria-label="Keep screen awake"></button>
+      </div>
+    </div>
+  </details>
+</section>
+
+<button class="dimbtn" id="dimBtn">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+  Blackout screen
+</button>
+
+<p class="note" id="statusNote"></p>
+
+<footer>
+  Sound is generated on your phone — nothing is streamed or recorded.<br>
+  <a href="../../">DEX · Digital Experiments</a> · 2DPHYS, DTU
+</footer>
+
+<audio id="sink" playsinline></audio>
+
+<div id="dim">
+  <div id="dimInner">
+    <div id="dimClock">--:--</div>
+    <div id="dimMeta"></div>
+  </div>
+  <div id="dimBar">
+    <button id="dimToggle">Pause</button>
+    <button id="dimExit">Exit</button>
+  </div>
+  <div id="dimHint">tap to wake</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     Noise generation
+     ============================================================ */
+
+  var TYPES = {
+    brown: {
+      name: "Brown noise",
+      desc: "Deep and low, like distant surf or the hum of a cabin at altitude. The usual first choice: it masks traffic, snoring and footsteps without any hiss."
+    },
+    green: {
+      name: "Green noise",
+      desc: "The mid band of natural ambience, centred near 500 Hz. Softer than white, less boomy than brown — close to the sound of a forest or steady wind."
+    },
+    pink: {
+      name: "Pink noise",
+      desc: "Equal energy in every octave, the balance found in rain and rustling leaves. Warm but still full-range."
+    },
+    white: {
+      name: "White noise",
+      desc: "Flat across the spectrum, the familiar hiss of static. Masks the most, but the bright top end can feel harsh over a whole night."
+    }
+  };
+
+  // Robert Bristow-Johnson biquad, applied in place over a Float32Array.
+  function biquad(x, sr, kind, f0, Q) {
+    var w0 = 2 * Math.PI * f0 / sr, cs = Math.cos(w0), sn = Math.sin(w0), al = sn / (2 * Q);
+    var b0, b1, b2, a0, a1, a2;
+    if (kind === "bandpass") { b0 = al; b1 = 0; b2 = -al; }
+    else if (kind === "highpass") { b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = (1 + cs) / 2; }
+    else { b0 = (1 - cs) / 2; b1 = 1 - cs; b2 = (1 - cs) / 2; }
+    a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al;
+    var B0 = b0 / a0, B1 = b1 / a0, B2 = b2 / a0, A1 = a1 / a0, A2 = a2 / a0;
+    var x1 = 0, x2 = 0, y1 = 0, y2 = 0, out = new Float32Array(x.length);
+    for (var i = 0; i < x.length; i++) {
+      var xi = x[i];
+      var yi = B0 * xi + B1 * x1 + B2 * x2 - A1 * y1 - A2 * y2;
+      out[i] = yi; x2 = x1; x1 = xi; y2 = y1; y1 = yi;
+    }
+    return out;
+  }
+
+  function genRaw(type, n, sr) {
+    var out = new Float32Array(n), i, w;
+    if (type === "white") {
+      for (i = 0; i < n; i++) out[i] = Math.random() * 2 - 1;
+      return out;
+    }
+    if (type === "brown") {
+      var last = 0;
+      for (i = 0; i < n; i++) {
+        w = Math.random() * 2 - 1;
+        last = (last + 0.02 * w) / 1.02;
+        out[i] = last * 3.5;
+      }
+      // Trim inaudible sub-bass so phone speakers do not waste excursion on it.
+      return biquad(out, sr, "highpass", 26, 0.707);
+    }
+    // Pink (Paul Kellet's refined method) — also the base for green.
+    var b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (i = 0; i < n; i++) {
+      w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179;
+      b1 = 0.99332 * b1 + w * 0.0750759;
+      b2 = 0.96900 * b2 + w * 0.1538520;
+      b3 = 0.86650 * b3 + w * 0.3104856;
+      b4 = 0.55000 * b4 + w * 0.5329522;
+      b5 = -0.7616 * b5 - w * 0.0168980;
+      out[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+      b6 = w * 0.115926;
+    }
+    if (type === "green") {
+      // Broad mid hump around 500 Hz, with some of the pink left underneath.
+      var bp = biquad(out, sr, "bandpass", 500, 0.55);
+      for (i = 0; i < n; i++) out[i] = bp[i] + out[i] * 0.32;
+    }
+    return out;
+  }
+
+  var LOOP_SEC = 20, XFADE_SEC = 1;
+
+  // Builds a stereo buffer whose end is cross-faded into its start, so the
+  // loop point is inaudible; the two channels are independent for natural width.
+  function makeBuffer(ctx, type) {
+    var sr = ctx.sampleRate;
+    var n = Math.round(LOOP_SEC * sr);
+    var x = Math.round(XFADE_SEC * sr);
+    var buf = ctx.createBuffer(2, n, sr);
+    for (var ch = 0; ch < 2; ch++) {
+      var raw = genRaw(type, n + x, sr);
+      var sum = 0, peak = 1e-9, i, v;
+      for (i = 0; i < n + x; i++) { v = raw[i]; sum += v * v; if (v < 0) v = -v; if (v > peak) peak = v; }
+      var rms = Math.sqrt(sum / (n + x));
+      var g = Math.min(0.18 / rms, 0.9 / peak);
+      var out = buf.getChannelData(ch);
+      for (i = x; i < n; i++) out[i] = raw[i] * g;
+      for (i = 0; i < x; i++) {
+        var t = i / x;
+        out[i] = (raw[n + i] * Math.cos(t * Math.PI / 2) + raw[i] * Math.sin(t * Math.PI / 2)) * g;
+      }
+    }
+    return buf;
+  }
+
+  /* ============================================================
+     State
+     ============================================================ */
+
+  var DEFAULTS = {
+    type: "brown", volume: 55, tone: 62,
+    mode: "for", durationMin: 480, untilTime: "07:00",
+    fadeInSec: 30, fadeOutMin: 5,
+    waves: false, waveDepth: 30, wavePeriod: 16,
+    bgPlayback: true, keepAwake: false
+  };
+  var KEY = "dex-sleep-noise";
+  var S = Object.assign({}, DEFAULTS);
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+    Object.keys(DEFAULTS).forEach(function (k) { if (saved[k] !== undefined) S[k] = saved[k]; });
+  } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  var DURATIONS = [15, 30, 45, 60, 120, 180, 240, 360, 480, 600, 720, 0];
+  var FADE_IN = [0, 10, 30, 60, 120, 300];
+  var FADE_OUT = [0, 1, 5, 10, 20, 30];
+
+  /* ============================================================
+     Audio graph
+     ============================================================ */
+
+  var ctx = null, src = null, srcGain = null, hp = null, lp = null,
+      swell = null, lfo = null, lfoGain = null, env = null, vol = null,
+      msDest = null, bufCache = {}, usingElement = false, fallbackChecked = false;
+
+  var playing = false;
+  var remainingMs = 0;      // for a finite timer; 0 when unlimited
+  var endAt = 0;            // wall-clock ms when playback should stop
+  var totalMs = 0;
+  var sink = document.getElementById("sink");
+
+  function volGain() { var v = S.volume / 100; return v * v; }
+  function toneHz() { return 200 * Math.pow(20000 / 200, S.tone / 100); }
+
+  function initAudio() {
+    if (ctx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+
+    hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 24; hp.Q.value = 0.707;
+    lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = toneHz(); lp.Q.value = 0.5;
+
+    swell = ctx.createGain(); swell.gain.value = 1;
+    lfo = ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 1 / S.wavePeriod;
+    lfoGain = ctx.createGain(); lfoGain.gain.value = 0;
+    lfo.connect(lfoGain); lfoGain.connect(swell.gain);
+    lfo.start();
+
+    env = ctx.createGain(); env.gain.value = 0;
+    vol = ctx.createGain(); vol.gain.value = volGain();
+
+    hp.connect(lp); lp.connect(swell);
+    swell.connect(env); env.connect(vol);
+
+    applySwell();
+    routeOutput();
+
+    ctx.onstatechange = function () {
+      if (playing && ctx.state === "suspended") setStatus("Playback was paused by the system — tap play to resume.", true);
+      updateUI();
+    };
+  }
+
+  // Prefer sending the sound through a media element: the browser then treats
+  // it as media playback, which survives a locked screen and shows up in the
+  // lock-screen controls. Falls back to direct output if that route is silent.
+  function routeOutput() {
+    var canStream = S.bgPlayback && ctx.createMediaStreamDestination && ("srcObject" in HTMLMediaElement.prototype);
+    if (canStream) {
+      try {
+        msDest = ctx.createMediaStreamDestination();
+        vol.connect(msDest);
+        sink.srcObject = msDest.stream;
+        var p = sink.play();
+        if (p && p.catch) p.catch(function () { useDirectOutput("Background playback was blocked — using direct output."); });
+        usingElement = true;
+        return;
+      } catch (e) { /* fall through */ }
+    }
+    vol.connect(ctx.destination);
+    usingElement = false;
+  }
+
+  function useDirectOutput(msg) {
+    if (!usingElement) return;
+    try { sink.pause(); } catch (e) {}
+    try { vol.disconnect(msDest); } catch (e) {}
+    try { sink.srcObject = null; } catch (e) {}
+    msDest = null;
+    usingElement = false;
+    vol.connect(ctx.destination);
+    if (msg) setStatus(msg, true);
+  }
+
+  // Some browsers accept the stream but never play it; if the element's clock
+  // has not moved shortly after starting, switch to direct output.
+  function checkOutput() {
+    if (fallbackChecked || !usingElement) return;
+    fallbackChecked = true;
+    setTimeout(function () {
+      if (usingElement && playing && (sink.paused || sink.currentTime === 0)) {
+        useDirectOutput("Switched to direct output — audio may stop when the screen locks.");
+      }
+    }, 1200);
+  }
+
+  function getBuffer(type) {
+    if (!bufCache[type]) {
+      var keys = Object.keys(bufCache);
+      while (keys.length >= 2) { delete bufCache[keys.shift()]; }
+      bufCache[type] = makeBuffer(ctx, type);
+    }
+    return bufCache[type];
+  }
+
+  function startSource(fadeSec) {
+    var s = ctx.createBufferSource();
+    s.buffer = getBuffer(S.type);
+    s.loop = true;
+    var g = ctx.createGain();
+    var t = ctx.currentTime;
+    g.gain.setValueAtTime(fadeSec ? 0.0001 : 1, t);
+    if (fadeSec) g.gain.linearRampToValueAtTime(1, t + fadeSec);
+    s.connect(g); g.connect(hp);
+    s.start(0);
+    src = s; srcGain = g;
+  }
+
+  function stopSource(fadeSec, node, gain) {
+    if (!node) return;
+    var t = ctx.currentTime;
+    try {
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.linearRampToValueAtTime(0.0001, t + fadeSec);
+    } catch (e) {}
+    try { node.stop(t + fadeSec + 0.05); } catch (e) {}
+  }
+
+  function applySwell() {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    var d = S.waves ? S.waveDepth / 200 : 0;   // half-depth: gain swings 1-2d … 1
+    swell.gain.setTargetAtTime(1 - d, t, 0.4);
+    lfoGain.gain.setTargetAtTime(d, t, 0.4);
+    lfo.frequency.setTargetAtTime(1 / S.wavePeriod, t, 0.4);
+  }
+
+  /* ---- timer maths ---- */
+
+  function plannedMs() {
+    if (S.mode === "until") {
+      var parts = (S.untilTime || "07:00").split(":");
+      var now = new Date();
+      var target = new Date(now.getTime());
+      target.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
+      var d = target.getTime() - now.getTime();
+      if (d <= 60000) d += 24 * 3600 * 1000;
+      return d;
+    }
+    return S.durationMin * 60000;   // 0 => unlimited
+  }
+
+  function play() {
+    initAudio();
+    if (ctx.state === "suspended") ctx.resume();
+    if (usingElement && sink.paused) { var pr = sink.play(); if (pr && pr.catch) pr.catch(function () {}); }
+    if (playing) return;
+
+    if (!remainingMs) { remainingMs = plannedMs(); totalMs = remainingMs; }
+    if (!totalMs) totalMs = remainingMs;
+
+    var fadeIn = Math.max(S.fadeInSec, 0.4);
+    startSource(fadeIn);
+
+    var t = ctx.currentTime;
+    env.gain.cancelScheduledValues(t);
+    env.gain.setValueAtTime(1, t);
+
+    if (remainingMs > 0) {
+      var secs = remainingMs / 1000;
+      var endT = t + secs;
+      var fadeOut = Math.min(S.fadeOutMin * 60, Math.max(secs - fadeIn - 1, 0));
+      if (fadeOut > 0) {
+        env.gain.setValueAtTime(1, endT - fadeOut);
+        env.gain.linearRampToValueAtTime(0.0001, endT);
+      }
+      // Scheduled on the audio clock, so the timer still fires if the page is
+      // frozen while the phone sleeps.
+      try { src.stop(endT + 0.1); } catch (e) {}
+      src.onended = function () { if (playing) finish(); };
+      endAt = Date.now() + remainingMs;
+    } else {
+      endAt = 0;
+    }
+
+    playing = true;
+    fallbackChecked = false;
+    checkOutput();
+    if (S.keepAwake) requestWake();
+    mediaSession();
+    updateUI();
+  }
+
+  function pause() {
+    if (!playing) return;
+    if (endAt) remainingMs = Math.max(endAt - Date.now(), 0);
+    playing = false;
+    var s = src, g = srcGain;
+    src = null;
+    if (s) s.onended = null;
+    stopSource(0.4, s, g);
+    releaseWake();
+    if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused";
+    updateUI();
+  }
+
+  function finish() {
+    playing = false;
+    if (src) { src.onended = null; try { src.stop(); } catch (e) {} }
+    src = null;
+    remainingMs = 0;
+    releaseWake();
+    // Let go of the system media slot once the night's timer is really over.
+    if (usingElement) { try { sink.pause(); } catch (e) {} }
+    if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused";
+    setStatus("Timer finished — sleep well.", false);
+    updateUI();
+  }
+
+  function resetTimer() {
+    remainingMs = 0; endAt = 0;
+    totalMs = plannedMs();
+    if (playing) { pause(); play(); }
+    updateUI();
+  }
+
+  function swapType() {
+    if (!playing) { updateUI(); return; }
+    var old = src, oldG = srcGain;
+    if (old) old.onended = null;
+    stopSource(0.7, old, oldG);
+    startSource(0.7);
+    // Re-arm the scheduled stop on the new source.
+    if (endAt) {
+      var secs = Math.max(endAt - Date.now(), 0) / 1000;
+      try { src.stop(ctx.currentTime + secs + 0.1); } catch (e) {}
+      src.onended = function () { if (playing) finish(); };
+    }
+    mediaSession();
+  }
+
+  /* ---- wake lock ---- */
+
+  var wakeLock = null;
+  function requestWake() {
+    if (!navigator.wakeLock || wakeLock) return;
+    navigator.wakeLock.request("screen").then(function (w) {
+      wakeLock = w;
+      w.addEventListener("release", function () { wakeLock = null; });
+    }).catch(function () {});
+  }
+  function releaseWake() {
+    if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+  }
+
+  function mediaSession() {
+    if (!navigator.mediaSession || !window.MediaMetadata) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: TYPES[S.type].name,
+        artist: "Sleep Noise",
+        album: "DEX · 2DPHYS"
+      });
+      navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+      navigator.mediaSession.setActionHandler("play", function () { play(); });
+      navigator.mediaSession.setActionHandler("pause", function () { pause(); });
+      navigator.mediaSession.setActionHandler("stop", function () { finish(); });
+    } catch (e) {}
+  }
+
+  /* ============================================================
+     Formatting
+     ============================================================ */
+
+  function fmtDuration(min) {
+    if (!min) return "No limit";
+    var h = Math.floor(min / 60), m = Math.round(min % 60);
+    if (h && m) return h + " h " + (m < 10 ? "0" : "") + m + " m";
+    if (h) return h + " h";
+    return m + " m";
+  }
+
+  function fmtRemain(ms) {
+    if (ms <= 0) return "0 m";
+    var s = Math.round(ms / 1000);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (h) return h + " h " + (m < 10 ? "0" : "") + m + " m";
+    if (m) return m + " m " + (sec < 10 ? "0" : "") + sec + " s";
+    return sec + " s";
+  }
+
+  function clockOf(d) {
+    return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  }
+
+  function fmtFadeIn(s) { return s === 0 ? "Off" : (s < 60 ? s + " s" : (s / 60) + " min"); }
+  function fmtFadeOut(m) { return m === 0 ? "Off" : m + " min"; }
+
+  /* ============================================================
+     UI
+     ============================================================ */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var playBtn = $("playBtn"), playIcon = $("playIcon"), prog = $("prog"), dial = $("dial");
+  var remainEl = $("remain"), subEl = $("sub"), statusNote = $("statusNote");
+  var C = 2 * Math.PI * 79;
+  prog.style.strokeDasharray = C.toFixed(1);
+  prog.style.strokeDashoffset = "0";
+
+  var statusTimer = null;
+  function setStatus(msg, warn) {
+    statusNote.textContent = msg || "";
+    statusNote.className = "note" + (warn ? " warn" : "");
+    clearTimeout(statusTimer);
+    if (msg) statusTimer = setTimeout(function () { statusNote.textContent = ""; }, 9000);
+  }
+
+  function buildChips(host, items, fmt, get, set) {
+    host.innerHTML = "";
+    items.forEach(function (v) {
+      var b = document.createElement("button");
+      b.className = "chip sm";
+      b.type = "button";
+      b.textContent = fmt(v);
+      b.setAttribute("aria-pressed", String(get() === v));
+      b.addEventListener("click", function () {
+        set(v); save();
+        Array.prototype.forEach.call(host.children, function (c, i) {
+          c.setAttribute("aria-pressed", String(items[i] === get()));
+        });
+        updateUI();
+      });
+      host.appendChild(b);
+    });
+  }
+
+  function syncChips(host, items, get) {
+    Array.prototype.forEach.call(host.children, function (c, i) {
+      c.setAttribute("aria-pressed", String(items[i] === get()));
+    });
+  }
+
+  // Sound type
+  var typeChips = $("typeChips");
+  Array.prototype.forEach.call(typeChips.children, function (b) {
+    b.addEventListener("click", function () {
+      if (S.type === b.dataset.type) return;
+      S.type = b.dataset.type; save();
+      swapType();
+      updateUI();
+    });
+  });
+
+  // Duration
+  var durChips = $("durChips");
+  buildChips(durChips, DURATIONS,
+    function (v) { return v === 0 ? "∞" : (v < 60 ? v + "m" : (v % 60 ? (v / 60).toFixed(1).replace(".0", "") + "h" : (v / 60) + "h")); },
+    function () { return S.durationMin; },
+    function (v) { S.durationMin = v; resetTimer(); });
+
+  $("durMinus").addEventListener("click", function () {
+    S.durationMin = Math.max(0, (S.durationMin || 15) - 15); save(); syncChips(durChips, DURATIONS, function () { return S.durationMin; }); resetTimer();
+  });
+  $("durPlus").addEventListener("click", function () {
+    S.durationMin = Math.min(24 * 60, S.durationMin + 15); save(); syncChips(durChips, DURATIONS, function () { return S.durationMin; }); resetTimer();
+  });
+
+  // Mode
+  function setMode(m) {
+    S.mode = m; save();
+    $("modeFor").setAttribute("aria-pressed", String(m === "for"));
+    $("modeUntil").setAttribute("aria-pressed", String(m === "until"));
+    $("forPane").hidden = m !== "for";
+    $("untilPane").hidden = m !== "until";
+    resetTimer();
+  }
+  $("modeFor").addEventListener("click", function () { setMode("for"); });
+  $("modeUntil").addEventListener("click", function () { setMode("until"); });
+
+  var untilInput = $("untilTime");
+  untilInput.value = S.untilTime;
+  untilInput.addEventListener("change", function () {
+    S.untilTime = untilInput.value || "07:00"; save(); resetTimer();
+  });
+
+  // Fades
+  buildChips($("fiChips"), FADE_IN, fmtFadeIn, function () { return S.fadeInSec; }, function (v) { S.fadeInSec = v; });
+  buildChips($("foChips"), FADE_OUT, fmtFadeOut, function () { return S.fadeOutMin; }, function (v) { S.fadeOutMin = v; });
+
+  // Sliders
+  var volIn = $("vol"), toneIn = $("tone"), wdIn = $("waveDepth"), wpIn = $("wavePeriod");
+  volIn.value = S.volume; toneIn.value = S.tone; wdIn.value = S.waveDepth; wpIn.value = S.wavePeriod;
+
+  volIn.addEventListener("input", function () {
+    S.volume = +volIn.value;
+    if (ctx) vol.gain.setTargetAtTime(volGain(), ctx.currentTime, 0.05);
+    $("volVal").textContent = S.volume + "%";
+    save();
+  });
+  toneIn.addEventListener("input", function () {
+    S.tone = +toneIn.value;
+    if (ctx) lp.frequency.setTargetAtTime(toneHz(), ctx.currentTime, 0.05);
+    $("toneVal").textContent = toneLabel();
+    save();
+  });
+  wdIn.addEventListener("input", function () {
+    S.waveDepth = +wdIn.value; $("wdVal").textContent = S.waveDepth + "%"; applySwell(); save();
+  });
+  wpIn.addEventListener("input", function () {
+    S.wavePeriod = +wpIn.value; $("wpVal").textContent = S.wavePeriod + " s"; applySwell(); save();
+  });
+
+  function toneLabel() {
+    var f = toneHz();
+    var word = f < 700 ? "very dark" : f < 2000 ? "dark" : f < 5000 ? "soft" : f < 11000 ? "open" : "full";
+    var label = f >= 1000 ? (f / 1000).toFixed(f < 10000 ? 1 : 0) + " kHz" : Math.round(f) + " Hz";
+    return word + " · " + label;
+  }
+
+  // Switches
+  function bindSwitch(el, get, set) {
+    el.setAttribute("aria-pressed", String(get()));
+    el.addEventListener("click", function () {
+      var v = !get();
+      set(v); save();
+      el.setAttribute("aria-pressed", String(v));
+    });
+  }
+  bindSwitch($("wavesSw"), function () { return S.waves; }, function (v) {
+    S.waves = v; $("wavePane").hidden = !v; applySwell();
+  });
+  bindSwitch($("bgSw"), function () { return S.bgPlayback; }, function (v) {
+    S.bgPlayback = v;
+    if (ctx) {
+      if (!v) useDirectOutput(null);
+      else if (!usingElement) {
+        try { vol.disconnect(ctx.destination); } catch (e) {}
+        routeOutput();
+        fallbackChecked = false; checkOutput();
+      }
+    }
+    setStatus(v ? "Sound will keep playing when the screen locks." : "Direct output — audio may stop when the screen locks.", false);
+  });
+  bindSwitch($("wakeSw"), function () { return S.keepAwake; }, function (v) {
+    S.keepAwake = v;
+    if (v && playing) requestWake(); else if (!v) releaseWake();
+    if (v && !navigator.wakeLock) setStatus("This browser cannot keep the screen awake.", true);
+  });
+  $("wavePane").hidden = !S.waves;
+
+  // Play / pause
+  playBtn.addEventListener("click", function () {
+    if (playing) { pause(); return; }
+    // Set up (and unmute) the audio path synchronously, while the tap still
+    // counts as a user gesture; the heavy buffer build happens right after.
+    try { initAudio(); if (ctx.state === "suspended") ctx.resume(); }
+    catch (e) { setStatus("Audio could not start: " + e.message, true); return; }
+    playBtn.classList.add("busy");
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        try { play(); } catch (e) { setStatus("Audio could not start: " + e.message, true); }
+        playBtn.classList.remove("busy");
+      });
+    });
+  });
+
+  /* ---- blackout screen ---- */
+
+  var dim = $("dim"), dimAwakeTimer = null;
+  function showDim() {
+    dim.classList.add("show");
+    wakeDim();
+    if (S.keepAwake && playing) requestWake();
+  }
+  function hideDim() { dim.classList.remove("show", "awake"); clearTimeout(dimAwakeTimer); }
+  function wakeDim() {
+    dim.classList.add("awake");
+    clearTimeout(dimAwakeTimer);
+    dimAwakeTimer = setTimeout(function () { dim.classList.remove("awake"); }, 8000);
+  }
+  $("dimBtn").addEventListener("click", showDim);
+  dim.addEventListener("click", wakeDim);
+  $("dimExit").addEventListener("click", function (e) { e.stopPropagation(); hideDim(); });
+  $("dimToggle").addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (playing) pause(); else play();
+    wakeDim();
+  });
+
+  /* ---- periodic UI refresh ---- */
+
+  function updateUI() {
+    var t = TYPES[S.type];
+    Array.prototype.forEach.call(typeChips.children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.type === S.type));
+    });
+    $("typeDesc").textContent = t.desc;
+    $("volVal").textContent = S.volume + "%";
+    $("toneVal").textContent = toneLabel();
+    $("wdVal").textContent = S.waveDepth + "%";
+    $("wpVal").textContent = S.wavePeriod + " s";
+    $("fiVal").textContent = fmtFadeIn(S.fadeInSec);
+    $("foVal").textContent = fmtFadeOut(S.fadeOutMin);
+    $("durVal").textContent = fmtDuration(S.durationMin);
+
+    var planned = plannedMs();
+    var left = playing && endAt ? Math.max(endAt - Date.now(), 0)
+             : (remainingMs || planned);
+    var unlimited = (S.mode === "for" && S.durationMin === 0);
+
+    if (S.mode === "until") {
+      $("untilNote").textContent = "That is " + fmtRemain(planned) + " from now.";
+      $("timerVal").textContent = "until " + S.untilTime;
+    } else {
+      $("timerVal").textContent = fmtDuration(S.durationMin);
+    }
+
+    remainEl.textContent = unlimited ? "No limit" : fmtRemain(left);
+    remainEl.className = "remain" + (playing ? "" : " idle");
+
+    dial.classList.toggle("unlimited", unlimited);
+    var frac = unlimited || !totalMs ? 1 : Math.max(0, Math.min(1, left / (totalMs || planned || 1)));
+    prog.style.strokeDashoffset = (C * (1 - frac)).toFixed(1);
+
+    playIcon.setAttribute("d", playing
+      ? "M9 5.4h2.7v13.2H9zM14.3 5.4H17v13.2h-2.7z"
+      : "M8.6 5.4v13.2L19 12z");
+    playBtn.classList.toggle("on", playing);
+    playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+
+    var line;
+    if (playing) {
+      line = t.name + (unlimited ? " · playing" : " · stops at " + clockOf(new Date(endAt)));
+      if (S.fadeOutMin && !unlimited) line += ", fading from " + clockOf(new Date(endAt - S.fadeOutMin * 60000));
+    } else {
+      line = t.name + " · " + (unlimited ? "no timer" : "tap to start");
+    }
+    subEl.textContent = line;
+
+    $("dimClock").textContent = clockOf(new Date());
+    $("dimMeta").textContent = playing
+      ? (t.name.replace(" noise", "") + " · " + (unlimited ? "no limit" : fmtRemain(left) + " left"))
+      : "paused";
+    $("dimToggle").textContent = playing ? "Pause" : "Play";
+  }
+
+  setInterval(function () {
+    if (playing && endAt && Date.now() >= endAt) { /* onended will fire; guard for frozen tabs */ }
+    updateUI();
+  }, 1000);
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") {
+      if (playing && ctx && ctx.state === "suspended") ctx.resume();
+      if (playing && S.keepAwake) requestWake();
+      updateUI();
+    }
+  });
+
+  // Initial paint
+  setMode(S.mode);
+  $("dimBtn").disabled = false;
+  updateUI();
+})();
+</script>
+</body>
+</html>

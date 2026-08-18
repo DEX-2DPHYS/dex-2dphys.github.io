@@ -27,6 +27,7 @@
     }
   ],
   "tools": [
+    "sleep-noise",
     "heterostructure-builder",
     "biomicroscope",
     "double-pendulum",
