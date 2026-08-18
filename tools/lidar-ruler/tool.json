@@ -1,0 +1,10 @@
+{
+  "slug": "lidar-ruler",
+  "name": "LiDAR Ruler (for phone)",
+  "description": "Point your phone at the scene, tap up to three objects, and read their distances live in the camera view. Markers stay anchored in 3D and the labels update as you move, using the phone's depth sensor (LiDAR / ARCore) through WebXR augmented reality. Everything runs locally in the browser.",
+  "status": "live",
+  "url": "tools/lidar-ruler/index.html",
+  "icon": "device",
+  "tags": ["phone", "applications", "visualisations"],
+  "note": "Needs a WebXR-capable AR browser: Chrome on Android works out of the box; on iPhone use a WebXR viewer app (Safari doesn't yet expose LiDAR to web pages)."
+}

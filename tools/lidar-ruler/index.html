@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0c10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LiDAR Ruler — AR Distance Markers</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230b0c10'/><circle cx='50' cy='50' r='30' fill='none' stroke='%23ff453a' stroke-width='6'/><circle cx='50' cy='50' r='14' fill='none' stroke='%23ffffff' stroke-width='5'/><circle cx='50' cy='50' r='4' fill='%23ffffff'/></svg>">
+<style>
+  :root{
+    --bg:#0b0c10;
+    --panel:rgba(22,23,29,.72);
+    --panel-border:rgba(255,255,255,.10);
+    --ink:#f4f4f6;
+    --muted:#9a9aa4;
+    --accent:#ff453a;
+    --m1:#ff453a; --m2:#ffd60a; --m3:#0a84ff;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden}
+  body{
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
+    touch-action:manipulation;
+  }
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0}
+
+  /* ================= Landing ================= */
+  #landing{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;align-items:center;
+    gap:0; padding:max(24px, env(safe-area-inset-top)) 26px max(28px, env(safe-area-inset-bottom));
+    background:
+      radial-gradient(120% 65% at 50% -12%, rgba(255,69,58,.20), transparent 60%),
+      radial-gradient(90% 55% at 85% 108%, rgba(10,132,255,.16), transparent 60%),
+      var(--bg);
+    text-align:center;
+    overflow:auto;
+  }
+  /* centres the stack when it fits the screen, top-aligns + scrolls when it doesn't */
+  #landing::before,#landing::after{content:"";flex:1 0 0;min-height:10px}
+  .radar{
+    position:relative;width:132px;height:132px;margin-bottom:26px;flex:none;
+  }
+  .radar .ring{
+    position:absolute;inset:0;border-radius:50%;
+    border:2px solid rgba(255,69,58,.85);
+    animation:ping 2.6s cubic-bezier(.2,.6,.3,1) infinite;
+    opacity:0;
+  }
+  .radar .ring:nth-child(2){animation-delay:.85s}
+  .radar .ring:nth-child(3){animation-delay:1.7s}
+  @keyframes ping{
+    0%{transform:scale(.30);opacity:0}
+    12%{opacity:.9}
+    100%{transform:scale(1.15);opacity:0}
+  }
+  .radar .core{
+    position:absolute;inset:0;display:grid;place-items:center;
+  }
+  .radar .core svg{width:58px;height:58px}
+  #landing h1{
+    margin:0 0 8px;font-size:30px;font-weight:800;letter-spacing:-.5px;
+  }
+  #landing h1 span{color:var(--accent)}
+  #landing .sub{
+    margin:0 auto 30px;max-width:34ch;color:var(--muted);font-size:15.5px;
+  }
+  .steps{
+    display:flex;gap:10px;margin:0 0 32px;width:100%;max-width:420px;
+  }
+  .step{
+    flex:1;background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:14px;padding:12px 8px 11px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  }
+  .step .n{
+    display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;
+    background:rgba(255,255,255,.10);font-size:12px;font-weight:700;margin-bottom:6px;
+  }
+  .step p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.35}
+  .step p b{color:var(--ink);font-weight:600}
+  #startBtn{
+    display:inline-flex;align-items:center;gap:10px;
+    background:var(--accent);color:#fff;
+    font-size:17px;font-weight:700;letter-spacing:-.2px;
+    padding:15px 34px;border-radius:999px;
+    box-shadow:0 10px 30px rgba(255,69,58,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    transition:transform .12s ease, box-shadow .2s ease;
+  }
+  #startBtn:active{transform:scale(.96)}
+  #startBtn svg{width:20px;height:20px}
+  #startBtn[disabled]{opacity:.45;box-shadow:none;cursor:default}
+  #supportLine{
+    margin-top:16px;font-size:12.5px;color:var(--muted);min-height:18px;max-width:40ch;
+  }
+  #supportLine.bad{color:#ffb0aa}
+  .privacy{
+    margin-top:22px;font-size:11.5px;color:rgba(154,154,164,.75);max-width:42ch;
+  }
+  .backlink{
+    margin-top:10px;font-size:12px;
+  }
+  .backlink a{color:var(--muted);text-decoration:none;border-bottom:1px solid rgba(154,154,164,.4)}
+
+  /* ================= AR overlay (dom-overlay root) ================= */
+  #overlay{
+    position:fixed;inset:0;z-index:5;display:none;
+    pointer-events:none;
+    font:inherit;color:var(--ink);
+  }
+  #overlay.active{display:block}
+  .topbar{
+    position:absolute;top:calc(10px + env(safe-area-inset-top));left:0;right:0;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;pointer-events:none;
+  }
+  .brandpill{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--panel);border:1px solid var(--panel-border);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    padding:8px 14px;border-radius:999px;
+    font-size:13.5px;font-weight:700;letter-spacing:-.1px;
+  }
+  .brandpill .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px var(--accent)}
+  #exitBtn{
+    pointer-events:auto;
+    width:40px;height:40px;border-radius:50%;
+    background:var(--panel);border:1px solid var(--panel-border);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    display:grid;place-items:center;font-size:17px;line-height:1;color:var(--ink);
+  }
+  #hint{
+    position:absolute;left:50%;bottom:calc(126px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--panel-border);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    padding:9px 18px;border-radius:999px;
+    font-size:13.5px;color:var(--ink);white-space:nowrap;
+    transition:opacity .35s ease;
+  }
+  #hint.hidden{opacity:0}
+  .bottombar{
+    position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    pointer-events:none;
+  }
+  #readout{
+    display:flex;gap:8px;min-height:34px;align-items:center;
+  }
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--panel);border:1px solid var(--panel-border);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    padding:7px 13px;border-radius:999px;
+    font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;
+    animation:chipIn .25s ease;
+  }
+  @keyframes chipIn{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .chip .cdot{width:9px;height:9px;border-radius:50%}
+  .controls{
+    display:flex;align-items:center;gap:10px;pointer-events:auto;
+  }
+  .ctl{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--panel);border:1px solid var(--panel-border);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    padding:11px 18px;border-radius:999px;
+    font-size:14px;font-weight:600;color:var(--ink);
+    transition:transform .1s ease, opacity .2s ease;
+  }
+  .ctl:active{transform:scale(.94)}
+  .ctl[disabled]{opacity:.35}
+  .ctl svg{width:16px;height:16px}
+  #unitBtn{min-width:64px;justify-content:center;font-weight:700}
+
+  /* ================= Unsupported card ================= */
+  #nosupport{
+    display:none;margin-top:26px;max-width:420px;text-align:left;
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:var(--radius);padding:16px 18px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  }
+  #nosupport.show{display:block}
+  #nosupport h2{margin:0 0 6px;font-size:15px}
+  #nosupport p{margin:0 0 8px;font-size:13px;color:var(--muted);line-height:1.5}
+  #nosupport p:last-child{margin:0}
+  #nosupport b{color:var(--ink);font-weight:600}
+
+  canvas.xr{position:fixed;inset:0;z-index:1}
+</style>
+</head>
+<body>
+
+  <!-- ============ Landing / start screen ============ -->
+  <div id="landing">
+    <div class="radar" aria-hidden="true">
+      <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+      <div class="core">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)"/>
+          <circle cx="12" cy="12" r="4.5"/>
+          <circle cx="12" cy="12" r="1.1" fill="#fff" stroke="none"/>
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="rgba(255,255,255,.55)"/>
+        </svg>
+      </div>
+    </div>
+    <h1>LiDAR <span>Ruler</span></h1>
+    <p class="sub">Point your phone, tap up to three objects, and read their distances live in the camera view — measured with the depth sensor through augmented reality.</p>
+
+    <div class="steps" aria-hidden="true">
+      <div class="step"><span class="n">1</span><p><b>Scan</b> — sweep the phone so it finds surfaces</p></div>
+      <div class="step"><span class="n">2</span><p><b>Tap</b> — drop a marker on each object (up to 3)</p></div>
+      <div class="step"><span class="n">3</span><p><b>Read</b> — distances update live as you move</p></div>
+    </div>
+
+    <button id="startBtn" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+        <circle cx="12" cy="12" r="3.2"/>
+      </svg>
+      Start measuring
+    </button>
+    <p id="supportLine">Checking augmented-reality support…</p>
+
+    <div id="nosupport">
+      <h2>This browser can't reach the depth sensor</h2>
+      <p>The app needs <b>WebXR augmented reality</b>, which lets a web page use the phone's AR system (LiDAR / depth sensing) without installing anything.</p>
+      <p><b>Android:</b> open this page in <b>Chrome</b> on an ARCore-capable phone.</p>
+      <p><b>iPhone / iPad:</b> Safari doesn't yet expose LiDAR to web pages — open this page in a WebXR-enabled browser app (e.g. “WebXR Viewer”), or try it on an Android device.</p>
+    </div>
+
+    <p class="privacy">Everything runs on the device — the camera image and depth data never leave your phone.</p>
+    <p class="backlink"><a href="../../index.html">← DEX · Digital Experiments &amp; Tools</a></p>
+  </div>
+
+  <!-- ============ AR HUD (dom-overlay) ============ -->
+  <div id="overlay">
+    <div class="topbar">
+      <span class="brandpill"><span class="dot"></span> LiDAR Ruler</span>
+      <button id="exitBtn" aria-label="Exit AR">✕</button>
+    </div>
+    <div id="hint">Move your phone slowly to find a surface</div>
+    <div class="bottombar">
+      <div id="readout"></div>
+      <div class="controls">
+        <button class="ctl" id="undoBtn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+          Undo
+        </button>
+        <button class="ctl" id="clearBtn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          Clear
+        </button>
+        <button class="ctl" id="unitBtn">m</button>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var MAX_MARKERS = 3;
+  var COLORS = [0xff453a, 0xffd60a, 0x0a84ff];
+  var COLORS_CSS = ["#ff453a", "#ffd60a", "#0a84ff"];
+
+  var landing = document.getElementById("landing");
+  var overlay = document.getElementById("overlay");
+  var startBtn = document.getElementById("startBtn");
+  var supportLine = document.getElementById("supportLine");
+  var nosupport = document.getElementById("nosupport");
+  var hint = document.getElementById("hint");
+  var readout = document.getElementById("readout");
+  var undoBtn = document.getElementById("undoBtn");
+  var clearBtn = document.getElementById("clearBtn");
+  var unitBtn = document.getElementById("unitBtn");
+  var exitBtn = document.getElementById("exitBtn");
+
+  var renderer = null, scene = null, camera = null;
+  var session = null, refSpace = null, viewerSpace = null, hitTestSource = null;
+  var reticle = null;
+  var markers = [];               // {group, sprite, ctx, tex, canvas, lastText, color, css}
+  var unit = "m";                 // "m" | "ft"
+  var surfaceFound = false;
+  var lastLabelUpdate = 0;
+  var tmpVecCam = null, tmpVecMark = null;
+
+  /* ---------- support check ---------- */
+  if (!("xr" in navigator)) {
+    supportLine.textContent = "WebXR is not available in this browser.";
+    supportLine.className = "bad";
+    nosupport.classList.add("show");
+  } else {
+    navigator.xr.isSessionSupported("immersive-ar").then(function (ok) {
+      if (ok) {
+        supportLine.textContent = "Augmented reality is ready on this device.";
+        startBtn.disabled = false;
+      } else {
+        supportLine.textContent = "Augmented reality (WebXR) isn't supported here.";
+        supportLine.className = "bad";
+        nosupport.classList.add("show");
+      }
+    }).catch(function () {
+      supportLine.textContent = "Couldn't query WebXR support.";
+      supportLine.className = "bad";
+      nosupport.classList.add("show");
+    });
+  }
+
+  /* ---------- units + formatting ---------- */
+  function formatDistance(d) {
+    if (unit === "m") {
+      if (d < 1) return (d * 100).toFixed(1) + " cm";
+      return d.toFixed(2) + " m";
+    }
+    var totalFt = d * 3.28084;
+    var ft = Math.floor(totalFt);
+    var inch = (totalFt - ft) * 12;
+    if (ft === 0) return inch.toFixed(1) + "″";
+    return ft + "′ " + inch.toFixed(0) + "″";
+  }
+
+  /* ---------- three.js scaffolding ---------- */
+  function initThree() {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 40);
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.xr.enabled = true;
+    renderer.domElement.className = "xr";
+    document.body.appendChild(renderer.domElement);
+
+    var hemi = new THREE.HemisphereLight(0xffffff, 0x666677, 1.0);
+    scene.add(hemi);
+
+    // Reticle: outer ring + crosshair dot, laid flat, oriented by the hit pose.
+    reticle = new THREE.Group();
+    reticle.matrixAutoUpdate = false;
+    reticle.visible = false;
+    var ringGeo = new THREE.RingGeometry(0.045, 0.055, 40);
+    ringGeo.rotateX(-Math.PI / 2);
+    reticle.add(new THREE.Mesh(ringGeo,
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })));
+    var innGeo = new THREE.RingGeometry(0.012, 0.017, 24);
+    innGeo.rotateX(-Math.PI / 2);
+    reticle.add(new THREE.Mesh(innGeo,
+      new THREE.MeshBasicMaterial({ color: 0xff453a, transparent: true, opacity: 0.95 })));
+    scene.add(reticle);
+
+    tmpVecCam = new THREE.Vector3();
+    tmpVecMark = new THREE.Vector3();
+  }
+
+  /* ---------- marker label sprite (canvas texture) ---------- */
+  function makeLabel(css) {
+    var canvas = document.createElement("canvas");
+    canvas.width = 512; canvas.height = 160;
+    var ctx = canvas.getContext("2d");
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    var sprite = new THREE.Sprite(mat);
+    sprite.center.set(0.5, 0);
+    sprite.renderOrder = 10;
+    return { sprite: sprite, ctx: ctx, tex: tex, canvas: canvas, css: css };
+  }
+
+  function drawLabel(l, text) {
+    var ctx = l.ctx, W = l.canvas.width, H = l.canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = "700 64px -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    var textW = ctx.measureText(text).width;
+    var dotR = 16, padX = 34, gap = 22;
+    var w = Math.min(W, padX * 2 + dotR * 2 + gap + textW);
+    var x0 = (W - w) / 2, r = H / 2 - 8;
+    // pill
+    ctx.beginPath();
+    ctx.moveTo(x0 + r, 8);
+    ctx.arcTo(x0 + w, 8, x0 + w, H - 8, r);
+    ctx.arcTo(x0 + w, H - 8, x0, H - 8, r);
+    ctx.arcTo(x0, H - 8, x0, 8, r);
+    ctx.arcTo(x0, 8, x0 + w, 8, r);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(16,17,22,.82)";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,255,255,.25)";
+    ctx.stroke();
+    // colour dot
+    ctx.beginPath();
+    ctx.arc(x0 + padX + dotR, H / 2, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = l.css;
+    ctx.fill();
+    // text
+    ctx.fillStyle = "#fff";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x0 + padX + dotR * 2 + gap, H / 2 + 4);
+    l.tex.needsUpdate = true;
+  }
+
+  function makeMarker(position, quaternion, idx) {
+    var color = COLORS[idx], css = COLORS_CSS[idx];
+    var group = new THREE.Group();
+    group.position.copy(position);
+
+    // surface ring, oriented like the hit pose
+    var ringGeo = new THREE.RingGeometry(0.028, 0.036, 36);
+    ringGeo.rotateX(-Math.PI / 2);
+    var ring = new THREE.Mesh(ringGeo,
+      new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+    ring.quaternion.copy(quaternion);
+    group.add(ring);
+
+    // centre bead
+    var bead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.011, 20, 14),
+      new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.55, roughness: 0.35 }));
+    group.add(bead);
+
+    // leader line up to the label
+    var lift = 0.07;
+    var lineGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.012, 0), new THREE.Vector3(0, lift, 0)
+    ]);
+    group.add(new THREE.Line(lineGeo,
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })));
+
+    var label = makeLabel(css);
+    label.sprite.position.set(0, lift, 0);
+    group.add(label.sprite);
+
+    scene.add(group);
+    return {
+      group: group, sprite: label.sprite, ctx: label.ctx, tex: label.tex,
+      canvas: label.canvas, css: css, lastText: "", label: label
+    };
+  }
+
+  function disposeMarker(m) {
+    scene.remove(m.group);
+    m.group.traverse(function (o) {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      }
+    });
+  }
+
+  /* ---------- HUD ---------- */
+  function setHint(text) {
+    if (text) { hint.textContent = text; hint.classList.remove("hidden"); }
+    else hint.classList.add("hidden");
+  }
+
+  function refreshHUD() {
+    var n = markers.length;
+    undoBtn.disabled = n === 0;
+    clearBtn.disabled = n === 0;
+    readout.innerHTML = "";
+    markers.forEach(function (m, i) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = '<span class="cdot" style="background:' + m.css + '"></span><span data-d="' + i + '">—</span>';
+      readout.appendChild(chip);
+    });
+    if (!surfaceFound) setHint("Move your phone slowly to find a surface");
+    else if (n >= MAX_MARKERS) setHint("All three markers placed");
+    else setHint("Tap to mark an object · " + (MAX_MARKERS - n) + " left");
+    if (n >= MAX_MARKERS) setTimeout(function () { if (markers.length >= MAX_MARKERS) setHint(null); }, 2200);
+  }
+
+  function updateDistances(now) {
+    if (!markers.length) return;
+    tmpVecCam.setFromMatrixPosition(camera.matrixWorld);
+    var throttle = now - lastLabelUpdate > 120;
+    var chips = readout.querySelectorAll("[data-d]");
+    markers.forEach(function (m, i) {
+      tmpVecMark.setFromMatrixPosition(m.group.matrixWorld);
+      var d = tmpVecCam.distanceTo(tmpVecMark);
+      // keep the label a readable, roughly constant apparent size
+      var h = Math.min(0.6, Math.max(0.045, d * 0.055));
+      m.sprite.scale.set(h * 3.2, h, 1);
+      if (throttle) {
+        var text = formatDistance(d);
+        if (text !== m.lastText) { m.lastText = text; drawLabel(m.label, text); }
+        if (chips[i]) chips[i].textContent = text;
+      }
+    });
+    if (throttle) lastLabelUpdate = now;
+  }
+
+  /* ---------- AR session ---------- */
+  function startAR() {
+    if (typeof THREE === "undefined") {
+      supportLine.textContent = "Couldn't load the 3D library — check your connection and reload.";
+      supportLine.className = "bad";
+      return;
+    }
+    if (!renderer) initThree();
+    startBtn.disabled = true;
+    navigator.xr.requestSession("immersive-ar", {
+      requiredFeatures: ["hit-test"],
+      optionalFeatures: ["dom-overlay"],
+      domOverlay: { root: overlay }
+    }).then(onSessionStarted, function (err) {
+      startBtn.disabled = false;
+      supportLine.textContent = "Couldn't start AR: " + (err && err.message ? err.message : err);
+      supportLine.className = "bad";
+    });
+  }
+
+  function onSessionStarted(s) {
+    session = s;
+    landing.style.display = "none";
+    overlay.classList.add("active");
+    surfaceFound = false;
+    refreshHUD();
+
+    session.addEventListener("select", onSelect);
+    session.addEventListener("end", onSessionEnded);
+
+    renderer.xr.setReferenceSpaceType("local");
+    renderer.xr.setSession(session);
+
+    session.requestReferenceSpace("viewer").then(function (vs) {
+      viewerSpace = vs;
+      return session.requestHitTestSource({ space: viewerSpace });
+    }).then(function (src) { hitTestSource = src; });
+    session.requestReferenceSpace("local").then(function (rs) { refSpace = rs; });
+
+    renderer.setAnimationLoop(onXRFrame);
+  }
+
+  function onSessionEnded() {
+    renderer.setAnimationLoop(null);
+    if (hitTestSource) { hitTestSource.cancel && hitTestSource.cancel(); hitTestSource = null; }
+    refSpace = null; viewerSpace = null; session = null;
+    markers.forEach(disposeMarker);
+    markers = [];
+    reticle.visible = false;
+    overlay.classList.remove("active");
+    landing.style.display = "flex";
+    startBtn.disabled = false;
+  }
+
+  function onSelect() {
+    if (!reticle.visible || markers.length >= MAX_MARKERS) return;
+    var pos = new THREE.Vector3(), quat = new THREE.Quaternion(), scl = new THREE.Vector3();
+    reticle.matrix.decompose(pos, quat, scl);
+    markers.push(makeMarker(pos, quat, markers.length));
+    refreshHUD();
+  }
+
+  function onXRFrame(time, frame) {
+    if (!frame || !refSpace) { renderer.render(scene, camera); return; }
+    if (hitTestSource && markers.length < MAX_MARKERS) {
+      var hits = frame.getHitTestResults(hitTestSource);
+      if (hits.length) {
+        var pose = hits[0].getPose(refSpace);
+        if (pose) {
+          reticle.visible = true;
+          reticle.matrix.fromArray(pose.transform.matrix);
+          if (!surfaceFound) { surfaceFound = true; refreshHUD(); }
+        }
+      } else {
+        reticle.visible = false;
+      }
+    } else {
+      reticle.visible = false;
+    }
+    updateDistances(time);
+    renderer.render(scene, camera);
+  }
+
+  /* ---------- controls ---------- */
+  // Keep taps on HUD controls from also firing the AR 'select' (place-marker) event.
+  ["beforexrselect"].forEach(function (ev) {
+    overlay.addEventListener(ev, function (e) {
+      if (e.target.closest && e.target.closest(".ctl, #exitBtn")) e.preventDefault();
+    });
+  });
+
+  startBtn.addEventListener("click", startAR);
+  exitBtn.addEventListener("click", function () { if (session) session.end(); });
+  undoBtn.addEventListener("click", function () {
+    var m = markers.pop();
+    if (m) disposeMarker(m);
+    refreshHUD();
+  });
+  clearBtn.addEventListener("click", function () {
+    markers.forEach(disposeMarker);
+    markers = [];
+    refreshHUD();
+  });
+  unitBtn.addEventListener("click", function () {
+    unit = unit === "m" ? "ft" : "m";
+    unitBtn.textContent = unit;
+    lastLabelUpdate = 0;
+  });
+
+  window.addEventListener("resize", function () {
+    if (!renderer || renderer.xr.isPresenting) return;
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+})();
+</script>
+</body>
+</html>
