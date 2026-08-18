@@ -1,9 +1,0 @@
-{
-  "slug": "sleep-noise",
-  "name": "Sleep Noise (for phone)",
-  "description": "Brown, green, pink and white noise for sleeping. Sleep timer set in hours or as a stop-at time, slow fade-in and fade-out, tone control, ocean swell and a blackout screen. The sound is synthesised in the browser — nothing is streamed.",
-  "status": "live",
-  "url": "tools/sleep-noise/index.html",
-  "icon": "moon",
-  "tags": ["phone", "applications"]
-}
