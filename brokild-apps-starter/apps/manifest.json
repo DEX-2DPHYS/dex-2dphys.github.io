@@ -37,6 +37,7 @@
     }
   ],
   "apps": [
+    "sleep-noise",
     "example-app"
   ]
 }

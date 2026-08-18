@@ -1,0 +1,14 @@
+{
+  "name": "Sleep Noise",
+  "short_name": "Sleep Noise",
+  "description": "Brown and green noise for sleeping, with a sleep timer and a blackout screen.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06070a",
+  "theme_color": "#06070a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
