@@ -187,7 +187,8 @@
     border-radius:11px;padding:12px 20px;font:inherit;font-size:13px;cursor:pointer;
   }
   #dimHint{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 10px);left:0;right:0;text-align:center;
-           font-size:10.5px;color:#1e1c19;letter-spacing:.08em}
+           font-size:10.5px;color:#1e1c19;letter-spacing:.08em;transition:color .35s ease}
+  #dim.awake #dimHint{color:#3c342b}
 
   @media (max-height:640px){ .dial{width:140px;height:140px} #playBtn svg{width:38px;height:38px} .remain{font-size:24px} }
 </style>
@@ -302,10 +303,17 @@
       </div>
       <div class="toggle">
         <div>
-          <div class="t">Keep screen awake</div>
-          <div class="h">Stops the phone from sleeping, which some browsers need to keep audio alive. Uses more battery — pair it with the blackout screen.</div>
+          <div class="t">Keep the phone awake</div>
+          <div class="h">Some browsers cut the sound when the phone falls asleep. This holds it awake so the night is never interrupted — the blackout screen keeps the display dark while it does. Turn off to save battery.</div>
         </div>
-        <button class="sw" id="wakeSw" aria-pressed="false" aria-label="Keep screen awake"></button>
+        <button class="sw" id="wakeSw" aria-pressed="true" aria-label="Keep the phone awake"></button>
+      </div>
+      <div class="toggle">
+        <div>
+          <div class="t">Blackout on its own</div>
+          <div class="h">Takes over the whole screen when you press play, then slips into the blackout screen after a minute without a tap — so no browser bars are left glowing.</div>
+        </div>
+        <button class="sw" id="autoDimSw" aria-pressed="true" aria-label="Automatic blackout"></button>
       </div>
     </div>
   </details>
@@ -453,7 +461,7 @@
     mode: "for", durationMin: 480, untilTime: "07:00",
     fadeInSec: 30, fadeOutMin: 5,
     waves: false, waveDepth: 30, wavePeriod: 16,
-    bgPlayback: true, keepAwake: false
+    bgPlayback: true, keepAwake: true, autoDim: true
   };
   var KEY = "dex-sleep-noise";
   var S = Object.assign({}, DEFAULTS);
@@ -651,6 +659,7 @@
     checkOutput();
     if (S.keepAwake) requestWake();
     mediaSession();
+    armAutoDim();
     updateUI();
   }
 
@@ -662,6 +671,7 @@
     src = null;
     if (s) s.onended = null;
     stopSource(0.4, s, g);
+    clearTimeout(autoDimTimer);
     releaseWake();
     if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused";
     updateUI();
@@ -672,6 +682,7 @@
     if (src) { src.onended = null; try { src.stop(); } catch (e) {} }
     src = null;
     remainingMs = 0;
+    clearTimeout(autoDimTimer);
     releaseWake();
     // Let go of the system media slot once the night's timer is really over.
     if (usingElement) { try { sink.pause(); } catch (e) {} }
@@ -909,6 +920,9 @@
     if (v && playing) requestWake(); else if (!v) releaseWake();
     if (v && !navigator.wakeLock) setStatus("This browser cannot keep the screen awake.", true);
   });
+  bindSwitch($("autoDimSw"), function () { return S.autoDim; }, function (v) {
+    S.autoDim = v; armAutoDim();
+  });
   $("wavePane").hidden = !S.waves;
 
   // Play / pause
@@ -918,6 +932,9 @@
     // counts as a user gesture; the heavy buffer build happens right after.
     try { initAudio(); if (ctx.state === "suspended") ctx.resume(); }
     catch (e) { setStatus("Audio could not start: " + e.message, true); return; }
+    // A later automatic blackout cannot ask for fullscreen — that needs a
+    // gesture — so take the screen now, while this tap still counts.
+    if (S.autoDim) tryFullscreen(document.documentElement);
     playBtn.classList.add("busy");
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
@@ -929,18 +946,71 @@
 
   /* ---- blackout screen ---- */
 
-  var dim = $("dim"), dimAwakeTimer = null;
+  var dim = $("dim"), dimAwakeTimer = null, autoDimTimer = null;
+
+  // Real fullscreen removes the browser's own bars, which are the only thing
+  // left glowing once the page itself is black. It needs a user gesture, so it
+  // is attempted from the button and again from any tap on the overlay.
+  function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  function fsSupported() {
+    var e = document.documentElement;
+    return !!(e.requestFullscreen || e.webkitRequestFullscreen);
+  }
+  function standalone() {
+    return window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  }
+  function tryFullscreen(el) {
+    if (fsElement()) return;
+    el = el || dim;
+    var r = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!r) return;
+    try { var p = r.call(el, { navigationUI: "hide" }); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+  }
+  function leaveFullscreen() {
+    if (!fsElement()) return;
+    var x = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!x) return;
+    try { var p = x.call(document); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+  }
+
   function showDim() {
+    clearTimeout(autoDimTimer);
     dim.classList.add("show");
+    tryFullscreen();
     wakeDim();
     if (S.keepAwake && playing) requestWake();
+    $("dimHint").textContent = (!fsSupported() && !standalone())
+      ? "add to home screen for a fully dark screen"
+      : "tap to wake";
   }
-  function hideDim() { dim.classList.remove("show", "awake"); clearTimeout(dimAwakeTimer); }
+  function hideDim() {
+    dim.classList.remove("show", "awake");
+    clearTimeout(dimAwakeTimer);
+    if (!(playing && S.autoDim)) leaveFullscreen();
+    armAutoDim();
+  }
   function wakeDim() {
+    tryFullscreen();
     dim.classList.add("awake");
     clearTimeout(dimAwakeTimer);
     dimAwakeTimer = setTimeout(function () { dim.classList.remove("awake"); }, 8000);
   }
+
+  // Left alone while playing, the app puts itself to black rather than lighting
+  // the room from the bedside table.
+  function armAutoDim() {
+    clearTimeout(autoDimTimer);
+    if (!S.autoDim || !playing || dim.classList.contains("show")) return;
+    autoDimTimer = setTimeout(function () {
+      if (playing && !dim.classList.contains("show")) showDim();
+    }, 60000);
+  }
+  ["pointerdown", "keydown", "wheel", "input"].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      if (!dim.classList.contains("show")) armAutoDim();
+    }, { passive: true });
+  });
   $("dimBtn").addEventListener("click", showDim);
   dim.addEventListener("click", wakeDim);
   $("dimExit").addEventListener("click", function (e) { e.stopPropagation(); hideDim(); });
