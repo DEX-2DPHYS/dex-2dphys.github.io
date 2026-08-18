@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#08090d">
 <meta name="color-scheme" content="dark">
-<meta name="description" content="Photo Synth turns two photos into a musical instrument: point at one photo and its colour becomes a tone, touch the other and its colour filters the sound. Works with the camera or the camera roll, on Android and iOS.">
+<meta name="description" content="Photo Synth turns two photos into a musical instrument: point at one photo and its colour becomes a tone, touch the other and its colour filters the sound. Virtual-analog oscillators and a ladder filter, an on-screen keyboard, MIDI import and 24-bit WAV export. Works with the camera or the camera roll, on Android and iOS.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -26,6 +26,7 @@
     --faint:#6a6776;
     --accent:#7fd4c1;
     --accent-2:#e0a3ff;
+    --rec:#ff6b6b;
     --accent-soft:rgba(127,212,193,.12);
     --radius:14px;
     --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px rgba(0,0,0,.5);
@@ -41,6 +42,7 @@
     -webkit-user-select:none;user-select:none;
   }
   ::selection{background:rgba(127,212,193,.25)}
+  [hidden]{display:none !important}
 
   header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 14px}
   h1{font-size:17px;font-weight:600;letter-spacing:.02em;margin:0}
@@ -52,7 +54,7 @@
   .transport{
     display:flex;align-items:center;gap:8px;flex-wrap:wrap;
     background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    padding:10px;margin:0 0 14px;box-shadow:var(--shadow);
+    padding:10px;margin:0 0 12px;box-shadow:var(--shadow);
   }
   .btn{
     appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);
@@ -60,12 +62,16 @@
     display:inline-flex;align-items:center;gap:6px;
   }
   .btn:active{background:#1c2030}
+  .btn:disabled{opacity:.4;cursor:default}
   .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   .btn.wide{flex:1 1 auto;justify-content:center}
   .btn.power[aria-pressed="true"]{border-color:var(--accent);color:#0a0c11;background:var(--accent);font-weight:600}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
   .btn.power[aria-pressed="true"] .dot{background:#0a0c11}
-  .vol{display:flex;align-items:center;gap:8px;flex:1 1 130px;min-width:120px}
+  .btn.rec[aria-pressed="true"]{border-color:var(--rec);color:#fff;background:rgba(255,107,107,.18)}
+  .btn.rec[aria-pressed="true"] .dot{background:var(--rec);animation:blink 1.1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .vol{display:flex;align-items:center;gap:8px;flex:1 1 120px;min-width:110px}
   .vol label{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
   input[type=range]{
     -webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;
@@ -86,17 +92,12 @@
   .padname b{color:var(--text);font-weight:600}
   .latch{font-size:11.5px;padding:6px 10px;border-radius:9px}
   .stage{position:relative;border-radius:11px;overflow:hidden;background:#000;border:1px solid var(--line-soft)}
-  canvas.pad-canvas{
-    display:block;width:100%;aspect-ratio:4/3;touch-action:none;
-  }
+  canvas.pad-canvas{display:block;width:100%;aspect-ratio:4/3;touch-action:none}
   .hint{
     position:absolute;inset:auto 8px 8px;text-align:center;font-size:11.5px;color:rgba(255,255,255,.72);
     text-shadow:0 1px 3px rgba(0,0,0,.9);pointer-events:none;
   }
-  .readout{
-    display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);
-    min-height:26px;
-  }
+  .readout{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);min-height:26px}
   .swatch{width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.22);flex:none;background:#222}
   .readout .vals{flex:1 1 auto;font-variant-numeric:tabular-nums;line-height:1.35}
   .readout .vals b{color:var(--text);font-weight:600}
@@ -105,12 +106,36 @@
   .padbtns .btn{flex:1 1 0;justify-content:center;font-size:12px;padding:8px 6px}
   input[type=file]{display:none}
 
+  /* ---------- keyboard ---------- */
+  /* The keyboard docks to the bottom of the screen so it stays reachable in
+     both orientations while the other hand works the photos. */
+  .kbdpanel{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    background:rgba(16,18,25,.97);
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    padding:8px 12px calc(env(safe-area-inset-bottom) + 8px);
+    box-shadow:0 -10px 30px rgba(0,0,0,.5);
+  }
+  .kbdinner{max-width:1000px;margin:0 auto}
+  .kbdbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .kbdbar .btn{font-size:12px;padding:7px 10px}
+  .kbdlabel{font-size:12px;color:var(--muted);letter-spacing:.06em;flex:1 1 auto;text-align:center}
+  .kbdlabel b{color:var(--text);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+  canvas#kbd{display:block;width:100%;height:clamp(92px,16vh,140px);touch-action:none;border-radius:9px;background:#0a0c12;border:1px solid var(--line-soft)}
+  .kbdnote{font-size:11px;color:var(--faint);margin-top:7px}
+  @media (max-height:640px){
+    .kbdnote{display:none}
+    canvas#kbd{height:clamp(70px,22vh,116px)}
+    .kbdbar{margin-bottom:6px}
+  }
+
   /* ---------- scope ---------- */
   .scope{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:12px;box-shadow:var(--shadow)}
   .scope canvas{display:block;width:100%;aspect-ratio:5/2;border-radius:9px;background:#0a0c12;border:1px solid var(--line-soft)}
   .scope .cap{font-size:11px;color:var(--faint);margin-top:7px;letter-spacing:.03em}
 
-  /* ---------- settings / about ---------- */
+  /* ---------- panels ---------- */
   details{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow)}
   summary{
     cursor:pointer;list-style:none;padding:12px 14px;font-size:12.5px;letter-spacing:.08em;
@@ -122,9 +147,12 @@
   .body{padding:0 14px 14px}
   .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft)}
   .row:first-child{border-top:none}
-  .row label{flex:0 0 116px;font-size:12.5px;color:var(--muted)}
-  .row .ctl{flex:1 1 auto;display:flex;align-items:center;gap:8px}
-  .row output{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;flex:none;min-width:46px;text-align:right}
+  .row label,.row .lab{flex:0 0 112px;font-size:12.5px;color:var(--muted)}
+  .row .ctl{flex:1 1 auto;display:flex;align-items:center;gap:8px;min-width:0}
+  .row output,.row .val{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;flex:none;min-width:52px;text-align:right}
+  .row .info{font-size:12px;color:var(--text);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .sep{border-top:1px solid var(--line);margin:10px 0 0}
+  .note{font-size:11.5px;color:var(--faint);padding:8px 0 0;line-height:1.45}
   select{
     appearance:none;width:100%;font:inherit;font-size:13px;color:var(--text);background:var(--panel-2);
     border:1px solid var(--line);border-radius:9px;padding:8px 28px 8px 10px;
@@ -149,9 +177,13 @@
     .pads{grid-template-columns:1fr 1fr}
     canvas.pad-canvas{aspect-ratio:1/1}
   }
-  @media (orientation:landscape) and (max-height:560px){
+  @media (orientation:landscape) and (max-height:620px){
+    header{margin-bottom:6px}
+    h1 span{display:none}
+    .transport{padding:8px;margin-bottom:8px}
     .pads{grid-template-columns:1fr 1fr}
-    canvas.pad-canvas{aspect-ratio:4/3}
+    canvas.pad-canvas{aspect-ratio:4/3;max-height:30vh}
+    .scope canvas{aspect-ratio:8/2}
   }
 </style>
 </head>
@@ -165,6 +197,8 @@
 <div class="transport">
   <button id="power" class="btn power" type="button" aria-pressed="false"><span class="dot"></span><span id="powerLabel">Sound off</span></button>
   <button id="panic" class="btn" type="button">Silence</button>
+  <button id="recBtn" class="btn rec" type="button" aria-pressed="false"><span class="dot"></span><span id="recLabel">Record</span></button>
+  <button id="keysBtn" class="btn" type="button" aria-pressed="false">Keys</button>
   <div class="vol">
     <label for="vol">Vol</label>
     <input id="vol" type="range" min="0" max="100" value="70" aria-label="Master volume">
@@ -217,6 +251,19 @@
   </div>
 </section>
 
+<section class="kbdpanel" id="kbdPanel" hidden>
+  <div class="kbdinner">
+    <div class="kbdbar">
+      <button class="btn" id="octDown" type="button">− oct</button>
+      <span class="kbdlabel">base <b id="baseLabel">C3</b></span>
+      <button class="btn" id="octUp" type="button">+ oct</button>
+      <button class="btn" id="holdBtn" type="button" aria-pressed="false">Hold</button>
+    </div>
+    <canvas id="kbd"></canvas>
+    <div class="kbdnote" id="kbdNote">The key sets the base note; the colour of photo 1 is the interval played above it.</div>
+  </div>
+</section>
+
 <div class="scope">
   <canvas id="scope"></canvas>
   <div class="cap" id="scopeCap">Harmonics of the tone (bars) shaped by the filter response (curve).</div>
@@ -225,6 +272,13 @@
 <details id="settings">
   <summary>Settings</summary>
   <div class="body">
+    <div class="row">
+      <label for="engine">Voice</label>
+      <div class="ctl"><select id="engine">
+        <option value="analog" selected>Analog — ladder filter</option>
+        <option value="additive">Additive — pure partials</option>
+      </select></div>
+    </div>
     <div class="row">
       <label for="law">Colour → pitch</label>
       <div class="ctl"><select id="law">
@@ -244,15 +298,8 @@
       </select></div>
     </div>
     <div class="row">
-      <label for="root">Lowest note</label>
-      <div class="ctl"><select id="root">
-        <option value="65.406">C2</option>
-        <option value="97.999">G2</option>
-        <option value="130.813" selected>C3</option>
-        <option value="164.814">E3</option>
-        <option value="195.998">G3</option>
-        <option value="261.626">C4</option>
-      </select></div>
+      <label for="root">Base note</label>
+      <div class="ctl"><select id="root"></select></div>
     </div>
     <div class="row">
       <label for="octaves">Range</label>
@@ -265,7 +312,22 @@
       <output id="glideOut">30 ms</output>
     </div>
     <div class="row">
-      <label for="fmode">Filter type</label>
+      <label for="drive">Drive</label>
+      <div class="ctl"><input id="drive" type="range" min="0" max="100" value="25"></div>
+      <output id="driveOut">25 %</output>
+    </div>
+    <div class="row">
+      <label for="attack">Attack</label>
+      <div class="ctl"><input id="attack" type="range" min="0" max="100" value="14"></div>
+      <output id="attackOut">12 ms</output>
+    </div>
+    <div class="row">
+      <label for="release">Release</label>
+      <div class="ctl"><input id="release" type="range" min="0" max="100" value="30"></div>
+      <output id="releaseOut">180 ms</output>
+    </div>
+    <div class="row">
+      <span class="lab">Filter type</span>
       <div class="ctl seg">
         <button class="btn" type="button" data-fmode="lowpass" aria-pressed="true">Low-pass</button>
         <button class="btn" type="button" data-fmode="bandpass" aria-pressed="false">Band-pass</button>
@@ -278,11 +340,60 @@
       <output id="spaceOut">18 %</output>
     </div>
     <div class="row">
-      <label>Photos</label>
+      <span class="lab">Photos</span>
+      <div class="ctl seg"><button class="btn" id="swap" type="button">Swap photos</button></div>
+    </div>
+    <div class="note" id="engineNote"></div>
+  </div>
+</details>
+
+<details id="midiPanel">
+  <summary>MIDI &amp; audio export</summary>
+  <div class="body">
+    <div class="row">
+      <span class="lab">MIDI file</span>
       <div class="ctl seg">
-        <button class="btn" id="swap" type="button">Swap photos</button>
+        <button class="btn" id="pickMidi" type="button">Choose .mid</button>
+        <button class="btn" id="midiDemo" type="button">Demo tune</button>
       </div>
     </div>
+    <div class="row">
+      <span class="lab">Loaded</span>
+      <span class="info" id="midiInfo">nothing loaded</span>
+    </div>
+    <div class="row">
+      <label for="rate">Tempo</label>
+      <div class="ctl"><input id="rate" type="range" min="25" max="400" value="100"></div>
+      <output id="rateOut">1.00×</output>
+    </div>
+    <div class="row">
+      <span class="lab">Playback</span>
+      <div class="ctl seg">
+        <button class="btn" id="midiPlay" type="button" disabled>Play</button>
+        <button class="btn" id="midiLoop" type="button" aria-pressed="false">Loop</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="lab">Export</span>
+      <div class="ctl seg">
+        <button class="btn" id="midiRender" type="button" disabled>Render MIDI → WAV</button>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="row">
+      <span class="lab">Recording</span>
+      <div class="ctl seg">
+        <button class="btn" id="recBtn2" type="button">Record</button>
+        <button class="btn" id="recSave" type="button" disabled>Save WAV</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="lab">Status</span>
+      <span class="info" id="recInfo">idle</span>
+    </div>
+    <div class="note">Recording captures everything you hear, including the MIDI playback, at the full
+      output rate. Both exports are written as 24-bit WAV — no lossy codec in between.</div>
+    <input type="file" id="file-midi" accept=".mid,.midi,audio/midi,audio/x-midi">
   </div>
 </details>
 
@@ -297,18 +408,29 @@
       sounding; on the filter pad the filter setting is held. Tap again to move the cursor, or turn
       latch off to release.</p>
 
+    <h3>The voice</h3>
+    <p>The default <b>analog</b> engine is a virtual-analog monosynth running in an audio worklet:
+      two band-limited (PolyBLEP) oscillators morph from sine through triangle to saw and pulse,
+      drift a few cents apart the way two analogue oscillators never quite agree, and feed a
+      zero-delay-feedback Moog ladder filter with a saturating core. Oscillators and filter run at
+      twice the output rate and are filtered back down, so the waveshaping and the resonance stay
+      clean instead of folding aliases back into the tone.</p>
+    <p>The <b>additive</b> engine is the alternative: ten pure sine partials and a biquad filter.
+      Cleaner and glassier, and the fallback on browsers without audio worklets.</p>
+
     <h3>Colour → tone (photo 1)</h3>
     <ul>
       <li><b>Hue → pitch.</b> With the default <i>spectral</i> law the hue is read as a wavelength
-        (red ≈ 700 nm through to violet ≈ 380 nm) and the pitch follows the photon energy
-        <code>E = hc/λ</code>: <code>semitones ∝ log(700 nm / λ)</code>. Red is the lowest note,
-        violet the highest, and the whole visible band is stretched over the range you choose.</li>
-      <li><b>Saturation → harmonic richness.</b> Partial <i>n</i> starts at <code>n<sup>−p</sup></code>
-        with <code>p = 3.4 − 2.6·S</code>: a washed-out grey is nearly a pure sine, a vivid colour
-        is a full harmonic stack (ten partials).</li>
-      <li><b>Warm vs cool → odd/even balance.</b> Reds thin out the even harmonics for a hollow,
-        clarinet-like tone; blues keep the complete series and sound brighter.</li>
-      <li><b>Green → a formant bump</b> on the third to fifth partial, which adds a vocal edge.</li>
+        (red ≈ 700 nm through to violet ≈ 380 nm) and the interval follows the photon energy
+        <code>E = hc/λ</code>: <code>semitones ∝ log(700 nm / λ)</code>. Red plays the base note,
+        violet the top of the range you choose.</li>
+      <li><b>Saturation → waveform.</b> A washed-out grey is close to a pure sine; as the colour
+        saturates the wave morphs through triangle to a full saw or pulse.</li>
+      <li><b>Warm vs cool → odd/even balance.</b> Reds fold in a square wave, which has only odd
+        harmonics and sounds hollow and clarinet-like; blues stay on the saw and keep the complete
+        harmonic series.</li>
+      <li><b>Green → detune and a formant bump</b> on the third to fifth partial: more green, more
+        beating between the two oscillators and more vocal edge.</li>
       <li><b>Value → loudness.</b> Dark corners of the photo are quiet, highlights are loud.</li>
     </ul>
 
@@ -316,12 +438,30 @@
     <ul>
       <li><b>Value → cut-off</b>, from 80 Hz in the shadows to 14 kHz in the highlights, so a dark
         patch mutes the tone and a bright one opens it up.</li>
-      <li><b>Saturation → resonance (Q)</b>, from a gentle 0.6 to a whistling 15.</li>
+      <li><b>Saturation → resonance</b>, from nothing to the edge of self-oscillation.</li>
       <li><b>Hue → a resonant peak</b> swept from 180 Hz to 6 kHz by the same wavelength law, with
         its height set by saturation. Grey pixels leave the sound uncoloured.</li>
     </ul>
     <p>The strip above the settings draws it: the bars are the harmonics of the current tone, the
       curve is the filter your second finger is describing, and the solid bars are what survives.</p>
+
+    <h3>Keyboard and MIDI</h3>
+    <p><b>Keys</b> opens a keyboard that sets the <b>base note</b> — the note a pure red pixel
+      plays. Everything the photo does is an interval above it, so the same photo can be played in
+      any key. It follows the screen: fewer, wider keys in portrait, more of them in landscape, with
+      the octave buttons to move. <b>Hold</b> keeps the last key down. On a computer the rows
+      <code>zsxdcvgbhnjm</code> and <code>q2w3er5t6y7u</code> play the two octaves from the leftmost
+      key.</p>
+    <p>A <b>MIDI file</b> plays the base note for you: import a <code>.mid</code> and its melody
+      drives the transposition while the photos keep shaping the sound. The tempo comes from the
+      file itself and the slider scales it from a quarter speed to four times. Overlapping notes are
+      reduced to the highest one, since the voice is monophonic.</p>
+
+    <h3>Recording and export</h3>
+    <p><b>Record</b> captures the live output — playing, MIDI, filter sweeps and all — and
+      <b>Save WAV</b> writes it out as 24-bit stereo at the output sample rate. <b>Render MIDI →
+      WAV</b> instead renders the loaded file offline, faster than real time and sample-accurate,
+      using the colours currently under the two cursors.</p>
 
     <h3>Photos</h3>
     <p><b>Camera</b> opens the camera, <b>Photos</b> opens the camera roll (on iOS both live behind
@@ -335,17 +475,17 @@
 </details>
 
 <footer>DEX · 2DPHYS, DTU — <a href="../../index.html">all tools</a></footer>
-
 <script>
 (function () {
   "use strict";
 
-  /* ------------------------------------------------------------------ *
-   * Small helpers
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   * Helpers
+   * ================================================================== */
   var $ = function (id) { return document.getElementById(id); };
   var clamp = function (x, a, b) { return x < a ? a : (x > b ? b : x); };
   var NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  var MODE_IDX = { lowpass: 0, bandpass: 1, highpass: 2 };
 
   function rgb2hsv(r, g, b) {           // r,g,b in 0..1
     var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0;
@@ -366,13 +506,13 @@
   }
   function wavelengthOf(h) { return 700 - 320 * (h / 360); }
 
+  function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  function midiName(m) { return NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); }
   function noteLabel(f) {
     var n = 12 * Math.log(f / 440) / Math.LN2;
     var k = Math.round(n);
     var cents = Math.round((n - k) * 100);
-    var idx = ((k + 9) % 12 + 12) % 12;
-    var oct = 4 + Math.floor((k + 9) / 12);
-    return NOTE_NAMES[idx] + oct + (cents === 0 ? "" : (cents > 0 ? " +" : " −") + Math.abs(cents) + "¢");
+    return midiName(k + 69) + (cents === 0 ? "" : (cents > 0 ? " +" : " −") + Math.abs(cents) + "¢");
   }
 
   var SCALES = {
@@ -392,147 +532,62 @@
     return oct * 12 + best;
   }
 
-  /* ------------------------------------------------------------------ *
-   * Settings state
-   * ------------------------------------------------------------------ */
+  /* ================================================================== *
+   * Settings
+   * ================================================================== */
   var S = {
+    engine: "analog",
     law: "spectral",
     scale: "free",
-    root: 130.813,
+    baseMidi: 48,          // C3
     octaves: 3,
     glide: 0.030,
+    drive: 0.25,
+    attack: 0.012,
+    release: 0.180,
     fmode: "lowpass",
     space: 0.18,
     vol: 0.70
   };
+  function baseFreq() { return mtof(S.baseMidi); }
 
-  var NPART = 10;                       // partials in the additive voice
+  var NPART = 10;          // partials in the additive voice
+  var WORKLET_URL = "synth-worklet.js";
 
-  /* ------------------------------------------------------------------ *
-   * Audio engine
-   * ------------------------------------------------------------------ */
-  var A = null;                         // audio graph, built on first gesture
-  var audioOn = false;
-
-  function buildAudio() {
-    var Ctor = window.AudioContext || window.webkitAudioContext;
-    if (!Ctor) return null;
-    var ctx = new Ctor();
-    var g = {};
-    g.ctx = ctx;
-
-    g.master = ctx.createGain();
-    g.master.gain.value = S.vol;
-
-    g.comp = ctx.createDynamicsCompressor();
-    g.comp.threshold.value = -12;
-    g.comp.knee.value = 12;
-    g.comp.ratio.value = 6;
-    g.comp.attack.value = 0.004;
-    g.comp.release.value = 0.18;
-
-    g.lp = ctx.createBiquadFilter();
-    g.lp.type = S.fmode;
-    g.lp.frequency.value = 14000;
-    g.lp.Q.value = 0.7;
-
-    g.pk = ctx.createBiquadFilter();
-    g.pk.type = "peaking";
-    g.pk.frequency.value = 1000;
-    g.pk.Q.value = 1.2;
-    g.pk.gain.value = 0;
-
-    g.env = ctx.createGain();           // note on/off
-    g.env.gain.value = 0;
-
-    g.bus = ctx.createGain();           // partial sum
-    g.bus.gain.value = 0.28;
-
-    g.delay = ctx.createDelay(1.0);
-    g.delay.delayTime.value = 0.26;
-    g.fb = ctx.createGain();
-    g.fb.gain.value = 0.34;
-    g.wet = ctx.createGain();
-    g.wet.gain.value = S.space;
-
-    g.bus.connect(g.env);
-    g.env.connect(g.lp);
-    g.lp.connect(g.pk);
-    g.pk.connect(g.comp);
-    g.pk.connect(g.delay);
-    g.delay.connect(g.fb);
-    g.fb.connect(g.delay);
-    g.delay.connect(g.wet);
-    g.wet.connect(g.comp);
-    g.comp.connect(g.master);
-    g.master.connect(ctx.destination);
-
-    g.parts = [];
-    for (var n = 1; n <= NPART; n++) {
-      var osc = ctx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.value = S.root * n;
-      var gain = ctx.createGain();
-      gain.gain.value = 0;
-      osc.connect(gain);
-      gain.connect(g.bus);
-      osc.start();
-      g.parts.push({ osc: osc, gain: gain });
-    }
-    return g;
-  }
-
-  function ensureAudio() {
-    if (!A) {
-      A = buildAudio();
-      if (!A) { setPower(false, "No Web Audio"); return false; }
-    }
-    if (A.ctx.state === "suspended") A.ctx.resume();
-    return true;
-  }
-
-  function setPower(on, label) {
-    audioOn = !!on;
-    var b = $("power");
-    b.setAttribute("aria-pressed", audioOn ? "true" : "false");
-    $("powerLabel").textContent = label || (audioOn ? "Sound on" : "Sound off");
-    if (!audioOn && A) {
-      A.env.gain.cancelScheduledValues(A.ctx.currentTime);
-      A.env.gain.setTargetAtTime(0, A.ctx.currentTime, 0.03);
-    }
-  }
-
-  function noteOn() {
-    if (!audioOn || !A) return;
-    A.env.gain.cancelScheduledValues(A.ctx.currentTime);
-    A.env.gain.setTargetAtTime(1, A.ctx.currentTime, 0.012);
-  }
-  function noteOff() {
-    if (!A) return;
-    A.env.gain.cancelScheduledValues(A.ctx.currentTime);
-    A.env.gain.setTargetAtTime(0, A.ctx.currentTime, 0.055);
-  }
-
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
    * Colour -> synthesis parameters
-   * ------------------------------------------------------------------ */
-  var tone = { f0: S.root, amps: new Float32Array(NPART), level: 0, hsv: null, rgb: null, lam: 0 };
-  var filt = { cut: 20000, q: 0.7, peakF: 1000, peakG: 0, hsv: null, rgb: null, bypass: true };
+   * ================================================================== */
+  var tone = {
+    ratio: 1, amps: new Float32Array(NPART), level: 0,
+    morph: 0.5, pulse: 0, detune: 6,
+    hsv: null, rgb: null, lam: 0
+  };
+  var filt = {
+    cut: 20000, q: 0.7, res: 0, peakF: 1000, peakG: 0,
+    hsv: null, rgb: null, bypass: true
+  };
 
   function computeTone(rgb) {
     var hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
     var u = spectralPos(hsv.h, S.law);
     var semis = quantize(u * 12 * S.octaves, SCALES[S.scale]);
-    var f0 = S.root * Math.pow(2, semis / 12);
+    tone.ratio = Math.pow(2, semis / 12);
 
-    var p = 3.4 - 2.6 * hsv.s;                       // spectral tilt
     var warm = rgb[0] - rgb[2];                      // + red-ish, − blue-ish
     var green = rgb[1];
-    var fc = 2.2 + 3.0 * green;                      // formant centre, in partial numbers
+
+    // --- analog voice: saturation morphs the wave, warmth folds in a square
+    tone.morph = clamp(Math.pow(hsv.s, 0.75), 0, 1);
+    tone.pulse = clamp(warm, 0, 1);
+    tone.detune = 2 + 13 * green;
+
+    // --- additive voice: the same idea written as partial amplitudes
+    var p = 3.4 - 2.6 * hsv.s;                       // spectral tilt
+    var fc = 2.2 + 3.0 * green;                      // formant centre, in partials
     var amps = tone.amps, sum = 0, n, a;
     for (n = 1; n <= NPART; n++) {
       a = Math.pow(n, -p);
-      if (n % 2 === 0) a *= 1 - 0.75 * Math.max(0, warm);        // warm -> hollow (odd only)
+      if (n % 2 === 0) a *= 1 - 0.75 * Math.max(0, warm);      // warm -> hollow (odd only)
       else             a *= 1 + 0.25 * Math.max(0, -warm);
       a *= 1 + 1.6 * green * Math.exp(-Math.pow((n - fc) / 1.25, 2));
       amps[n - 1] = a;
@@ -540,7 +595,6 @@
     }
     if (sum > 0) for (n = 0; n < NPART; n++) amps[n] /= sum;
 
-    tone.f0 = f0;
     tone.level = 0.06 + 0.94 * Math.pow(hsv.v, 1.35);
     tone.hsv = hsv;
     tone.rgb = rgb;
@@ -552,7 +606,7 @@
       // Nothing touched: the filter steps aside completely, whatever type is
       // selected (a band-pass has no "open" setting, so it becomes a low-pass).
       filt.bypass = true;
-      filt.cut = 20000; filt.q = 0.7; filt.peakF = 1000; filt.peakG = 0;
+      filt.cut = 20000; filt.q = 0.7; filt.res = 0; filt.peakF = 1000; filt.peakG = 0;
       filt.hsv = null; filt.rgb = null;
       return;
     }
@@ -560,34 +614,274 @@
     var hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
     var u = spectralPos(hsv.h, S.law);
     filt.cut = 80 * Math.pow(14000 / 80, Math.pow(hsv.v, 0.85));
-    filt.q = 0.6 + 14.4 * Math.pow(hsv.s, 1.6);
+    filt.q = 0.6 + 14.4 * Math.pow(hsv.s, 1.6);      // additive engine (biquad Q)
+    filt.res = 0.96 * Math.pow(hsv.s, 1.35);         // analog engine (ladder feedback)
     filt.peakF = 180 * Math.pow(6000 / 180, u);
-    filt.peakG = 18 * hsv.s * (0.35 + 0.65 * hsv.v);
+    filt.peakG = 13 * hsv.s * (0.35 + 0.65 * hsv.v);
     filt.hsv = hsv;
     filt.rgb = rgb;
   }
 
-  function pushAudio() {
-    if (!A) return;
-    var t = A.ctx.currentTime, tc = Math.max(0.004, S.glide), n;
-    for (n = 0; n < NPART; n++) {
-      A.parts[n].osc.frequency.setTargetAtTime(
-        clamp(tone.f0 * (n + 1), 10, 20000), t, tc);
-      A.parts[n].gain.gain.setTargetAtTime(tone.amps[n] * tone.level, t, 0.02);
-    }
-    var wantType = filt.bypass ? "lowpass" : S.fmode;
-    if (A.lp.type !== wantType) A.lp.type = wantType;
-    A.lp.frequency.setTargetAtTime(clamp(filt.cut, 20, 20000), t, 0.02);
-    A.lp.Q.setTargetAtTime(filt.q, t, 0.03);
-    A.pk.frequency.setTargetAtTime(clamp(filt.peakF, 40, 12000), t, 0.03);
-    A.pk.gain.setTargetAtTime(filt.peakG, t, 0.03);
-    A.wet.gain.setTargetAtTime(S.space, t, 0.05);
-    A.master.gain.setTargetAtTime(S.vol, t, 0.03);
+  function toneFreq() { return baseFreq() * tone.ratio; }
+
+  function voiceParams() {
+    return {
+      base: baseFreq(), ratio: tone.ratio,
+      morph: tone.morph, pulse: tone.pulse, detune: tone.detune, level: tone.level,
+      cut: filt.cut, res: filt.bypass ? 0 : filt.res,
+      mode: filt.bypass ? 0 : MODE_IDX[S.fmode],
+      drive: S.drive, attack: S.attack, release: S.release, glide: S.glide, spread: 0.6
+    };
   }
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
+   * Audio graph — shared by the live context and the offline renderer
+   * ================================================================== */
+  var A = null;                 // live graph
+  var audioOn = false;
+  var workletOK = false;        // did the module load in the live context?
+
+  function buildChain(ctx, withWorklet, preload) {
+    var g = { ctx: ctx };
+
+    g.master = ctx.createGain();
+    g.master.gain.value = S.vol;
+
+    g.comp = ctx.createDynamicsCompressor();
+    // Only there to catch resonance peaks — the voices are staged to sit well
+    // below it, so ordinary playing passes through untouched.
+    g.comp.threshold.value = -6;
+    g.comp.knee.value = 10;
+    g.comp.ratio.value = 3;
+    g.comp.attack.value = 0.006;
+    g.comp.release.value = 0.25;
+
+    // Hue-driven formant, shared by both engines.
+    g.pk = ctx.createBiquadFilter();
+    g.pk.type = "peaking";
+    g.pk.frequency.value = 1000;
+    g.pk.Q.value = 1.2;
+    g.pk.gain.value = 0;
+
+    g.delay = ctx.createDelay(1.0);
+    g.delay.delayTime.value = 0.26;
+    g.fb = ctx.createGain();
+    g.fb.gain.value = 0.34;
+    g.wet = ctx.createGain();
+    g.wet.gain.value = S.space;
+    g.damp = ctx.createBiquadFilter();   // the repeats darken, as a room does
+    g.damp.type = "lowpass";
+    g.damp.frequency.value = 4200;
+
+    g.pk.connect(g.comp);
+    g.pk.connect(g.delay);
+    g.delay.connect(g.damp);
+    g.damp.connect(g.fb);
+    g.fb.connect(g.delay);
+    g.delay.connect(g.wet);
+    g.wet.connect(g.comp);
+    g.comp.connect(g.master);
+    g.master.connect(ctx.destination);
+
+    // ---- additive engine (sine bank + biquad) ----------------------------
+    g.addGain = ctx.createGain();
+    g.addGain.gain.value = 0;
+    g.lp = ctx.createBiquadFilter();
+    g.lp.type = "lowpass";
+    g.lp.frequency.value = 20000;
+    g.lp.Q.value = 0.7;
+    g.env = ctx.createGain();
+    g.env.gain.value = 0;
+    g.bus = ctx.createGain();
+    g.bus.gain.value = 0.9;           // staged to sit near the analog voice
+    g.bus.connect(g.env);
+    g.env.connect(g.lp);
+    g.lp.connect(g.addGain);
+    g.addGain.connect(g.pk);
+    g.parts = [];
+    var f0 = baseFreq() * tone.ratio;
+    for (var n = 1; n <= NPART; n++) {
+      var osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = clamp(f0 * n, 10, 20000);
+      var gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(g.bus);
+      osc.start();
+      g.parts.push({ osc: osc, gain: gain });
+    }
+
+    // ---- analog engine (worklet) ----------------------------------------
+    if (withWorklet) {
+      try {
+        g.voice = new AudioWorkletNode(ctx, "photo-synth-voice", {
+          numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2],
+          processorOptions: preload || { params: voiceParams() }
+        });
+        g.vGain = ctx.createGain();
+        g.vGain.gain.value = 0;
+        g.voice.connect(g.vGain);
+        g.vGain.connect(g.pk);
+      } catch (e) { g.voice = null; }
+    }
+    return g;
+  }
+
+  function engineIsAnalog(g) { return S.engine === "analog" && g && g.voice; }
+
+  function setEngineGains(g, when) {
+    if (!g) return;
+    var t = when === undefined ? g.ctx.currentTime : when;
+    var analog = engineIsAnalog(g);
+    if (g.vGain) g.vGain.gain.setValueAtTime(analog ? 1 : 0, t);
+    g.addGain.gain.setValueAtTime(analog ? 0 : 1, t);
+  }
+
+  /* Push every current parameter into a graph. */
+  function applyParams(g) {
+    if (!g) return;
+    var t = g.ctx.currentTime, tc = Math.max(0.004, S.glide), n;
+    var f0 = toneFreq();
+
+    if (g.voice) g.voice.port.postMessage({ type: "params", p: voiceParams() });
+
+    for (n = 0; n < NPART; n++) {
+      g.parts[n].osc.frequency.setTargetAtTime(clamp(f0 * (n + 1), 10, 20000), t, tc);
+      g.parts[n].gain.gain.setTargetAtTime(tone.amps[n] * tone.level, t, 0.02);
+    }
+    var wantType = filt.bypass ? "lowpass" : S.fmode;
+    if (g.lp.type !== wantType) g.lp.type = wantType;
+    g.lp.frequency.setTargetAtTime(clamp(filt.cut, 20, 20000), t, 0.02);
+    g.lp.Q.setTargetAtTime(filt.bypass ? 0.7 : filt.q, t, 0.03);
+
+    g.pk.frequency.setTargetAtTime(clamp(filt.peakF, 40, 12000), t, 0.03);
+    g.pk.gain.setTargetAtTime(filt.peakG, t, 0.03);
+    g.wet.gain.setTargetAtTime(S.space, t, 0.05);
+    g.master.gain.setTargetAtTime(S.vol, t, 0.03);
+    setEngineGains(g);
+  }
+  function pushAudio() { applyParams(A); }
+
+  /* Set every parameter at a fixed time — used by the offline renderer. */
+  function applyStatic(g, when) {
+    var n, f0 = toneFreq();
+    // (the worklet already has its parameters from processorOptions)
+    for (n = 0; n < NPART; n++) {
+      g.parts[n].osc.frequency.setValueAtTime(clamp(f0 * (n + 1), 10, 20000), when);
+      g.parts[n].gain.gain.setValueAtTime(tone.amps[n] * tone.level, when);
+    }
+    g.lp.type = filt.bypass ? "lowpass" : S.fmode;
+    g.lp.frequency.setValueAtTime(clamp(filt.cut, 20, 20000), when);
+    g.lp.Q.setValueAtTime(filt.bypass ? 0.7 : filt.q, when);
+    g.pk.frequency.setValueAtTime(clamp(filt.peakF, 40, 12000), when);
+    g.pk.gain.setValueAtTime(filt.peakG, when);
+    g.wet.gain.setValueAtTime(S.space, when);
+    g.master.gain.setValueAtTime(S.vol, when);
+    setEngineGains(g, when);
+  }
+
+  /* One note event on a graph, for either engine. The analog voice is handed
+   * the base note only — it multiplies by the colour's interval itself, so a
+   * colour change during playback never fights with the scheduled sequence. */
+  function scheduleNote(g, when, baseHz, gate) {
+    if (engineIsAnalog(g)) {
+      var e = { frame: Math.max(0, Math.round(when * g.ctx.sampleRate)) };
+      if (baseHz !== null && baseHz !== undefined) e.p = { base: baseHz };
+      if (gate !== null && gate !== undefined) e.gate = gate;
+      g.voice.port.postMessage({ type: "events", ev: [e] });
+    } else {
+      var f0 = baseHz;
+      var n;
+      if (f0 !== null && f0 !== undefined) {
+        for (n = 0; n < NPART; n++) {
+          g.parts[n].osc.frequency.setValueAtTime(clamp(f0 * tone.ratio * (n + 1), 10, 20000), when);
+        }
+      }
+      if (gate !== null && gate !== undefined) {
+        g.env.gain.setTargetAtTime(gate ? 1 : 0, when, gate ? Math.max(0.002, S.attack / 3) : Math.max(0.004, S.release / 3));
+      }
+    }
+  }
+
+  /* ---- live context ------------------------------------------------- */
+  function makeContext() {
+    var Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    var ctx = null;
+    try { ctx = new Ctor({ latencyHint: "interactive", sampleRate: 48000 }); }
+    catch (e) { try { ctx = new Ctor(); } catch (e2) { ctx = null; } }
+    return ctx;
+  }
+
+  var audioReady = null;         // promise, resolved once the graph exists
+  function initAudio() {
+    if (audioReady) return audioReady;
+    audioReady = (function () {
+      var ctx = makeContext();
+      if (!ctx) { setPower(false, "No Web Audio"); return Promise.resolve(null); }
+      var load = ctx.audioWorklet
+        ? ctx.audioWorklet.addModule(WORKLET_URL).then(function () { return true; },
+                                                       function () { return false; })
+        : Promise.resolve(false);
+      return load.then(function (ok) {
+        workletOK = ok;
+        A = buildChain(ctx, ok);
+        if (!ok && S.engine === "analog") {
+          S.engine = "additive";
+          var sel = $("engine");
+          if (sel) { sel.value = "additive"; }
+        }
+        updateEngineNote();
+        applyParams(A);
+        return A;
+      });
+    })();
+    return audioReady;
+  }
+
+  function ensureAudio() {
+    initAudio().then(function (g) {
+      if (g && g.ctx.state === "suspended") g.ctx.resume();
+    });
+    if (A && A.ctx.state === "suspended") A.ctx.resume();
+    return true;
+  }
+
+  function setPower(on, label) {
+    audioOn = !!on;
+    var b = $("power");
+    b.setAttribute("aria-pressed", audioOn ? "true" : "false");
+    $("powerLabel").textContent = label || (audioOn ? "Sound on" : "Sound off");
+    if (audioOn) ensureAudio(); else setGate(false, true);
+  }
+
+  /* ---- gating -------------------------------------------------------- */
+  var gates = { pad: false, key: false };
+  var keyHold = false;
+
+  function setGate(on, force) {
+    if (!A) return;
+    if (engineIsAnalog(A)) {
+      A.voice.port.postMessage({ type: "params", p: { gate: on ? 1 : 0 } });
+    } else {
+      var t = A.ctx.currentTime;
+      A.env.gain.cancelScheduledValues(t);
+      A.env.gain.setTargetAtTime(on ? 1 : 0, t, on ? Math.max(0.002, S.attack / 3) : Math.max(0.004, S.release / 3));
+    }
+    if (force && !on && A.voice) A.voice.port.postMessage({ type: "clear" });
+  }
+
+  function updateGate() {
+    if (midi.playing) return;                        // MIDI owns the gate
+    var on = audioOn && (gates.pad || gates.key || keyHold ||
+                         (padTone.latched && padTone.pos));
+    setGate(on);
+  }
+
+  /* ================================================================== *
    * Pads: image handling, sampling, drawing
-   * ------------------------------------------------------------------ */
+   * ================================================================== */
   function Pad(key) {
     this.key = key;
     this.canvas = $("canvas-" + key);
@@ -595,7 +889,7 @@
     this.img = null;                    // HTMLImageElement or ImageBitmap
     this.url = null;                    // object URL owned by this pad, if any
     this.iw = 0; this.ih = 0;
-    this.pix = null;                    // Uint8ClampedArray of the sampling buffer
+    this.pix = null;                    // pixels of the sampling buffer
     this.pw = 0; this.ph = 0;
     this.pos = null;                    // {x,y} in CSS px of the canvas
     this.active = false;
@@ -683,7 +977,7 @@
     var live = this.active || this.latched;
     var R = Math.max(16, Math.min(this.w, this.h) * 0.085);
     var col = this.key === "tone" ? tone.rgb : filt.rgb;
-    var css = col ? "rgb(" + Math.round(col[0] * 255) + "," + Math.round(col[1] * 255) + "," + Math.round(col[2] * 255) + ")" : "#888";
+    var css = col ? cssRGB(col) : "#888";
 
     g.save();
     g.globalAlpha = live ? 1 : 0.55;
@@ -749,9 +1043,7 @@
   var padFilter = new Pad("filter");
   var pads = [padTone, padFilter];
 
-  /* ------------------------------------------------------------------ *
-   * Pointer handling
-   * ------------------------------------------------------------------ */
+  /* ---- pointer handling ---------------------------------------------- */
   function localPoint(pad, ev) {
     var r = pad.canvas.getBoundingClientRect();
     return {
@@ -776,15 +1068,14 @@
       ev.preventDefault();
       pad.pointerId = ev.pointerId;
       try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
-      if (!audioOn) { if (ensureAudio()) setPower(true); }
-      else ensureAudio();
+      if (!audioOn) setPower(true); else ensureAudio();
       pad.active = true;
       var hint = $("hint-" + pad.key);
       if (hint) hint.style.display = "none";
       pad.pos = localPoint(pad, ev);
       pad.dirty = true;
       apply(pad);
-      if (pad.key === "tone") noteOn();
+      if (pad.key === "tone") { gates.pad = true; updateGate(); }
     }, { passive: false });
 
     cv.addEventListener("pointermove", function (ev) {
@@ -801,10 +1092,8 @@
       pad.active = false;
       pad.dirty = true;
       try { cv.releasePointerCapture(ev.pointerId); } catch (e) {}
-      if (!pad.latched) {
-        if (pad.key === "tone") noteOff();
-        else { computeFilter(null); pushAudio(); updateReadouts(); }
-      }
+      if (pad.key === "tone") { gates.pad = false; updateGate(); }
+      else if (!pad.latched) { computeFilter(null); pushAudio(); updateReadouts(); }
     }
     cv.addEventListener("pointerup", end);
     cv.addEventListener("pointercancel", end);
@@ -812,9 +1101,7 @@
   }
   pads.forEach(attach);
 
-  /* ------------------------------------------------------------------ *
-   * Latch
-   * ------------------------------------------------------------------ */
+  /* ---- latch ---------------------------------------------------------- */
   function setLatch(pad, on) {
     pad.latched = !!on;
     document.querySelector('[data-latch="' + pad.key + '"]').setAttribute("aria-pressed", pad.latched ? "true" : "false");
@@ -822,12 +1109,12 @@
     if (pad.latched) {
       if (pad.pos) {
         apply(pad);
-        if (pad.key === "tone") { if (ensureAudio()) { if (!audioOn) setPower(true); noteOn(); } }
+        if (pad.key === "tone" && !audioOn) setPower(true);
       }
-    } else if (!pad.active) {
-      if (pad.key === "tone") noteOff();
-      else { computeFilter(null); pushAudio(); updateReadouts(); }
+    } else if (!pad.active && pad.key === "filter") {
+      computeFilter(null); pushAudio(); updateReadouts();
     }
+    updateGate();
   }
   Array.prototype.forEach.call(document.querySelectorAll("[data-latch]"), function (b) {
     b.addEventListener("click", function () {
@@ -836,9 +1123,9 @@
     });
   });
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
    * Readouts
-   * ------------------------------------------------------------------ */
+   * ================================================================== */
   function lift(c, k) {
     return [c[0] + (1 - c[0]) * k, c[1] + (1 - c[1]) * k, c[2] + (1 - c[2]) * k];
   }
@@ -846,10 +1133,10 @@
     return "rgb(" + Math.round(c[0] * 255) + "," + Math.round(c[1] * 255) + "," + Math.round(c[2] * 255) + ")";
   }
   function updateReadouts() {
-    var st = $("swatch-tone"), vt = $("vals-tone");
+    var st = $("swatch-tone"), vt = $("vals-tone"), f0 = toneFreq();
     if (tone.hsv) {
       st.style.background = cssRGB(tone.rgb);
-      vt.innerHTML = "<b>" + tone.f0.toFixed(1) + " Hz</b> · " + noteLabel(tone.f0) +
+      vt.innerHTML = "<b>" + f0.toFixed(1) + " Hz</b> · " + noteLabel(f0) +
         '<span class="sub">' + Math.round(tone.lam) + " nm · sat " + Math.round(tone.hsv.s * 100) +
         "% · val " + Math.round(tone.hsv.v * 100) + "%</span>";
     }
@@ -857,27 +1144,277 @@
     if (filt.hsv) {
       sf.style.background = cssRGB(filt.rgb);
       var cutTxt = filt.cut >= 1000 ? (filt.cut / 1000).toFixed(2) + " kHz" : Math.round(filt.cut) + " Hz";
-      vf.innerHTML = "<b>" + cutTxt + "</b> · Q " + filt.q.toFixed(1) +
+      var resTxt = engineIsAnalog(A) ? "res " + Math.round(filt.res * 100) + "%" : "Q " + filt.q.toFixed(1);
+      vf.innerHTML = "<b>" + cutTxt + "</b> · " + resTxt +
         '<span class="sub">peak ' + Math.round(filt.peakF) + " Hz, +" + filt.peakG.toFixed(1) + " dB</span>";
     } else {
       sf.style.background = "#222";
       vf.innerHTML = "—" + '<span class="sub">filter open (no colour touched)</span>';
     }
+    $("baseLabel").textContent = midiName(S.baseMidi);
   }
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
+   * Keyboard
+   * ================================================================== */
+  var WHITE_PC = [0, 2, 4, 5, 7, 9, 11];
+  var SHARP_PC = [0, 2, 5, 7, 9];
+  var kb = {
+    canvas: $("kbd"), g: null, w: 0, h: 0,
+    start: 48,                 // MIDI note of the leftmost white key
+    whites: [], blacks: [],
+    down: {},                  // pointerId -> midi note
+    keysDown: {},              // physical key -> midi note
+    dirty: true
+  };
+  kb.g = kb.canvas.getContext("2d");
+
+  function kbLayout() {
+    var w = kb.w, n = clamp(Math.floor(w / 38), 7, 28);
+    var ww = w / n, note = kb.start, count = 0, i;
+    kb.whites = []; kb.blacks = [];
+    while (count < n) {
+      if (WHITE_PC.indexOf(((note % 12) + 12) % 12) >= 0) {
+        kb.whites.push({ note: note, x: count * ww, w: ww });
+        count++;
+      }
+      note++;
+    }
+    for (i = 0; i < kb.whites.length - 1; i++) {
+      var pc = ((kb.whites[i].note % 12) + 12) % 12;
+      if (SHARP_PC.indexOf(pc) >= 0) {
+        kb.blacks.push({ note: kb.whites[i].note + 1, x: kb.whites[i].x + ww * 0.66, w: ww * 0.64 });
+      }
+    }
+  }
+
+  function kbResize() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    var r = kb.canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var w = Math.round(r.width), h = Math.round(r.height);
+    if (kb.w === w && kb.h === h && kb.canvas.width === Math.round(w * dpr)) return;
+    kb.w = w; kb.h = h;
+    kb.canvas.width = Math.round(w * dpr);
+    kb.canvas.height = Math.round(h * dpr);
+    kb.g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    kbLayout();
+    kb.dirty = true;
+  }
+
+  function kbHeld() {
+    var out = [], id;
+    for (id in kb.down) out.push(kb.down[id]);
+    for (id in kb.keysDown) out.push(kb.keysDown[id]);
+    return out;
+  }
+
+  function kbDraw() {
+    if (!kb.w) return;
+    var g = kb.g, held = kbHeld(), i, k;
+    var lit = tone.rgb ? cssRGB(lift(tone.rgb, 0.15)) : "#7fd4c1";
+    g.clearRect(0, 0, kb.w, kb.h);
+    g.fillStyle = "#0a0c12"; g.fillRect(0, 0, kb.w, kb.h);
+
+    for (i = 0; i < kb.whites.length; i++) {
+      k = kb.whites[i];
+      var on = held.indexOf(k.note) >= 0, base = k.note === S.baseMidi;
+      g.fillStyle = on ? lit : (base ? "#b9c7c3" : "#d9d6ce");
+      g.fillRect(k.x + 1, 1, k.w - 2, kb.h - 2);
+      if (base && !on) {
+        g.fillStyle = "rgba(127,212,193,.55)";
+        g.fillRect(k.x + 1, kb.h - 7, k.w - 2, 6);
+      }
+      g.strokeStyle = "rgba(0,0,0,.55)"; g.lineWidth = 1;
+      g.strokeRect(k.x + 1, 1, k.w - 2, kb.h - 2);
+      if (((k.note % 12) + 12) % 12 === 0 && k.w > 26) {
+        g.fillStyle = "rgba(0,0,0,.5)";
+        g.font = "9px -apple-system,system-ui,sans-serif";
+        g.fillText(midiName(k.note), k.x + 4, kb.h - 5);
+      }
+    }
+    var bh = kb.h * 0.62;
+    for (i = 0; i < kb.blacks.length; i++) {
+      k = kb.blacks[i];
+      var bon = held.indexOf(k.note) >= 0, bbase = k.note === S.baseMidi;
+      g.fillStyle = bon ? lit : (bbase ? "#2f4c47" : "#15171e");
+      g.fillRect(k.x, 0, k.w, bh);
+      g.strokeStyle = "rgba(0,0,0,.8)"; g.lineWidth = 1;
+      g.strokeRect(k.x, 0, k.w, bh);
+      if (bbase && !bon) {
+        g.fillStyle = "rgba(127,212,193,.75)";
+        g.fillRect(k.x + 2, bh - 6, k.w - 4, 4);
+      }
+    }
+    kb.dirty = false;
+  }
+
+  function kbHit(x, y) {
+    var i, k;
+    if (y < kb.h * 0.62) {
+      for (i = 0; i < kb.blacks.length; i++) {
+        k = kb.blacks[i];
+        if (x >= k.x && x <= k.x + k.w) return k.note;
+      }
+    }
+    for (i = 0; i < kb.whites.length; i++) {
+      k = kb.whites[i];
+      if (x >= k.x && x <= k.x + k.w) return k.note;
+    }
+    return null;
+  }
+
+  function setBase(m, fromUser) {
+    S.baseMidi = clamp(Math.round(m), 12, 108);
+    var sel = $("root");
+    if (sel && fromUser !== false) sel.value = String(S.baseMidi);
+    $("baseLabel").textContent = midiName(S.baseMidi);
+    kb.dirty = true;
+    pushAudio();
+    updateReadouts();
+  }
+
+  (function attachKeyboard() {
+    var cv = kb.canvas;
+    function point(ev) {
+      var r = cv.getBoundingClientRect();
+      return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+    }
+    cv.addEventListener("pointerdown", function (ev) {
+      if (midi.playing) return;
+      ev.preventDefault();
+      var p = point(ev), note = kbHit(p.x, p.y);
+      if (note === null) return;
+      try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+      kb.down[ev.pointerId] = note;
+      if (!audioOn) setPower(true); else ensureAudio();
+      setBase(note);
+      gates.key = true;
+      updateGate();
+      kb.dirty = true;
+    }, { passive: false });
+    cv.addEventListener("pointermove", function (ev) {
+      if (!(ev.pointerId in kb.down)) return;
+      ev.preventDefault();
+      var p = point(ev), note = kbHit(p.x, p.y);
+      if (note === null || note === kb.down[ev.pointerId]) return;
+      kb.down[ev.pointerId] = note;                 // glissando
+      setBase(note);
+      kb.dirty = true;
+    }, { passive: false });
+    function up(ev) {
+      if (!(ev.pointerId in kb.down)) return;
+      ev.preventDefault();
+      delete kb.down[ev.pointerId];
+      var held = kbHeld();
+      if (held.length) setBase(held[held.length - 1]);
+      else { gates.key = false; updateGate(); }
+      kb.dirty = true;
+    }
+    cv.addEventListener("pointerup", up);
+    cv.addEventListener("pointercancel", up);
+    cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  })();
+
+  // Physical keyboard, two octaves from the leftmost key.
+  var KEYMAP = { z:0, s:1, x:2, d:3, c:4, v:5, g:6, b:7, h:8, n:9, j:10, m:11,
+                 q:12, "2":13, w:14, "3":15, e:16, r:17, "5":18, t:19, "6":20, y:21, "7":22, u:23 };
+  window.addEventListener("keydown", function (ev) {
+    if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.repeat) return;
+    var tag = (ev.target && ev.target.tagName) || "";
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    var off = KEYMAP[ev.key.toLowerCase()];
+    if (off === undefined || midi.playing) return;
+    ev.preventDefault();
+    var note = kb.start + off;
+    if (ev.key.toLowerCase() in kb.keysDown) return;
+    kb.keysDown[ev.key.toLowerCase()] = note;
+    if (!audioOn) setPower(true); else ensureAudio();
+    setBase(note);
+    gates.key = true;
+    updateGate();
+    kb.dirty = true;
+  });
+  window.addEventListener("keyup", function (ev) {
+    var k = ev.key.toLowerCase();
+    if (!(k in kb.keysDown)) return;
+    delete kb.keysDown[k];
+    var held = kbHeld();
+    if (held.length) setBase(held[held.length - 1]);
+    else { gates.key = false; updateGate(); }
+    kb.dirty = true;
+  });
+
+  /* ================================================================== *
    * Spectrum strip
-   * ------------------------------------------------------------------ */
+   * ================================================================== */
   var scope = $("scope"), sg = scope.getContext("2d");
   var NF = 220, fAxis = new Float32Array(NF);
-  var magA = new Float32Array(NF), phA = new Float32Array(NF);
-  var magB = new Float32Array(NF), phB = new Float32Array(NF);
-  var pf = new Float32Array(NPART), pmA = new Float32Array(NPART), pmB = new Float32Array(NPART), pph = new Float32Array(NPART);
+  var magMain = new Float32Array(NF), magPk = new Float32Array(NF), phTmp = new Float32Array(NF);
+  var NBAR = 16;
+  var pf = new Float32Array(NBAR), pMain = new Float32Array(NBAR), pPk = new Float32Array(NBAR), pPh = new Float32Array(NBAR);
   var F_MIN = 40, F_MAX = 18000, sw = 0, sh = 0;
-  for (var i = 0; i < NF; i++) fAxis[i] = F_MIN * Math.pow(F_MAX / F_MIN, i / (NF - 1));
+  for (var fi = 0; fi < NF; fi++) fAxis[fi] = F_MIN * Math.pow(F_MAX / F_MIN, fi / (NF - 1));
 
   function fx(f) { return Math.log(f / F_MIN) / Math.log(F_MAX / F_MIN) * sw; }
   function dby(db) { return (1 - (db + 60) / 78) * sh; }   // -60 .. +18 dB
+
+  /* Magnitude of the ladder filter, from its analytic transfer function. */
+  function ladderMag(f, fc, k, mode) {
+    var x = f / fc, den = 1 + x * x;
+    var ar = 1 / den, ai = -x / den;                       // A = 1/(1 + j f/fc)
+    var a2r = ar * ar - ai * ai, a2i = 2 * ar * ai;
+    var a3r = a2r * ar - a2i * ai, a3i = a2r * ai + a2i * ar;
+    var a4r = a3r * ar - a3i * ai, a4i = a3r * ai + a3i * ar;
+    var nr, ni;
+    if (mode === 0) { nr = a4r; ni = a4i; }
+    else if (mode === 1) { nr = 4 * a2r - 8 * a3r + 4 * a4r; ni = 4 * a2i - 8 * a3i + 4 * a4i; }
+    else { nr = 1 - 4 * ar + 6 * a2r - 4 * a3r + a4r; ni = -4 * ai + 6 * a2i - 4 * a3i + a4i; }
+    var dr = 1 + k * a4r, di = k * a4i;
+    var dm = Math.sqrt(dr * dr + di * di);
+    return dm > 1e-9 ? Math.sqrt(nr * nr + ni * ni) / dm : 0;
+  }
+
+  /* Harmonic amplitudes of the analog voice, from the waveform it is making. */
+  function analogPartials(out) {
+    var m = clamp(tone.morph, 0, 1), pu = clamp(tone.pulse, 0, 1), n, sum = 0;
+    for (n = 1; n <= NBAR; n++) {
+      var odd = n % 2 === 1;
+      var sine = n === 1 ? 1 : 0;
+      var tri = odd ? 8 / (Math.PI * Math.PI * n * n) : 0;
+      var saw = 2 / (Math.PI * n);
+      var sq = odd ? 4 / (Math.PI * n) : 0;
+      var bright = saw * (1 - pu) + sq * 0.6 * pu;
+      var a = m < 0.5 ? sine + (tri - sine) * (m * 2) : tri + (bright - tri) * ((m - 0.5) * 2);
+      out[n - 1] = a; sum += a;
+    }
+    if (sum > 0) for (n = 0; n < NBAR; n++) out[n] /= sum;
+  }
+
+  function fillMain(freqs, out, len) {
+    var i, k = 3.85 * (filt.bypass ? 0 : filt.res);
+    var mode = filt.bypass ? 0 : MODE_IDX[S.fmode];
+    if (engineIsAnalog(A)) {
+      for (i = 0; i < len; i++) out[i] = ladderMag(freqs[i], clamp(filt.cut, 20, 20000), k, mode);
+    } else if (A) {
+      A.lp.getFrequencyResponse(freqs, out, len === NF ? phTmp : pPh);
+    } else {
+      for (i = 0; i < len; i++) out[i] = 1;
+    }
+  }
+
+  var barAmps = new Float32Array(NBAR);
+  var scopeSig = "";
+  function scopeChanged() {
+    var sig = [tone.ratio.toFixed(4), S.baseMidi, tone.level.toFixed(3), tone.morph.toFixed(3),
+               tone.pulse.toFixed(3), tone.rgb && tone.rgb.join(","),
+               filt.cut.toFixed(1), filt.q.toFixed(2), filt.res.toFixed(3),
+               filt.peakF.toFixed(1), filt.peakG.toFixed(2), filt.rgb && filt.rgb.join(","),
+               S.fmode, S.engine, audioOn, sw, sh].join("|");
+    if (sig === scopeSig) return false;
+    scopeSig = sig;
+    return true;
+  }
 
   function resizeScope() {
     var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -886,74 +1423,68 @@
     sw = Math.round(r.width); sh = Math.round(r.height);
     scope.width = Math.round(sw * dpr); scope.height = Math.round(sh * dpr);
     sg.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  var scopeSig = "";
-  function scopeChanged() {
-    var sig = [tone.f0.toFixed(2), tone.level.toFixed(3), tone.rgb && tone.rgb.join(","),
-               filt.cut.toFixed(1), filt.q.toFixed(2), filt.peakF.toFixed(1), filt.peakG.toFixed(2),
-               filt.rgb && filt.rgb.join(","), S.fmode, audioOn, sw, sh].join("|");
-    if (sig === scopeSig) return false;
-    scopeSig = sig;
-    return true;
+    scopeSig = "";
   }
 
   function drawScope() {
     if (!sw) return;
+    var analog = engineIsAnalog(A);
+    var nBar = analog ? NBAR : NPART;
     sg.clearRect(0, 0, sw, sh);
     sg.fillStyle = "#0a0c12"; sg.fillRect(0, 0, sw, sh);
 
-    // grid
     var marks = [100, 1000, 10000], labels = ["100 Hz", "1 kHz", "10 kHz"], k;
     sg.strokeStyle = "rgba(255,255,255,.07)"; sg.lineWidth = 1;
     sg.font = "10px -apple-system,system-ui,sans-serif";
     sg.fillStyle = "rgba(255,255,255,.30)";
     for (k = 0; k < marks.length; k++) {
-      var x = fx(marks[k]);
-      sg.beginPath(); sg.moveTo(x, 12); sg.lineTo(x, sh); sg.stroke();
-      sg.fillText(labels[k], x + 3, 9);
+      var gx = fx(marks[k]);
+      sg.beginPath(); sg.moveTo(gx, 12); sg.lineTo(gx, sh); sg.stroke();
+      sg.fillText(labels[k], gx + 3, 9);
     }
 
-    var haveFilter = !!A;
     // Lift both colours towards white so they stay legible on the dark strip.
     var toneCss = tone.rgb ? cssRGB(lift(tone.rgb, 0.45)) : "#7fd4c1";
     var filtCss = filt.rgb ? cssRGB(lift(filt.rgb, 0.45)) : "#e0a3ff";
 
+    var f0 = toneFreq(), i;
+    if (analog) analogPartials(barAmps);
+    else for (i = 0; i < NPART; i++) barAmps[i] = tone.amps[i];
+
+    for (i = 0; i < nBar; i++) pf[i] = clamp(f0 * (i + 1), 20, 20000);
+    fillMain(pf, pMain, NBAR);
+    fillMain(fAxis, magMain, NF);
     if (A) {
-      A.lp.getFrequencyResponse(fAxis, magA, phA);
-      A.pk.getFrequencyResponse(fAxis, magB, phB);
-      for (k = 0; k < NPART; k++) pf[k] = clamp(tone.f0 * (k + 1), 20, 20000);
-      A.lp.getFrequencyResponse(pf, pmA, pph);
-      A.pk.getFrequencyResponse(pf, pmB, pph);
+      A.pk.getFrequencyResponse(pf, pPk, pPh);
+      A.pk.getFrequencyResponse(fAxis, magPk, phTmp);
+    } else {
+      for (i = 0; i < NBAR; i++) pPk[i] = 1;
+      for (i = 0; i < NF; i++) magPk[i] = 1;
     }
 
-    // partial bars
-    for (k = 0; k < NPART; k++) {
-      var f = tone.f0 * (k + 1);
+    for (i = 0; i < nBar; i++) {
+      var f = f0 * (i + 1);
       if (f > F_MAX) break;
-      var a = tone.amps[k] * tone.level;
+      var a = barAmps[i] * tone.level;
       if (a <= 1e-6) continue;
       var raw = 20 * Math.log(a) / Math.LN10;
-      var resp = A ? (pmA[k] * pmB[k]) : 1;
-      var out = raw + 20 * Math.log(Math.max(resp, 1e-6)) / Math.LN10;
+      var resp = pMain[i] * pPk[i];
+      var outDb = raw + 20 * Math.log(Math.max(resp, 1e-6)) / Math.LN10;
       var bx = fx(f), y0 = dby(-60);
       sg.strokeStyle = "rgba(255,255,255,.20)"; sg.lineWidth = 2;
       sg.beginPath(); sg.moveTo(bx, y0); sg.lineTo(bx, dby(clamp(raw, -60, 18))); sg.stroke();
       sg.strokeStyle = toneCss; sg.lineWidth = 4; sg.lineCap = "round";
-      sg.beginPath(); sg.moveTo(bx, y0); sg.lineTo(bx, dby(clamp(out, -60, 18))); sg.stroke();
+      sg.beginPath(); sg.moveTo(bx, y0); sg.lineTo(bx, dby(clamp(outDb, -60, 18))); sg.stroke();
     }
 
-    // filter response curve
-    if (haveFilter) {
-      sg.beginPath();
-      for (k = 0; k < NF; k++) {
-        var db = 20 * Math.log(Math.max(magA[k] * magB[k], 1e-6)) / Math.LN10;
-        var yy = dby(clamp(db, -60, 18));
-        if (k === 0) sg.moveTo(0, yy); else sg.lineTo(fx(fAxis[k]), yy);
-      }
-      sg.strokeStyle = filtCss; sg.lineWidth = 1.8;
-      sg.globalAlpha = 0.95; sg.stroke(); sg.globalAlpha = 1;
+    sg.beginPath();
+    for (k = 0; k < NF; k++) {
+      var db = 20 * Math.log(Math.max(magMain[k] * magPk[k], 1e-6)) / Math.LN10;
+      var yy = dby(clamp(db, -60, 18));
+      if (k === 0) sg.moveTo(0, yy); else sg.lineTo(fx(fAxis[k]), yy);
     }
+    sg.strokeStyle = filtCss; sg.lineWidth = 1.8;
+    sg.globalAlpha = 0.95; sg.stroke(); sg.globalAlpha = 1;
 
     if (!audioOn) {
       var msg = "touch a photo to start the sound";
@@ -966,30 +1497,41 @@
     }
   }
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
    * Render loop
-   * ------------------------------------------------------------------ */
+   * ================================================================== */
   function frame() {
     pads.forEach(function (p) {
       p.resize();
       if (p.dirty) { p.draw(); p.dirty = false; }
     });
+    if (!$("kbdPanel").hidden) {
+      kbResize();
+      if (kb.dirty) kbDraw();
+    }
+    if (midi.playing) midiTick();
     if (scopeChanged()) drawScope();
     requestAnimationFrame(frame);
   }
 
   window.addEventListener("resize", function () {
     resizeScope();
-    scopeSig = "";
+    kb.w = 0; kb.dirty = true;
+    fitKeyboard();
     pads.forEach(function (p) { p.dirty = true; });
   });
   window.addEventListener("orientationchange", function () {
-    setTimeout(function () { resizeScope(); pads.forEach(function (p) { p.dirty = true; }); }, 250);
+    setTimeout(function () {
+      resizeScope();
+      kb.w = 0; kb.dirty = true;
+      fitKeyboard();
+      pads.forEach(function (p) { p.dirty = true; });
+    }, 250);
   });
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
    * Photos: camera, camera roll, demo
-   * ------------------------------------------------------------------ */
+   * ================================================================== */
   function padOf(key) { return key === "tone" ? padTone : padFilter; }
 
   // An <img> is decoded with the file's EXIF orientation applied in every
@@ -1003,11 +1545,7 @@
     img.decoding = "async";
     var loaded = false;
     try {
-      await new Promise(function (res, rej) {
-        img.onload = res;
-        img.onerror = rej;
-        img.src = url;
-      });
+      await new Promise(function (res, rej) { img.onload = res; img.onerror = rej; img.src = url; });
       loaded = img.naturalWidth > 0;
     } catch (e) { loaded = false; }
 
@@ -1041,8 +1579,7 @@
     b.addEventListener("click", function () { $("file-" + b.getAttribute("data-pick")).click(); });
   });
   ["tone-camera", "tone-library", "filter-camera", "filter-library"].forEach(function (id) {
-    var el = $("file-" + id);
-    el.addEventListener("change", function (ev) {
+    $("file-" + id).addEventListener("change", function (ev) {
       var key = id.indexOf("tone") === 0 ? "tone" : "filter";
       loadFile(key, ev.target.files && ev.target.files[0]);
       ev.target.value = "";
@@ -1053,7 +1590,7 @@
   function demoImage(kind) {
     var N = 512, c = document.createElement("canvas");
     c.width = N; c.height = N;
-    var g = c.getContext("2d"), x, y;
+    var g = c.getContext("2d"), x, i, j;
     if (kind === "tone") {
       var grad = g.createLinearGradient(0, 0, N, 0);
       for (x = 0; x <= 12; x++) grad.addColorStop(x / 12, "hsl(" + (x / 12 * 340) + ",92%,52%)");
@@ -1064,7 +1601,7 @@
       vg.addColorStop(0.62, "rgba(0,0,0,0)");
       vg.addColorStop(1, "rgba(0,0,0,.85)");
       g.fillStyle = vg; g.fillRect(0, 0, N, N);
-      for (var i = 0; i < 26; i++) {
+      for (i = 0; i < 26; i++) {
         var cx = (i * 97 % N), cy = ((i * 173 + 40) % N), r = 24 + (i * 37 % 70);
         var rg = g.createRadialGradient(cx, cy, 0, cx, cy, r);
         rg.addColorStop(0, "hsla(" + ((i * 47) % 360) + ",95%,60%,.55)");
@@ -1073,7 +1610,7 @@
       }
     } else {
       g.fillStyle = "#101010"; g.fillRect(0, 0, N, N);
-      for (var j = 0; j < 40; j++) {
+      for (j = 0; j < 40; j++) {
         var px = (j * 131 % N), py = ((j * 211 + 70) % N), pr = 40 + (j * 53 % 130);
         var pg = g.createRadialGradient(px, py, 0, px, py, pr);
         var hue = (j * 31) % 360, li = 30 + (j * 17 % 55);
@@ -1093,8 +1630,7 @@
   }
 
   function loadDemo(key) {
-    var pad = padOf(key);
-    var c = demoImage(key);
+    var pad = padOf(key), c = demoImage(key);
     pad.setImage(c, c.width, c.height);
     afterLoad(pad);
   }
@@ -1103,34 +1639,467 @@
   });
 
   $("swap").addEventListener("click", function () {
-    var keys = ["img", "url", "iw", "ih", "pix", "pw", "ph"];
-    keys.forEach(function (k) {
+    ["img", "url", "iw", "ih", "pix", "pw", "ph"].forEach(function (k) {
       var t = padTone[k]; padTone[k] = padFilter[k]; padFilter[k] = t;
     });
     padTone.dirty = padFilter.dirty = true;
     apply(padTone); apply(padFilter);
   });
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
+   * MIDI file import
+   * ================================================================== */
+  var midi = {
+    name: null, bpm: 120, events: [], dur: 0, notes: 0,
+    playing: false, loop: false, t0: 0, rate: 1
+  };
+
+  /* Standard MIDI file -> a list of {t, note} base-note changes. */
+  function parseMidi(buffer) {
+    var d = new DataView(buffer), pos = 0;
+    function str(n) { var s = "", i; for (i = 0; i < n; i++) s += String.fromCharCode(d.getUint8(pos++)); return s; }
+    function u32() { var v = d.getUint32(pos); pos += 4; return v; }
+    function u16() { var v = d.getUint16(pos); pos += 2; return v; }
+    function vlq() { var v = 0, b; do { b = d.getUint8(pos++); v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; }
+
+    if (str(4) !== "MThd") throw new Error("not a MIDI file");
+    var hlen = u32();
+    u16();                                    // format
+    var ntrk = u16();
+    var division = d.getInt16(pos); pos += 2;
+    pos += hlen - 6;
+
+    var raw = [], tempos = [], t;
+    for (t = 0; t < ntrk && pos < d.byteLength; t++) {
+      var id = str(4), len = u32(), end = pos + len;
+      if (id !== "MTrk") { pos = end; continue; }
+      var tick = 0, running = 0;
+      while (pos < end) {
+        tick += vlq();
+        var b = d.getUint8(pos), status;
+        if (b & 0x80) { status = b; pos++; if (b < 0xf0) running = b; } else status = running;
+        if (status === 0xff) {
+          var type = d.getUint8(pos++), mlen = vlq();
+          if (type === 0x51 && mlen === 3) {
+            tempos.push({ tick: tick, us: (d.getUint8(pos) << 16) | (d.getUint8(pos + 1) << 8) | d.getUint8(pos + 2) });
+          }
+          pos += mlen;
+        } else if (status === 0xf0 || status === 0xf7) {
+          pos += vlq();
+        } else {
+          var cmd = status & 0xf0;
+          var a = d.getUint8(pos++), vel = 0;
+          if (cmd !== 0xc0 && cmd !== 0xd0) vel = d.getUint8(pos++);
+          if (cmd === 0x90 && vel > 0) raw.push({ tick: tick, on: true, note: a });
+          else if (cmd === 0x80 || (cmd === 0x90 && vel === 0)) raw.push({ tick: tick, on: false, note: a });
+        }
+      }
+      pos = end;
+    }
+    if (!raw.length) throw new Error("no notes in that file");
+
+    raw.sort(function (x, y) { return x.tick - y.tick || (x.on ? 1 : -1) - (y.on ? 1 : -1); });
+    tempos.sort(function (x, y) { return x.tick - y.tick; });
+
+    // ticks -> seconds through the tempo map
+    var smpte = division < 0;
+    var tpq = smpte ? 0 : division;
+    var tickSec = smpte ? 1 / (-(division >> 8) * (division & 0xff)) : 0;
+    function seconds(tick) {
+      if (smpte) return tick * tickSec;
+      var us = 500000, last = 0, acc = 0, i;
+      for (i = 0; i < tempos.length && tempos[i].tick <= tick; i++) {
+        acc += (tempos[i].tick - last) * us / 1e6 / tpq;
+        last = tempos[i].tick; us = tempos[i].us;
+      }
+      return acc + (tick - last) * us / 1e6 / tpq;
+    }
+
+    // Monophonic reduction: at any moment the highest sounding note wins.
+    var held = [], evs = [], cur = null, i2, n2;
+    for (i2 = 0; i2 < raw.length; i2++) {
+      var e = raw[i2];
+      if (e.on) held.push(e.note);
+      else { n2 = held.lastIndexOf(e.note); if (n2 >= 0) held.splice(n2, 1); }
+      var top = held.length ? Math.max.apply(null, held) : null;
+      if (top !== cur) { cur = top; evs.push({ t: seconds(e.tick), note: top }); }
+    }
+    var lastTick = raw[raw.length - 1].tick;
+    var bpm = tempos.length ? 60e6 / tempos[0].us : 120;
+    return { events: evs, dur: seconds(lastTick), bpm: smpte ? 120 : bpm, notes: raw.length / 2 };
+  }
+
+  function demoTune() {
+    // A short pentatonic phrase, so the MIDI path can be tried without a file.
+    var seq = [[0,57],[0.5,60],[1,62],[1.5,64],[2,67],[2.5,64],[3,62],[3.5,60],
+               [4,57],[4.5,60],[5,64],[5.5,67],[6,69],[7,67],[7.5,64],[8,62],
+               [8.5,60],[9,57],[10,55],[11,57]];
+    var evs = [], i;
+    for (i = 0; i < seq.length; i++) {
+      evs.push({ t: seq[i][0], note: seq[i][1] });
+      var next = i + 1 < seq.length ? seq[i + 1][0] : seq[i][0] + 1;
+      var offAt = Math.min(seq[i][0] + 0.45, next - 0.02);
+      if (offAt > seq[i][0]) evs.push({ t: offAt, note: null });
+    }
+    evs.sort(function (a, b) { return a.t - b.t; });
+    return { events: evs, dur: 12.2, bpm: 120, notes: seq.length };
+  }
+
+  function setMidi(m, name) {
+    midi.events = m.events;
+    midi.dur = m.dur;
+    midi.bpm = m.bpm;
+    midi.notes = m.notes;
+    midi.name = name;
+    $("midiPlay").disabled = false;
+    $("midiRender").disabled = false;
+    updateMidiInfo();
+  }
+
+  function updateMidiInfo() {
+    var el = $("midiInfo");
+    if (!midi.name) { el.textContent = "nothing loaded"; return; }
+    var d = midi.dur / midi.rate;
+    el.textContent = midi.name + " · " + Math.round(midi.notes) + " notes · " +
+      fmtTime(d) + " · " + Math.round(midi.bpm * midi.rate) + " BPM";
+  }
+
+  function fmtTime(s) {
+    s = Math.max(0, s);
+    var m = Math.floor(s / 60);
+    var r = Math.floor(s % 60);
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+
+  $("pickMidi").addEventListener("click", function () { $("file-midi").click(); });
+  $("file-midi").addEventListener("change", function (ev) {
+    var f = ev.target.files && ev.target.files[0];
+    ev.target.value = "";
+    if (!f) return;
+    var fr = new FileReader();
+    fr.onload = function () {
+      try {
+        setMidi(parseMidi(fr.result), f.name.replace(/\.[^.]+$/, ""));
+      } catch (e) {
+        $("midiInfo").textContent = "could not read that file (" + e.message + ")";
+      }
+    };
+    fr.readAsArrayBuffer(f);
+  });
+  $("midiDemo").addEventListener("click", function () { setMidi(demoTune(), "Demo tune"); });
+
+  /* ---- playback -------------------------------------------------------- */
+  function scheduleSequence(g, t0) {
+    var i, e;
+    for (i = 0; i < midi.events.length; i++) {
+      e = midi.events[i];
+      var when = t0 + e.t / midi.rate;
+      if (e.note === null) scheduleNote(g, when, null, 0);
+      else scheduleNote(g, when, mtof(e.note), 1);
+    }
+    scheduleNote(g, t0 + midi.dur / midi.rate + 0.02, null, 0);
+  }
+
+  /* The same sequence as frame-stamped events, for the offline renderer. */
+  function sequenceEvents(sr, t0) {
+    var ev = [], i, e, when, o;
+    for (i = 0; i < midi.events.length; i++) {
+      e = midi.events[i];
+      when = t0 + e.t / midi.rate;
+      o = { frame: Math.max(0, Math.round(when * sr)) };
+      if (e.note === null) o.gate = 0;
+      else { o.p = { base: mtof(e.note) }; o.gate = 1; }
+      ev.push(o);
+    }
+    ev.push({ frame: Math.round((t0 + midi.dur / midi.rate + 0.02) * sr), gate: 0 });
+    return ev;
+  }
+
+  function midiStop(silent) {
+    midi.playing = false;
+    $("midiPlay").textContent = "Play";
+    if (A) {
+      if (A.voice) A.voice.port.postMessage({ type: "clear" });
+      var t = A.ctx.currentTime, n;
+      A.env.gain.cancelScheduledValues(t);
+      for (n = 0; n < NPART; n++) A.parts[n].osc.frequency.cancelScheduledValues(t);
+      if (!silent) { pushAudio(); updateGate(); }
+    }
+  }
+
+  function midiPlayStart() {
+    if (!midi.events.length) return;
+    initAudio().then(function (g) {
+      if (!g) return;
+      if (!audioOn) setPower(true); else ensureAudio();
+      midiStop(true);
+      var t0 = g.ctx.currentTime + 0.15;
+      midi.t0 = t0;
+      midi.playing = true;
+      $("midiPlay").textContent = "Stop";
+      scheduleSequence(g, t0);
+    });
+  }
+
+  var midiLastNote = null;
+  function midiTick() {
+    if (!A) return;
+    var pos = (A.ctx.currentTime - midi.t0) * midi.rate;
+    var end = midi.dur + 0.05;
+    if (pos >= end) {
+      if (midi.loop) {
+        midi.t0 = A.ctx.currentTime + 0.02;
+        scheduleSequence(A, midi.t0);
+      } else { midiStop(); return; }
+      pos = 0;
+    }
+    // Mirror the sequence on the UI side so the readouts and keys follow.
+    var note = null, i;
+    for (i = 0; i < midi.events.length; i++) {
+      if (midi.events[i].t <= pos) note = midi.events[i].note; else break;
+    }
+    if (note !== midiLastNote) {
+      midiLastNote = note;
+      if (note !== null) { setBase(note, false); }
+    }
+  }
+
+  $("midiPlay").addEventListener("click", function () {
+    if (midi.playing) midiStop(); else midiPlayStart();
+  });
+  $("midiLoop").addEventListener("click", function () {
+    midi.loop = !midi.loop;
+    $("midiLoop").setAttribute("aria-pressed", midi.loop ? "true" : "false");
+  });
+  $("rate").addEventListener("input", function (e) {
+    midi.rate = e.target.value / 100;
+    $("rateOut").textContent = midi.rate.toFixed(2) + "×";
+    updateMidiInfo();
+    if (midi.playing) midiPlayStart();          // restart on the new tempo
+  });
+
+  /* ================================================================== *
+   * WAV encoding and downloads
+   * ================================================================== */
+  function encodeWav(chans, sr) {
+    var n = chans[0].length, ch = chans.length, bps = 3;      // 24-bit
+    var dataLen = n * ch * bps;
+    var buf = new ArrayBuffer(44 + dataLen), v = new DataView(buf), i, c, o = 44;
+    function tag(off, s) { for (var j = 0; j < s.length; j++) v.setUint8(off + j, s.charCodeAt(j)); }
+    tag(0, "RIFF"); v.setUint32(4, 36 + dataLen, true); tag(8, "WAVE");
+    tag(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+    v.setUint16(22, ch, true); v.setUint32(24, sr, true);
+    v.setUint32(28, sr * ch * bps, true); v.setUint16(32, ch * bps, true); v.setUint16(34, bps * 8, true);
+    tag(36, "data"); v.setUint32(40, dataLen, true);
+    for (i = 0; i < n; i++) {
+      for (c = 0; c < ch; c++) {
+        var s = clamp(chans[c][i], -1, 1);
+        var q = Math.round(s * 8388607);
+        v.setUint8(o++, q & 255); v.setUint8(o++, (q >> 8) & 255); v.setUint8(o++, (q >> 16) & 255);
+      }
+    }
+    return new Blob([buf], { type: "audio/wav" });
+  }
+
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  }
+
+  function stamp() {
+    var d = new Date(), p = function (x) { return (x < 10 ? "0" : "") + x; };
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
+  }
+
+  /* ================================================================== *
+   * Recording
+   * ================================================================== */
+  var rec = { node: null, chunks: [], frames: 0, on: false, blob: null, timer: null, sr: 48000 };
+  var REC_MAX = 180;                                        // seconds
+
+  function recSetup(g) {
+    if (rec.node) return true;
+    if (workletOK && g.ctx.audioWorklet) {
+      try {
+        rec.node = new AudioWorkletNode(g.ctx, "photo-synth-recorder", { numberOfInputs: 1, numberOfOutputs: 1 });
+        rec.node.port.onmessage = function (e) {
+          if (!rec.on) return;
+          rec.chunks.push(e.data);
+          rec.frames += e.data.l.length;
+          if (rec.frames / rec.sr >= REC_MAX) recToggle(false);
+        };
+      } catch (e) { rec.node = null; }
+    }
+    if (!rec.node && g.ctx.createScriptProcessor) {
+      rec.node = g.ctx.createScriptProcessor(4096, 2, 2);
+      rec.node.onaudioprocess = function (ev) {
+        if (!rec.on) return;
+        var ib = ev.inputBuffer;
+        rec.chunks.push({ l: new Float32Array(ib.getChannelData(0)), r: new Float32Array(ib.getChannelData(ib.numberOfChannels > 1 ? 1 : 0)) });
+        rec.frames += ib.length;
+        if (rec.frames / rec.sr >= REC_MAX) recToggle(false);
+      };
+    }
+    if (!rec.node) return false;
+    rec.sr = g.ctx.sampleRate;
+    var sink = g.ctx.createGain();
+    sink.gain.value = 0;
+    g.master.connect(rec.node);
+    rec.node.connect(sink);
+    sink.connect(g.ctx.destination);
+    return true;
+  }
+
+  function recStatus(txt) { $("recInfo").textContent = txt; }
+
+  function recToggle(want) {
+    if (want === undefined) want = !rec.on;
+    if (want) {
+      initAudio().then(function (g) {
+        if (!g || !recSetup(g)) { recStatus("recording is not available in this browser"); return; }
+        if (!audioOn) setPower(true); else ensureAudio();
+        rec.chunks = []; rec.frames = 0; rec.blob = null;
+        rec.on = true;
+        if (rec.node.port) rec.node.port.postMessage({ on: true });
+        $("recSave").disabled = true;
+        recButtons(true);
+        recStatus("recording… 0:00");
+        rec.timer = setInterval(function () {
+          recStatus("recording… " + fmtTime(rec.frames / rec.sr) + " (max " + fmtTime(REC_MAX) + ")");
+        }, 250);
+      });
+    } else {
+      if (!rec.on) return;
+      rec.on = false;
+      if (rec.node && rec.node.port) rec.node.port.postMessage({ on: false });
+      clearInterval(rec.timer);
+      recButtons(false);
+      setTimeout(function () {
+        if (!rec.frames) { recStatus("nothing captured"); return; }
+        var l = new Float32Array(rec.frames), r = new Float32Array(rec.frames), o = 0, i;
+        for (i = 0; i < rec.chunks.length; i++) {
+          l.set(rec.chunks[i].l, o); r.set(rec.chunks[i].r, o); o += rec.chunks[i].l.length;
+        }
+        rec.blob = encodeWav([l, r], rec.sr);
+        rec.chunks = [];
+        $("recSave").disabled = false;
+        recStatus("recorded " + fmtTime(rec.frames / rec.sr) + " · " +
+                  (rec.blob.size / 1048576).toFixed(1) + " MB · 24-bit " + Math.round(rec.sr / 1000) + " kHz");
+      }, 120);
+    }
+  }
+
+  function recButtons(on) {
+    $("recBtn").setAttribute("aria-pressed", on ? "true" : "false");
+    $("recLabel").textContent = on ? "Stop" : "Record";
+    $("recBtn2").textContent = on ? "Stop" : "Record";
+    $("recBtn2").setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  $("recBtn").addEventListener("click", function () { recToggle(); });
+  $("recBtn2").addEventListener("click", function () { recToggle(); });
+  $("recSave").addEventListener("click", function () {
+    if (rec.blob) download(rec.blob, "photo-synth-" + stamp() + ".wav");
+  });
+
+  /* ================================================================== *
+   * Offline render of the loaded MIDI
+   * ================================================================== */
+  async function renderMidi() {
+    var OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OC || !midi.events.length) return null;
+    var sr = 48000;
+    var tail = 1.0 + S.release + (S.space > 0.02 ? 2.0 : 0.2);
+    var dur = midi.dur / midi.rate + tail;
+    var oc = new OC(2, Math.ceil(dur * sr), sr);
+    var hasW = false;
+    if (oc.audioWorklet) {
+      try { await oc.audioWorklet.addModule(WORKLET_URL); hasW = true; } catch (e) { hasW = false; }
+    }
+    var preload = hasW && S.engine === "analog"
+      ? { params: voiceParams(), events: sequenceEvents(sr, 0.05) }
+      : null;
+    var g = buildChain(oc, hasW, preload);
+    applyStatic(g, 0);
+    g.master.gain.setValueAtTime(0.9, 0);          // render at a fixed level
+    if (!preload) scheduleSequence(g, 0.05);       // additive path: automation
+    var buf = await oc.startRendering();
+    return buf;
+  }
+
+  $("midiRender").addEventListener("click", function () {
+    var btn = $("midiRender");
+    btn.disabled = true;
+    recStatus("rendering " + (midi.name || "MIDI") + "…");
+    renderMidi().then(function (buf) {
+      btn.disabled = false;
+      if (!buf) { recStatus("offline rendering is not available here"); return; }
+      var blob = encodeWav([buf.getChannelData(0), buf.getChannelData(1)], buf.sampleRate);
+      recStatus("rendered " + fmtTime(buf.duration) + " · " + (blob.size / 1048576).toFixed(1) +
+                " MB · 24-bit " + Math.round(buf.sampleRate / 1000) + " kHz");
+      download(blob, "photo-synth-" + (midi.name || "midi").replace(/[^\w-]+/g, "_") + "-" + stamp() + ".wav");
+    }, function (err) {
+      btn.disabled = false;
+      recStatus("render failed: " + err.message);
+    });
+  });
+
+  /* ================================================================== *
    * Controls
-   * ------------------------------------------------------------------ */
+   * ================================================================== */
+  function updateEngineNote() {
+    var el = $("engineNote");
+    if (!el) return;
+    if (!workletOK && audioReady) {
+      el.textContent = "Audio worklets are unavailable in this browser, so the additive engine is " +
+                       "doing the work. Everything else behaves the same.";
+    } else if (A) {
+      el.textContent = (S.engine === "analog" ? "Analog engine" : "Additive engine") +
+                       " · " + Math.round(A.ctx.sampleRate / 1000) + " kHz output" +
+                       (S.engine === "analog" ? " · oscillators and ladder run at 2×" : "");
+    } else {
+      el.textContent = "";
+    }
+  }
+
   $("power").addEventListener("click", function () {
     if (audioOn) { setPower(false); }
-    else if (ensureAudio()) {
+    else {
       setPower(true);
-      if (padTone.latched && padTone.pos) { apply(padTone); noteOn(); }
+      if (padTone.latched && padTone.pos) { apply(padTone); }
+      updateGate();
     }
   });
   $("panic").addEventListener("click", function () {
+    midiStop(true);
     pads.forEach(function (p) { if (p.latched) setLatch(p, false); });
-    noteOff();
+    gates.pad = gates.key = false;
+    keyHold = false;
+    $("holdBtn").setAttribute("aria-pressed", "false");
+    kb.down = {}; kb.keysDown = {}; kb.dirty = true;
+    setGate(false, true);
     setPower(false);
   });
 
   $("vol").addEventListener("input", function (e) { S.vol = e.target.value / 100; pushAudio(); });
+  $("engine").addEventListener("change", function (e) {
+    if (e.target.value === "analog" && !workletOK && audioReady) {
+      e.target.value = "additive";
+    }
+    S.engine = e.target.value;
+    setEngineGains(A);
+    pushAudio();
+    updateEngineNote();
+    updateReadouts();
+    scopeSig = "";
+  });
   $("law").addEventListener("change", function (e) { S.law = e.target.value; reapply(); });
   $("scale").addEventListener("change", function (e) { S.scale = e.target.value; reapply(); });
-  $("root").addEventListener("change", function (e) { S.root = parseFloat(e.target.value); reapply(); });
+  $("root").addEventListener("change", function (e) { setBase(parseInt(e.target.value, 10)); });
   $("octaves").addEventListener("input", function (e) {
     S.octaves = parseInt(e.target.value, 10);
     $("octavesOut").textContent = S.octaves + " oct";
@@ -1139,6 +2108,21 @@
   $("glide").addEventListener("input", function (e) {
     S.glide = Math.pow(e.target.value / 100, 2) * 0.55 + 0.004;
     $("glideOut").textContent = Math.round(S.glide * 1000) + " ms";
+    pushAudio();
+  });
+  $("drive").addEventListener("input", function (e) {
+    S.drive = e.target.value / 100;
+    $("driveOut").textContent = e.target.value + " %";
+    pushAudio();
+  });
+  $("attack").addEventListener("input", function (e) {
+    S.attack = 0.002 + Math.pow(e.target.value / 100, 2) * 1.0;
+    $("attackOut").textContent = S.attack < 1 ? Math.round(S.attack * 1000) + " ms" : S.attack.toFixed(2) + " s";
+    pushAudio();
+  });
+  $("release").addEventListener("input", function (e) {
+    S.release = 0.01 + Math.pow(e.target.value / 100, 2) * 3.0;
+    $("releaseOut").textContent = S.release < 1 ? Math.round(S.release * 1000) + " ms" : S.release.toFixed(2) + " s";
     pushAudio();
   });
   $("space").addEventListener("input", function (e) {
@@ -1156,26 +2140,69 @@
     });
   });
 
+  function fitKeyboard() {
+    var p = $("kbdPanel");
+    document.body.style.paddingBottom = p.hidden ? "" : (p.offsetHeight + 16) + "px";
+  }
+  $("keysBtn").addEventListener("click", function () {
+    var p = $("kbdPanel"), show = p.hidden;
+    p.hidden = !show;
+    $("keysBtn").setAttribute("aria-pressed", show ? "true" : "false");
+    if (show) { kb.w = 0; kb.dirty = true; }
+    requestAnimationFrame(fitKeyboard);
+  });
+  $("holdBtn").addEventListener("click", function () {
+    keyHold = !keyHold;
+    $("holdBtn").setAttribute("aria-pressed", keyHold ? "true" : "false");
+    if (keyHold && !audioOn) setPower(true);
+    updateGate();
+  });
+  $("octDown").addEventListener("click", function () {
+    kb.start = clamp(kb.start - 12, 12, 96); kbLayout(); kb.dirty = true;
+  });
+  $("octUp").addEventListener("click", function () {
+    kb.start = clamp(kb.start + 12, 12, 96); kbLayout(); kb.dirty = true;
+  });
+
   function reapply() {
     if (padTone.pos) apply(padTone);
     if (padFilter.pos && (padFilter.active || padFilter.latched)) apply(padFilter);
     else { computeFilter(filt.rgb); pushAudio(); updateReadouts(); }
   }
 
-  /* ------------------------------------------------------------------ *
+  /* ================================================================== *
    * Boot
-   * ------------------------------------------------------------------ */
-  $("glideOut").textContent = Math.round(S.glide * 1000) + " ms";
+   * ================================================================== */
+  (function fillNotes() {
+    var sel = $("root"), m, o;
+    for (m = 24; m <= 84; m++) {
+      o = document.createElement("option");
+      o.value = String(m);
+      o.textContent = midiName(m) + "  (" + mtof(m).toFixed(1) + " Hz)";
+      if (m === S.baseMidi) o.selected = true;
+      sel.appendChild(o);
+    }
+  })();
+
+  (function initControls() {
+    ["octaves", "glide", "drive", "attack", "release", "space", "vol", "rate"].forEach(function (id) {
+      var el = $(id);
+      if (el) el.dispatchEvent(new Event("input"));
+    });
+  })();
+
   loadDemo("tone");
   loadDemo("filter");
   computeTone([0.85, 0.25, 0.25]);
   computeFilter(null);
   updateReadouts();
   resizeScope();
+  updateEngineNote();
+  initAudio().then(function () { updateEngineNote(); });
   requestAnimationFrame(frame);
 
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden && A && !padTone.latched && !padFilter.latched) noteOff();
+    if (document.hidden && !midi.playing && !padTone.latched && !keyHold) setGate(false);
   });
 })();
 </script>
