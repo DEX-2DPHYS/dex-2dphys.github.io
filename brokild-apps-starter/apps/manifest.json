@@ -1,0 +1,42 @@
+{
+  "labels": [
+    {
+      "id": "phone",
+      "name": "Phone App",
+      "description": "Designed for a phone screen — touch-first, one-handed, useful away from the desk."
+    },
+    {
+      "id": "everyday",
+      "name": "Everyday",
+      "description": "Small utilities for ordinary days: timers, converters, counters, checklists."
+    },
+    {
+      "id": "health",
+      "name": "Health & Sleep",
+      "description": "Sleep, breathing, movement, and other take-care-of-yourself apps."
+    },
+    {
+      "id": "home",
+      "name": "Home & Family",
+      "description": "Household, travel, and family logistics."
+    },
+    {
+      "id": "fun",
+      "name": "Fun",
+      "description": "Games, toys, and things built purely because they were fun to build."
+    },
+    {
+      "id": "creative",
+      "name": "Creative",
+      "description": "Drawing, sound, photo, and other make-something apps."
+    },
+    {
+      "id": "experiments",
+      "name": "Experiments",
+      "description": "Half-finished ideas kept online on purpose. Expect rough edges."
+    }
+  ],
+  "apps": [
+    "example-app"
+  ]
+}
