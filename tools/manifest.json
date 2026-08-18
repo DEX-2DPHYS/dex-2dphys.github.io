@@ -32,6 +32,7 @@
     }
   ],
   "tools": [
+    "photo-synth",
     "sleep-noise",
     "heterostructure-builder",
     "biomicroscope",
