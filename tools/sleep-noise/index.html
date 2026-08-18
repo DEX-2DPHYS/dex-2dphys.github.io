@@ -311,7 +311,7 @@
       <div class="toggle">
         <div>
           <div class="t">Blackout on its own</div>
-          <div class="h">Takes over the whole screen when you press play, then slips into the blackout screen after a minute without a tap — so no browser bars are left glowing.</div>
+          <div class="h">Slips into the blackout screen after a minute without a tap, so the room goes dark by itself. Press the blackout button yourself to go fullscreen as well, with no browser bars left glowing.</div>
         </div>
         <button class="sw" id="autoDimSw" aria-pressed="true" aria-label="Automatic blackout"></button>
       </div>
@@ -932,9 +932,6 @@
     // counts as a user gesture; the heavy buffer build happens right after.
     try { initAudio(); if (ctx.state === "suspended") ctx.resume(); }
     catch (e) { setStatus("Audio could not start: " + e.message, true); return; }
-    // A later automatic blackout cannot ask for fullscreen — that needs a
-    // gesture — so take the screen now, while this tap still counts.
-    if (S.autoDim) tryFullscreen(document.documentElement);
     playBtn.classList.add("busy");
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
@@ -960,12 +957,11 @@
     return window.navigator.standalone === true ||
       (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
   }
-  function tryFullscreen(el) {
+  function tryFullscreen() {
     if (fsElement()) return;
-    el = el || dim;
-    var r = el.requestFullscreen || el.webkitRequestFullscreen;
+    var r = dim.requestFullscreen || dim.webkitRequestFullscreen;
     if (!r) return;
-    try { var p = r.call(el, { navigationUI: "hide" }); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+    try { var p = r.call(dim, { navigationUI: "hide" }); if (p && p.catch) p.catch(function () {}); } catch (e) {}
   }
   function leaveFullscreen() {
     if (!fsElement()) return;
@@ -987,7 +983,7 @@
   function hideDim() {
     dim.classList.remove("show", "awake");
     clearTimeout(dimAwakeTimer);
-    if (!(playing && S.autoDim)) leaveFullscreen();
+    leaveFullscreen();
     armAutoDim();
   }
   function wakeDim() {
