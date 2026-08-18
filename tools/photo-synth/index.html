@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#08090d">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Photo Synth turns two photos into a musical instrument: point at one photo and its colour becomes a tone, touch the other and its colour filters the sound. Works with the camera or the camera roll, on Android and iOS.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Photo Synth">
+<title>Photo Synth — play the colours of two photos</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root{
+    --bg:#08090d;
+    --panel:#101219;
+    --panel-2:#151823;
+    --line:#242836;
+    --line-soft:#1b1e29;
+    --text:#e6e3dd;
+    --muted:#9b98a6;
+    --faint:#6a6776;
+    --accent:#7fd4c1;
+    --accent-2:#e0a3ff;
+    --accent-soft:rgba(127,212,193,.12);
+    --radius:14px;
+    --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;background:var(--bg)}
+  body{
+    margin:0 auto;background:var(--bg);color:var(--text);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 36px);
+    max-width:560px;
+    overscroll-behavior-y:contain;
+    -webkit-user-select:none;user-select:none;
+  }
+  ::selection{background:rgba(127,212,193,.25)}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:2px 0 14px}
+  h1{font-size:17px;font-weight:600;letter-spacing:.02em;margin:0}
+  h1 span{display:block;font-weight:400;font-size:11.5px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+  .home{font-size:12px;color:var(--faint);text-decoration:none;border:1px solid var(--line-soft);border-radius:8px;padding:5px 9px;flex:none}
+  .home:active{color:var(--muted)}
+
+  /* ---------- transport ---------- */
+  .transport{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:10px;margin:0 0 14px;box-shadow:var(--shadow);
+  }
+  .btn{
+    appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+    font:inherit;font-size:13px;padding:8px 12px;border-radius:10px;cursor:pointer;flex:none;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn:active{background:#1c2030}
+  .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .btn.wide{flex:1 1 auto;justify-content:center}
+  .btn.power[aria-pressed="true"]{border-color:var(--accent);color:#0a0c11;background:var(--accent);font-weight:600}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+  .btn.power[aria-pressed="true"] .dot{background:#0a0c11}
+  .vol{display:flex;align-items:center;gap:8px;flex:1 1 130px;min-width:120px}
+  .vol label{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--line);border-radius:2px}
+  input[type=range]::-moz-range-track{height:3px;background:var(--line);border-radius:2px}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+    background:var(--panel-2);border:1px solid var(--accent);margin-top:-9px;
+  }
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--panel-2);border:1px solid var(--accent)}
+
+  /* ---------- pads ---------- */
+  .pads{display:grid;gap:12px;margin-bottom:12px}
+  .pad{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow)}
+  .padhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .padname{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);flex:1 1 auto}
+  .padname b{color:var(--text);font-weight:600}
+  .latch{font-size:11.5px;padding:6px 10px;border-radius:9px}
+  .stage{position:relative;border-radius:11px;overflow:hidden;background:#000;border:1px solid var(--line-soft)}
+  canvas.pad-canvas{
+    display:block;width:100%;aspect-ratio:4/3;touch-action:none;
+  }
+  .hint{
+    position:absolute;inset:auto 8px 8px;text-align:center;font-size:11.5px;color:rgba(255,255,255,.72);
+    text-shadow:0 1px 3px rgba(0,0,0,.9);pointer-events:none;
+  }
+  .readout{
+    display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted);
+    min-height:26px;
+  }
+  .swatch{width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.22);flex:none;background:#222}
+  .readout .vals{flex:1 1 auto;font-variant-numeric:tabular-nums;line-height:1.35}
+  .readout .vals b{color:var(--text);font-weight:600}
+  .readout .sub{display:block;color:var(--faint);font-size:11px}
+  .padbtns{display:flex;gap:6px;margin-top:8px}
+  .padbtns .btn{flex:1 1 0;justify-content:center;font-size:12px;padding:8px 6px}
+  input[type=file]{display:none}
+
+  /* ---------- scope ---------- */
+  .scope{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .scope canvas{display:block;width:100%;aspect-ratio:5/2;border-radius:9px;background:#0a0c12;border:1px solid var(--line-soft)}
+  .scope .cap{font-size:11px;color:var(--faint);margin-top:7px;letter-spacing:.03em}
+
+  /* ---------- settings / about ---------- */
+  details{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow)}
+  summary{
+    cursor:pointer;list-style:none;padding:12px 14px;font-size:12.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";color:var(--faint);font-size:15px}
+  details[open] summary::after{content:"–"}
+  .body{padding:0 14px 14px}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft)}
+  .row:first-child{border-top:none}
+  .row label{flex:0 0 116px;font-size:12.5px;color:var(--muted)}
+  .row .ctl{flex:1 1 auto;display:flex;align-items:center;gap:8px}
+  .row output{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;flex:none;min-width:46px;text-align:right}
+  select{
+    appearance:none;width:100%;font:inherit;font-size:13px;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:9px;padding:8px 28px 8px 10px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--faint) 50%),linear-gradient(135deg,var(--faint) 50%,transparent 50%);
+    background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  }
+  .seg{display:flex;gap:6px;flex:1 1 auto}
+  .seg .btn{flex:1 1 0;justify-content:center;font-size:12px;padding:7px 4px}
+  .about p{font-size:13.5px;color:var(--muted);margin:.55em 0}
+  .about h3{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text);margin:1.3em 0 .3em}
+  .about h3:first-of-type{margin-top:.2em}
+  .about ul{margin:.4em 0;padding-left:1.15em;font-size:13.5px;color:var(--muted)}
+  .about li{margin:.3em 0}
+  .about b{color:var(--text);font-weight:600}
+  .about code{font-size:12.5px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:5px;padding:1px 5px}
+  footer{text-align:center;font-size:11px;color:var(--faint);margin-top:18px;letter-spacing:.04em}
+  footer a{color:var(--faint)}
+
+  @media (min-width:760px){
+    body{max-width:1000px}
+    .pads{grid-template-columns:1fr 1fr}
+    canvas.pad-canvas{aspect-ratio:1/1}
+  }
+  @media (orientation:landscape) and (max-height:560px){
+    .pads{grid-template-columns:1fr 1fr}
+    canvas.pad-canvas{aspect-ratio:4/3}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Photo Synth<span>colour → sound</span></h1>
+  <a class="home" href="../../index.html">← DEX</a>
+</header>
+
+<div class="transport">
+  <button id="power" class="btn power" type="button" aria-pressed="false"><span class="dot"></span><span id="powerLabel">Sound off</span></button>
+  <button id="panic" class="btn" type="button">Silence</button>
+  <div class="vol">
+    <label for="vol">Vol</label>
+    <input id="vol" type="range" min="0" max="100" value="70" aria-label="Master volume">
+  </div>
+</div>
+
+<section class="pads">
+  <div class="pad" id="pad-tone">
+    <div class="padhead">
+      <span class="padname"><b>1 · Tone</b> — colour → pitch &amp; timbre</span>
+      <button class="btn latch" type="button" data-latch="tone" aria-pressed="false">Latch</button>
+    </div>
+    <div class="stage">
+      <canvas class="pad-canvas" id="canvas-tone"></canvas>
+      <div class="hint" id="hint-tone">Drag anywhere to play</div>
+    </div>
+    <div class="readout">
+      <span class="swatch" id="swatch-tone"></span>
+      <span class="vals" id="vals-tone">—<span class="sub">load a photo, then drag</span></span>
+    </div>
+    <div class="padbtns">
+      <button class="btn" type="button" data-pick="tone-camera">Camera</button>
+      <button class="btn" type="button" data-pick="tone-library">Photos</button>
+      <button class="btn" type="button" data-demo="tone">Demo</button>
+    </div>
+    <input type="file" id="file-tone-camera" accept="image/*" capture="environment">
+    <input type="file" id="file-tone-library" accept="image/*">
+  </div>
+
+  <div class="pad" id="pad-filter">
+    <div class="padhead">
+      <span class="padname"><b>2 · Filter</b> — colour → tone colour</span>
+      <button class="btn latch" type="button" data-latch="filter" aria-pressed="false">Latch</button>
+    </div>
+    <div class="stage">
+      <canvas class="pad-canvas" id="canvas-filter"></canvas>
+      <div class="hint" id="hint-filter">Touch to filter</div>
+    </div>
+    <div class="readout">
+      <span class="swatch" id="swatch-filter"></span>
+      <span class="vals" id="vals-filter">—<span class="sub">filter open (no colour touched)</span></span>
+    </div>
+    <div class="padbtns">
+      <button class="btn" type="button" data-pick="filter-camera">Camera</button>
+      <button class="btn" type="button" data-pick="filter-library">Photos</button>
+      <button class="btn" type="button" data-demo="filter">Demo</button>
+    </div>
+    <input type="file" id="file-filter-camera" accept="image/*" capture="environment">
+    <input type="file" id="file-filter-library" accept="image/*">
+  </div>
+</section>
+
+<div class="scope">
+  <canvas id="scope"></canvas>
+  <div class="cap" id="scopeCap">Harmonics of the tone (bars) shaped by the filter response (curve).</div>
+</div>
+
+<details id="settings">
+  <summary>Settings</summary>
+  <div class="body">
+    <div class="row">
+      <label for="law">Colour → pitch</label>
+      <div class="ctl"><select id="law">
+        <option value="spectral" selected>Spectral (photon energy)</option>
+        <option value="hue">Hue angle (linear)</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <label for="scale">Scale</label>
+      <div class="ctl"><select id="scale">
+        <option value="free" selected>Continuous (no steps)</option>
+        <option value="chromatic">Chromatic</option>
+        <option value="major">Major</option>
+        <option value="minorPent">Minor pentatonic</option>
+        <option value="majorPent">Major pentatonic</option>
+        <option value="whole">Whole tone</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <label for="root">Lowest note</label>
+      <div class="ctl"><select id="root">
+        <option value="65.406">C2</option>
+        <option value="97.999">G2</option>
+        <option value="130.813" selected>C3</option>
+        <option value="164.814">E3</option>
+        <option value="195.998">G3</option>
+        <option value="261.626">C4</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <label for="octaves">Range</label>
+      <div class="ctl"><input id="octaves" type="range" min="1" max="4" step="1" value="3"></div>
+      <output id="octavesOut">3 oct</output>
+    </div>
+    <div class="row">
+      <label for="glide">Glide</label>
+      <div class="ctl"><input id="glide" type="range" min="0" max="100" value="22"></div>
+      <output id="glideOut">30 ms</output>
+    </div>
+    <div class="row">
+      <label for="fmode">Filter type</label>
+      <div class="ctl seg">
+        <button class="btn" type="button" data-fmode="lowpass" aria-pressed="true">Low-pass</button>
+        <button class="btn" type="button" data-fmode="bandpass" aria-pressed="false">Band-pass</button>
+        <button class="btn" type="button" data-fmode="highpass" aria-pressed="false">High-pass</button>
+      </div>
+    </div>
+    <div class="row">
+      <label for="space">Space</label>
+      <div class="ctl"><input id="space" type="range" min="0" max="100" value="18"></div>
+      <output id="spaceOut">18 %</output>
+    </div>
+    <div class="row">
+      <label>Photos</label>
+      <div class="ctl seg">
+        <button class="btn" id="swap" type="button">Swap photos</button>
+      </div>
+    </div>
+  </div>
+</details>
+
+<details class="about">
+  <summary>How it works</summary>
+  <div class="body">
+    <h3>Playing it</h3>
+    <p>Photo <b>1</b> is the oscillator: drag a finger over it and the colour under the fingertip
+      becomes a tone. Photo <b>2</b> is the filter: touch it and the colour there shapes that tone.
+      Both pads work at the same time — one finger on each.</p>
+    <p><b>Latch</b> leaves the cursor where you lifted your finger. On the tone pad the note keeps
+      sounding; on the filter pad the filter setting is held. Tap again to move the cursor, or turn
+      latch off to release.</p>
+
+    <h3>Colour → tone (photo 1)</h3>
+    <ul>
+      <li><b>Hue → pitch.</b> With the default <i>spectral</i> law the hue is read as a wavelength
+        (red ≈ 700 nm through to violet ≈ 380 nm) and the pitch follows the photon energy
+        <code>E = hc/λ</code>: <code>semitones ∝ log(700 nm / λ)</code>. Red is the lowest note,
+        violet the highest, and the whole visible band is stretched over the range you choose.</li>
+      <li><b>Saturation → harmonic richness.</b> Partial <i>n</i> starts at <code>n<sup>−p</sup></code>
+        with <code>p = 3.4 − 2.6·S</code>: a washed-out grey is nearly a pure sine, a vivid colour
+        is a full harmonic stack (ten partials).</li>
+      <li><b>Warm vs cool → odd/even balance.</b> Reds thin out the even harmonics for a hollow,
+        clarinet-like tone; blues keep the complete series and sound brighter.</li>
+      <li><b>Green → a formant bump</b> on the third to fifth partial, which adds a vocal edge.</li>
+      <li><b>Value → loudness.</b> Dark corners of the photo are quiet, highlights are loud.</li>
+    </ul>
+
+    <h3>Colour → filter (photo 2)</h3>
+    <ul>
+      <li><b>Value → cut-off</b>, from 80 Hz in the shadows to 14 kHz in the highlights, so a dark
+        patch mutes the tone and a bright one opens it up.</li>
+      <li><b>Saturation → resonance (Q)</b>, from a gentle 0.6 to a whistling 15.</li>
+      <li><b>Hue → a resonant peak</b> swept from 180 Hz to 6 kHz by the same wavelength law, with
+        its height set by saturation. Grey pixels leave the sound uncoloured.</li>
+    </ul>
+    <p>The strip above the settings draws it: the bars are the harmonics of the current tone, the
+      curve is the filter your second finger is describing, and the solid bars are what survives.</p>
+
+    <h3>Photos</h3>
+    <p><b>Camera</b> opens the camera, <b>Photos</b> opens the camera roll (on iOS both live behind
+      the same picker, so either button gets you there). Nothing is uploaded — the photos are
+      decoded and read in the browser and never leave the phone. <b>Demo</b> loads a synthetic
+      spectrum chart if you just want to try it.</p>
+    <p>On an iPhone the browser follows the ring/silent switch for web audio: if the pads look alive
+      but you hear nothing, flip the switch or turn the volume up. Add the page to the home screen
+      for a full-screen instrument.</p>
+  </div>
+</details>
+
+<footer>DEX · 2DPHYS, DTU — <a href="../../index.html">all tools</a></footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   * Small helpers
+   * ------------------------------------------------------------------ */
+  var $ = function (id) { return document.getElementById(id); };
+  var clamp = function (x, a, b) { return x < a ? a : (x > b ? b : x); };
+  var NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  function rgb2hsv(r, g, b) {           // r,g,b in 0..1
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0;
+    if (d > 1e-6) {
+      if (mx === r)      h = 60 * (((g - b) / d) % 6);
+      else if (mx === g) h = 60 * ((b - r) / d + 2);
+      else               h = 60 * ((r - g) / d + 4);
+      if (h < 0) h += 360;
+    }
+    return { h: h, s: mx <= 0 ? 0 : d / mx, v: mx };
+  }
+
+  // Hue angle -> position along the visible spectrum, 0 (deep red) .. 1 (violet).
+  function spectralPos(h, law) {
+    if (law === "hue") return h / 360;
+    var lam = 700 - 320 * (h / 360);                      // nm
+    return Math.log(700 / lam) / Math.log(700 / 380);     // photon energy, normalised
+  }
+  function wavelengthOf(h) { return 700 - 320 * (h / 360); }
+
+  function noteLabel(f) {
+    var n = 12 * Math.log(f / 440) / Math.LN2;
+    var k = Math.round(n);
+    var cents = Math.round((n - k) * 100);
+    var idx = ((k + 9) % 12 + 12) % 12;
+    var oct = 4 + Math.floor((k + 9) / 12);
+    return NOTE_NAMES[idx] + oct + (cents === 0 ? "" : (cents > 0 ? " +" : " −") + Math.abs(cents) + "¢");
+  }
+
+  var SCALES = {
+    free: null,
+    chromatic: [0,1,2,3,4,5,6,7,8,9,10,11],
+    major: [0,2,4,5,7,9,11],
+    minorPent: [0,3,5,7,10],
+    majorPent: [0,2,4,7,9],
+    whole: [0,2,4,6,8,10]
+  };
+  function quantize(semis, set) {
+    if (!set) return semis;
+    var oct = Math.floor(semis / 12), r = semis - oct * 12;
+    var best = set[0], bd = 1e9, i, d;
+    for (i = 0; i < set.length; i++) { d = Math.abs(set[i] - r); if (d < bd) { bd = d; best = set[i]; } }
+    if (Math.abs(12 - r) < bd) best = 12;
+    return oct * 12 + best;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Settings state
+   * ------------------------------------------------------------------ */
+  var S = {
+    law: "spectral",
+    scale: "free",
+    root: 130.813,
+    octaves: 3,
+    glide: 0.030,
+    fmode: "lowpass",
+    space: 0.18,
+    vol: 0.70
+  };
+
+  var NPART = 10;                       // partials in the additive voice
+
+  /* ------------------------------------------------------------------ *
+   * Audio engine
+   * ------------------------------------------------------------------ */
+  var A = null;                         // audio graph, built on first gesture
+  var audioOn = false;
+
+  function buildAudio() {
+    var Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    var ctx = new Ctor();
+    var g = {};
+    g.ctx = ctx;
+
+    g.master = ctx.createGain();
+    g.master.gain.value = S.vol;
+
+    g.comp = ctx.createDynamicsCompressor();
+    g.comp.threshold.value = -12;
+    g.comp.knee.value = 12;
+    g.comp.ratio.value = 6;
+    g.comp.attack.value = 0.004;
+    g.comp.release.value = 0.18;
+
+    g.lp = ctx.createBiquadFilter();
+    g.lp.type = S.fmode;
+    g.lp.frequency.value = 14000;
+    g.lp.Q.value = 0.7;
+
+    g.pk = ctx.createBiquadFilter();
+    g.pk.type = "peaking";
+    g.pk.frequency.value = 1000;
+    g.pk.Q.value = 1.2;
+    g.pk.gain.value = 0;
+
+    g.env = ctx.createGain();           // note on/off
+    g.env.gain.value = 0;
+
+    g.bus = ctx.createGain();           // partial sum
+    g.bus.gain.value = 0.28;
+
+    g.delay = ctx.createDelay(1.0);
+    g.delay.delayTime.value = 0.26;
+    g.fb = ctx.createGain();
+    g.fb.gain.value = 0.34;
+    g.wet = ctx.createGain();
+    g.wet.gain.value = S.space;
+
+    g.bus.connect(g.env);
+    g.env.connect(g.lp);
+    g.lp.connect(g.pk);
+    g.pk.connect(g.comp);
+    g.pk.connect(g.delay);
+    g.delay.connect(g.fb);
+    g.fb.connect(g.delay);
+    g.delay.connect(g.wet);
+    g.wet.connect(g.comp);
+    g.comp.connect(g.master);
+    g.master.connect(ctx.destination);
+
+    g.parts = [];
+    for (var n = 1; n <= NPART; n++) {
+      var osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = S.root * n;
+      var gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(g.bus);
+      osc.start();
+      g.parts.push({ osc: osc, gain: gain });
+    }
+    return g;
+  }
+
+  function ensureAudio() {
+    if (!A) {
+      A = buildAudio();
+      if (!A) { setPower(false, "No Web Audio"); return false; }
+    }
+    if (A.ctx.state === "suspended") A.ctx.resume();
+    return true;
+  }
+
+  function setPower(on, label) {
+    audioOn = !!on;
+    var b = $("power");
+    b.setAttribute("aria-pressed", audioOn ? "true" : "false");
+    $("powerLabel").textContent = label || (audioOn ? "Sound on" : "Sound off");
+    if (!audioOn && A) {
+      A.env.gain.cancelScheduledValues(A.ctx.currentTime);
+      A.env.gain.setTargetAtTime(0, A.ctx.currentTime, 0.03);
+    }
+  }
+
+  function noteOn() {
+    if (!audioOn || !A) return;
+    A.env.gain.cancelScheduledValues(A.ctx.currentTime);
+    A.env.gain.setTargetAtTime(1, A.ctx.currentTime, 0.012);
+  }
+  function noteOff() {
+    if (!A) return;
+    A.env.gain.cancelScheduledValues(A.ctx.currentTime);
+    A.env.gain.setTargetAtTime(0, A.ctx.currentTime, 0.055);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Colour -> synthesis parameters
+   * ------------------------------------------------------------------ */
+  var tone = { f0: S.root, amps: new Float32Array(NPART), level: 0, hsv: null, rgb: null, lam: 0 };
+  var filt = { cut: 20000, q: 0.7, peakF: 1000, peakG: 0, hsv: null, rgb: null, bypass: true };
+
+  function computeTone(rgb) {
+    var hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
+    var u = spectralPos(hsv.h, S.law);
+    var semis = quantize(u * 12 * S.octaves, SCALES[S.scale]);
+    var f0 = S.root * Math.pow(2, semis / 12);
+
+    var p = 3.4 - 2.6 * hsv.s;                       // spectral tilt
+    var warm = rgb[0] - rgb[2];                      // + red-ish, − blue-ish
+    var green = rgb[1];
+    var fc = 2.2 + 3.0 * green;                      // formant centre, in partial numbers
+    var amps = tone.amps, sum = 0, n, a;
+    for (n = 1; n <= NPART; n++) {
+      a = Math.pow(n, -p);
+      if (n % 2 === 0) a *= 1 - 0.75 * Math.max(0, warm);        // warm -> hollow (odd only)
+      else             a *= 1 + 0.25 * Math.max(0, -warm);
+      a *= 1 + 1.6 * green * Math.exp(-Math.pow((n - fc) / 1.25, 2));
+      amps[n - 1] = a;
+      sum += a;
+    }
+    if (sum > 0) for (n = 0; n < NPART; n++) amps[n] /= sum;
+
+    tone.f0 = f0;
+    tone.level = 0.06 + 0.94 * Math.pow(hsv.v, 1.35);
+    tone.hsv = hsv;
+    tone.rgb = rgb;
+    tone.lam = wavelengthOf(hsv.h);
+  }
+
+  function computeFilter(rgb) {
+    if (!rgb) {
+      // Nothing touched: the filter steps aside completely, whatever type is
+      // selected (a band-pass has no "open" setting, so it becomes a low-pass).
+      filt.bypass = true;
+      filt.cut = 20000; filt.q = 0.7; filt.peakF = 1000; filt.peakG = 0;
+      filt.hsv = null; filt.rgb = null;
+      return;
+    }
+    filt.bypass = false;
+    var hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
+    var u = spectralPos(hsv.h, S.law);
+    filt.cut = 80 * Math.pow(14000 / 80, Math.pow(hsv.v, 0.85));
+    filt.q = 0.6 + 14.4 * Math.pow(hsv.s, 1.6);
+    filt.peakF = 180 * Math.pow(6000 / 180, u);
+    filt.peakG = 18 * hsv.s * (0.35 + 0.65 * hsv.v);
+    filt.hsv = hsv;
+    filt.rgb = rgb;
+  }
+
+  function pushAudio() {
+    if (!A) return;
+    var t = A.ctx.currentTime, tc = Math.max(0.004, S.glide), n;
+    for (n = 0; n < NPART; n++) {
+      A.parts[n].osc.frequency.setTargetAtTime(
+        clamp(tone.f0 * (n + 1), 10, 20000), t, tc);
+      A.parts[n].gain.gain.setTargetAtTime(tone.amps[n] * tone.level, t, 0.02);
+    }
+    var wantType = filt.bypass ? "lowpass" : S.fmode;
+    if (A.lp.type !== wantType) A.lp.type = wantType;
+    A.lp.frequency.setTargetAtTime(clamp(filt.cut, 20, 20000), t, 0.02);
+    A.lp.Q.setTargetAtTime(filt.q, t, 0.03);
+    A.pk.frequency.setTargetAtTime(clamp(filt.peakF, 40, 12000), t, 0.03);
+    A.pk.gain.setTargetAtTime(filt.peakG, t, 0.03);
+    A.wet.gain.setTargetAtTime(S.space, t, 0.05);
+    A.master.gain.setTargetAtTime(S.vol, t, 0.03);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Pads: image handling, sampling, drawing
+   * ------------------------------------------------------------------ */
+  function Pad(key) {
+    this.key = key;
+    this.canvas = $("canvas-" + key);
+    this.ctx2d = this.canvas.getContext("2d");
+    this.img = null;                    // HTMLImageElement or ImageBitmap
+    this.url = null;                    // object URL owned by this pad, if any
+    this.iw = 0; this.ih = 0;
+    this.pix = null;                    // Uint8ClampedArray of the sampling buffer
+    this.pw = 0; this.ph = 0;
+    this.pos = null;                    // {x,y} in CSS px of the canvas
+    this.active = false;
+    this.latched = false;
+    this.pointerId = null;
+    this.dirty = true;
+    this.w = 0; this.h = 0;
+  }
+
+  Pad.prototype.resize = function () {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    var r = this.canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var w = Math.round(r.width), h = Math.round(r.height);
+    if (this.w === w && this.h === h && this.canvas.width === Math.round(w * dpr)) return;
+    this.w = w; this.h = h;
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+    this.ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.dirty = true;
+  };
+
+  // Mapping from canvas CSS px -> image px (cover fit, centred).
+  Pad.prototype.cover = function () {
+    var s = Math.max(this.w / this.iw, this.h / this.ih);
+    return { s: s, dx: (this.w - this.iw * s) / 2, dy: (this.h - this.ih * s) / 2 };
+  };
+
+  Pad.prototype.setImage = function (img, w, h) {
+    this.img = img; this.iw = w; this.ih = h;
+    // Sampling buffer: a downscaled copy we can read pixels from cheaply.
+    var maxS = 640, k = Math.min(1, maxS / Math.max(w, h));
+    var pw = Math.max(1, Math.round(w * k)), ph = Math.max(1, Math.round(h * k));
+    var c = document.createElement("canvas");
+    c.width = pw; c.height = ph;
+    var cc = c.getContext("2d", { willReadFrequently: true });
+    cc.drawImage(img, 0, 0, pw, ph);
+    try {
+      this.pix = cc.getImageData(0, 0, pw, ph).data;
+      this.pw = pw; this.ph = ph;
+    } catch (e) {
+      this.pix = null;
+    }
+    this.dirty = true;
+    var hint = $("hint-" + this.key);
+    if (hint) hint.textContent = this.key === "tone" ? "Drag anywhere to play" : "Touch to filter";
+  };
+
+  // Average colour in a small neighbourhood around a canvas point.
+  Pad.prototype.sample = function (x, y) {
+    if (!this.pix) return null;
+    var c = this.cover();
+    var ix = (x - c.dx) / c.s * (this.pw / this.iw);
+    var iy = (y - c.dy) / c.s * (this.ph / this.ih);
+    var cx = clamp(Math.round(ix), 0, this.pw - 1);
+    var cy = clamp(Math.round(iy), 0, this.ph - 1);
+    var r = 0, g = 0, b = 0, cnt = 0, dx, dy, xx, yy, o;
+    for (dy = -2; dy <= 2; dy++) {
+      yy = cy + dy; if (yy < 0 || yy >= this.ph) continue;
+      for (dx = -2; dx <= 2; dx++) {
+        xx = cx + dx; if (xx < 0 || xx >= this.pw) continue;
+        o = (yy * this.pw + xx) * 4;
+        r += this.pix[o]; g += this.pix[o + 1]; b += this.pix[o + 2]; cnt++;
+      }
+    }
+    if (!cnt) return null;
+    return [r / cnt / 255, g / cnt / 255, b / cnt / 255];
+  };
+
+  Pad.prototype.draw = function () {
+    var g = this.ctx2d;
+    if (!this.w) return;
+    g.clearRect(0, 0, this.w, this.h);
+    g.fillStyle = "#000";
+    g.fillRect(0, 0, this.w, this.h);
+    if (this.img) {
+      var c = this.cover();
+      g.drawImage(this.img, c.dx, c.dy, this.iw * c.s, this.ih * c.s);
+    }
+    if (this.pos) this.drawCursor(g);
+  };
+
+  Pad.prototype.drawCursor = function (g) {
+    var x = this.pos.x, y = this.pos.y;
+    var live = this.active || this.latched;
+    var R = Math.max(16, Math.min(this.w, this.h) * 0.085);
+    var col = this.key === "tone" ? tone.rgb : filt.rgb;
+    var css = col ? "rgb(" + Math.round(col[0] * 255) + "," + Math.round(col[1] * 255) + "," + Math.round(col[2] * 255) + ")" : "#888";
+
+    g.save();
+    g.globalAlpha = live ? 1 : 0.55;
+
+    // Loupe while dragging: a magnified view of the pixels under the finger.
+    if (this.active && this.img) {
+      var lr = Math.min(40, Math.min(this.w, this.h) * 0.155);
+      var ly = y - R - lr - 8;
+      if (ly - lr < 2) ly = y + R + lr + 8;
+      var lx = clamp(x, lr + 2, this.w - lr - 2);
+      ly = clamp(ly, lr + 2, this.h - lr - 2);
+      var c = this.cover(), zoom = 6;
+      // The loupe is the same cover-fitted image, scaled about the touch point.
+      g.save();
+      g.beginPath(); g.arc(lx, ly, lr, 0, 6.2832); g.clip();
+      g.fillStyle = "#0a0a0a"; g.fillRect(lx - lr, ly - lr, lr * 2, lr * 2);
+      g.imageSmoothingEnabled = false;
+      g.translate(lx, ly);
+      g.scale(zoom, zoom);
+      g.translate(-x, -y);
+      g.drawImage(this.img, c.dx, c.dy, this.iw * c.s, this.ih * c.s);
+      g.restore();
+      g.beginPath(); g.arc(lx, ly, lr, 0, 6.2832);
+      g.lineWidth = 3; g.strokeStyle = "rgba(0,0,0,.75)"; g.stroke();
+      g.lineWidth = 1.5; g.strokeStyle = "rgba(255,255,255,.95)"; g.stroke();
+      g.beginPath();
+      g.moveTo(lx - 7, ly); g.lineTo(lx + 7, ly);
+      g.moveTo(lx, ly - 7); g.lineTo(lx, ly + 7);
+      g.lineWidth = 2.6; g.strokeStyle = "rgba(0,0,0,.7)"; g.stroke();
+      g.lineWidth = 1; g.strokeStyle = "#fff"; g.stroke();
+    }
+
+    // Cursor: dark halo + white ring, so it reads on any photo.
+    g.beginPath(); g.arc(x, y, R, 0, 6.2832);
+    g.lineWidth = 5; g.strokeStyle = "rgba(0,0,0,.6)"; g.stroke();
+    g.lineWidth = 2.4; g.strokeStyle = "#fff"; g.stroke();
+
+    if (this.latched) {                         // second, dashed ring = held
+      g.beginPath(); g.arc(x, y, R + 6.5, 0, 6.2832);
+      g.setLineDash([5, 5]);
+      g.lineWidth = 3.2; g.strokeStyle = "rgba(0,0,0,.55)"; g.stroke();
+      g.lineWidth = 1.6; g.strokeStyle = "#fff"; g.stroke();
+      g.setLineDash([]);
+    }
+
+    // Colour chip in the middle + cross hairs.
+    g.beginPath(); g.arc(x, y, R * 0.34, 0, 6.2832);
+    g.fillStyle = css; g.fill();
+    g.lineWidth = 1.6; g.strokeStyle = "rgba(255,255,255,.9)"; g.stroke();
+
+    var g1 = R * 0.5, g2 = R * 1.5;
+    g.beginPath();
+    g.moveTo(x - g2, y); g.lineTo(x - g1, y);
+    g.moveTo(x + g1, y); g.lineTo(x + g2, y);
+    g.moveTo(x, y - g2); g.lineTo(x, y - g1);
+    g.moveTo(x, y + g1); g.lineTo(x, y + g2);
+    g.lineWidth = 4; g.strokeStyle = "rgba(0,0,0,.55)"; g.stroke();
+    g.lineWidth = 1.7; g.strokeStyle = "#fff"; g.stroke();
+    g.restore();
+  };
+
+  var padTone = new Pad("tone");
+  var padFilter = new Pad("filter");
+  var pads = [padTone, padFilter];
+
+  /* ------------------------------------------------------------------ *
+   * Pointer handling
+   * ------------------------------------------------------------------ */
+  function localPoint(pad, ev) {
+    var r = pad.canvas.getBoundingClientRect();
+    return {
+      x: clamp(ev.clientX - r.left, 0, r.width),
+      y: clamp(ev.clientY - r.top, 0, r.height)
+    };
+  }
+
+  function apply(pad) {
+    if (!pad.pos) return;
+    var rgb = pad.sample(pad.pos.x, pad.pos.y);
+    if (!rgb) return;
+    if (pad.key === "tone") computeTone(rgb); else computeFilter(rgb);
+    pushAudio();
+    updateReadouts();
+  }
+
+  function attach(pad) {
+    var cv = pad.canvas;
+    cv.addEventListener("pointerdown", function (ev) {
+      if (pad.pointerId !== null) return;
+      ev.preventDefault();
+      pad.pointerId = ev.pointerId;
+      try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+      if (!audioOn) { if (ensureAudio()) setPower(true); }
+      else ensureAudio();
+      pad.active = true;
+      var hint = $("hint-" + pad.key);
+      if (hint) hint.style.display = "none";
+      pad.pos = localPoint(pad, ev);
+      pad.dirty = true;
+      apply(pad);
+      if (pad.key === "tone") noteOn();
+    }, { passive: false });
+
+    cv.addEventListener("pointermove", function (ev) {
+      if (pad.pointerId !== ev.pointerId) return;
+      ev.preventDefault();
+      pad.pos = localPoint(pad, ev);
+      pad.dirty = true;
+      apply(pad);
+    }, { passive: false });
+
+    function end(ev) {
+      if (pad.pointerId !== ev.pointerId) return;
+      pad.pointerId = null;
+      pad.active = false;
+      pad.dirty = true;
+      try { cv.releasePointerCapture(ev.pointerId); } catch (e) {}
+      if (!pad.latched) {
+        if (pad.key === "tone") noteOff();
+        else { computeFilter(null); pushAudio(); updateReadouts(); }
+      }
+    }
+    cv.addEventListener("pointerup", end);
+    cv.addEventListener("pointercancel", end);
+    cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+  pads.forEach(attach);
+
+  /* ------------------------------------------------------------------ *
+   * Latch
+   * ------------------------------------------------------------------ */
+  function setLatch(pad, on) {
+    pad.latched = !!on;
+    document.querySelector('[data-latch="' + pad.key + '"]').setAttribute("aria-pressed", pad.latched ? "true" : "false");
+    pad.dirty = true;
+    if (pad.latched) {
+      if (pad.pos) {
+        apply(pad);
+        if (pad.key === "tone") { if (ensureAudio()) { if (!audioOn) setPower(true); noteOn(); } }
+      }
+    } else if (!pad.active) {
+      if (pad.key === "tone") noteOff();
+      else { computeFilter(null); pushAudio(); updateReadouts(); }
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-latch]"), function (b) {
+    b.addEventListener("click", function () {
+      var pad = b.getAttribute("data-latch") === "tone" ? padTone : padFilter;
+      setLatch(pad, !pad.latched);
+    });
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Readouts
+   * ------------------------------------------------------------------ */
+  function lift(c, k) {
+    return [c[0] + (1 - c[0]) * k, c[1] + (1 - c[1]) * k, c[2] + (1 - c[2]) * k];
+  }
+  function cssRGB(c) {
+    return "rgb(" + Math.round(c[0] * 255) + "," + Math.round(c[1] * 255) + "," + Math.round(c[2] * 255) + ")";
+  }
+  function updateReadouts() {
+    var st = $("swatch-tone"), vt = $("vals-tone");
+    if (tone.hsv) {
+      st.style.background = cssRGB(tone.rgb);
+      vt.innerHTML = "<b>" + tone.f0.toFixed(1) + " Hz</b> · " + noteLabel(tone.f0) +
+        '<span class="sub">' + Math.round(tone.lam) + " nm · sat " + Math.round(tone.hsv.s * 100) +
+        "% · val " + Math.round(tone.hsv.v * 100) + "%</span>";
+    }
+    var sf = $("swatch-filter"), vf = $("vals-filter");
+    if (filt.hsv) {
+      sf.style.background = cssRGB(filt.rgb);
+      var cutTxt = filt.cut >= 1000 ? (filt.cut / 1000).toFixed(2) + " kHz" : Math.round(filt.cut) + " Hz";
+      vf.innerHTML = "<b>" + cutTxt + "</b> · Q " + filt.q.toFixed(1) +
+        '<span class="sub">peak ' + Math.round(filt.peakF) + " Hz, +" + filt.peakG.toFixed(1) + " dB</span>";
+    } else {
+      sf.style.background = "#222";
+      vf.innerHTML = "—" + '<span class="sub">filter open (no colour touched)</span>';
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Spectrum strip
+   * ------------------------------------------------------------------ */
+  var scope = $("scope"), sg = scope.getContext("2d");
+  var NF = 220, fAxis = new Float32Array(NF);
+  var magA = new Float32Array(NF), phA = new Float32Array(NF);
+  var magB = new Float32Array(NF), phB = new Float32Array(NF);
+  var pf = new Float32Array(NPART), pmA = new Float32Array(NPART), pmB = new Float32Array(NPART), pph = new Float32Array(NPART);
+  var F_MIN = 40, F_MAX = 18000, sw = 0, sh = 0;
+  for (var i = 0; i < NF; i++) fAxis[i] = F_MIN * Math.pow(F_MAX / F_MIN, i / (NF - 1));
+
+  function fx(f) { return Math.log(f / F_MIN) / Math.log(F_MAX / F_MIN) * sw; }
+  function dby(db) { return (1 - (db + 60) / 78) * sh; }   // -60 .. +18 dB
+
+  function resizeScope() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    var r = scope.getBoundingClientRect();
+    if (!r.width) return;
+    sw = Math.round(r.width); sh = Math.round(r.height);
+    scope.width = Math.round(sw * dpr); scope.height = Math.round(sh * dpr);
+    sg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  var scopeSig = "";
+  function scopeChanged() {
+    var sig = [tone.f0.toFixed(2), tone.level.toFixed(3), tone.rgb && tone.rgb.join(","),
+               filt.cut.toFixed(1), filt.q.toFixed(2), filt.peakF.toFixed(1), filt.peakG.toFixed(2),
+               filt.rgb && filt.rgb.join(","), S.fmode, audioOn, sw, sh].join("|");
+    if (sig === scopeSig) return false;
+    scopeSig = sig;
+    return true;
+  }
+
+  function drawScope() {
+    if (!sw) return;
+    sg.clearRect(0, 0, sw, sh);
+    sg.fillStyle = "#0a0c12"; sg.fillRect(0, 0, sw, sh);
+
+    // grid
+    var marks = [100, 1000, 10000], labels = ["100 Hz", "1 kHz", "10 kHz"], k;
+    sg.strokeStyle = "rgba(255,255,255,.07)"; sg.lineWidth = 1;
+    sg.font = "10px -apple-system,system-ui,sans-serif";
+    sg.fillStyle = "rgba(255,255,255,.30)";
+    for (k = 0; k < marks.length; k++) {
+      var x = fx(marks[k]);
+      sg.beginPath(); sg.moveTo(x, 12); sg.lineTo(x, sh); sg.stroke();
+      sg.fillText(labels[k], x + 3, 9);
+    }
+
+    var haveFilter = !!A;
+    // Lift both colours towards white so they stay legible on the dark strip.
+    var toneCss = tone.rgb ? cssRGB(lift(tone.rgb, 0.45)) : "#7fd4c1";
+    var filtCss = filt.rgb ? cssRGB(lift(filt.rgb, 0.45)) : "#e0a3ff";
+
+    if (A) {
+      A.lp.getFrequencyResponse(fAxis, magA, phA);
+      A.pk.getFrequencyResponse(fAxis, magB, phB);
+      for (k = 0; k < NPART; k++) pf[k] = clamp(tone.f0 * (k + 1), 20, 20000);
+      A.lp.getFrequencyResponse(pf, pmA, pph);
+      A.pk.getFrequencyResponse(pf, pmB, pph);
+    }
+
+    // partial bars
+    for (k = 0; k < NPART; k++) {
+      var f = tone.f0 * (k + 1);
+      if (f > F_MAX) break;
+      var a = tone.amps[k] * tone.level;
+      if (a <= 1e-6) continue;
+      var raw = 20 * Math.log(a) / Math.LN10;
+      var resp = A ? (pmA[k] * pmB[k]) : 1;
+      var out = raw + 20 * Math.log(Math.max(resp, 1e-6)) / Math.LN10;
+      var bx = fx(f), y0 = dby(-60);
+      sg.strokeStyle = "rgba(255,255,255,.20)"; sg.lineWidth = 2;
+      sg.beginPath(); sg.moveTo(bx, y0); sg.lineTo(bx, dby(clamp(raw, -60, 18))); sg.stroke();
+      sg.strokeStyle = toneCss; sg.lineWidth = 4; sg.lineCap = "round";
+      sg.beginPath(); sg.moveTo(bx, y0); sg.lineTo(bx, dby(clamp(out, -60, 18))); sg.stroke();
+    }
+
+    // filter response curve
+    if (haveFilter) {
+      sg.beginPath();
+      for (k = 0; k < NF; k++) {
+        var db = 20 * Math.log(Math.max(magA[k] * magB[k], 1e-6)) / Math.LN10;
+        var yy = dby(clamp(db, -60, 18));
+        if (k === 0) sg.moveTo(0, yy); else sg.lineTo(fx(fAxis[k]), yy);
+      }
+      sg.strokeStyle = filtCss; sg.lineWidth = 1.8;
+      sg.globalAlpha = 0.95; sg.stroke(); sg.globalAlpha = 1;
+    }
+
+    if (!audioOn) {
+      var msg = "touch a photo to start the sound";
+      sg.font = "12px -apple-system,system-ui,sans-serif";
+      var tw = sg.measureText(msg).width, tx = (sw - tw) / 2, ty = sh / 2;
+      sg.fillStyle = "rgba(8,9,13,.78)";
+      sg.fillRect(tx - 10, ty - 13, tw + 20, 24);
+      sg.fillStyle = "rgba(255,255,255,.6)";
+      sg.fillText(msg, tx, ty + 4);
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Render loop
+   * ------------------------------------------------------------------ */
+  function frame() {
+    pads.forEach(function (p) {
+      p.resize();
+      if (p.dirty) { p.draw(); p.dirty = false; }
+    });
+    if (scopeChanged()) drawScope();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener("resize", function () {
+    resizeScope();
+    scopeSig = "";
+    pads.forEach(function (p) { p.dirty = true; });
+  });
+  window.addEventListener("orientationchange", function () {
+    setTimeout(function () { resizeScope(); pads.forEach(function (p) { p.dirty = true; }); }, 250);
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Photos: camera, camera roll, demo
+   * ------------------------------------------------------------------ */
+  function padOf(key) { return key === "tone" ? padTone : padFilter; }
+
+  // An <img> is decoded with the file's EXIF orientation applied in every
+  // current browser, so photos shot in portrait come in the right way up.
+  // createImageBitmap only honours it from Safari 16.4 on, so it is the fallback.
+  async function loadFile(padKey, file) {
+    if (!file) return;
+    var pad = padOf(padKey);
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.decoding = "async";
+    var loaded = false;
+    try {
+      await new Promise(function (res, rej) {
+        img.onload = res;
+        img.onerror = rej;
+        img.src = url;
+      });
+      loaded = img.naturalWidth > 0;
+    } catch (e) { loaded = false; }
+
+    if (loaded) {
+      if (pad.url) URL.revokeObjectURL(pad.url);
+      pad.url = url;
+      pad.setImage(img, img.naturalWidth, img.naturalHeight);
+      afterLoad(pad);
+      return;
+    }
+    URL.revokeObjectURL(url);
+
+    if (window.createImageBitmap) {
+      try {
+        var bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+        pad.setImage(bmp, bmp.width, bmp.height);
+        afterLoad(pad);
+        return;
+      } catch (e2) { /* fall through to the message below */ }
+    }
+    var hint = $("hint-" + padKey);
+    if (hint) { hint.style.display = ""; hint.textContent = "Could not read that image"; }
+  }
+
+  function afterLoad(pad) {
+    pad.dirty = true;
+    if (pad.pos) apply(pad);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-pick]"), function (b) {
+    b.addEventListener("click", function () { $("file-" + b.getAttribute("data-pick")).click(); });
+  });
+  ["tone-camera", "tone-library", "filter-camera", "filter-library"].forEach(function (id) {
+    var el = $("file-" + id);
+    el.addEventListener("change", function (ev) {
+      var key = id.indexOf("tone") === 0 ? "tone" : "filter";
+      loadFile(key, ev.target.files && ev.target.files[0]);
+      ev.target.value = "";
+    });
+  });
+
+  // Synthetic stand-ins so the instrument is playable before any photo is picked.
+  function demoImage(kind) {
+    var N = 512, c = document.createElement("canvas");
+    c.width = N; c.height = N;
+    var g = c.getContext("2d"), x, y;
+    if (kind === "tone") {
+      var grad = g.createLinearGradient(0, 0, N, 0);
+      for (x = 0; x <= 12; x++) grad.addColorStop(x / 12, "hsl(" + (x / 12 * 340) + ",92%,52%)");
+      g.fillStyle = grad; g.fillRect(0, 0, N, N);
+      var vg = g.createLinearGradient(0, 0, 0, N);
+      vg.addColorStop(0, "rgba(255,255,255,.75)");
+      vg.addColorStop(0.42, "rgba(255,255,255,0)");
+      vg.addColorStop(0.62, "rgba(0,0,0,0)");
+      vg.addColorStop(1, "rgba(0,0,0,.85)");
+      g.fillStyle = vg; g.fillRect(0, 0, N, N);
+      for (var i = 0; i < 26; i++) {
+        var cx = (i * 97 % N), cy = ((i * 173 + 40) % N), r = 24 + (i * 37 % 70);
+        var rg = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+        rg.addColorStop(0, "hsla(" + ((i * 47) % 360) + ",95%,60%,.55)");
+        rg.addColorStop(1, "hsla(" + ((i * 47) % 360) + ",95%,60%,0)");
+        g.fillStyle = rg; g.beginPath(); g.arc(cx, cy, r, 0, 6.2832); g.fill();
+      }
+    } else {
+      g.fillStyle = "#101010"; g.fillRect(0, 0, N, N);
+      for (var j = 0; j < 40; j++) {
+        var px = (j * 131 % N), py = ((j * 211 + 70) % N), pr = 40 + (j * 53 % 130);
+        var pg = g.createRadialGradient(px, py, 0, px, py, pr);
+        var hue = (j * 31) % 360, li = 30 + (j * 17 % 55);
+        pg.addColorStop(0, "hsla(" + hue + "," + (25 + (j * 13 % 70)) + "%," + li + "%,.85)");
+        pg.addColorStop(1, "hsla(" + hue + ",60%," + li + "%,0)");
+        g.fillStyle = pg; g.beginPath(); g.arc(px, py, pr, 0, 6.2832); g.fill();
+      }
+      var lg = g.createLinearGradient(0, N, N, 0);
+      lg.addColorStop(0, "rgba(0,0,0,.85)");
+      lg.addColorStop(0.5, "rgba(255,255,255,.08)");
+      lg.addColorStop(1, "rgba(255,255,255,.8)");
+      g.globalCompositeOperation = "overlay";
+      g.fillStyle = lg; g.fillRect(0, 0, N, N);
+      g.globalCompositeOperation = "source-over";
+    }
+    return c;
+  }
+
+  function loadDemo(key) {
+    var pad = padOf(key);
+    var c = demoImage(key);
+    pad.setImage(c, c.width, c.height);
+    afterLoad(pad);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-demo]"), function (b) {
+    b.addEventListener("click", function () { loadDemo(b.getAttribute("data-demo")); });
+  });
+
+  $("swap").addEventListener("click", function () {
+    var keys = ["img", "url", "iw", "ih", "pix", "pw", "ph"];
+    keys.forEach(function (k) {
+      var t = padTone[k]; padTone[k] = padFilter[k]; padFilter[k] = t;
+    });
+    padTone.dirty = padFilter.dirty = true;
+    apply(padTone); apply(padFilter);
+  });
+
+  /* ------------------------------------------------------------------ *
+   * Controls
+   * ------------------------------------------------------------------ */
+  $("power").addEventListener("click", function () {
+    if (audioOn) { setPower(false); }
+    else if (ensureAudio()) {
+      setPower(true);
+      if (padTone.latched && padTone.pos) { apply(padTone); noteOn(); }
+    }
+  });
+  $("panic").addEventListener("click", function () {
+    pads.forEach(function (p) { if (p.latched) setLatch(p, false); });
+    noteOff();
+    setPower(false);
+  });
+
+  $("vol").addEventListener("input", function (e) { S.vol = e.target.value / 100; pushAudio(); });
+  $("law").addEventListener("change", function (e) { S.law = e.target.value; reapply(); });
+  $("scale").addEventListener("change", function (e) { S.scale = e.target.value; reapply(); });
+  $("root").addEventListener("change", function (e) { S.root = parseFloat(e.target.value); reapply(); });
+  $("octaves").addEventListener("input", function (e) {
+    S.octaves = parseInt(e.target.value, 10);
+    $("octavesOut").textContent = S.octaves + " oct";
+    reapply();
+  });
+  $("glide").addEventListener("input", function (e) {
+    S.glide = Math.pow(e.target.value / 100, 2) * 0.55 + 0.004;
+    $("glideOut").textContent = Math.round(S.glide * 1000) + " ms";
+    pushAudio();
+  });
+  $("space").addEventListener("input", function (e) {
+    S.space = e.target.value / 100;
+    $("spaceOut").textContent = e.target.value + " %";
+    pushAudio();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-fmode]"), function (b) {
+    b.addEventListener("click", function () {
+      S.fmode = b.getAttribute("data-fmode");
+      Array.prototype.forEach.call(document.querySelectorAll("[data-fmode]"), function (o) {
+        o.setAttribute("aria-pressed", o === b ? "true" : "false");
+      });
+      reapply();
+    });
+  });
+
+  function reapply() {
+    if (padTone.pos) apply(padTone);
+    if (padFilter.pos && (padFilter.active || padFilter.latched)) apply(padFilter);
+    else { computeFilter(filt.rgb); pushAudio(); updateReadouts(); }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Boot
+   * ------------------------------------------------------------------ */
+  $("glideOut").textContent = Math.round(S.glide * 1000) + " ms";
+  loadDemo("tone");
+  loadDemo("filter");
+  computeTone([0.85, 0.25, 0.25]);
+  computeFilter(null);
+  updateReadouts();
+  resizeScope();
+  requestAnimationFrame(frame);
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden && A && !padTone.latched && !padFilter.latched) noteOff();
+  });
+})();
+</script>
+</body>
+</html>

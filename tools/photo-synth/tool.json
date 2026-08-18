@@ -1,0 +1,13 @@
+{
+  "slug": "photo-synth",
+  "name": "Photo Synth (for phone)",
+  "description": "Turn two photos into an instrument. Drag across the first and the colour under your finger becomes a tone — hue sets the pitch, saturation the harmonics, brightness the loudness. Touch the second and its colour filters that tone. Photos come from the camera or the camera roll, and a latch holds the cursor in place.",
+  "status": "live",
+  "url": "tools/photo-synth/index.html",
+  "icon": "spectrum",
+  "tags": [
+    "phone",
+    "applications",
+    "educational"
+  ]
+}
