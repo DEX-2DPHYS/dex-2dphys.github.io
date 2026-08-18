@@ -24,6 +24,11 @@
       "id": "applications",
       "name": "Applications",
       "description": "Applied / device- and experiment-oriented tools."
+    },
+    {
+      "id": "phone",
+      "name": "Phone App",
+      "description": "Designed for a phone screen — touch-first, one-handed, and useful away from the desk."
     }
   ],
   "tools": [
