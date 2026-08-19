@@ -37,6 +37,7 @@
     "double-pendulum",
     "camera-fft",
     "camera-motion",
+    "lidar-ruler",
     "graph-digitizer",
     "transim",
     "moire-md",
