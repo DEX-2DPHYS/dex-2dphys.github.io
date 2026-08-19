@@ -192,6 +192,60 @@
   #nosupport b{color:var(--ink);font-weight:600}
 
   canvas.xr{position:fixed;inset:0;z-index:1}
+
+  /* ================= Tilt-estimate fallback mode ================= */
+  #tiltVideo{
+    position:fixed;inset:0;width:100%;height:100%;object-fit:cover;
+    z-index:1;display:none;background:#000;
+  }
+  #tiltVideo.active{display:block}
+  #tiltLayer{position:fixed;inset:0;z-index:2;display:none;pointer-events:none;overflow:hidden}
+  #tiltLayer.active{display:block}
+  .tmark{position:absolute;left:0;top:0}
+  .tmark .ringm{width:30px;height:16px;border-radius:50%;border:3px solid;transform:translate(-50%,-50%)}
+  .tmark .bead{position:absolute;left:0;top:0;width:9px;height:9px;border-radius:50%;
+    transform:translate(-50%,-50%);box-shadow:0 0 10px currentColor}
+  .tmark .leader{position:absolute;left:0;bottom:9px;width:1.5px;height:34px;
+    transform:translateX(-50%);background:rgba(255,255,255,.65)}
+  .tmark .lab{
+    position:absolute;left:0;bottom:44px;transform:translateX(-50%);
+    display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+    background:rgba(16,17,22,.85);border:1.5px solid rgba(255,255,255,.28);
+    padding:7px 13px;border-radius:999px;font-size:15px;font-weight:800;
+    font-variant-numeric:tabular-nums;box-shadow:0 6px 18px rgba(0,0,0,.45);
+  }
+  .tmark .lab .cdot{width:9px;height:9px;border-radius:50%}
+  #tiltReticle{
+    position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);
+    text-align:center;transition:opacity .2s ease;
+  }
+  #tiltReticle .outer{
+    width:58px;height:30px;border-radius:50%;margin:0 auto;position:relative;
+    border:2.5px solid rgba(255,255,255,.92);
+    box-shadow:0 0 14px rgba(255,255,255,.3);
+  }
+  #tiltReticle .inner{
+    position:absolute;left:50%;top:50%;width:13px;height:8px;border-radius:50%;
+    border:2.5px solid var(--accent);transform:translate(-50%,-50%);
+  }
+  #tiltReticle .preview{
+    margin-top:10px;display:inline-block;
+    background:rgba(16,17,22,.72);border:1px solid rgba(255,255,255,.18);
+    padding:4px 13px;border-radius:999px;
+    font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums;
+  }
+  .heightbar{
+    display:none;align-items:center;gap:8px;pointer-events:auto;
+  }
+  #overlay.tilt .heightbar{display:flex}
+  .heightbar .ctl{padding:9px 15px}
+  #hVal{min-width:150px;justify-content:center;font-variant-numeric:tabular-nums}
+  .modechip{
+    display:none;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    background:rgba(255,214,10,.16);color:#ffd60a;border:1px solid rgba(255,214,10,.35);
+    padding:3px 9px;border-radius:999px;
+  }
+  #overlay.tilt .modechip{display:inline-block}
 </style>
 </head>
 <body>
@@ -228,25 +282,38 @@
     <p id="supportLine">Checking augmented-reality support…</p>
 
     <div id="nosupport">
-      <h2>This browser can't reach the depth sensor</h2>
-      <p>The app needs <b>WebXR augmented reality</b>, which lets a web page use the phone's AR system (LiDAR / depth sensing) without installing anything.</p>
-      <p><b>Android:</b> open this page in <b>Chrome</b> on an ARCore-capable phone.</p>
-      <p><b>iPhone / iPad:</b> Safari doesn't yet expose LiDAR to web pages — open this page in a WebXR-enabled browser app (e.g. “WebXR Viewer”), or try it on an Android device.</p>
+      <h2>No depth sensor access in this browser</h2>
+      <p>Full AR measuring needs <b>WebXR augmented reality</b>, which iPhone Safari doesn't yet offer — Apple doesn't expose LiDAR to web pages. On Android, <b>Chrome</b> on an ARCore phone measures with the real depth system.</p>
+      <p>Here the app uses a <b>tilt estimate</b> instead: aim the ring at the point where an object meets the floor, and the distance is triangulated from the phone's tilt and its height above the floor (adjustable in the app). It's a good estimate, not a LiDAR measurement.</p>
     </div>
 
     <p class="privacy">Everything runs on the device — the camera image and depth data never leave your phone.</p>
     <p class="backlink"><a href="../../index.html">← DEX · Digital Experiments &amp; Tools</a></p>
   </div>
 
+  <!-- ============ Tilt-estimate fallback: camera + markers ============ -->
+  <video id="tiltVideo" playsinline muted autoplay></video>
+  <div id="tiltLayer">
+    <div id="tiltReticle">
+      <div class="outer"><div class="inner"></div></div>
+      <div class="preview" id="tiltPreview">—</div>
+    </div>
+  </div>
+
   <!-- ============ AR HUD (dom-overlay) ============ -->
   <div id="overlay">
     <div class="topbar">
-      <span class="brandpill"><span class="dot"></span> LiDAR Ruler</span>
+      <span class="brandpill"><span class="dot"></span> LiDAR Ruler <span class="modechip">tilt estimate</span></span>
       <button id="exitBtn" aria-label="Exit AR">✕</button>
     </div>
     <div id="hint">Move your phone slowly to find a surface</div>
     <div class="bottombar">
       <div id="readout"></div>
+      <div class="heightbar">
+        <button class="ctl" id="hMinus" aria-label="Lower camera height">−</button>
+        <span class="ctl" id="hVal">phone height 1.40 m</span>
+        <button class="ctl" id="hPlus" aria-label="Raise camera height">+</button>
+      </div>
       <div class="controls">
         <button class="ctl" id="undoBtn" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
@@ -282,6 +349,14 @@
   var unitBtn = document.getElementById("unitBtn");
   var exitBtn = document.getElementById("exitBtn");
 
+  var tiltVideo = document.getElementById("tiltVideo");
+  var tiltLayer = document.getElementById("tiltLayer");
+  var tiltReticle = document.getElementById("tiltReticle");
+  var tiltPreview = document.getElementById("tiltPreview");
+  var hMinus = document.getElementById("hMinus");
+  var hPlus = document.getElementById("hPlus");
+  var hVal = document.getElementById("hVal");
+
   var renderer = null, scene = null, camera = null;
   var session = null, refSpace = null, viewerSpace = null, hitTestSource = null;
   var reticle = null;
@@ -291,25 +366,45 @@
   var lastLabelUpdate = 0;
   var tmpVecCam = null, tmpVecMark = null;
 
+  var mode = null;                // null | "xr" | "tilt"
+  var xrOk = false, tiltOk = false;
+  var TILT = {
+    active: false, stream: null, raf: 0,
+    quat: [1, 0, 0, 0], hasOrient: false,
+    height: 1.40,                 // camera height above the floor, metres
+    vfov: 62 * Math.PI / 180,     // assumed vertical field of view of the displayed feed
+    markers: []                   // {el, labEl, dir:[x,y,z] world unit ray, t: slant distance}
+  };
+
   /* ---------- support check ---------- */
-  if (!("xr" in navigator)) {
-    supportLine.textContent = "WebXR is not available in this browser.";
-    supportLine.className = "bad";
+  function enableTiltFallback(msg) {
+    tiltOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
+                typeof DeviceOrientationEvent !== "undefined");
+    if (tiltOk) {
+      startBtn.disabled = false;
+      startBtn.lastChild.textContent = " Start (tilt estimate)";
+      supportLine.textContent = msg + " Falling back to a camera + tilt estimate.";
+      supportLine.className = "";
+    } else {
+      supportLine.textContent = msg;
+      supportLine.className = "bad";
+    }
     nosupport.classList.add("show");
+  }
+
+  if (!("xr" in navigator)) {
+    enableTiltFallback("WebXR is not available in this browser.");
   } else {
     navigator.xr.isSessionSupported("immersive-ar").then(function (ok) {
       if (ok) {
+        xrOk = true;
         supportLine.textContent = "Augmented reality is ready on this device.";
         startBtn.disabled = false;
       } else {
-        supportLine.textContent = "Augmented reality (WebXR) isn't supported here.";
-        supportLine.className = "bad";
-        nosupport.classList.add("show");
+        enableTiltFallback("Augmented reality (WebXR) isn't supported here.");
       }
     }).catch(function () {
-      supportLine.textContent = "Couldn't query WebXR support.";
-      supportLine.className = "bad";
-      nosupport.classList.add("show");
+      enableTiltFallback("Couldn't query WebXR support.");
     });
   }
 
@@ -519,6 +614,7 @@
 
   function onSessionStarted(s) {
     session = s;
+    mode = "xr";
     landing.style.display = "none";
     overlay.classList.add("active");
     surfaceFound = false;
@@ -542,7 +638,7 @@
   function onSessionEnded() {
     renderer.setAnimationLoop(null);
     if (hitTestSource) { hitTestSource.cancel && hitTestSource.cancel(); hitTestSource = null; }
-    refSpace = null; viewerSpace = null; session = null;
+    refSpace = null; viewerSpace = null; session = null; mode = null;
     markers.forEach(disposeMarker);
     markers = [];
     reticle.visible = false;
@@ -580,6 +676,213 @@
     renderer.render(scene, camera);
   }
 
+  /* ---------- tilt-estimate fallback mode ---------- */
+  /* No WebXR: live camera + the orientation sensor. The user aims the reticle
+     at the point where an object meets the floor; from the phone's tilt and
+     its height above the floor the distance to that point is triangulated.
+     Markers store their world-space ray, so labels stay glued to the spot as
+     the phone rotates (the phone itself is assumed to stay in place). */
+
+  function quatFromOrientation(alpha, beta, gamma) {
+    // W3C deviceorientation Z-X'-Y'' intrinsic Tait-Bryan angles -> quaternion
+    var r = Math.PI / 180, x = beta * r, y = gamma * r, z = alpha * r;
+    var cX = Math.cos(x / 2), cY = Math.cos(y / 2), cZ = Math.cos(z / 2);
+    var sX = Math.sin(x / 2), sY = Math.sin(y / 2), sZ = Math.sin(z / 2);
+    return [
+      cX * cY * cZ - sX * sY * sZ,
+      sX * cY * cZ - cX * sY * sZ,
+      cX * sY * cZ + sX * cY * sZ,
+      cX * cY * sZ + sX * sY * cZ
+    ];
+  }
+  function qmul(a, b) {
+    return [
+      a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+      a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+      a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+      a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+    ];
+  }
+  function qrot(q, v) {          // device -> world
+    var t = qmul(qmul(q, [0, v[0], v[1], v[2]]), [q[0], -q[1], -q[2], -q[3]]);
+    return [t[1], t[2], t[3]];
+  }
+  function qrotInv(q, v) {       // world -> device
+    return qrot([q[0], -q[1], -q[2], -q[3]], v);
+  }
+
+  function focalPx() { return (innerHeight / 2) / Math.tan(TILT.vfov / 2); }
+
+  // World-space unit ray through a screen pixel (portrait; device X right,
+  // Y toward top of screen, Z out of the screen — rear camera looks along -Z).
+  function pixelRayWorld(u, v) {
+    var f = focalPx();
+    var dx = u - innerWidth / 2, dy = -(v - innerHeight / 2), dz = -f;
+    var n = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    return qrot(TILT.quat, [dx / n, dy / n, dz / n]);
+  }
+
+  function onOrient(e) {
+    if (e.beta == null) return;
+    var first = !TILT.hasOrient;
+    TILT.quat = quatFromOrientation(e.alpha || 0, e.beta, e.gamma || 0);
+    TILT.hasOrient = true;
+    if (first && mode === "tilt") tiltRefreshHUD();
+  }
+
+  function tiltHeightLabel() {
+    if (unit === "m") return "phone height " + TILT.height.toFixed(2) + " m";
+    var totalFt = TILT.height * 3.28084, ft = Math.floor(totalFt);
+    return "phone height " + ft + "′ " + ((totalFt - ft) * 12).toFixed(0) + "″";
+  }
+
+  function tiltRefreshHUD() {
+    var n = TILT.markers.length;
+    undoBtn.disabled = n === 0;
+    clearBtn.disabled = n === 0;
+    readout.innerHTML = "";
+    TILT.markers.forEach(function (m, i) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = '<span class="cdot" style="background:' + m.css + '"></span><span data-d="' + i + '">—</span>';
+      readout.appendChild(chip);
+    });
+    hVal.textContent = tiltHeightLabel();
+    if (!TILT.hasOrient) setHint("Waiting for the tilt sensor…");
+    else if (n >= MAX_MARKERS) setHint("All three markers placed");
+    else setHint("Aim the ring where an object meets the floor · tap to mark");
+  }
+
+  function makeTiltMarker(css) {
+    var el = document.createElement("div");
+    el.className = "tmark";
+    el.style.color = css;
+    el.innerHTML =
+      '<div class="lab"><span class="cdot" style="background:' + css + '"></span><span class="td">—</span></div>' +
+      '<div class="leader"></div>' +
+      '<div class="ringm" style="border-color:' + css + '"></div>' +
+      '<div class="bead" style="background:' + css + '"></div>';
+    tiltLayer.appendChild(el);
+    return el;
+  }
+
+  function placeTiltMarker() {
+    if (!TILT.hasOrient) { setHint("Waiting for the tilt sensor…"); return; }
+    if (TILT.markers.length >= MAX_MARKERS) return;
+    var r = tiltReticle.getBoundingClientRect();
+    var dir = pixelRayWorld(r.left + r.width / 2, r.top + 15);   // centre of the ring
+    if (dir[2] > -0.06) {           // ray at/above the horizon — no floor intersection
+      setHint("Aim lower — at the floor by the object");
+      setTimeout(tiltRefreshHUD, 1600);
+      return;
+    }
+    var css = COLORS_CSS[TILT.markers.length];
+    TILT.markers.push({ el: makeTiltMarker(css), dir: dir, t: TILT.height / (-dir[2]), css: css });
+    tiltRefreshHUD();
+  }
+
+  function tiltFrame() {
+    TILT.raf = requestAnimationFrame(tiltFrame);
+    var f = focalPx(), W = innerWidth, H = innerHeight;
+
+    // live preview under the reticle
+    if (TILT.hasOrient) {
+      var r = tiltReticle.getBoundingClientRect();
+      var cd = pixelRayWorld(r.left + r.width / 2, r.top + 15);
+      tiltPreview.textContent = cd[2] > -0.06 ? "aim at the floor" :
+        formatDistance(TILT.height / (-cd[2]));
+    }
+
+    var chips = readout.querySelectorAll("[data-d]");
+    TILT.markers.forEach(function (m, i) {
+      var t = TILT.height / (-m.dir[2]);
+      m.t = t;
+      var text = formatDistance(t);
+      var d = qrotInv(TILT.quat, m.dir);
+      if (d[2] < -0.05) {
+        var u = W / 2 + f * (d[0] / -d[2]);
+        var v = H / 2 - f * (d[1] / -d[2]);
+        if (u > -80 && u < W + 80 && v > -40 && v < H + 120) {
+          m.el.style.display = "block";
+          m.el.style.transform = "translate(" + u.toFixed(1) + "px," + v.toFixed(1) + "px)";
+        } else { m.el.style.display = "none"; }
+      } else { m.el.style.display = "none"; }
+      var td = m.el.querySelector(".td");
+      if (td.textContent !== text) td.textContent = text;
+      if (chips[i] && chips[i].textContent !== text) chips[i].textContent = text;
+    });
+  }
+
+  function startTilt() {
+    startBtn.disabled = true;
+    // iOS requires requestPermission() synchronously within the tap gesture
+    var perm = (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission)
+      ? DeviceOrientationEvent.requestPermission()
+      : Promise.resolve("granted");
+    perm.then(function (res) {
+      if (res !== "granted") throw new Error("motion-sensor access was denied");
+      return navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+    }).then(function (stream) {
+      TILT.stream = stream;
+      tiltVideo.srcObject = stream;
+      return tiltVideo.play();
+    }).then(function () {
+      mode = "tilt";
+      TILT.active = true;
+      TILT.hasOrient = false;
+      window.addEventListener("deviceorientation", onOrient);
+      landing.style.display = "none";
+      tiltVideo.classList.add("active");
+      tiltLayer.classList.add("active");
+      overlay.classList.add("active", "tilt");
+      tiltRefreshHUD();
+      TILT.raf = requestAnimationFrame(tiltFrame);
+      setTimeout(function () {
+        if (TILT.active && !TILT.hasOrient)
+          setHint("No tilt sensor detected — this mode needs a phone");
+      }, 2500);
+    }).catch(function (err) {
+      startBtn.disabled = false;
+      supportLine.textContent = "Couldn't start: " + (err && err.message ? err.message : err);
+      supportLine.className = "bad";
+    });
+  }
+
+  function stopTilt() {
+    TILT.active = false;
+    mode = null;
+    cancelAnimationFrame(TILT.raf);
+    window.removeEventListener("deviceorientation", onOrient);
+    if (TILT.stream) { TILT.stream.getTracks().forEach(function (t) { t.stop(); }); TILT.stream = null; }
+    tiltVideo.srcObject = null;
+    TILT.markers.forEach(function (m) { m.el.remove(); });
+    TILT.markers = [];
+    tiltVideo.classList.remove("active");
+    tiltLayer.classList.remove("active");
+    overlay.classList.remove("active", "tilt");
+    landing.style.display = "flex";
+    startBtn.disabled = false;
+  }
+
+  // tap anywhere on the camera view (not on a control) places a marker
+  window.addEventListener("click", function (e) {
+    if (mode !== "tilt") return;
+    if (e.target.closest && e.target.closest(".ctl, #exitBtn")) return;
+    placeTiltMarker();
+  });
+
+  hMinus.addEventListener("click", function () {
+    TILT.height = Math.max(0.5, Math.round((TILT.height - 0.05) * 100) / 100);
+    hVal.textContent = tiltHeightLabel();
+  });
+  hPlus.addEventListener("click", function () {
+    TILT.height = Math.min(2.5, Math.round((TILT.height + 0.05) * 100) / 100);
+    hVal.textContent = tiltHeightLabel();
+  });
+
   /* ---------- controls ---------- */
   // Keep taps on HUD controls from also firing the AR 'select' (place-marker) event.
   ["beforexrselect"].forEach(function (ev) {
@@ -588,14 +891,31 @@
     });
   });
 
-  startBtn.addEventListener("click", startAR);
-  exitBtn.addEventListener("click", function () { if (session) session.end(); });
+  startBtn.addEventListener("click", function () {
+    if (xrOk) startAR(); else if (tiltOk) startTilt();
+  });
+  exitBtn.addEventListener("click", function () {
+    if (mode === "tilt") stopTilt();
+    else if (session) session.end();
+  });
   undoBtn.addEventListener("click", function () {
+    if (mode === "tilt") {
+      var tm = TILT.markers.pop();
+      if (tm) tm.el.remove();
+      tiltRefreshHUD();
+      return;
+    }
     var m = markers.pop();
     if (m) disposeMarker(m);
     refreshHUD();
   });
   clearBtn.addEventListener("click", function () {
+    if (mode === "tilt") {
+      TILT.markers.forEach(function (tm) { tm.el.remove(); });
+      TILT.markers = [];
+      tiltRefreshHUD();
+      return;
+    }
     markers.forEach(disposeMarker);
     markers = [];
     refreshHUD();
@@ -604,6 +924,7 @@
     unit = unit === "m" ? "ft" : "m";
     unitBtn.textContent = unit;
     lastLabelUpdate = 0;
+    if (mode === "tilt") hVal.textContent = tiltHeightLabel();
   });
 
   window.addEventListener("resize", function () {
