@@ -94,6 +94,19 @@
   #startBtn:active{transform:scale(.96)}
   #startBtn svg{width:20px;height:20px}
   #startBtn[disabled]{opacity:.45;box-shadow:none;cursor:default}
+  #tiltBtn{
+    display:inline-flex;align-items:center;gap:9px;
+    margin-top:12px;
+    background:var(--panel);color:var(--ink);
+    border:1px solid var(--panel-border);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    font-size:15px;font-weight:600;
+    padding:12px 26px;border-radius:999px;
+    transition:transform .12s ease;
+  }
+  #tiltBtn:active{transform:scale(.96)}
+  #tiltBtn svg{width:18px;height:18px;opacity:.8}
+  #tiltBtn[hidden]{display:none}
   #supportLine{
     margin-top:16px;font-size:12.5px;color:var(--muted);min-height:18px;max-width:40ch;
   }
@@ -279,6 +292,13 @@
       </svg>
       Start measuring
     </button>
+    <button id="tiltBtn" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 4h-5L8 6H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-4z"/>
+        <circle cx="12" cy="13" r="3.4"/>
+      </svg>
+      Camera + tilt estimate
+    </button>
     <p id="supportLine">Checking augmented-reality support…</p>
 
     <div id="nosupport">
@@ -353,6 +373,7 @@
   var tiltLayer = document.getElementById("tiltLayer");
   var tiltReticle = document.getElementById("tiltReticle");
   var tiltPreview = document.getElementById("tiltPreview");
+  var tiltBtn = document.getElementById("tiltBtn");
   var hMinus = document.getElementById("hMinus");
   var hPlus = document.getElementById("hPlus");
   var hVal = document.getElementById("hVal");
@@ -377,9 +398,10 @@
   };
 
   /* ---------- support check ---------- */
+  tiltOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
+              typeof DeviceOrientationEvent !== "undefined");
+
   function enableTiltFallback(msg) {
-    tiltOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
-                typeof DeviceOrientationEvent !== "undefined");
     if (tiltOk) {
       startBtn.disabled = false;
       startBtn.lastChild.textContent = " Start (tilt estimate)";
@@ -400,6 +422,9 @@
         xrOk = true;
         supportLine.textContent = "Augmented reality is ready on this device.";
         startBtn.disabled = false;
+        // Some browsers (e.g. WebXR viewer apps) advertise AR but don't show
+        // the camera feed properly — always offer the plain-camera mode too.
+        if (tiltOk) tiltBtn.hidden = false;
       } else {
         enableTiltFallback("Augmented reality (WebXR) isn't supported here.");
       }
@@ -750,7 +775,7 @@
     hVal.textContent = tiltHeightLabel();
     if (!TILT.hasOrient) setHint("Waiting for the tilt sensor…");
     else if (n >= MAX_MARKERS) setHint("All three markers placed");
-    else setHint("Aim the ring where an object meets the floor · tap to mark");
+    else setHint("Tap the spot where an object meets the floor");
   }
 
   function makeTiltMarker(css) {
@@ -766,13 +791,13 @@
     return el;
   }
 
-  function placeTiltMarker() {
+  // Point-to-mark: the marker goes exactly where the user tapped in the image.
+  function placeTiltMarker(u, v) {
     if (!TILT.hasOrient) { setHint("Waiting for the tilt sensor…"); return; }
     if (TILT.markers.length >= MAX_MARKERS) return;
-    var r = tiltReticle.getBoundingClientRect();
-    var dir = pixelRayWorld(r.left + r.width / 2, r.top + 15);   // centre of the ring
+    var dir = pixelRayWorld(u, v);
     if (dir[2] > -0.06) {           // ray at/above the horizon — no floor intersection
-      setHint("Aim lower — at the floor by the object");
+      setHint("Tap lower — where the object meets the floor");
       setTimeout(tiltRefreshHUD, 1600);
       return;
     }
@@ -815,6 +840,7 @@
 
   function startTilt() {
     startBtn.disabled = true;
+    tiltBtn.disabled = true;
     // iOS requires requestPermission() synchronously within the tap gesture
     var perm = (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission)
       ? DeviceOrientationEvent.requestPermission()
@@ -846,6 +872,7 @@
       }, 2500);
     }).catch(function (err) {
       startBtn.disabled = false;
+      tiltBtn.disabled = false;
       supportLine.textContent = "Couldn't start: " + (err && err.message ? err.message : err);
       supportLine.className = "bad";
     });
@@ -865,14 +892,17 @@
     overlay.classList.remove("active", "tilt");
     landing.style.display = "flex";
     startBtn.disabled = false;
+    tiltBtn.disabled = false;
   }
 
-  // tap anywhere on the camera view (not on a control) places a marker
+  // tap on the camera view (not on a control) places a marker at that point
   window.addEventListener("click", function (e) {
     if (mode !== "tilt") return;
-    if (e.target.closest && e.target.closest(".ctl, #exitBtn")) return;
-    placeTiltMarker();
+    if (e.target.closest && e.target.closest(".ctl, #exitBtn, .brandpill")) return;
+    placeTiltMarker(e.clientX, e.clientY);
   });
+
+  tiltBtn.addEventListener("click", startTilt);
 
   hMinus.addEventListener("click", function () {
     TILT.height = Math.max(0.5, Math.round((TILT.height - 0.05) * 100) / 100);
