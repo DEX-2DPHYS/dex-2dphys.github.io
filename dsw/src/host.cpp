@@ -21,7 +21,9 @@
 #include <mach-o/dyld.h>
 #endif
 
+#include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -56,6 +58,87 @@ bool read_file(const std::string &path, std::string &out) {
     ss << f.rdbuf();
     out = ss.str();
     return true;
+}
+
+bool write_file(const std::string &path, const std::string &content) {
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    if (!f) return false;
+    f << content;
+    return (bool)f;
+}
+
+bool make_dirs(const std::string &path) {
+    if (path.empty() || dir_exists(path)) return !path.empty();
+    // walk the path, creating each missing component
+    for (size_t i = 0; i <= path.size(); i++) {
+        if (i != path.size() && path[i] != '/' && path[i] != '\\') continue;
+        std::string part = path.substr(0, i ? i : path.size());
+        if (i == 0 || part.empty()) continue;
+        if (part.back() == ':') continue;               // drive letter "C:"
+        if (dir_exists(part)) continue;
+#if defined(_WIN32)
+        if (!CreateDirectoryA(part.c_str(), nullptr) &&
+            GetLastError() != ERROR_ALREADY_EXISTS) return false;
+#else
+        if (mkdir(part.c_str(), 0755) != 0 && errno != EEXIST) return false;
+#endif
+    }
+    if (!dir_exists(path)) {
+#if defined(_WIN32)
+        if (!CreateDirectoryA(path.c_str(), nullptr) &&
+            GetLastError() != ERROR_ALREADY_EXISTS) return false;
+#else
+        if (mkdir(path.c_str(), 0755) != 0 && errno != EEXIST) return false;
+#endif
+    }
+    return dir_exists(path);
+}
+
+static std::string home_dir() {
+#if defined(_WIN32)
+    const char *p = getenv("USERPROFILE");
+#else
+    const char *p = getenv("HOME");
+#endif
+    return p ? p : ".";
+}
+
+static std::string native_seps(std::string p) {
+#if defined(_WIN32)
+    for (auto &c : p) if (c == '/') c = '\\';
+#endif
+    return p;
+}
+
+std::string default_library_dir() {
+    // The standard user plugin place, like the VST3 directory: a folder with
+    // a fixed, documented name under the user's documents.
+    std::string docs = home_dir() + "/Documents";
+    return native_seps((dir_exists(docs) ? docs : home_dir()) + "/DSW Plugins");
+}
+
+std::string settings_file() {
+#if defined(_WIN32)
+    const char *base = getenv("APPDATA");
+    std::string dir = (base ? std::string(base) : home_dir()) + "/DSW";
+#else
+    const char *xdg = getenv("XDG_CONFIG_HOME");
+    std::string dir = (xdg ? std::string(xdg) : home_dir() + "/.config") + "/dsw";
+#endif
+    return dir + "/settings.json";
+}
+
+std::string load_saved_library_dir() {
+    std::string json;
+    if (!read_file(settings_file(), json)) return "";
+    return json_get_string(json, "library");
+}
+
+void save_library_dir(const std::string &dir) {
+    std::string file = settings_file();
+    size_t slash = file.find_last_of("/\\");
+    if (slash != std::string::npos) make_dirs(file.substr(0, slash));
+    write_file(file, "{\"library\":\"" + json_escape(dir) + "\"}\n");
 }
 
 std::string exe_dir() {
@@ -164,12 +247,31 @@ std::string json_get_string(const std::string &json, const std::string &key) {
 
 // ---------------------------------------------------------------- scanning
 
-std::vector<PluginInfo> Host::scan() const {
-    std::vector<PluginInfo> out;
-    for (const auto &id : list_subdirs(plugins_dir_)) {
+// A folder is a bundle when it carries any of the three bundle files; any
+// other folder is a category and is scanned deeper (folders inside a bundle
+// — ui/, src/ — are never entered, so a bundle is always a leaf).
+static bool is_bundle(const std::string &dir, const std::string &name) {
+    return file_exists(dir + "/dex.json") ||
+           file_exists(dir + "/" + name + dylib_suffix()) ||
+           file_exists(dir + "/ui/index.html");
+}
+
+static void scan_tree(const std::string &base, const std::string &rel,
+                      const char *root, int depth, std::vector<PluginInfo> &out) {
+    if (depth > 6) return; // sanity: nobody nests plugins deeper than this
+    const std::string here = rel.empty() ? base : base + "/" + rel;
+    for (const auto &name : list_subdirs(here)) {
+        const std::string r = rel.empty() ? name : rel + "/" + name;
+        const std::string d = base + "/" + r;
+        if (!is_bundle(d, name)) {
+            scan_tree(base, r, root, depth + 1, out);
+            continue;
+        }
         PluginInfo p;
-        p.id = id;
-        p.dir = plugins_dir_ + "/" + id;
+        p.id = name;
+        p.dir = d;
+        p.path = r;
+        p.root = root;
         std::string manifest;
         if (read_file(p.dir + "/dex.json", manifest)) {
             p.name = json_get_string(manifest, "name");
@@ -177,12 +279,41 @@ std::vector<PluginInfo> Host::scan() const {
             p.accent = json_get_string(manifest, "accent");
             p.version = json_get_string(manifest, "version");
         }
-        if (p.name.empty()) p.name = id;
-        p.has_binary = file_exists(p.dir + "/" + id + dylib_suffix());
+        if (p.name.empty()) p.name = name;
+        p.has_binary = file_exists(p.dir + "/" + name + dylib_suffix());
         p.has_ui = file_exists(p.dir + "/ui/index.html");
         if (p.has_ui || p.has_binary) out.push_back(p);
     }
-    return out;
+}
+
+std::vector<PluginInfo> Host::scan() const {
+    std::vector<PluginInfo> out;
+    scan_tree(builtin_dir_, "", "builtin", 0, out);
+    scan_tree(library_dir(), "", "library", 0, out);
+    // ids are the routing key, so they must be unique: first bundle wins
+    // (built-ins first), later duplicates are dropped from the listing.
+    std::vector<PluginInfo> uniq;
+    for (auto &p : out) {
+        bool dup = false;
+        for (const auto &u : uniq) if (u.id == p.id) { dup = true; break; }
+        if (!dup) uniq.push_back(std::move(p));
+    }
+    return uniq;
+}
+
+std::string Host::library_dir() const {
+    std::lock_guard<std::mutex> lock(lib_mu_);
+    return library_dir_;
+}
+
+bool Host::set_library_dir(const std::string &dir, std::string &err) {
+    if (dir.empty()) { err = "empty path"; return false; }
+    if (dir.find("..") != std::string::npos) { err = "no .. in the path"; return false; }
+    std::string d = native_seps(dir);
+    if (!make_dirs(d)) { err = "cannot create " + d; return false; }
+    std::lock_guard<std::mutex> lock(lib_mu_);
+    library_dir_ = d;
+    return true;
 }
 
 bool Host::find(const std::string &id, PluginInfo &out) const {

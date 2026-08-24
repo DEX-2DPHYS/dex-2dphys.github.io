@@ -52,6 +52,32 @@ The host binds **localhost only** and serves the launcher, each plugin's
 `ui/` folder, and one WebSocket per running experiment. `./dsw --help` lists
 `--port`, `--plugins DIR`, `--web DIR`.
 
+## The launcher
+
+The launcher is a workstation window: a VSCode-style tree on the left, the
+running experiment embedded on the right (or in its own tab), three visual
+themes (Editorial — the default white; Executive — dark; Studio — glassy
+blue), and a settings pane for the plugin folder.
+
+Plugins come from **two roots**, both rescanned on every refresh:
+
+- **Built-in** — the `plugins/` folder beside the host, where the two
+  example experiments live.
+- **Library** — your own plugin folder. Like a VST directory it has a
+  standard home, **`Documents/DSW Plugins`** (created on first run), and can
+  be repointed from the launcher's *Plugin folder…* pane; the choice is
+  remembered per user in `%APPDATA%/DSW/settings.json`
+  (`~/.config/dsw/settings.json` on Linux/macOS). `--plugins DIR` overrides
+  it for one run without persisting.
+
+Subfolders inside either root are shown as folders in the tree, so a library
+organised on disk as `Waves/…`, `Chaos/…`, `Teaching/…` appears exactly that
+way in the launcher. A folder is treated as a plugin bundle (a leaf) as soon
+as it contains `dex.json`, a matching binary, or `ui/index.html`; anything
+else is a category and is scanned deeper. Bundle folder names are the
+routing key, so they must be unique across both roots — a duplicate name is
+dropped from the listing (built-ins win).
+
 Ships with two example experiments:
 
 | Plugin | What it shows |
@@ -75,8 +101,9 @@ plugins/my-experiment/
 └── src/plugin.cpp         # source (optional, not served)
 ```
 
-Installing = copying that folder into `plugins/` and refreshing the
-launcher. No registry, no manifest editing anywhere else.
+Installing = copying that folder into the plugin library (or any subfolder
+of it) and refreshing the launcher. No registry, no manifest editing
+anywhere else.
 
 ### The native side (7 functions)
 

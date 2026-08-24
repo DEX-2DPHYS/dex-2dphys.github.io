@@ -5,110 +5,498 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DSW — Digital Science Workstation</title>
 <style>
-  :root {
-    --bg: #0b0e14;
-    --panel: #131824;
-    --panel-2: #1a2132;
-    --ink: #e8ecf4;
-    --muted: #8a94a8;
-    --line: #232b3d;
-    --accent: #5ac8fa;
+  /* ------------------------------------------------ themes (from Interactive
+     Presenter: Editorial / Executive / Studio). Editorial is the default —
+     the white, flat, clean look of the DEX pages. */
+  :root, body[data-theme="editorial"] {
+    --bg: #f7f9fc;
+    --bg-deep: #edf2f8;
+    --panel: #ffffff;
+    --ink: #102338;
+    --ink-soft: #1f3b58;
+    --muted: #4f677f;
+    --line: #d4dee9;
+    --line-strong: #b0c0d1;
+    --accent: #2d5f88;
+    --accent-2: #497da8;
+    --accent-soft: #e7f0f8;
+    --hover: #f0f5fa;
+    --sel: #e2edf7;
+    --shadow-1: 0 6px 16px rgba(20, 38, 60, 0.07);
+    --shadow-2: 0 14px 30px rgba(18, 34, 54, 0.10);
+    --topbar: #ffffff;
+    --sidebar: linear-gradient(180deg, #f7fafe 0%, #edf3fa 100%);
+    --body-grad: linear-gradient(180deg, #f8fafd 0%, #edf2f8 60%, #e6edf5 100%);
+    --dot: #990000;                 /* DEX / DTU red brand dot */
   }
+  body[data-theme="executive"] {
+    --bg: #0e1a2a;
+    --bg-deep: #0b1624;
+    --panel: #13243a;
+    --ink: #eaf2ff;
+    --ink-soft: #d3e1f7;
+    --muted: #9eb5d0;
+    --line: #2c4360;
+    --line-strong: #3c5b82;
+    --accent: #5ea2e6;
+    --accent-2: #35c0ac;
+    --accent-soft: #1d3550;
+    --hover: #182e49;
+    --sel: #1d3550;
+    --shadow-1: 0 10px 24px rgba(2, 10, 20, 0.5);
+    --shadow-2: 0 22px 50px rgba(0, 6, 12, 0.65);
+    --topbar: linear-gradient(180deg, rgba(15,34,56,.96) 0%, rgba(14,28,46,.94) 100%);
+    --sidebar: linear-gradient(180deg, rgba(16,33,52,.96) 0%, rgba(13,26,42,.94) 100%);
+    --body-grad: radial-gradient(circle at 15% -5%, rgba(94,162,230,.14) 0%, transparent 42%),
+                 radial-gradient(circle at 85% 0%, rgba(53,192,172,.12) 0%, transparent 40%),
+                 linear-gradient(165deg, #0b1624 0%, #12243a 48%, #0b1727 100%);
+    --dot: #ff5a5f;
+  }
+  body[data-theme="studio"] {
+    --bg: #e5f0fb;
+    --bg-deep: #cdddf0;
+    --panel: rgba(248, 252, 255, 0.72);
+    --ink: #112846;
+    --ink-soft: #1f3e61;
+    --muted: #4f6f92;
+    --line: rgba(103, 145, 187, 0.45);
+    --line-strong: rgba(75, 127, 176, 0.62);
+    --accent: #0b6cb8;
+    --accent-2: #1f8ab8;
+    --accent-soft: rgba(218, 237, 255, 0.6);
+    --hover: rgba(255, 255, 255, 0.55);
+    --sel: rgba(210, 232, 252, 0.8);
+    --shadow-1: 0 12px 26px rgba(14, 45, 78, 0.16);
+    --shadow-2: 0 20px 46px rgba(12, 36, 66, 0.2);
+    --topbar: linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(240,248,255,.75) 100%);
+    --sidebar: linear-gradient(180deg, rgba(248,252,255,.8) 0%, rgba(232,242,252,.7) 100%);
+    --body-grad: radial-gradient(circle at 10% -8%, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 40%),
+                 radial-gradient(circle at 86% 6%, rgba(138,199,255,.36) 0%, rgba(138,199,255,0) 44%),
+                 linear-gradient(156deg, #edf5ff 0%, #d3e5fb 48%, #c7dcf4 100%);
+    --dot: #990000;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
+    font-family: "Segoe UI Variable", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px; line-height: 1.5;
     color: var(--ink);
-    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
+    background: var(--body-grad);
+    display: flex; flex-direction: column;
+    overflow: hidden;
   }
-  .wrap { max-width: 1060px; margin: 0 auto; padding: 40px 24px 80px; }
-  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-  h1 { font-size: 28px; letter-spacing: .3px; }
-  h1 .dot { color: var(--accent); }
-  .sub { color: var(--muted); font-size: 15px; }
-  .hint {
-    margin: 18px 0 34px; padding: 12px 16px;
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 10px; color: var(--muted); font-size: 14px;
+  button {
+    font: inherit; color: var(--ink-soft);
+    background: var(--panel); border: 1px solid var(--line-strong);
+    border-radius: 8px; padding: 5px 12px; cursor: pointer;
   }
-  .hint code {
-    background: var(--panel-2); padding: 1px 7px; border-radius: 6px;
-    font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 13px;
-    color: var(--ink);
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { filter: brightness(1.1); color: #fff; }
+  input[type=text] {
+    font: inherit; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--line-strong);
+    border-radius: 8px; padding: 6px 10px; width: 100%;
   }
-  .grid {
-    display: grid; gap: 18px;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  select {
+    font: inherit; font-size: 13px; color: var(--ink-soft);
+    background: var(--panel); border: 1px solid var(--line-strong);
+    border-radius: 8px; padding: 4px 8px;
   }
+
+  /* ------------------------------------------------ top bar */
+  .topbar {
+    flex: 0 0 auto; min-height: 54px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 6px 16px;
+    background: var(--topbar);
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow-1);
+    z-index: 5;
+  }
+  .brand { font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+  .brand .dot { color: var(--dot); }
+  .tagline { color: var(--muted); font-size: 13px; }
+  .topbar .spring { flex: 1; }
+  .theme-picker { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+  .theme-picker span {
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  }
+
+  /* ------------------------------------------------ layout */
+  .main { flex: 1; display: flex; min-height: 0; }
+
+  .sidebar {
+    flex: 0 0 272px; min-width: 0;
+    display: flex; flex-direction: column;
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
+  }
+  .tree-scroll { flex: 1; overflow-y: auto; padding: 10px 8px 10px 6px; }
+  .sect {
+    margin: 8px 6px 4px; display: flex; align-items: baseline; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .sect .n { font-weight: 400; }
+  .row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border-radius: 7px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 14px; color: var(--ink-soft);
+    user-select: none;
+  }
+  .row:hover { background: var(--hover); }
+  .row.sel { background: var(--sel); color: var(--ink); font-weight: 600; }
+  .row .chev {
+    flex: 0 0 14px; width: 14px; text-align: center;
+    font-size: 10px; color: var(--muted); transition: transform .12s ease;
+  }
+  .row.folder.open .chev { transform: rotate(90deg); }
+  .row .pdot {
+    flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--pin, var(--accent-2));
+  }
+  .row .label { overflow: hidden; text-overflow: ellipsis; }
+  .row.dead { opacity: .5; }
+  .kids { overflow: hidden; }
+  .kids.closed { display: none; }
+  .empty-note { color: var(--muted); font-size: 13px; padding: 4px 14px 10px; }
+  .side-foot {
+    flex: 0 0 auto; padding: 10px; border-top: 1px solid var(--line);
+    display: flex; gap: 8px;
+  }
+  .side-foot button { flex: 1; font-size: 13px; }
+
+  /* ------------------------------------------------ content panes */
+  .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .pane { flex: 1; overflow-y: auto; padding: 34px 40px; }
+  .pane .inner { max-width: 760px; margin: 0 auto; }
   .card {
-    display: block; text-decoration: none; color: inherit;
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 20px 20px 18px;
-    transition: transform .12s ease, border-color .12s ease;
-    position: relative; overflow: hidden;
+    border-radius: 14px; padding: 24px 26px; box-shadow: var(--shadow-1);
   }
-  .card::before {
-    content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
-    background: var(--card-accent, var(--accent));
+  .card + .card { margin-top: 18px; }
+  h1 { font-size: 26px; letter-spacing: .2px; margin-bottom: 4px; }
+  h1 .dot { color: var(--dot); }
+  h2 { font-size: 16px; margin-bottom: 8px; }
+  .sub { color: var(--muted); margin-bottom: 22px; }
+  p.help { color: var(--muted); font-size: 14px; }
+  p.help + p.help { margin-top: 8px; }
+  code {
+    background: var(--accent-soft); border-radius: 6px; padding: 1px 7px;
+    font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 12.5px;
+    color: var(--ink-soft);
   }
-  .card:hover { transform: translateY(-2px); border-color: var(--card-accent, var(--accent)); }
-  .card h2 { font-size: 19px; margin-bottom: 6px; }
-  .card p { color: var(--muted); font-size: 14.5px; min-height: 44px; }
-  .meta { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
-  .ver { color: var(--muted); font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
-  .run {
-    font-size: 13.5px; font-weight: 600; color: var(--card-accent, var(--accent));
+  .pathline {
+    display: flex; gap: 10px; align-items: baseline; margin-top: 8px;
+    font-size: 13.5px; color: var(--muted);
   }
-  .card.dead { opacity: .55; pointer-events: none; }
-  .card.dead .run { color: var(--muted); }
-  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
-  footer { margin-top: 56px; color: var(--muted); font-size: 13px; }
+  .pathline b { flex: 0 0 74px; font-size: 11px; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted); }
+  .pathline span { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+    color: var(--ink-soft); word-break: break-all; }
+  .field-row { display: flex; gap: 8px; margin-top: 12px; }
+  .msg { margin-top: 10px; font-size: 13.5px; min-height: 20px; }
+  .msg.ok { color: var(--accent-2); }
+  .msg.err { color: #b42318; }
+  body[data-theme="executive"] .msg.err { color: #ff8d8d; }
+
+  /* ------------------------------------------------ run view */
+  #runview { flex: 1; display: none; flex-direction: column; min-height: 0; }
+  #runview.on { display: flex; }
+  .runbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 12px;
+    padding: 7px 14px;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .runbar .pdot { width: 9px; height: 9px; border-radius: 50%; background: var(--pin, var(--accent-2)); }
+  .runbar .rname { font-weight: 600; }
+  .runbar .rmeta { color: var(--muted); font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
+  .runbar .spring { flex: 1; }
+  .runbar button { font-size: 12.5px; padding: 3px 10px; }
+  #frame { flex: 1; width: 100%; border: 0; background: var(--bg-deep); }
 </style>
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <h1>DSW<span class="dot">.</span></h1>
-    <div class="sub">Digital Science Workstation — native DEX experiments, browser front-ends</div>
-  </header>
+<body data-theme="editorial">
 
-  <div class="hint">
-    Installing an experiment = dropping its folder into <code>plugins/</code>
-    and refreshing this page. Each bundle holds the compiled core, its
-    <code>ui/</code> page, and a <code>dex.json</code> card.
+<div class="topbar">
+  <div class="brand">DSW<span class="dot">.</span></div>
+  <div class="tagline">Digital Science Workstation — native experiments, browser front-ends</div>
+  <div class="spring"></div>
+  <button id="refreshBtn" title="Rescan the plugin folders">&#10227; Refresh</button>
+  <div class="theme-picker">
+    <span>Theme</span>
+    <select id="themeSelect">
+      <option value="editorial">Editorial</option>
+      <option value="executive">Executive</option>
+      <option value="studio">Studio</option>
+    </select>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="tree-scroll" id="tree"><div class="empty-note">Scanning…</div></div>
+    <div class="side-foot">
+      <button id="settingsBtn" title="Choose where your plugin library lives">&#9881; Plugin folder…</button>
+    </div>
   </div>
 
-  <div class="grid" id="grid"><div class="empty">Scanning plugins…</div></div>
+  <div class="content">
+    <div class="pane" id="welcome">
+      <div class="inner">
+        <div class="card">
+          <h1>DSW<span class="dot">.</span></h1>
+          <div class="sub">Pick an experiment in the tree on the left. It runs natively on this
+            machine; this window is only its front panel.</div>
+          <p class="help">Installing an experiment = dropping its bundle folder into the plugin
+            library and pressing Refresh. A bundle is a folder holding <code>dex.json</code>,
+            the compiled core and a <code>ui/</code> page — and subfolders in the library show
+            up as folders in the tree, so organise it like you organise files.</p>
+          <div id="welcomePaths"></div>
+        </div>
+        <div class="card">
+          <h2>Write your own</h2>
+          <p class="help">The two built-in experiments are templates. The plugin ABI is seven
+            functions in plain C — see the <code>README.md</code> in the dsw folder for the
+            porting guide from an HTML prototype and the wire protocol.</p>
+        </div>
+      </div>
+    </div>
 
-  <footer>DSW host · serving on localhost only · one WebSocket session per running experiment</footer>
+    <div class="pane" id="settings" style="display:none">
+      <div class="inner">
+        <div class="card">
+          <h2>Plugin folder</h2>
+          <p class="help">Your plugin library works like a VST folder: it has a standard home,
+            and you can point it anywhere else. The folder is created if it does not exist;
+            the choice is remembered per user, not per project.</p>
+          <div class="field-row"><input type="text" id="libInput" spellcheck="false"></div>
+          <div class="field-row">
+            <button class="primary" id="libSave">Save</button>
+            <button id="libDefault">Use default location</button>
+            <button id="libCancel">Cancel</button>
+          </div>
+          <div class="msg" id="libMsg"></div>
+          <div class="pathline"><b>Default</b><span id="pDefault"></span></div>
+          <div class="pathline"><b>Built-in</b><span id="pBuiltin"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="runview">
+      <div class="runbar">
+        <div class="pdot" id="runDot"></div>
+        <div class="rname" id="runName"></div>
+        <div class="rmeta" id="runMeta"></div>
+        <div class="spring"></div>
+        <button id="openTabBtn" title="Open this experiment in its own browser tab">Open in tab &#8599;</button>
+        <button id="reloadBtn" title="Restart the experiment">Restart</button>
+        <button id="closeBtn" title="Back to the welcome page">&#10005; Close</button>
+      </div>
+      <iframe id="frame" title="experiment"></iframe>
+    </div>
+  </div>
 </div>
 
 <script>
-  fetch("/api/plugins").then(r => r.json()).then(plugins => {
-    const grid = document.getElementById("grid");
-    grid.innerHTML = "";
-    if (!plugins.length) {
-      grid.innerHTML = '<div class="empty">No experiments found. Drop a bundle folder into <b>plugins/</b> and refresh.</div>';
-      return;
+"use strict";
+const $ = s => document.querySelector(s);
+
+/* ------------------------------------------------ theme */
+const THEME_KEY = "dsw.theme";
+function applyTheme(t) {
+  if (!["editorial", "executive", "studio"].includes(t)) t = "editorial";
+  document.body.setAttribute("data-theme", t);
+  $("#themeSelect").value = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+}
+try { applyTheme(localStorage.getItem(THEME_KEY) || "editorial"); } catch (e) { applyTheme("editorial"); }
+$("#themeSelect").addEventListener("change", e => applyTheme(e.target.value));
+
+/* ------------------------------------------------ state */
+let plugins = [];              // from /api/plugins
+let config = null;             // from /api/config
+let selectedId = null;
+const OPEN_KEY = "dsw.tree.open";
+let openSet;
+try { openSet = new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || "[]")); }
+catch (e) { openSet = new Set(); }
+function saveOpen() { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...openSet])); } catch (e) {} }
+
+/* ------------------------------------------------ tree */
+function buildTreeModel(list) {
+  // roots -> nested {folders: Map(name -> node), plugins: []}
+  const mk = () => ({ folders: new Map(), plugins: [] });
+  const roots = { builtin: mk(), library: mk() };
+  for (const p of list) {
+    const root = roots[p.root] || roots.library;
+    const parts = p.path.split("/");
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node.folders.has(parts[i])) node.folders.set(parts[i], mk());
+      node = node.folders.get(parts[i]);
     }
+    node.plugins.push(p);
+  }
+  return roots;
+}
+
+function renderNode(node, keyPrefix, depth, out) {
+  const names = [...node.folders.keys()].sort((a, b) => a.localeCompare(b));
+  for (const name of names) {
+    const key = keyPrefix + "/" + name;
+    const open = openSet.has(key);
+    const row = document.createElement("div");
+    row.className = "row folder" + (open ? " open" : "");
+    row.style.paddingLeft = (8 + depth * 16) + "px";
+    row.innerHTML = '<span class="chev">&#9654;</span><span class="label"></span>';
+    row.querySelector(".label").textContent = name;
+    const kids = document.createElement("div");
+    kids.className = "kids" + (open ? "" : " closed");
+    row.addEventListener("click", () => {
+      const now = kids.classList.toggle("closed");
+      row.classList.toggle("open", !now);
+      if (now) openSet.delete(key); else openSet.add(key);
+      saveOpen();
+    });
+    out.appendChild(row);
+    renderNode(node.folders.get(name), key, depth + 1, kids);
+    out.appendChild(kids);
+  }
+  const sorted = [...node.plugins].sort((a, b) => a.name.localeCompare(b.name));
+  for (const p of sorted) {
+    const row = document.createElement("div");
+    row.className = "row plugin" + (p.ready ? "" : " dead") + (p.id === selectedId ? " sel" : "");
+    row.style.paddingLeft = (8 + depth * 16 + 14) + "px";
+    if (p.accent) row.style.setProperty("--pin", p.accent);
+    row.innerHTML = '<span class="pdot"></span><span class="label"></span>';
+    row.querySelector(".label").textContent = p.name;
+    row.title = (p.description || p.name) + (p.ready ? "" : "  —  missing binary or ui/");
+    if (p.ready) row.addEventListener("click", () => run(p));
+    out.appendChild(row);
+  }
+}
+
+function renderTree() {
+  const roots = buildTreeModel(plugins);
+  const tree = $("#tree");
+  tree.innerHTML = "";
+  const sections = [["builtin", "Built-in"], ["library", "Library"]];
+  for (const [rootKey, label] of sections) {
+    const node = roots[rootKey];
+    const count = plugins.filter(p => p.root === rootKey).length;
+    const head = document.createElement("div");
+    head.className = "sect";
+    head.innerHTML = '<span></span><span class="n"></span>';
+    head.firstChild.textContent = label;
+    head.lastChild.textContent = count ? String(count) : "";
+    tree.appendChild(head);
+    if (!count) {
+      const note = document.createElement("div");
+      note.className = "empty-note";
+      note.textContent = rootKey === "library"
+        ? "Empty — drop a bundle folder in and press Refresh."
+        : "None found.";
+      tree.appendChild(note);
+      continue;
+    }
+    renderNode(node, rootKey, 0, tree);
+  }
+}
+
+/* ------------------------------------------------ panes */
+function showPane(which) {
+  $("#welcome").style.display = which === "welcome" ? "" : "none";
+  $("#settings").style.display = which === "settings" ? "" : "none";
+  $("#runview").classList.toggle("on", which === "run");
+  if (which !== "run") { $("#frame").src = "about:blank"; selectedId = null; renderTree(); }
+}
+
+function run(p) {
+  selectedId = p.id;
+  renderTree();
+  $("#runName").textContent = p.name;
+  $("#runMeta").textContent = (p.version ? "v" + p.version + "  ·  " : "") + p.root + "/" + p.path;
+  $("#runDot").style.setProperty("--pin", p.accent || "var(--accent-2)");
+  $("#frame").src = "/plugins/" + encodeURIComponent(p.id) + "/ui/index.html";
+  $("#welcome").style.display = "none";
+  $("#settings").style.display = "none";
+  $("#runview").classList.add("on");
+}
+
+$("#closeBtn").addEventListener("click", () => showPane("welcome"));
+$("#reloadBtn").addEventListener("click", () => { const f = $("#frame"); f.src = f.src; });
+$("#openTabBtn").addEventListener("click", () => {
+  if (selectedId) window.open("/plugins/" + encodeURIComponent(selectedId) + "/ui/index.html", "_blank");
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("#runview").classList.contains("on")) showPane("welcome");
+});
+
+/* ------------------------------------------------ settings */
+$("#settingsBtn").addEventListener("click", () => {
+  if (!config) return;
+  $("#libInput").value = config.library;
+  $("#pDefault").textContent = config["default"];
+  $("#pBuiltin").textContent = config.builtin;
+  $("#libMsg").textContent = "";
+  $("#libMsg").className = "msg";
+  showPane("settings");
+});
+$("#libCancel").addEventListener("click", () => showPane("welcome"));
+$("#libDefault").addEventListener("click", () => { $("#libInput").value = config ? config["default"] : ""; });
+$("#libSave").addEventListener("click", async () => {
+  const msg = $("#libMsg");
+  try {
+    const r = await fetch("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ library: $("#libInput").value.trim() }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "could not set the folder");
+    config = j;
+    msg.textContent = "Saved — library is now " + j.library;
+    msg.className = "msg ok";
+    await load();
+  } catch (e) {
+    msg.textContent = String(e.message || e);
+    msg.className = "msg err";
+  }
+});
+
+/* ------------------------------------------------ data */
+async function load() {
+  const [pl, cf] = await Promise.all([
+    fetch("/api/plugins").then(r => r.json()),
+    fetch("/api/config").then(r => r.json()),
+  ]);
+  plugins = pl;
+  config = cf;
+  // open the top-level folders that hold something, first time only
+  if (!localStorage.getItem(OPEN_KEY)) {
     for (const p of plugins) {
-      const a = document.createElement("a");
-      a.className = "card" + (p.ready ? "" : " dead");
-      a.href = "/plugins/" + encodeURIComponent(p.id) + "/ui/index.html";
-      if (p.accent) a.style.setProperty("--card-accent", p.accent);
-      a.innerHTML =
-        "<h2></h2><p></p>" +
-        '<div class="meta"><span class="ver"></span>' +
-        '<span class="run">' + (p.ready ? "Run experiment →" : "missing binary or ui/") + "</span></div>";
-      a.querySelector("h2").textContent = p.name;
-      a.querySelector("p").textContent = p.description || "";
-      a.querySelector(".ver").textContent = p.version ? "v" + p.version : "";
-      grid.appendChild(a);
+      const parts = p.path.split("/");
+      if (parts.length > 1) openSet.add(p.root + "/" + parts[0]);
     }
-  }).catch(() => {
-    document.getElementById("grid").innerHTML =
-      '<div class="empty">Could not reach the DSW host API.</div>';
-  });
+  }
+  renderTree();
+  $("#welcomePaths").innerHTML =
+    '<div class="pathline"><b>Library</b><span id="wpLib"></span></div>' +
+    '<div class="pathline"><b>Built-in</b><span id="wpBi"></span></div>';
+  $("#wpLib").textContent = cf.library;
+  $("#wpBi").textContent = cf.builtin;
+}
+$("#refreshBtn").addEventListener("click", load);
+
+load().catch(() => {
+  $("#tree").innerHTML = '<div class="empty-note">Could not reach the DSW host API.</div>';
+});
 </script>
 </body>
 </html>

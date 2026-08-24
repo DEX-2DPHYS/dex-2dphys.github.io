@@ -31,10 +31,18 @@ static std::string plugins_json(Host &host) {
         out += ",\"description\":\"" + json_escape(p.description) + "\"";
         out += ",\"accent\":\"" + json_escape(p.accent) + "\"";
         out += ",\"version\":\"" + json_escape(p.version) + "\"";
+        out += ",\"path\":\"" + json_escape(p.path) + "\"";
+        out += ",\"root\":\"" + json_escape(p.root) + "\"";
         out += std::string(",\"ready\":") + (p.has_binary && p.has_ui ? "true" : "false");
         out += "}";
     }
     return out + "]";
+}
+
+static std::string config_json(Host &host) {
+    return "{\"library\":\"" + json_escape(host.library_dir()) +
+           "\",\"builtin\":\"" + json_escape(host.builtin_dir()) +
+           "\",\"default\":\"" + json_escape(default_library_dir()) + "\"}";
 }
 
 int main(int argc, char **argv) {
@@ -56,9 +64,11 @@ int main(int argc, char **argv) {
         else if (a == "--help" || a == "-h") {
             printf("usage: dsw [--port N] [--plugins DIR] [--web DIR]\n"
                    "  --port     TCP port on 127.0.0.1 (default 8090)\n"
-                   "  --plugins  plugin bundles folder (default: ./plugins,\n"
-                   "             else plugins/ next to the executable)\n"
-                   "  --web      launcher assets folder (same default logic)\n");
+                   "  --plugins  user plugin library folder for this run\n"
+                   "             (default: the folder saved in settings, else\n"
+                   "             Documents/DSW Plugins — created on first run)\n"
+                   "  --web      launcher assets folder (default: ./web,\n"
+                   "             else web/ next to the executable)\n");
             return 0;
         } else {
             fprintf(stderr, "dsw: unknown option %s (try --help)\n", a.c_str());
@@ -66,23 +76,39 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Default folders: prefer the working directory (developer flow), fall
+    // Built-in folders: prefer the working directory (developer flow), fall
     // back to the executable's directory (installed flow).
     auto resolve = [](std::string given, const char *name) {
         if (!given.empty()) return given;
         if (dir_exists(name)) return std::string(name);
         return exe_dir() + "/" + name;
     };
-    plugins_dir = resolve(plugins_dir, "plugins");
+    std::string builtin_dir = resolve("", "plugins");
     web_dir = resolve(web_dir, "web");
 
-    Host host(plugins_dir);
+    // The user plugin library, like a VST folder: --plugins for this run,
+    // else the saved choice, else the standard place (created, with a note).
+    bool cli_library = !plugins_dir.empty();
+    std::string library_dir = cli_library ? plugins_dir : load_saved_library_dir();
+    if (library_dir.empty()) library_dir = default_library_dir();
+    if (!dir_exists(library_dir) && make_dirs(library_dir) && !cli_library)
+        write_file(library_dir + "/README.txt",
+                   "DSW plugin library\n"
+                   "------------------\n"
+                   "Drop experiment bundles in here (each bundle is a folder with\n"
+                   "dex.json, the compiled core and a ui/ page). Subfolders are\n"
+                   "shown as a tree in the launcher, so organise them freely.\n"
+                   "The launcher's 'Plugin folder' setting can point somewhere else.\n");
+
+    Host host(builtin_dir, library_dir);
 
     printf("dsw — Digital Science Workstation\n");
-    printf("  plugins : %s%s\n", plugins_dir.c_str(),
-           dir_exists(plugins_dir) ? "" : "  (missing — create it and drop bundles in)");
-    printf("  web     : %s\n", web_dir.c_str());
-    printf("  open    : http://127.0.0.1:%u/\n", (unsigned)port);
+    printf("  built-in : %s%s\n", builtin_dir.c_str(),
+           dir_exists(builtin_dir) ? "" : "  (missing)");
+    printf("  library  : %s%s\n", library_dir.c_str(),
+           cli_library ? "  (--plugins, not persisted)" : "");
+    printf("  web      : %s\n", web_dir.c_str());
+    printf("  open     : http://127.0.0.1:%u/\n", (unsigned)port);
 
     std::string err;
     bool ok = serve(port, [&](Conn &conn) {
@@ -109,6 +135,25 @@ int main(int argc, char **argv) {
             printf("dsw: session start  %s\n", id.c_str());
             host.run_session(api, conn);
             printf("dsw: session end    %s\n", id.c_str());
+            return;
+        }
+
+        // --- Config: read, or repoint the plugin library folder
+        if (req.path == "/api/config") {
+            if (req.method == "POST") {
+                std::string dir = json_get_string(req.body, "library");
+                if (dir == "") dir = default_library_dir();   // "" = back to default
+                std::string cerr_;
+                if (!host.set_library_dir(dir, cerr_)) {
+                    conn.send_response(400, "application/json; charset=utf-8",
+                                       "{\"error\":\"" + json_escape(cerr_) + "\"}");
+                    return;
+                }
+                save_library_dir(host.library_dir());
+                printf("dsw: library -> %s\n", host.library_dir().c_str());
+            }
+            conn.send_response(200, "application/json; charset=utf-8",
+                               config_json(host));
             return;
         }
 
