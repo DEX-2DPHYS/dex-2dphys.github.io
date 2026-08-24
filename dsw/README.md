@@ -61,7 +61,7 @@ blue), and a settings pane for the plugin folder.
 
 Plugins come from **two roots**, both rescanned on every refresh:
 
-- **Built-in** — the `plugins/` folder beside the host, where the two
+- **Built-in** — the `plugins/` folder beside the host, where the four
   example experiments live.
 - **Library** — your own plugin folder. Like a VST directory it has a
   standard home, **`Documents/DSW Plugins`** (created on first run), and can
@@ -78,17 +78,20 @@ else is a category and is scanned deeper. Bundle folder names are the
 routing key, so they must be unique across both roots — a duplicate name is
 dropped from the listing (built-ins win).
 
-Ships with three example experiments:
+Ships with four example experiments:
 
 | Plugin | What it shows |
 |--------|---------------|
 | `gray-scott` | Gray–Scott reaction–diffusion on a 512×512 torus: presets, F/k sliders, paint-to-seed brush, steps/s telemetry. |
 | `wave-tank` | Damped 2D wave equation with absorbing shores and single/double-slit barriers: poke the water, drive an oscillator, watch interference fringes form. |
 | `pattern-transfer` | Nanofabrication process-flow simulator on a 3D voxel cross-section: spin resist, EBL/UV exposure, contrast-curve development, deposition, RIE/wet/SF6 etch, lift-off — with undo-by-replay and a native painter-sorted isometric renderer. |
+| `graphene-md` | Bilayer-graphene molecular dynamics: Morse C–C bonds that break and re-form, sp² angle stiffness, a bending umbrella and Lennard-Jones adhesion to a rigid substrate. Push a mesa, Gaussian bump or Hencky gas blister up and watch the sheet drape, wrinkle and tear. The core streams atom positions and bond topology; the browser keeps the WebGL scene. |
 
 <p>
   <img src="docs/wave-tank.png" alt="Wave Tank: double-slit interference" width="49%">
   <img src="docs/gray-scott.png" alt="Gray–Scott reaction–diffusion" width="49%">
+  <img src="docs/pattern-transfer.png" alt="EBL Pattern Transfer: metal lift-off grating" width="49%">
+  <img src="docs/graphene-md.png" alt="Graphene MD: a sheet draped over a substrate bump" width="49%">
 </p>
 
 ## Anatomy of a plugin bundle
@@ -162,7 +165,9 @@ Message vocabulary is entirely yours — the host just relays JSON.
 The shipped plugins are meant as templates — `wave-tank` for
 click-interaction and mode switches, `gray-scott` for parameter sweeps and
 brushes, `pattern-transfer` for event-driven experiments where the UI sends
-discrete commands and the core keeps a replayable history.
+discrete commands and the core keeps a replayable history, and `graphene-md`
+for the case where the browser owns the rendering and the core streams it
+packed geometry over the frame channel instead of pixels.
 
 ## Protocol (for the curious)
 
