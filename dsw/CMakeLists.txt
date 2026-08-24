@@ -11,7 +11,14 @@ find_package(Threads REQUIRED)
 find_package(OpenMP)
 
 include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag(-march=native DSW_HAS_MARCH_NATIVE)
+# -march=native tunes the build for THIS machine and is a large win for the
+# heavier plugin cores, but the result may use instructions an older CPU does
+# not have. Keep it on for local builds; turn it OFF for anything you ship to
+# other people (the release workflow does exactly that).
+option(DSW_NATIVE_ARCH "Optimise for the building machine's CPU (not portable)" ON)
+if(DSW_NATIVE_ARCH)
+  check_cxx_compiler_flag(-march=native DSW_HAS_MARCH_NATIVE)
+endif()
 
 # ---------------------------------------------------------------- host
 add_executable(dsw
@@ -46,8 +53,9 @@ function(dsw_add_plugin id)
   endif()
   if(NOT MSVC)
     # -O3 plus FMA contraction; the force kernels are written as flat
-    # structure-of-arrays loops for the vectorizer. -march=native is a large
-    # win for them but only where the toolchain takes it, so it is probed.
+    # structure-of-arrays loops for the vectorizer. -march=native is added
+    # only when enabled and the toolchain accepts it (Apple clang on arm64
+    # does not), so portable builds stay portable.
     target_compile_options(plugin_${id} PRIVATE -O3 -ffp-contract=fast)
     if(DSW_HAS_MARCH_NATIVE)
       target_compile_options(plugin_${id} PRIVATE -march=native)

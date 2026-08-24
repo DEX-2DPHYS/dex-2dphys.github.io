@@ -1,0 +1,120 @@
+# Builds DSW and its plugins for Linux, macOS and Windows, and publishes
+# ready-to-run downloads.
+#
+# A DSW plugin is native code, so there is no universal "plugin file" — each
+# platform needs its own compiled core. This workflow produces, per platform:
+#
+#   dsw-<os>.zip              the host + web/ + every built-in plugin bundle,
+#                             unzip and run; nothing to compile
+#   dsw-plugin-<id>-<os>.zip  one bundle on its own, to drop into the user
+#                             plugin library (Documents/DSW Plugins)
+#
+# Run it from the Actions tab (Run workflow), or push a tag like dsw-v1.0 to
+# also attach the archives to a GitHub Release.
+#
+# Release builds set DSW_NATIVE_ARCH=OFF: -march=native would tune the binary
+# for the runner's CPU and can fault on an older machine.
+
+name: DSW release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['dsw-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux-x64
+            exe: dsw
+          - os: macos-latest
+            label: macos-arm64
+            exe: dsw
+          - os: windows-latest
+            label: windows-x64
+            exe: dsw.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      # Apple clang ships without OpenMP; without libomp the cores still
+      # build and run, just single-threaded.
+      - name: Install OpenMP (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
+
+      - name: Configure
+        run: >
+          cmake -S dsw -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DDSW_NATIVE_ARCH=OFF
+          ${{ runner.os == 'macOS' && '-DOpenMP_ROOT=$(brew --prefix libomp)' || '' }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # The build drops the host in dsw/ and each core into its own bundle
+      # folder, so the tree is already laid out the way it ships.
+      - name: Stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="stage/dsw"
+          mkdir -p "$out"
+          cp "dsw/${{ matrix.exe }}" "$out/"
+          cp -R dsw/web "$out/web"
+          cp dsw/README.md "$out/README.md"
+          mkdir -p "$out/plugins"
+          for d in dsw/plugins/*/; do
+            id=$(basename "$d")
+            # A bundle is dex.json + the compiled core + ui/ — never src/.
+            mkdir -p "$out/plugins/$id"
+            cp "$d/dex.json" "$out/plugins/$id/"
+            cp -R "$d/ui" "$out/plugins/$id/ui"
+            found=
+            for ext in so dll dylib; do
+              if [ -f "$d/$id.$ext" ]; then cp "$d/$id.$ext" "$out/plugins/$id/"; found=1; fi
+            done
+            if [ -z "$found" ]; then echo "no compiled core for $id"; exit 1; fi
+          done
+          ls -R stage | head -60
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          (cd stage && zip -qr "../dist/dsw-${{ matrix.label }}.zip" dsw)
+          # Each bundle on its own, for the user plugin library.
+          for d in stage/dsw/plugins/*/; do
+            id=$(basename "$d")
+            (cd stage/dsw/plugins && zip -qr "../../../dist/dsw-plugin-$id-${{ matrix.label }}.zip" "$id")
+          done
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsw-${{ matrix.label }}
+          path: dist/*.zip
+          retention-days: 30
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/dsw-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*.zip
+          generate_release_notes: true

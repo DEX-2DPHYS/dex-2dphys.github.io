@@ -94,6 +94,43 @@ Ships with four example experiments:
   <img src="docs/graphene-md.png" alt="Graphene MD: a sheet draped over a substrate bump" width="49%">
 </p>
 
+## Downloads & installing a plugin
+
+A plugin is a compiled core, so there is no one file that works everywhere —
+each platform needs its own build. Two ways to get one:
+
+**Prebuilt.** The *DSW release* workflow (Actions tab → *Run workflow*, or
+push a tag like `dsw-v1.0`) builds for Linux, macOS and Windows and produces:
+
+| Archive | What it is |
+|---------|------------|
+| `dsw-<platform>.zip` | The whole workstation — host, launcher and every built-in experiment. Unzip, run `dsw`, open the printed URL. Nothing to compile. |
+| `dsw-plugin-<id>-<platform>.zip` | One experiment on its own, to add to an existing install. |
+
+Grab them from the run's *Artifacts*, or from the Release if you pushed a tag.
+Release builds are compiled for a generic CPU so they run anywhere; building
+yourself is faster, because a local build tunes for your own machine
+(`-DDSW_NATIVE_ARCH=OFF` turns that off if you want to pass your build on).
+
+**Installing one.** Unzip the bundle into your plugin library — the folder
+the launcher shows under *Plugin folder…*, by default:
+
+```
+Windows   %USERPROFILE%\Documents\DSW Plugins\
+macOS     ~/Documents/DSW Plugins/
+Linux     ~/Documents/DSW Plugins/
+```
+
+so that it lands as `DSW Plugins/graphene-md/` containing `dex.json`, the
+core (`graphene-md.dll` / `.so` / `.dylib`) and `ui/`. Hit refresh in the
+launcher and it appears in the tree — no restart. Subfolders become
+categories, so `DSW Plugins/Teaching/graphene-md/` works too.
+
+A bundle folder's name is its routing key and must be unique across both
+roots; if you install one that shadows a built-in, the built-in wins and the
+copy is ignored. Nothing is registered globally — deleting the folder
+uninstalls it.
+
 ## Anatomy of a plugin bundle
 
 ```
