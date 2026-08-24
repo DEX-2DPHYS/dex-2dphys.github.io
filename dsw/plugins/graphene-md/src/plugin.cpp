@@ -36,6 +36,10 @@
 #include <string>
 #include <vector>
 
+#ifndef M_PI // MSVC's <cmath> only defines it under _USE_MATH_DEFINES
+#define M_PI 3.14159265358979323846
+#endif
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -478,7 +482,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             const int cx = (int)((tx[i] - cellX0) / cellSize);
             const int cy = (int)((ty[i] - cellY0) / cellSize);
@@ -501,7 +505,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             const int cx = (int)((tx[i] - cellX0) / cellSize);
             const int cy = (int)((ty[i] - cellY0) / cellSize);
@@ -551,7 +555,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-            for (long long ii = 0; ii < (long long)n; ii++) {
+            for (int ii = 0; ii < (int)n; ii++) {
                 const size_t i = (size_t)ii;
                 const int s = nbOff[i], e = nbOff[i + 1], deg = e - s;
                 if (deg <= 0) continue;
@@ -583,7 +587,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : pe)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             const double xi = tx[i], yi = ty[i], zi = tz[i];
             double Fx = 0, Fy = 0, Fz = 0, e = 0;
@@ -721,7 +725,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (long long ii = 0; ii < (long long)nSub(); ii++) {
+        for (int ii = 0; ii < (int)nSub(); ii++) {
             const size_t i = (size_t)ii;
             const double dx = sx0[i] - cx, dy = sy0[i] - cy;
             double lift;
@@ -766,7 +770,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             double ux = damp * vx[i] + fx[i] * ACC_K * dt * 0.5;
             double uy = damp * vy[i] + fy[i] * ACC_K * dt * 0.5;
@@ -779,7 +783,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             double dx = vx[i] * dt, dy = vy[i] * dt, dz = vz[i] * dt;
             const double dm = std::sqrt(dx * dx + dy * dy + dz * dz);
@@ -791,7 +795,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-            for (long long ii = 0; ii < (long long)n; ii++) {
+            for (int ii = 0; ii < (int)n; ii++) {
                 const size_t i = (size_t)ii;
                 if (!isEdge[i]) continue;
                 tx[i] = tx0[i]; ty[i] = ty0[i]; tz[i] = tz0[i];
@@ -807,7 +811,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : ke)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             double ux = damp * vx[i] + fx[i] * ACC_K * dt * 0.5;
             double uy = damp * vy[i] + fy[i] * ACC_K * dt * 0.5;
@@ -849,7 +853,7 @@ struct Instance {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (long long ii = 0; ii < (long long)n; ii++) {
+        for (int ii = 0; ii < (int)n; ii++) {
             const size_t i = (size_t)ii;
             double s = 0;
             for (int k = 0; k < 3; k++) s += std::cos(Gx[k] * tx[i] + Gy[k] * ty[i]);
