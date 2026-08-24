@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wave Tank — DSW</title>
+<style>
+  :root { --bg:#0b0e14; --panel:#131824; --ink:#e8ecf4; --muted:#8a94a8;
+          --line:#232b3d; --accent:#ffb038; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink);
+         font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1160px; margin:0 auto; padding:24px; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  header a { color:var(--muted); text-decoration:none; font-size:14px; }
+  header a:hover { color:var(--accent); }
+  h1 { font-size:21px; }
+  .status { font-size:13px; color:var(--muted); margin-left:auto;
+            font-family:ui-monospace,Menlo,monospace; }
+  .status .live { color:var(--accent); }
+  .layout { display:grid; grid-template-columns: minmax(0,1fr) 280px; gap:20px; }
+  @media (max-width:900px){ .layout { grid-template-columns:1fr; } }
+  canvas { width:100%; aspect-ratio:560/360; image-rendering:pixelated;
+           border:1px solid var(--line); border-radius:12px; background:#000;
+           cursor:crosshair; touch-action:none; }
+  .panel { background:var(--panel); border:1px solid var(--line);
+           border-radius:12px; padding:18px; align-self:start; }
+  .panel h2 { font-size:13px; text-transform:uppercase; letter-spacing:.12em;
+              color:var(--muted); margin:14px 0 8px; }
+  .panel h2:first-child { margin-top:0; }
+  .choices { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  button { background:#1a2132; color:var(--ink); border:1px solid var(--line);
+           border-radius:8px; padding:8px 6px; font:inherit; font-size:13.5px;
+           cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.on { background:var(--accent); color:#2b1c00; border-color:var(--accent);
+              font-weight:600; }
+  .row { display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label { width:58px; font-size:13.5px; color:var(--muted);
+               font-family:ui-monospace,Menlo,monospace; }
+  .row input[type=range] { flex:1; accent-color:var(--accent); }
+  .row output { width:56px; text-align:right; font-size:13px;
+                font-family:ui-monospace,Menlo,monospace; }
+  .actions { display:flex; gap:8px; margin-top:14px; }
+  .actions button { flex:1; }
+  .note { color:var(--muted); font-size:13px; margin-top:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="/">← DSW</a>
+    <h1>Wave Tank</h1>
+    <div class="status" id="status">connecting…</div>
+  </header>
+
+  <div class="layout">
+    <canvas id="view"></canvas>
+
+    <div class="panel">
+      <h2>Barrier</h2>
+      <div class="choices" id="barriers">
+        <button data-name="none">Open</button>
+        <button data-name="single">1 slit</button>
+        <button data-name="double" class="on">2 slits</button>
+      </div>
+
+      <h2>Source</h2>
+      <div class="choices" style="grid-template-columns:1fr 1fr">
+        <button id="srcToggle" class="on">Oscillator on</button>
+        <button id="reset">Still water</button>
+      </div>
+      <div class="row"><label>freq</label>
+        <input id="freq" type="range" min="1" max="10" step="0.5" value="3">
+        <output id="freqv">3.0</output></div>
+
+      <h2>Medium</h2>
+      <div class="row"><label>speed c²</label>
+        <input id="c2" type="range" min="0.02" max="0.5" step="0.01" value="0.25">
+        <output id="c2v">0.25</output></div>
+      <div class="row"><label>damping</label>
+        <input id="damp" type="range" min="0" max="0.02" step="0.0005" value="0.002">
+        <output id="dampv">0.002</output></div>
+      <div class="row"><label>sim rate</label>
+        <input id="speed" type="range" min="1" max="20" step="1" value="4">
+        <output id="speedv">4/tick</output></div>
+
+      <div class="actions">
+        <button id="pause">Pause</button>
+      </div>
+
+      <p class="note">Click the water to drop a pulse; the oscillator on the
+      left drives continuous waves at the slits. Amber is a crest, blue a
+      trough, grey the barrier.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/dex.js"></script>
+<script>
+  const canvas = document.getElementById("view");
+  const status = document.getElementById("status");
+  let paused = false;
+
+  const dex = DEX.connect({
+    canvas,
+    onStatus(s) {
+      if (s === "open") status.innerHTML = '<span class="live">●</span> live';
+      else if (s === "closed") status.textContent = "disconnected — reload to restart";
+      else status.textContent = s;
+    },
+    onMessage(m) {
+      if (m.t === "stats")
+        status.innerHTML = '<span class="live">●</span> ' +
+          Number(m.sps).toLocaleString() + " steps/s";
+    },
+  });
+
+  // --- barrier choice
+  const barButtons = document.querySelectorAll("#barriers button");
+  for (const b of barButtons) {
+    b.onclick = () => {
+      for (const o of barButtons) o.classList.remove("on");
+      b.classList.add("on");
+      dex.send({ t: "barrier", name: b.dataset.name });
+    };
+  }
+
+  // --- source
+  let srcOn = true;
+  const srcToggle = document.getElementById("srcToggle");
+  srcToggle.onclick = () => {
+    srcOn = !srcOn;
+    srcToggle.classList.toggle("on", srcOn);
+    srcToggle.textContent = srcOn ? "Oscillator on" : "Oscillator off";
+    dex.send({ t: "src", on: srcOn ? 1 : 0 });
+  };
+  document.getElementById("reset").onclick = () => dex.send({ t: "reset" });
+
+  // --- sliders
+  function slider(id, key, fmt) {
+    const el = document.getElementById(id), out = document.getElementById(id + "v");
+    el.oninput = () => {
+      out.textContent = fmt(+el.value);
+      dex.send({ t: "set", k: key, v: +el.value });
+    };
+  }
+  slider("freq", "freq", v => v.toFixed(1));
+  slider("c2", "c2", v => v.toFixed(2));
+  slider("damp", "damp", v => v.toFixed(4));
+  slider("speed", "speed", v => v + "/tick");
+
+  document.getElementById("pause").onclick = function () {
+    paused = !paused;
+    dex.send({ t: paused ? "pause" : "resume" });
+    this.textContent = paused ? "Resume" : "Pause";
+  };
+
+  // --- poke on click/drag
+  let down = false;
+  function poke(ev) {
+    const r = canvas.getBoundingClientRect();
+    dex.send({ t: "poke",
+               x: (ev.clientX - r.left) / r.width,
+               y: (ev.clientY - r.top) / r.height });
+  }
+  canvas.onpointerdown = ev => { down = true; canvas.setPointerCapture(ev.pointerId); poke(ev); };
+  canvas.onpointermove = ev => { if (down) poke(ev); };
+  canvas.onpointerup = canvas.onpointercancel = () => { down = false; };
+</script>
+</body>
+</html>

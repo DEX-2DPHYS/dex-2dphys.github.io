@@ -29,9 +29,15 @@
       "id": "phone",
       "name": "Phone App",
       "description": "Designed for a phone screen — touch-first, one-handed, and useful away from the desk."
+    },
+    {
+      "id": "native",
+      "name": "Native app",
+      "description": "Runs as a native program on your computer — built from source, not in the browser."
     }
   ],
   "tools": [
+    "dsw",
     "heterostructure-builder",
     "biomicroscope",
     "double-pendulum",

@@ -1,0 +1,6 @@
+build/
+dsw
+*.so
+*.dll
+*.dylib
+*.pdb

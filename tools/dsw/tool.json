@@ -1,0 +1,10 @@
+{
+  "slug": "dsw",
+  "name": "DSW — Digital Science Workstation",
+  "description": "A DAW for science: a native host that runs C++/HTML experiment plugins. Drop a bundle in a folder, the browser is the GUI, the heavy math runs native. Ships with Gray–Scott and double-slit wave-tank experiments.",
+  "status": "live",
+  "url": "dsw/",
+  "icon": "device",
+  "tags": ["native", "simulations", "educational"],
+  "note": "Native desktop app — built from source; experiments then run in your browser."
+}
