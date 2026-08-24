@@ -327,14 +327,25 @@
       <div class="prose">
         <p>DSW is a native program, so unlike the rest of DEX it is built from source
         rather than run in the page. You need CMake ≥ 3.15 and a C++17 compiler
-        (OpenMP recommended; Linux and macOS build as-is, Windows support is in the
-        code but untested):</p>
+        (OpenMP recommended). Start from a folder you can write to — your home or
+        projects directory, <em>not</em> a fresh admin shell's
+        <code>C:\Windows\System32</code> — then on Linux or macOS:</p>
       </div>
-      <pre><code>git clone https://github.com/DEX-2DPHYS/dex-2dphys.github.io
+      <pre><code>cd ~                     # anywhere writable
+git clone https://github.com/DEX-2DPHYS/dex-2dphys.github.io
 cd dex-2dphys.github.io/dsw
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ./dsw        # then open http://127.0.0.1:8090/</code></pre>
+      <div class="prose">
+        <p>On Windows (tested with Visual Studio's MSVC): same clone, then</p>
+      </div>
+      <pre><code>cd $HOME\Documents       # anywhere writable
+git clone https://github.com/DEX-2DPHYS/dex-2dphys.github.io
+cd dex-2dphys.github.io\dsw
+cmake -B build
+cmake --build build --config Release
+.\dsw.exe    # then open http://127.0.0.1:8090/</code></pre>
       <div class="prose">
         <p>The host binds to localhost only and opens a launcher listing every
         installed experiment. Writing your own is three files — see the

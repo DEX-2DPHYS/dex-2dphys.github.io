@@ -1,6 +1,9 @@
 build/
 dsw
+dsw.exe
 *.so
 *.dll
 *.dylib
 *.pdb
+*.exp
+*.lib

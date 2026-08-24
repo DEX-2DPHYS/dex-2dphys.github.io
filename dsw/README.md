@@ -38,6 +38,16 @@ cmake --build build -j
 ./dsw                  # open http://127.0.0.1:8090/
 ```
 
+On Windows (MSVC, from any writable directory — not an admin shell's
+`C:\Windows\System32`):
+
+```powershell
+cd dsw
+cmake -B build
+cmake --build build --config Release
+.\dsw.exe              # open http://127.0.0.1:8090/
+```
+
 The host binds **localhost only** and serves the launcher, each plugin's
 `ui/` folder, and one WebSocket per running experiment. `./dsw --help` lists
 `--port`, `--plugins DIR`, `--web DIR`.
@@ -141,6 +151,6 @@ are picked up on refresh.
 
 ## Portability
 
-Linux and macOS build as-is. The code carries Winsock/`LoadLibrary` paths
-for Windows (MSVC + CMake) but they are untested so far — the development
-host is Linux.
+Linux and macOS build as-is. Windows (MSVC + CMake, Winsock/`LoadLibrary`
+paths) is tested and working: host, launcher, both example plugins and the
+frame-streaming WebSocket verified on Windows 11 / Visual Studio 2026.

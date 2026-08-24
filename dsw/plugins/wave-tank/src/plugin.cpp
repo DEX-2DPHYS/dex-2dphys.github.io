@@ -19,6 +19,10 @@
 #include <string>
 #include <vector>
 
+#ifndef M_PI // MSVC's <cmath> only defines it under _USE_MATH_DEFINES
+#define M_PI 3.14159265358979323846
+#endif
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif

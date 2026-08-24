@@ -22,8 +22,10 @@ if(WIN32)
   target_link_libraries(dsw PRIVATE ws2_32)
 endif()
 # Run `dsw` from the repo's dsw/ folder and it finds web/ and plugins/ there.
+# The $<1:...> genex stops multi-config generators (Visual Studio) from
+# appending a Release/ subfolder — the exe must land in dsw/ itself.
 set_target_properties(dsw PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 # ---------------------------------------------------------------- plugins
 # dsw_add_plugin(<id>) builds plugins/<id>/src/plugin.cpp into
@@ -34,8 +36,8 @@ function(dsw_add_plugin id)
   set_target_properties(plugin_${id} PROPERTIES
     OUTPUT_NAME ${id}
     PREFIX ""
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/plugins/${id}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/plugins/${id})
+    LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/plugins/${id}>
+    RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/plugins/${id}>)
   if(OpenMP_CXX_FOUND)
     target_link_libraries(plugin_${id} PRIVATE OpenMP::OpenMP_CXX)
   endif()
