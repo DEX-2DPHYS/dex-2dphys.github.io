@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EBL Pattern Transfer — DSW</title>
+<style>
+  :root { --bg:#0b0e14; --panel:#131824; --ink:#e8ecf4; --muted:#8a94a8;
+          --line:#232b3d; --accent:#5b8cff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink);
+         font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1360px; margin:0 auto; padding:20px; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  header a { color:var(--muted); text-decoration:none; font-size:14px; }
+  header a:hover { color:var(--accent); }
+  h1 { font-size:20px; }
+  .status { font-size:13px; color:var(--muted); margin-left:auto;
+            font-family:ui-monospace,Menlo,monospace; }
+  .status .live { color:#3ddc97; }
+  .status .err { color:#ff7b7b; }
+
+  .layout { display:grid; grid-template-columns:300px minmax(0,1fr) 240px; gap:16px; }
+  @media (max-width:1100px){ .layout { grid-template-columns:280px minmax(0,1fr); }
+    .flow-panel { grid-column:1 / -1; } }
+  @media (max-width:760px){ .layout { grid-template-columns:1fr; } }
+
+  .panel { background:var(--panel); border:1px solid var(--line);
+           border-radius:12px; padding:16px; align-self:start; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.12em;
+              color:var(--muted); margin:16px 0 8px; }
+  .panel h2:first-child { margin-top:0; }
+  label { display:block; font-size:12.5px; color:var(--muted); margin:7px 0 2px; }
+  input[type=number], select { width:100%; padding:5px 8px; font:inherit; font-size:13px;
+    background:#1a2132; color:var(--ink); border:1px solid var(--line); border-radius:7px; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; }
+  button { background:#1a2132; color:var(--ink); border:1px solid var(--line);
+           border-radius:8px; padding:8px 10px; font:inherit; font-size:13.5px;
+           cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#0a1430; border:none; font-weight:600; }
+  .actions { display:flex; gap:8px; margin-top:12px; }
+  .actions button { flex:1; }
+  .note { color:var(--muted); font-size:12.5px; margin-top:12px; }
+
+  .viz { display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .viz-tabs { display:flex; gap:8px; align-items:center; }
+  .viz-tabs button.active { border-color:var(--accent); color:var(--accent); }
+  .viz-tabs .hint { margin-left:auto; font-size:12px; color:var(--muted); }
+  #maskStrip { display:none; margin:0 auto; height:26px;
+               border:1px dashed #b0433d; border-radius:6px; background:#0e1320; }
+  canvas#view { display:block; margin:0 auto; max-width:100%;
+                border:1px solid var(--line); border-radius:12px;
+                background:#fff; touch-action:none; }
+  canvas#view.pix { image-rendering:pixelated; }
+  .slicebar { display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--muted); }
+  .slicebar input { flex:1; }
+  .dims { font-size:12px; color:var(--muted); text-align:center;
+          font-family:ui-monospace,Menlo,monospace; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:var(--muted); }
+  .legend span { display:inline-flex; align-items:center; gap:5px; }
+  .legend i { width:12px; height:12px; border-radius:3px; display:inline-block;
+              border:1px solid rgba(255,255,255,.2); }
+
+  .flow-panel .step { border:1px solid var(--line); border-radius:9px; padding:7px 9px;
+    margin-bottom:7px; background:#0f141f; font-size:12.5px; position:relative; }
+  .flow-panel .step b { font-size:12.5px; }
+  .flow-panel .step .p { color:var(--muted); font-size:11.5px; margin-top:1px; }
+  .flow-panel .step .ops { position:absolute; top:5px; right:6px; display:flex; gap:2px; }
+  .flow-panel .step .ops button { padding:1px 6px; font-size:12px; border:none;
+    background:transparent; color:var(--muted); }
+  .flow-panel .step .ops button:hover { color:var(--accent); }
+  .flow-panel .empty { color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="/">← DSW</a>
+    <h1>EBL Pattern Transfer</h1>
+    <div class="status" id="status">connecting…</div>
+  </header>
+
+  <div class="layout">
+    <!-- ───────────── controls ───────────── -->
+    <div class="panel">
+      <h2>Substrate</h2>
+      <div class="grid2">
+        <div><label>Resolution (nm/px)</label>
+          <input id="nmpx" type="number" value="2" min="0.2" max="10" step="0.1"></div>
+        <div><label>Width (nm)</label>
+          <input id="sampw" type="number" value="300" min="50" max="10000" step="50"></div>
+        <div><label>Depth (nm)</label>
+          <input id="sampd" type="number" value="300" min="20" max="5000" step="20"></div>
+        <div><label>Si (nm)</label>
+          <input id="si" type="number" value="200" min="20" max="2000" step="10"></div>
+        <div><label>SiO₂ (nm)</label>
+          <input id="ox" type="number" value="80" min="0" max="500" step="5"></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="buildBtn">Build substrate</button>
+      </div>
+
+      <h2>Add process step</h2>
+      <label>Step</label>
+      <select id="stepType">
+        <option value="spinresist">Spin resist</option>
+        <option value="expose">Expose (EBL)</option>
+        <option value="uv_expose">Expose (UV)</option>
+        <option value="develop">Develop</option>
+        <option value="deposit">Deposit</option>
+        <option value="transfer_2d">Transfer 2D material</option>
+        <option value="descum">Descum (O₂ plasma)</option>
+        <option value="etch_rie">RIE etch</option>
+        <option value="etch_sf6">SF6 etch (2D materials)</option>
+        <option value="etch_wet">Wet etch</option>
+        <option value="liftoff">Lift-off</option>
+        <option value="strip">Strip resist</option>
+      </select>
+
+      <div class="steppanel" id="p_spinresist">
+        <div class="grid2">
+          <div><label>Resist</label>
+            <select id="resist">
+              <option>PMMA</option><option>CSAR</option><option>MEDUSA</option>
+              <option>S1813</option><option>AZ5214E</option><option>SU8</option>
+              <option>MAN2400</option><option value="custom">custom</option>
+            </select></div>
+          <div><label>Thickness (nm)</label>
+            <input id="resistThick" type="number" value="120" min="5" max="1000" step="5"></div>
+        </div>
+        <label>Tone</label>
+        <select id="rtype"><option value="positive">positive</option>
+          <option value="negative">negative</option></select>
+      </div>
+
+      <div class="steppanel" id="p_expose" style="display:none">
+        <label>Pattern</label>
+        <select id="pattern">
+          <option value="grating">Grating</option>
+          <option value="single">Single line</option>
+          <option value="dots">Dot array</option>
+          <option value="blanket">Blanket (flood)</option>
+        </select>
+        <div class="grid2" id="pp_grating">
+          <div><label>Pitch (nm)</label>
+            <input id="pitch" type="number" value="200" min="10" max="5000" step="10"></div>
+          <div><label>Duty (%)</label>
+            <input id="duty" type="number" value="50" min="5" max="95" step="5"></div>
+        </div>
+        <div id="pp_single" style="display:none"><label>Line width (nm)</label>
+          <input id="lineW" type="number" value="100" min="5" max="5000" step="5"></div>
+        <div class="grid2" id="pp_dots" style="display:none">
+          <div><label>Dot pitch (nm)</label>
+            <input id="dotPitch" type="number" value="100" min="20" max="5000" step="10"></div>
+          <div><label>Dot diameter (nm)</label>
+            <input id="dotDiam" type="number" value="50" min="5" max="2000" step="5"></div>
+        </div>
+        <label>Dose (µC/cm² · mJ/cm²)</label>
+        <input id="dose" type="number" value="500" min="1" max="5000" step="10">
+      </div>
+
+      <div class="steppanel" id="p_develop" style="display:none">
+        <div class="grid2">
+          <div><label>Target resist</label>
+            <select id="devTarget">
+              <option>PMMA</option><option>CSAR</option><option>MEDUSA</option>
+              <option>S1813</option><option>AZ5214E</option><option>SU8</option>
+              <option>MAN2400</option><option value="custom">custom</option>
+            </select></div>
+          <div><label>Time (s)</label>
+            <input id="devTime" type="number" value="60" min="1" max="600" step="5"></div>
+          <div><label>Contrast γ</label>
+            <input id="contrast" type="number" value="7" min="0.5" max="20" step="0.5"></div>
+          <div><label>D₁₀₀ dose</label>
+            <input id="D100" type="number" value="450" min="1" max="5000" step="10"></div>
+          <div><label>Dark erosion (nm/min)</label>
+            <input id="darkErosion" type="number" value="2" min="0" max="50" step="0.5"></div>
+          <div><label>Sidewall (°)</label>
+            <input id="sidewall" type="number" value="90" min="60" max="120" step="1"></div>
+          <div><label>Scum (nm)</label>
+            <input id="scum" type="number" value="2" min="0" max="30" step="0.5"></div>
+        </div>
+      </div>
+
+      <div class="steppanel" id="p_deposit" style="display:none">
+        <div class="grid2">
+          <div><label>Material</label>
+            <select id="depMat">
+              <option value="METAL">Metal</option><option value="POLYSI">Poly-Si</option>
+              <option value="SIO2">SiO₂</option><option value="SI3N4">Si₃N₄</option>
+              <option value="SI">Si</option>
+            </select></div>
+          <div><label>Thickness (nm)</label>
+            <input id="depThick" type="number" value="30" min="1" max="500" step="1"></div>
+        </div>
+        <label>Method</label>
+        <select id="depMethod">
+          <option value="directional">Directional (evaporation)</option>
+          <option value="conformal">Conformal (ALD/CVD)</option>
+        </select>
+      </div>
+
+      <div class="steppanel" id="p_transfer_2d" style="display:none">
+        <label>Material</label>
+        <select id="t2dMat">
+          <option value="GRAPHENE">Graphene</option>
+          <option value="MOS2">MoS₂</option>
+          <option value="STACK">hBN / graphene / hBN stack</option>
+        </select>
+        <div class="grid2">
+          <div><label>Flake size (nm)</label>
+            <input id="flakeSize" type="number" value="140" min="20" max="5000" step="10"></div>
+          <div><label>Layer thickness (nm)</label>
+            <input id="layerThick" type="number" value="1" min="0.3" max="20" step="0.5"></div>
+        </div>
+      </div>
+
+      <div class="steppanel" id="p_descum" style="display:none">
+        <div class="grid2">
+          <div><label>Time (s)</label>
+            <input id="descumTime" type="number" value="15" min="1" max="120" step="1"></div>
+          <div><label>Rate (nm/s)</label>
+            <input id="descumRate" type="number" value="0.5" min="0.05" max="5" step="0.05"></div>
+        </div>
+      </div>
+
+      <div class="steppanel" id="p_etch_rie" style="display:none">
+        <div class="grid2">
+          <div><label>Target</label>
+            <select id="rieTarget">
+              <option value="SIO2">SiO₂</option><option value="SI3N4">Si₃N₄</option>
+              <option value="SI">Si</option><option value="POLYSI">Poly-Si</option>
+              <option value="METAL">Metal</option>
+            </select></div>
+          <div><label>Depth (nm)</label>
+            <input id="rieDepth" type="number" value="80" min="1" max="2000" step="5"></div>
+        </div>
+        <label>Selectivity (target : resist)</label>
+        <input id="rieSel" type="number" value="5" min="0.5" max="100" step="0.5">
+      </div>
+
+      <div class="steppanel" id="p_etch_sf6" style="display:none">
+        <label>Depth (nm)</label>
+        <input id="sf6Depth" type="number" value="15" min="1" max="200" step="1">
+        <p class="note">Anisotropic etch of exposed 2D materials (graphene, MoS₂, hBN);
+        resist-covered columns are protected.</p>
+      </div>
+
+      <div class="steppanel" id="p_etch_wet" style="display:none">
+        <div class="grid2">
+          <div><label>Target</label>
+            <select id="wetTarget">
+              <option value="SIO2">SiO₂</option><option value="SI3N4">Si₃N₄</option>
+              <option value="SI">Si</option><option value="POLYSI">Poly-Si</option>
+              <option value="METAL">Metal</option>
+            </select></div>
+          <div><label>Depth (nm)</label>
+            <input id="wetDepth" type="number" value="50" min="1" max="2000" step="5"></div>
+        </div>
+        <p class="note">Isotropic — undercuts masks.</p>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="addBtn">Run step</button>
+        <button id="undoBtn">Undo</button>
+      </div>
+
+      <p class="note">Every step runs on the native C++ core (OpenMP over depth
+      slices); undo and reordering replay the whole flow from the bare substrate
+      at full resolution.</p>
+    </div>
+
+    <!-- ───────────── viz ───────────── -->
+    <div class="viz">
+      <div class="viz-tabs">
+        <button id="tabCross" class="active">Cross-section</button>
+        <button id="tabIso">3D view</button>
+        <button id="perspBtn" style="display:none">Perspective</button>
+        <span class="hint" id="vizHint"></span>
+      </div>
+      <canvas id="maskStrip" height="26"></canvas>
+      <canvas id="view" class="pix"></canvas>
+      <div class="slicebar" id="sliceBar">
+        <span>Z-slice</span>
+        <input id="zSlice" type="range" min="0" max="100" value="50">
+        <span id="zSliceLabel">50%</span>
+      </div>
+      <div class="dims" id="dims"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <!-- ───────────── flow ───────────── -->
+    <div class="panel flow-panel">
+      <h2>Process flow</h2>
+      <div id="flowList"><div class="empty">Bare substrate. Add process steps.</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="/dex.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const canvas = $("view"), statusEl = $("status");
+
+/* Mirrors the core's material enum for the legend + mask strip. */
+const MAT_NAMES = ["Air","Resist","Resist (exposed)","Metal","Poly-Si","SiO₂","Si₃N₄","Si",
+  "PMMA","PMMA (exposed)","CSAR","CSAR (exposed)","MEDUSA","MEDUSA (exposed)",
+  "S1813","S1813 (exposed)","AZ5214E","AZ5214E (exposed)","SU-8","SU-8 (exposed)",
+  "ma-N 2400","ma-N 2400 (exposed)","Graphene","MoS₂","hBN"];
+const MAT_COLOR = [[255,255,255],[255,170,195],[255,120,160],[180,190,210],[160,140,120],
+  [140,210,245],[180,230,180],[70,80,95],[255,190,160],[235,130,100],[200,175,240],
+  [155,120,210],[150,225,210],[95,185,170],[255,236,153],[234,196,72],[255,214,170],
+  [239,161,95],[198,255,184],[119,209,100],[174,235,214],[103,197,173],[128,128,128],
+  [245,220,80],[110,165,255]];
+
+const RESIST_PRESETS = {
+  PMMA:    {type:"positive", dose:500, contrast:7,   D100:450, darkErosion:2,   scum:2},
+  CSAR:    {type:"positive", dose:300, contrast:5,   D100:250, darkErosion:1.5, scum:1},
+  MEDUSA:  {type:"negative", dose:350, contrast:10,  D100:300, darkErosion:0.5, scum:0.5},
+  S1813:   {type:"positive", dose:90,  contrast:2.5, D100:95,  darkErosion:4,   scum:2},
+  AZ5214E: {type:"negative", dose:70,  contrast:2.2, D100:85,  darkErosion:3.5, scum:2},
+  SU8:     {type:"negative", dose:180, contrast:1.8, D100:220, darkErosion:0.8, scum:0.5},
+  MAN2400: {type:"negative", dose:120, contrast:2.1, D100:140, darkErosion:1.2, scum:1},
+};
+
+let state = {w:150, h:290, d:120, nmpx:2, wnm:300, hnm:580, dnm:300, steps:0};
+let flow = []; // [{type, label, params}]
+let isoView = false;
+let cam = {az:38, el:26, zoom:1, persp:0};
+let live = false;
+
+/* Fit the frame inside the column without overflowing the viewport:
+   scale to the container width or ~66% of the window height, whichever binds. */
+let fitW = 0, fitH = 0;
+function fitView(w, h) {
+  if (w === fitW && h === fitH) return;
+  fitW = w; fitH = h;
+  const cw = canvas.parentElement.clientWidth;
+  const maxH = Math.max(320, window.innerHeight * 0.66);
+  const s = Math.min(cw / w, maxH / h);
+  canvas.style.width = Math.round(w * s) + "px";
+  canvas.style.height = Math.round(h * s) + "px";
+  $("maskStrip").style.width = isoView ? "100%" : canvas.style.width;
+  drawMaskStrip();
+}
+window.addEventListener("resize", () => { const w = fitW, h = fitH; fitW = 0; fitView(w, h); });
+
+const dex = DEX.connect({
+  canvas,
+  onFrame(w, h) { fitView(w, h); },
+  onStatus(s) {
+    live = s === "open";
+    if (s === "open") { statusEl.innerHTML = '<span class="live">●</span> live'; sendBuild(); }
+    else if (s === "closed") statusEl.textContent = "disconnected — reload to restart";
+    else statusEl.textContent = s;
+  },
+  onMessage(m) {
+    if (m.t === "state") {
+      state = m;
+      $("dims").textContent = Math.round(m.wnm) + " × " + Math.round(m.hnm) +
+        " nm cross-section · " + Math.round(m.dnm) + " nm depth (" + m.d +
+        " slices) · " + m.nmpx + " nm/px · last step " + m.ms + " ms";
+      updateLegend(m.mats);
+      drawMaskStrip();
+      statusEl.innerHTML = '<span class="live">●</span> ' + m.steps + " steps · " + m.ms + " ms";
+    } else if (m.t === "err") {
+      statusEl.innerHTML = '<span class="err">⚠ ' + m.msg + "</span>";
+      // the step was refused by the core — drop it from the local flow
+      flow.pop();
+      renderFlow();
+    }
+  },
+});
+
+function sendBuild() {
+  flow = [];
+  renderFlow();
+  dex.send({t:"build", nmpx:+$("nmpx").value, sampw:+$("sampw").value,
+            sampd:+$("sampd").value, si:+$("si").value, ox:+$("ox").value});
+  dex.send({t:"slice", v:+$("zSlice").value});
+  dex.send({t:"view", mode: isoView ? "iso" : "cross"});
+  dex.send({t:"cam", az:cam.az, el:cam.el, zoom:cam.zoom, persp:cam.persp});
+}
+$("buildBtn").onclick = sendBuild;
+
+/* ── step parameter panels ── */
+const PANELS = {spinresist:"p_spinresist", expose:"p_expose", uv_expose:"p_expose",
+  develop:"p_develop", deposit:"p_deposit", transfer_2d:"p_transfer_2d",
+  descum:"p_descum", etch_rie:"p_etch_rie", etch_sf6:"p_etch_sf6",
+  etch_wet:"p_etch_wet"};
+$("stepType").onchange = () => {
+  const t = $("stepType").value;
+  document.querySelectorAll(".steppanel").forEach(p => p.style.display = "none");
+  if (PANELS[t]) $(PANELS[t]).style.display = "block";
+  if (t === "uv_expose" && RESIST_PRESETS[$("resist").value])
+    $("dose").value = RESIST_PRESETS[$("resist").value].dose;
+  drawMaskStrip();
+};
+$("pattern").onchange = () => {
+  const p = $("pattern").value;
+  $("pp_grating").style.display = p === "grating" ? "grid" : "none";
+  $("pp_single").style.display = p === "single" ? "block" : "none";
+  $("pp_dots").style.display = p === "dots" ? "grid" : "none";
+  drawMaskStrip();
+};
+["pitch","duty","lineW","dotPitch","dotDiam"].forEach(id =>
+  $(id).addEventListener("input", drawMaskStrip));
+$("resist").onchange = () => {
+  const p = RESIST_PRESETS[$("resist").value];
+  if (!p) return;
+  $("rtype").value = p.type;
+  $("dose").value = p.dose;
+  $("devTarget").value = $("resist").value;
+  $("contrast").value = p.contrast;
+  $("D100").value = p.D100;
+  $("darkErosion").value = p.darkErosion;
+  $("scum").value = p.scum;
+};
+$("devTarget").onchange = () => {
+  const p = RESIST_PRESETS[$("devTarget").value];
+  if (!p) return;
+  $("contrast").value = p.contrast;
+  $("D100").value = p.D100;
+  $("darkErosion").value = p.darkErosion;
+  $("scum").value = p.scum;
+};
+
+/* ── building + sending steps ── */
+function stepMessage(t) {
+  switch (t === "uv_expose" ? "expose" : t) {
+    case "spinresist": return {t:"step", type:"spinresist", resist:$("resist").value,
+      thickness:+$("resistThick").value, rtype:$("rtype").value};
+    case "expose": return {t:"step", type:"expose", pattern:$("pattern").value,
+      pitch:+$("pitch").value, duty:+$("duty").value, lineW:+$("lineW").value,
+      dotPitch:+$("dotPitch").value, dotDiam:+$("dotDiam").value, dose:+$("dose").value};
+    case "develop": return {t:"step", type:"develop", target:$("devTarget").value,
+      devTime:+$("devTime").value, contrast:+$("contrast").value, D100:+$("D100").value,
+      darkErosion:+$("darkErosion").value, sidewall:+$("sidewall").value, scum:+$("scum").value};
+    case "deposit": return {t:"step", type:"deposit", material:$("depMat").value,
+      thickness:+$("depThick").value, method:$("depMethod").value};
+    case "transfer_2d": return {t:"step", type:"transfer_2d", material:$("t2dMat").value,
+      flakeSize:+$("flakeSize").value, layerThick:+$("layerThick").value};
+    case "descum": return {t:"step", type:"descum", time:+$("descumTime").value,
+      rate:+$("descumRate").value};
+    case "etch_rie": return {t:"step", type:"etch_rie", target:$("rieTarget").value,
+      depth:+$("rieDepth").value, selectivity:+$("rieSel").value};
+    case "etch_sf6": return {t:"step", type:"etch_sf6", depth:+$("sf6Depth").value};
+    case "etch_wet": return {t:"step", type:"etch_wet", target:$("wetTarget").value,
+      depth:+$("wetDepth").value};
+    case "liftoff": return {t:"step", type:"liftoff"};
+    case "strip": return {t:"step", type:"strip"};
+  }
+}
+function stepLabel(t, m) {
+  switch (t) {
+    case "spinresist": return ["🌀 Spin " + m.resist, m.thickness + " nm, " + m.rtype];
+    case "expose": return ["💡 Expose (EBL)", exposeDesc(m)];
+    case "uv_expose": return ["🌞 Expose (UV)", exposeDesc(m)];
+    case "develop": return ["🧪 Develop " + m.target,
+      m.devTime + " s, γ=" + m.contrast + ", " + m.sidewall + "°"];
+    case "deposit": return ["⬇️ Deposit " + $("depMat").selectedOptions[0].text,
+      m.thickness + " nm " + m.method];
+    case "transfer_2d": return ["🧩 Transfer " + $("t2dMat").selectedOptions[0].text,
+      m.flakeSize + " nm flake"];
+    case "descum": return ["🔥 Descum (O₂)", m.time + " s @ " + m.rate + " nm/s"];
+    case "etch_rie": return ["⚡ RIE etch " + m.target,
+      m.depth + " nm, sel " + m.selectivity + ":1"];
+    case "etch_sf6": return ["🧪 SF6 etch", m.depth + " nm of 2D material"];
+    case "etch_wet": return ["💧 Wet etch " + m.target, m.depth + " nm isotropic"];
+    case "liftoff": return ["🔼 Lift-off", "remove resist + floating film"];
+    case "strip": return ["🧽 Strip resist", ""];
+  }
+}
+function exposeDesc(m) {
+  if (m.pattern === "grating") return "grating " + m.pitch + " nm / " + m.duty + "%, " + m.dose;
+  if (m.pattern === "single") return "line " + m.lineW + " nm, dose " + m.dose;
+  if (m.pattern === "dots") return "dots " + m.dotDiam + "/" + m.dotPitch + " nm, " + m.dose;
+  return "blanket, dose " + m.dose;
+}
+
+$("addBtn").onclick = () => {
+  const t = $("stepType").value;
+  const m = stepMessage(t);
+  const [label, params] = stepLabel(t, m);
+  flow.push({label, params});
+  renderFlow();
+  dex.send(m);
+};
+$("undoBtn").onclick = () => {
+  if (!flow.length) return;
+  flow.pop();
+  renderFlow();
+  dex.send({t:"undo"});
+};
+
+function renderFlow() {
+  const el = $("flowList");
+  if (!flow.length) {
+    el.innerHTML = '<div class="empty">Bare substrate. Add process steps.</div>';
+    return;
+  }
+  el.innerHTML = "";
+  flow.forEach((s, i) => {
+    const d = document.createElement("div");
+    d.className = "step";
+    d.innerHTML = "<b>" + (i + 1) + ". " + s.label + "</b>" +
+      (s.params ? '<div class="p">' + s.params + "</div>" : "") +
+      '<div class="ops"><button title="Move up">↑</button>' +
+      '<button title="Move down">↓</button><button title="Delete">✕</button></div>';
+    const [up, down, del] = d.querySelectorAll("button");
+    up.onclick = () => moveStep(i, -1);
+    down.onclick = () => moveStep(i, 1);
+    del.onclick = () => { flow.splice(i, 1); renderFlow(); dex.send({t:"delstep", i}); };
+    el.appendChild(d);
+  });
+}
+function moveStep(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= flow.length) return;
+  [flow[i], flow[j]] = [flow[j], flow[i]];
+  renderFlow();
+  dex.send({t:"movestep", i, dir});
+}
+
+/* ── view tabs, slice, camera ── */
+$("tabCross").onclick = () => setView(false);
+$("tabIso").onclick = () => setView(true);
+function setView(iso) {
+  isoView = iso;
+  $("tabCross").classList.toggle("active", !iso);
+  $("tabIso").classList.toggle("active", iso);
+  $("perspBtn").style.display = iso ? "" : "none";
+  $("sliceBar").style.display = iso ? "none" : "flex";
+  canvas.classList.toggle("pix", !iso);
+  $("vizHint").textContent = iso ? "drag to rotate · wheel to zoom" : "";
+  dex.send({t:"view", mode: iso ? "iso" : "cross"});
+}
+$("perspBtn").onclick = function () {
+  cam.persp = cam.persp ? 0 : 1;
+  this.classList.toggle("active", !!cam.persp);
+  sendCam();
+};
+$("zSlice").oninput = () => {
+  const v = +$("zSlice").value;
+  $("zSliceLabel").textContent = Math.round(v) + "% (" +
+    Math.round(v / 100 * state.dnm) + " nm)";
+  dex.send({t:"slice", v});
+};
+
+function sendCam() {
+  dex.send({t:"cam", az:cam.az, el:cam.el, zoom:cam.zoom, persp:cam.persp});
+}
+let dragging = false, lastX = 0, lastY = 0;
+canvas.onpointerdown = ev => {
+  if (!isoView) return;
+  dragging = true; lastX = ev.clientX; lastY = ev.clientY;
+  canvas.setPointerCapture(ev.pointerId);
+};
+canvas.onpointermove = ev => {
+  if (!dragging) return;
+  cam.az += (ev.clientX - lastX) * 0.5;
+  cam.el = Math.max(-85, Math.min(85, cam.el + (ev.clientY - lastY) * 0.5));
+  lastX = ev.clientX; lastY = ev.clientY;
+  sendCam();
+};
+canvas.onpointerup = canvas.onpointercancel = () => { dragging = false; };
+canvas.addEventListener("wheel", ev => {
+  if (!isoView) return;
+  ev.preventDefault();
+  cam.zoom = Math.max(0.2, Math.min(8, cam.zoom * (ev.deltaY < 0 ? 1.12 : 0.89)));
+  sendCam();
+}, {passive:false});
+
+/* ── legend ── */
+function updateLegend(csv) {
+  const el = $("legend");
+  el.innerHTML = "";
+  if (!csv) return;
+  for (const id of csv.split(",")) {
+    const m = +id;
+    if (!MAT_NAMES[m]) continue;
+    const s = document.createElement("span");
+    const c = MAT_COLOR[m];
+    s.innerHTML = '<i style="background:rgb(' + c.join(",") + ')"></i>' + MAT_NAMES[m];
+    el.appendChild(s);
+  }
+}
+
+/* ── mask preview strip: open intervals of the pending exposure ── */
+function drawMaskStrip() {
+  const t = $("stepType").value;
+  const show = t === "expose" || t === "uv_expose";
+  $("maskStrip").style.display = show ? "block" : "none";
+  if (!show) return;
+  const c = $("maskStrip");
+  c.width = c.clientWidth || 600;
+  const cw = c.width, ch = c.height, g = c.getContext("2d");
+  g.fillStyle = "#39424f";
+  g.fillRect(0, 0, cw, ch); // chrome mask blank
+  const wnm = state.wnm || +$("sampw").value;
+  const zNm = (+$("zSlice").value) / 100 * (state.dnm || +$("sampd").value);
+  const pat = $("pattern").value;
+  const open = x => { // x in nm → is this column exposed?
+    if (pat === "blanket") return true;
+    if (pat === "grating") {
+      const pitch = +$("pitch").value, duty = +$("duty").value;
+      return (x % pitch) < pitch * duty / 100;
+    }
+    if (pat === "single") {
+      const w = +$("lineW").value;
+      return Math.abs(x - wnm / 2) < w / 2;
+    }
+    const pitch = +$("dotPitch").value, r = +$("dotDiam").value / 2;
+    const rem = zNm % pitch, dz = Math.min(rem, pitch - rem);
+    if (dz >= r) return false;
+    const chord = Math.sqrt(r * r - dz * dz);
+    const dx = (x % pitch) - pitch / 2;
+    return Math.abs(dx) < chord;
+  };
+  g.fillStyle = "#dfe6f2";
+  for (let px = 0; px < cw; px++)
+    if (open((px + 0.5) / cw * wnm)) g.fillRect(px, 2, 1, ch - 4);
+}
+$("zSlice").addEventListener("input", drawMaskStrip);
+window.addEventListener("resize", drawMaskStrip);
+
+$("stepType").onchange();
+$("zSlice").oninput();
+</script>
+</body>
+</html>

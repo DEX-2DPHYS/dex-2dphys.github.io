@@ -78,12 +78,13 @@ else is a category and is scanned deeper. Bundle folder names are the
 routing key, so they must be unique across both roots — a duplicate name is
 dropped from the listing (built-ins win).
 
-Ships with two example experiments:
+Ships with three example experiments:
 
 | Plugin | What it shows |
 |--------|---------------|
 | `gray-scott` | Gray–Scott reaction–diffusion on a 512×512 torus: presets, F/k sliders, paint-to-seed brush, steps/s telemetry. |
 | `wave-tank` | Damped 2D wave equation with absorbing shores and single/double-slit barriers: poke the water, drive an oscillator, watch interference fringes form. |
+| `pattern-transfer` | Nanofabrication process-flow simulator on a 3D voxel cross-section: spin resist, EBL/UV exposure, contrast-curve development, deposition, RIE/wet/SF6 etch, lift-off — with undo-by-replay and a native painter-sorted isometric renderer. |
 
 <p>
   <img src="docs/wave-tank.png" alt="Wave Tank: double-slit interference" width="49%">
@@ -158,9 +159,10 @@ Message vocabulary is entirely yours — the host just relays JSON.
 4. Add the folder to `CMakeLists.txt` (`dsw_add_plugin(my-experiment)`),
    build, refresh the launcher.
 
-The two shipped plugins are meant as templates — `wave-tank` for
+The shipped plugins are meant as templates — `wave-tank` for
 click-interaction and mode switches, `gray-scott` for parameter sweeps and
-brushes.
+brushes, `pattern-transfer` for event-driven experiments where the UI sends
+discrete commands and the core keeps a replayable history.
 
 ## Protocol (for the curious)
 

@@ -1,0 +1,6 @@
+{
+  "name": "EBL Pattern Transfer",
+  "description": "Nanofabrication process-flow simulator: spin resist, expose (EBL/UV), develop, deposit, etch and lift off on a 3D voxel cross-section. The full grid physics and the isometric renderer run native with OpenMP; every step replays at full resolution.",
+  "accent": "#5b8cff",
+  "version": "1.0"
+}
