@@ -10,6 +10,9 @@ endif()
 find_package(Threads REQUIRED)
 find_package(OpenMP)
 
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-march=native DSW_HAS_MARCH_NATIVE)
+
 # ---------------------------------------------------------------- host
 add_executable(dsw
   src/main.cpp
@@ -42,10 +45,17 @@ function(dsw_add_plugin id)
     target_link_libraries(plugin_${id} PRIVATE OpenMP::OpenMP_CXX)
   endif()
   if(NOT MSVC)
-    target_compile_options(plugin_${id} PRIVATE -O3)
+    # -O3 plus FMA contraction; the force kernels are written as flat
+    # structure-of-arrays loops for the vectorizer. -march=native is a large
+    # win for them but only where the toolchain takes it, so it is probed.
+    target_compile_options(plugin_${id} PRIVATE -O3 -ffp-contract=fast)
+    if(DSW_HAS_MARCH_NATIVE)
+      target_compile_options(plugin_${id} PRIVATE -march=native)
+    endif()
   endif()
 endfunction()
 
 dsw_add_plugin(gray-scott)
 dsw_add_plugin(wave-tank)
 dsw_add_plugin(pattern-transfer)
+dsw_add_plugin(graphene-md)

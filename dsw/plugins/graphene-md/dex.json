@@ -1,0 +1,6 @@
+{
+  "name": "Graphene Molecular Dynamics",
+  "description": "A bilayer-graphene MD sandbox: the top sheet is live molecular dynamics — Morse C–C bonds that break and re-form, sp² angle stiffness and a bending umbrella — resting on a rigid graphene substrate through Lennard-Jones forces. Push mesas, Gaussian bumps or Hencky gas blisters up through the sheet and watch it drape, wrinkle and tear.",
+  "accent": "#4aa3ff",
+  "version": "1.0"
+}
