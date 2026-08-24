@@ -81,6 +81,98 @@ uint8_t resistFromPreset(const std::string &n) {
     return RESIST; // "custom"
 }
 
+// ---------------------------------------------------------------- base64
+
+const char B64C[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+std::string b64encode(const uint8_t *p, size_t n) {
+    std::string out;
+    out.reserve((n + 2) / 3 * 4);
+    for (size_t i = 0; i < n; i += 3) {
+        uint32_t v = (uint32_t)p[i] << 16;
+        if (i + 1 < n) v |= (uint32_t)p[i + 1] << 8;
+        if (i + 2 < n) v |= p[i + 2];
+        out += B64C[(v >> 18) & 63];
+        out += B64C[(v >> 12) & 63];
+        out += i + 1 < n ? B64C[(v >> 6) & 63] : '=';
+        out += i + 2 < n ? B64C[v & 63] : '=';
+    }
+    return out;
+}
+
+std::vector<uint8_t> b64decode(const std::string &s) {
+    static int8_t rev[256];
+    static bool init = false;
+    if (!init) {
+        memset(rev, -1, sizeof rev);
+        for (int i = 0; i < 64; i++) rev[(uint8_t)B64C[i]] = (int8_t)i;
+        init = true;
+    }
+    std::vector<uint8_t> out;
+    out.reserve(s.size() / 4 * 3);
+    uint32_t v = 0;
+    int bits = 0;
+    for (char c : s) {
+        int8_t d = rev[(uint8_t)c];
+        if (d < 0) continue;
+        v = (v << 6) | (uint32_t)d;
+        bits += 6;
+        if (bits >= 8) {
+            bits -= 8;
+            out.push_back((uint8_t)(v >> bits));
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------- custom mask
+
+// Shapes travel as "r,x,y,w,h,dose;c,x,y,w,h,dose;..." (nm units, dose absolute).
+struct MaskShape {
+    bool rect;
+    double x, y, w, h, dose;
+};
+
+std::vector<MaskShape> parseShapes(const std::string &enc) {
+    std::vector<MaskShape> out;
+    size_t pos = 0;
+    while (pos < enc.size()) {
+        size_t end = enc.find(';', pos);
+        if (end == std::string::npos) end = enc.size();
+        std::string item = enc.substr(pos, end - pos);
+        pos = end + 1;
+        MaskShape s;
+        double f[5];
+        char kind;
+        if (sscanf(item.c_str(), "%c,%lf,%lf,%lf,%lf,%lf", &kind, &f[0], &f[1],
+                   &f[2], &f[3], &f[4]) == 6) {
+            s.rect = kind != 'c';
+            s.x = f[0]; s.y = f[1]; s.w = f[2]; s.h = f[3]; s.dose = f[4];
+            out.push_back(s);
+        }
+    }
+    return out;
+}
+
+// Grayscale dose image: values 0..255 = 0..fullDose, spanning the whole sample.
+struct MaskImage {
+    int w = 0, h = 0;
+    double fullDose = 0;
+    std::vector<uint8_t> v;
+    bool ok() const { return w > 0 && h > 0 && (int)v.size() >= w * h; }
+    double sample(double u, double vv) const { // u,v in [0,1], bilinear
+        double x = std::max(0.0, std::min((double)w - 1, u * (w - 1)));
+        double y = std::max(0.0, std::min((double)h - 1, vv * (h - 1)));
+        int x0 = (int)x, y0 = (int)y;
+        int x1 = std::min(w - 1, x0 + 1), y1 = std::min(h - 1, y0 + 1);
+        double tx = x - x0, ty = y - y0;
+        double a = v[(size_t)y0 * w + x0], b = v[(size_t)y0 * w + x1];
+        double c = v[(size_t)y1 * w + x0], d = v[(size_t)y1 * w + x1];
+        return ((a * (1 - tx) + b * tx) * (1 - ty) +
+                (c * (1 - tx) + d * tx) * ty) / 255.0 * fullDose;
+    }
+};
+
 // ---------------------------------------------------------------- instance
 
 struct ResistState {
@@ -106,6 +198,7 @@ struct Instance {
     bool isoView = false;
     double camAz = 38, camEl = 26, camZoom = 1.0;
     bool perspective = false;
+    uint8_t bgR = 255, bgG = 255, bgB = 255; // theme background for frames
     std::vector<uint8_t> frame;
     uint32_t frameW = 0, frameH = 0;
 
@@ -116,29 +209,42 @@ struct Instance {
 
     uint8_t *slice(int z) { return &grid[(size_t)z * W * H]; }
     size_t idx(int x, int y) const { return (size_t)y * W + x; }
-
-    void say(const std::string &m) { outbox.push_back(m); }
-    void sayErr(const std::string &msg) {
-        say("{\"t\":\"err\",\"msg\":\"" + msg + "\"}");
+    int displaySlice() const {
+        return std::min(std::max(0, (int)lround(slicePct / 100 * (D - 1))), D - 1);
     }
 
-    void sayState(double stepMs) {
-        std::string mats;
-        bool present[MAT_COUNT] = {false};
-        for (uint8_t m : grid) present[m] = true;
-        for (int m = 1; m < MAT_COUNT; m++)
-            if (present[m]) {
-                if (!mats.empty()) mats += ",";
-                mats += std::to_string(m);
-            }
-        char buf[320];
+    void say(const std::string &m) { outbox.push_back(m); }
+    void sayErr(const std::string &msg, long q) {
+        say("{\"t\":\"err\",\"q\":" + std::to_string(q) + ",\"msg\":\"" + msg + "\"}");
+    }
+
+    int globalTop(int z) {
+        uint8_t *g = slice(z);
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+                if (g[idx(x, y)] != AIR) return y;
+        return H;
+    }
+
+    void sayState(double stepMs, long q) {
+        // First resist row per column of the display slice (for mask overlays).
+        int z = displaySlice();
+        uint8_t *g = slice(z);
+        std::vector<int16_t> rtop(W, -1);
+        for (int x = 0; x < W; x++)
+            for (int y = 0; y < H; y++)
+                if (isResist(g[idx(x, y)])) { rtop[x] = (int16_t)y; break; }
+        char buf[360];
         snprintf(buf, sizeof buf,
-                 "{\"t\":\"state\",\"w\":%d,\"h\":%d,\"d\":%d,\"nmpx\":%g,"
-                 "\"wnm\":%.0f,\"hnm\":%.0f,\"dnm\":%.0f,\"steps\":%d,"
-                 "\"ms\":%.1f,\"mats\":\"%s\"}",
-                 W, H, D, nmPx, W * nmPx, H * nmPx, sampleDepthNm,
-                 (int)flow.size(), stepMs, mats.c_str());
-        say(buf);
+                 "{\"t\":\"state\",\"q\":%ld,\"w\":%d,\"h\":%d,\"d\":%d,"
+                 "\"nmpx\":%g,\"wnm\":%.0f,\"hnm\":%.0f,\"dnm\":%.0f,"
+                 "\"steps\":%d,\"ms\":%.1f,\"top\":%d,\"top0\":%d,\"rtop\":\"",
+                 q, W, H, D, nmPx, W * nmPx, H * nmPx, sampleDepthNm,
+                 (int)flow.size(), stepMs, globalTop(z), globalTop(0));
+        std::string msg(buf);
+        msg += b64encode((const uint8_t *)rtop.data(), rtop.size() * 2);
+        msg += "\"}";
+        say(msg);
     }
 
     // ---------------------------------------------------------- substrate
@@ -288,7 +394,7 @@ struct Instance {
             int openPx = std::max(1, (int)lround(pitchPx * duty / 100));
             for (int x = 0; x < W; x++)
                 open[x] = (x % pitchPx) < openPx ? 1 : 0;
-        } else if (pattern == "single") {
+        } else if (pattern == "single" || pattern == "iso_trench") {
             int wPx = std::max(1, (int)lround(lineW * pxPerNm));
             int x0 = (W - wPx) / 2;
             for (int x = std::max(0, x0); x < x0 + wPx && x < W; x++) open[x] = 1;
@@ -310,9 +416,61 @@ struct Instance {
         return open;
     }
 
-    bool doExpose(const std::string &pattern, double pitch, double duty,
-                  double lineW, double dotPitch, double dotDiam, double dose) {
+    // Per-column dose at depth zNm from custom mask shapes + image (nm units).
+    std::vector<float> customDoseMap(const std::vector<MaskShape> &shapes,
+                                     const MaskImage &img, double zNm) {
+        std::vector<float> dose(W, 0.0f);
+        if (img.ok())
+            for (int x = 0; x < W; x++)
+                dose[x] += (float)img.sample((x + 0.5) * nmPx / sampWNm,
+                                             zNm / sampleDepthNm);
+        for (const MaskShape &s : shapes) {
+            if (s.rect) {
+                if (zNm < s.y || zNm > s.y + s.h) continue;
+                int x0 = std::max(0, (int)floor(s.x / nmPx));
+                int x1 = std::min(W, (int)ceil((s.x + s.w) / nmPx));
+                for (int x = x0; x < x1; x++) dose[x] += (float)s.dose;
+            } else {
+                double cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+                double rx = s.w / 2, ry = s.h / 2;
+                if (rx <= 0 || ry <= 0) continue;
+                int x0 = std::max(0, (int)floor(s.x / nmPx));
+                int x1 = std::min(W, (int)ceil((s.x + s.w) / nmPx));
+                double dy = (zNm - cy) / ry;
+                for (int x = x0; x < x1; x++) {
+                    double dx = (x * nmPx - cx) / rx;
+                    if (dx * dx + dy * dy <= 1) dose[x] += (float)s.dose;
+                }
+            }
+        }
+        return dose;
+    }
+
+    // The step message carries all exposure parameters; for pattern=="custom"
+    // it also carries the mask (shapes string + optional base64 dose image).
+    bool doExpose(const std::string &m) {
         if (!hasResist()) return false;
+        std::string pattern = dexmsg::get_str(m, "pattern");
+        double pitch = dexmsg::get_num(m, "pitch", 200);
+        double duty = dexmsg::get_num(m, "duty", 50);
+        double lineW = dexmsg::get_num(m, "lineW", 100);
+        double dotPitch = dexmsg::get_num(m, "dotPitch", 100);
+        double dotDiam = dexmsg::get_num(m, "dotDiam", 50);
+        double dose = dexmsg::get_num(m, "dose", 150);
+        bool custom = pattern == "custom";
+        std::vector<MaskShape> shapes;
+        MaskImage img;
+        if (custom) {
+            shapes = parseShapes(dexmsg::get_str(m, "shapes"));
+            std::string data = dexmsg::get_str(m, "imgdata");
+            if (!data.empty()) {
+                img.w = (int)dexmsg::get_num(m, "imw", 0);
+                img.h = (int)dexmsg::get_num(m, "imh", 0);
+                img.fullDose = dexmsg::get_num(m, "imfull", 0);
+                img.v = b64decode(data);
+            }
+            if (shapes.empty() && !img.ok()) return false; // empty custom mask
+        }
         for (auto &rs : resists)
             if ((int)rs.doseMaps.size() < D)
                 rs.doseMaps.resize(D, std::vector<float>(W, 0.0f));
@@ -322,8 +480,16 @@ struct Instance {
         for (int z = 0; z < D; z++) {
             uint8_t *g = slice(z);
             double zNm = (z + 0.5) * sampleDepthNm / D;
-            auto open = exposurePattern(pattern, pitch, duty, lineW, dotPitch,
-                                        dotDiam, zNm);
+            std::vector<float> doseCol;
+            std::vector<uint8_t> open;
+            if (custom) {
+                doseCol = customDoseMap(shapes, img, zNm);
+                open.assign(W, 0);
+                for (int x = 0; x < W; x++) open[x] = doseCol[x] > 0 ? 1 : 0;
+            } else {
+                open = exposurePattern(pattern, pitch, duty, lineW, dotPitch,
+                                       dotDiam, zNm);
+            }
             for (int y = 0; y < H; y++)
                 for (int x = 0; x < W; x++)
                     if (open[x] && isResistUnexp(g[idx(x, y)]))
@@ -334,10 +500,10 @@ struct Instance {
                     if (!open[x]) continue;
                     bool has = false;
                     for (int y = 0; y < H; y++) {
-                        uint8_t m = g[idx(x, y)];
-                        if (m == rs.matId || m == rs.matExpId) { has = true; break; }
+                        uint8_t mm = g[idx(x, y)];
+                        if (mm == rs.matId || mm == rs.matExpId) { has = true; break; }
                     }
-                    if (has) dm[x] += (float)dose;
+                    if (has) dm[x] += custom ? doseCol[x] : (float)dose;
                 }
             }
         }
@@ -607,15 +773,8 @@ struct Instance {
             doSpinResist(dexmsg::get_num(m, "thickness", 120),
                          dexmsg::get_str(m, "rtype") != "negative",
                          dexmsg::get_str(m, "resist"));
-        } else if (type == "expose") {
-            if (!doExpose(dexmsg::get_str(m, "pattern"),
-                          dexmsg::get_num(m, "pitch", 200),
-                          dexmsg::get_num(m, "duty", 50),
-                          dexmsg::get_num(m, "lineW", 100),
-                          dexmsg::get_num(m, "dotPitch", 100),
-                          dexmsg::get_num(m, "dotDiam", 50),
-                          dexmsg::get_num(m, "dose", 150)))
-                return "No resist to expose";
+        } else if (type == "expose" || type == "uv_expose") {
+            if (!doExpose(m)) return "No resist to expose (or empty custom mask)";
         } else if (type == "develop") {
             int r = doDevelop(dexmsg::get_str(m, "target"),
                               dexmsg::get_num(m, "sidewall", 90),
@@ -656,8 +815,7 @@ struct Instance {
     // ---------------------------------------------------------- rendering
 
     void renderCross() {
-        int z = std::min(std::max(0, (int)lround(slicePct / 100 * (D - 1))), D - 1);
-        uint8_t *g = slice(z);
+        uint8_t *g = slice(displaySlice());
         frameW = W;
         frameH = H;
         frame.resize((size_t)W * H * 4);
@@ -665,10 +823,10 @@ struct Instance {
             uint8_t m = g[i];
             float a = matAlpha(m);
             uint8_t *px = &frame[i * 4];
-            // composite over white so translucent resists look like the original
-            px[0] = (uint8_t)lround(MAT_COLOR[m][0] * a + 255 * (1 - a));
-            px[1] = (uint8_t)lround(MAT_COLOR[m][1] * a + 255 * (1 - a));
-            px[2] = (uint8_t)lround(MAT_COLOR[m][2] * a + 255 * (1 - a));
+            // composite over the theme background so translucent resists blend
+            px[0] = (uint8_t)lround(MAT_COLOR[m][0] * a + bgR * (1 - a));
+            px[1] = (uint8_t)lround(MAT_COLOR[m][1] * a + bgG * (1 - a));
+            px[2] = (uint8_t)lround(MAT_COLOR[m][2] * a + bgB * (1 - a));
             px[3] = 255;
         }
     }
@@ -684,7 +842,13 @@ struct Instance {
         const int CW = 1000, CH = 700;
         frameW = CW;
         frameH = CH;
-        frame.assign((size_t)CW * CH * 4, 255);
+        frame.resize((size_t)CW * CH * 4);
+        for (size_t i = 0; i < (size_t)CW * CH; i++) {
+            frame[i * 4] = bgR;
+            frame[i * 4 + 1] = bgG;
+            frame[i * 4 + 2] = bgB;
+            frame[i * 4 + 3] = 255;
+        }
 
         double azR = camAz * M_PI / 180, elR = camEl * M_PI / 180;
         double cosAz = cos(azR), sinAz = sin(azR);
@@ -825,6 +989,31 @@ struct Instance {
 
     // ---------------------------------------------------------- messages
 
+    // Snapshot: mid-depth cross-section downscaled to <=200 px wide, raw RGBA
+    // with the material alpha in the alpha channel (matches the original's
+    // flow thumbnails), base64-encoded.
+    void saySnapshot(long q) {
+        int sw = std::min(W, 200);
+        int sh = std::max(1, (int)lround((double)sw * H / W));
+        uint8_t *g = slice(D / 2);
+        std::vector<uint8_t> px((size_t)sw * sh * 4);
+        for (int y = 0; y < sh; y++) {
+            int gy = (int)((int64_t)y * H / sh);
+            for (int x = 0; x < sw; x++) {
+                int gx = (int)((int64_t)x * W / sw);
+                uint8_t m = g[idx(gx, gy)];
+                uint8_t *p = &px[((size_t)y * sw + x) * 4];
+                p[0] = MAT_COLOR[m][0];
+                p[1] = MAT_COLOR[m][1];
+                p[2] = MAT_COLOR[m][2];
+                p[3] = (uint8_t)lround(255 * matAlpha(m));
+            }
+        }
+        say("{\"t\":\"snapres\",\"q\":" + std::to_string(q) +
+            ",\"w\":" + std::to_string(sw) + ",\"h\":" + std::to_string(sh) +
+            ",\"data\":\"" + b64encode(px.data(), px.size()) + "\"}");
+    }
+
     void handle(const std::string &m) {
         auto t0 = std::chrono::steady_clock::now();
         auto elapsedMs = [&t0] {
@@ -832,6 +1021,7 @@ struct Instance {
                        std::chrono::steady_clock::now() - t0).count();
         };
         std::string t = dexmsg::type_of(m);
+        long q = (long)dexmsg::get_num(m, "q", -1);
         if (t == "build") {
             nmPx = dexmsg::get_num(m, "nmpx", 2);
             sampWNm = dexmsg::get_num(m, "sampw", 300);
@@ -840,39 +1030,26 @@ struct Instance {
             oxNm = dexmsg::get_num(m, "ox", 80);
             flow.clear();
             build();
-            sayState(elapsedMs());
+            sayState(elapsedMs(), q);
         } else if (t == "step") {
             std::string err = applyStep(m);
             if (err.empty()) {
                 flow.push_back(m);
-                sayState(elapsedMs());
+                sayState(elapsedMs(), q);
             } else {
-                sayErr(err);
+                sayErr(err, q);
             }
+        } else if (t == "snap") {
+            saySnapshot(q);
         } else if (t == "undo") {
             if (!flow.empty()) {
                 flow.pop_back();
                 replayAll();
-                sayState(elapsedMs());
-            }
-        } else if (t == "delstep") {
-            int i = (int)dexmsg::get_num(m, "i", -1);
-            if (i >= 0 && i < (int)flow.size()) {
-                flow.erase(flow.begin() + i);
-                replayAll();
-                sayState(elapsedMs());
-            }
-        } else if (t == "movestep") {
-            int i = (int)dexmsg::get_num(m, "i", -1);
-            int dir = dexmsg::get_num(m, "dir", 0) < 0 ? -1 : 1;
-            int j = i + dir;
-            if (i >= 0 && i < (int)flow.size() && j >= 0 && j < (int)flow.size()) {
-                std::swap(flow[i], flow[j]);
-                replayAll();
-                sayState(elapsedMs());
+                sayState(elapsedMs(), q);
             }
         } else if (t == "slice") {
             slicePct = std::min(100.0, std::max(0.0, dexmsg::get_num(m, "v", 50)));
+            sayState(0, q); // rtop/top change with the slice
         } else if (t == "view") {
             isoView = dexmsg::get_str(m, "mode") == "iso";
         } else if (t == "cam") {
@@ -880,6 +1057,10 @@ struct Instance {
             camEl = dexmsg::get_num(m, "el", camEl);
             camZoom = std::min(8.0, std::max(0.2, dexmsg::get_num(m, "zoom", camZoom)));
             perspective = dexmsg::get_num(m, "persp", perspective ? 1 : 0) != 0;
+        } else if (t == "bg") {
+            bgR = (uint8_t)dexmsg::get_num(m, "r", 255);
+            bgG = (uint8_t)dexmsg::get_num(m, "g", 255);
+            bgB = (uint8_t)dexmsg::get_num(m, "b", 255);
         }
     }
 };
