@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gray–Scott — DSW</title>
+<style>
+  :root { --bg:#0b0e14; --panel:#131824; --ink:#e8ecf4; --muted:#8a94a8;
+          --line:#232b3d; --accent:#3ddc97; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink);
+         font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:24px; }
+  header { display:flex; align-items:baseline; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  header a { color:var(--muted); text-decoration:none; font-size:14px; }
+  header a:hover { color:var(--accent); }
+  h1 { font-size:21px; }
+  .status { font-size:13px; color:var(--muted); margin-left:auto;
+            font-family:ui-monospace,Menlo,monospace; }
+  .status .live { color:var(--accent); }
+  .layout { display:grid; grid-template-columns: minmax(0,1fr) 280px; gap:20px; }
+  @media (max-width:860px){ .layout { grid-template-columns:1fr; } }
+  canvas { width:100%; aspect-ratio:1; image-rendering:pixelated;
+           border:1px solid var(--line); border-radius:12px; background:#000;
+           cursor:crosshair; touch-action:none; }
+  .panel { background:var(--panel); border:1px solid var(--line);
+           border-radius:12px; padding:18px; align-self:start; }
+  .panel h2 { font-size:13px; text-transform:uppercase; letter-spacing:.12em;
+              color:var(--muted); margin:14px 0 8px; }
+  .panel h2:first-child { margin-top:0; }
+  .presets { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  button { background:#1a2132; color:var(--ink); border:1px solid var(--line);
+           border-radius:8px; padding:8px 10px; font:inherit; font-size:14px;
+           cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#08281b; border:none; font-weight:600; }
+  .row { display:flex; align-items:center; gap:10px; margin:8px 0; }
+  .row label { width:52px; font-size:13.5px; color:var(--muted);
+               font-family:ui-monospace,Menlo,monospace; }
+  .row input[type=range] { flex:1; accent-color:var(--accent); }
+  .row output { width:62px; text-align:right; font-size:13px;
+                font-family:ui-monospace,Menlo,monospace; }
+  .actions { display:flex; gap:8px; margin-top:14px; }
+  .actions button { flex:1; }
+  .note { color:var(--muted); font-size:13px; margin-top:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="/">← DSW</a>
+    <h1>Gray–Scott Reaction–Diffusion</h1>
+    <div class="status" id="status">connecting…</div>
+  </header>
+
+  <div class="layout">
+    <canvas id="view"></canvas>
+
+    <div class="panel">
+      <h2>Presets</h2>
+      <div class="presets">
+        <button data-f="0.0545" data-k="0.0620">Coral</button>
+        <button data-f="0.0367" data-k="0.0649">Mitosis</button>
+        <button data-f="0.0580" data-k="0.0650">Worms</button>
+        <button data-f="0.0300" data-k="0.0620">Solitons</button>
+      </div>
+
+      <h2>Parameters</h2>
+      <div class="row"><label>feed F</label>
+        <input id="F" type="range" min="0.010" max="0.090" step="0.0005" value="0.0545">
+        <output id="Fv">0.0545</output></div>
+      <div class="row"><label>kill k</label>
+        <input id="k" type="range" min="0.045" max="0.070" step="0.0005" value="0.0620">
+        <output id="kv">0.0620</output></div>
+      <div class="row"><label>speed</label>
+        <input id="speed" type="range" min="1" max="120" step="1" value="20">
+        <output id="speedv">20/tick</output></div>
+
+      <div class="actions">
+        <button class="primary" id="pause">Pause</button>
+        <button id="reset">Reset</button>
+      </div>
+
+      <p class="note">Draw on the field to seed chemical V. The core runs the
+      512×512 grid in native C++ with OpenMP; the number in the header is
+      simulation steps per second.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/dex.js"></script>
+<script>
+  const canvas = document.getElementById("view");
+  const status = document.getElementById("status");
+  let paused = false;
+
+  const dex = DEX.connect({
+    canvas,
+    onStatus(s) {
+      if (s === "open") status.innerHTML = '<span class="live">●</span> live';
+      else if (s === "closed") status.textContent = "disconnected — reload to restart";
+      else status.textContent = s;
+    },
+    onMessage(m) {
+      if (m.t === "stats")
+        status.innerHTML = '<span class="live">●</span> ' +
+          Number(m.sps).toLocaleString() + " steps/s · " +
+          Number(m.steps).toLocaleString() + " total";
+    },
+  });
+
+  // --- parameter controls
+  const F = document.getElementById("F"), k = document.getElementById("k");
+  const speed = document.getElementById("speed");
+  function sendParam(key, el, out, fmt) {
+    document.getElementById(out).textContent = fmt(el.value);
+    dex.send({ t: "set", k: key, v: +el.value });
+  }
+  F.oninput = () => sendParam("F", F, "Fv", v => (+v).toFixed(4));
+  k.oninput = () => sendParam("k", k, "kv", v => (+v).toFixed(4));
+  speed.oninput = () => sendParam("speed", speed, "speedv", v => v + "/tick");
+
+  for (const b of document.querySelectorAll(".presets button")) {
+    b.onclick = () => {
+      F.value = b.dataset.f; k.value = b.dataset.k;
+      F.oninput(); k.oninput();
+    };
+  }
+
+  document.getElementById("pause").onclick = function () {
+    paused = !paused;
+    dex.send({ t: paused ? "pause" : "resume" });
+    this.textContent = paused ? "Resume" : "Pause";
+  };
+  document.getElementById("reset").onclick = () => dex.send({ t: "reset" });
+
+  // --- brush: pointer position in normalized field coordinates
+  let drawing = false;
+  function brush(ev) {
+    const r = canvas.getBoundingClientRect();
+    dex.send({ t: "brush",
+               x: (ev.clientX - r.left) / r.width,
+               y: (ev.clientY - r.top) / r.height,
+               r: 0.015 });
+  }
+  canvas.onpointerdown = ev => { drawing = true; canvas.setPointerCapture(ev.pointerId); brush(ev); };
+  canvas.onpointermove = ev => { if (drawing) brush(ev); };
+  canvas.onpointerup = canvas.onpointercancel = () => { drawing = false; };
+</script>
+</body>
+</html>

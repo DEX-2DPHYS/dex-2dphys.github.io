@@ -1,0 +1,6 @@
+{
+  "name": "Gray–Scott Reaction–Diffusion",
+  "description": "Two virtual chemicals feed, react and diffuse into coral, mitosis and soliton patterns. 512×512 field computed natively with OpenMP; paint with the mouse to seed new growth.",
+  "accent": "#3ddc97",
+  "version": "1.0"
+}

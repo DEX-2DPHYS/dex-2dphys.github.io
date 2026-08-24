@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSW — Digital Science Workstation</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #131824;
+    --panel-2: #1a2132;
+    --ink: #e8ecf4;
+    --muted: #8a94a8;
+    --line: #232b3d;
+    --accent: #5ac8fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1 { font-size: 28px; letter-spacing: .3px; }
+  h1 .dot { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 15px; }
+  .hint {
+    margin: 18px 0 34px; padding: 12px 16px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; color: var(--muted); font-size: 14px;
+  }
+  .hint code {
+    background: var(--panel-2); padding: 1px 7px; border-radius: 6px;
+    font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 13px;
+    color: var(--ink);
+  }
+  .grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+  .card {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px 20px 18px;
+    transition: transform .12s ease, border-color .12s ease;
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 4px;
+    background: var(--card-accent, var(--accent));
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--card-accent, var(--accent)); }
+  .card h2 { font-size: 19px; margin-bottom: 6px; }
+  .card p { color: var(--muted); font-size: 14.5px; min-height: 44px; }
+  .meta { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .ver { color: var(--muted); font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
+  .run {
+    font-size: 13.5px; font-weight: 600; color: var(--card-accent, var(--accent));
+  }
+  .card.dead { opacity: .55; pointer-events: none; }
+  .card.dead .run { color: var(--muted); }
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  footer { margin-top: 56px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DSW<span class="dot">.</span></h1>
+    <div class="sub">Digital Science Workstation — native DEX experiments, browser front-ends</div>
+  </header>
+
+  <div class="hint">
+    Installing an experiment = dropping its folder into <code>plugins/</code>
+    and refreshing this page. Each bundle holds the compiled core, its
+    <code>ui/</code> page, and a <code>dex.json</code> card.
+  </div>
+
+  <div class="grid" id="grid"><div class="empty">Scanning plugins…</div></div>
+
+  <footer>DSW host · serving on localhost only · one WebSocket session per running experiment</footer>
+</div>
+
+<script>
+  fetch("/api/plugins").then(r => r.json()).then(plugins => {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    if (!plugins.length) {
+      grid.innerHTML = '<div class="empty">No experiments found. Drop a bundle folder into <b>plugins/</b> and refresh.</div>';
+      return;
+    }
+    for (const p of plugins) {
+      const a = document.createElement("a");
+      a.className = "card" + (p.ready ? "" : " dead");
+      a.href = "/plugins/" + encodeURIComponent(p.id) + "/ui/index.html";
+      if (p.accent) a.style.setProperty("--card-accent", p.accent);
+      a.innerHTML =
+        "<h2></h2><p></p>" +
+        '<div class="meta"><span class="ver"></span>' +
+        '<span class="run">' + (p.ready ? "Run experiment →" : "missing binary or ui/") + "</span></div>";
+      a.querySelector("h2").textContent = p.name;
+      a.querySelector("p").textContent = p.description || "";
+      a.querySelector(".ver").textContent = p.version ? "v" + p.version : "";
+      grid.appendChild(a);
+    }
+  }).catch(() => {
+    document.getElementById("grid").innerHTML =
+      '<div class="empty">Could not reach the DSW host API.</div>';
+  });
+</script>
+</body>
+</html>

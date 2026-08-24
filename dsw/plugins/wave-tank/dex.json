@@ -1,0 +1,6 @@
+{
+  "name": "Wave Tank",
+  "description": "A ripple tank in the browser with a native C++ core: poke the surface, drive an oscillating source, and send waves through single- or double-slit barriers to watch interference build up.",
+  "accent": "#ffb038",
+  "version": "1.0"
+}
