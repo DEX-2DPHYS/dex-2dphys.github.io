@@ -48,6 +48,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       # Apple clang ships without OpenMP; without libomp the cores still
       # build and run, just single-threaded.
       - name: Install OpenMP (macOS)
@@ -89,6 +93,27 @@ jobs:
             if [ -z "$found" ]; then echo "no compiled core for $id"; exit 1; fi
           done
           ls -R stage | head -60
+
+      # Compiling is not the same as working. Start the staged build and make
+      # every plugin actually load and render a frame, on each platform, before
+      # any of it is offered as a download.
+      - name: Smoke test
+        shell: bash
+        working-directory: stage/dsw
+        run: |
+          set -euo pipefail
+          ./${{ matrix.exe }} --port 8899 &
+          host=$!
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:8899/api/plugins >/dev/null 2>&1 && break
+            sleep 0.5
+          done
+          set +e
+          node "$GITHUB_WORKSPACE/dsw/tools/smoke.mjs" http://127.0.0.1:8899
+          status=$?
+          set -e
+          kill $host 2>/dev/null || true
+          exit $status
 
       # No zipping here: the Windows runner's bash has no `zip`, and
       # upload-artifact archives whatever it is given anyway. The release job
