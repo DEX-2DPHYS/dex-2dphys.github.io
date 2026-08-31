@@ -1,0 +1,9 @@
+{
+  "slug": "image-to-stl",
+  "name": "Image → STL",
+  "description": "Turn a black-and-white image into a 3D-printable relief. Choose whether black or white is the solid colour, extrude it as a plate or a cut-out, and rough the surface up with grain, scratches, pitting, cracks and chewed edges so logos and artwork print gritty rather than machine-clean. Exports a watertight binary STL; nothing is uploaded.",
+  "status": "live",
+  "url": "tools/image-to-stl/index.html",
+  "icon": "cube",
+  "tags": ["applications", "educational", "visualisations"]
+}

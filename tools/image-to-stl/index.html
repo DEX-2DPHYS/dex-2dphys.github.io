@@ -1,0 +1,1459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Image → STL · 3D print relief maker</title>
+<meta name="description" content="Turn a black-and-white image into a 3D-printable STL relief, with surface texture effects that weather, scratch and chew logos and artwork. Runs entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23990000'/><path d='M22 66 L38 40 L52 58 L62 46 L80 66 Z' fill='white'/></svg>">
+<style>
+:root{
+  --red:#990000; --red-soft:rgba(153,0,0,.10);
+  --bg:#ffffff; --bg-soft:#f5f5f4; --panel:#ffffff; --line:#e5e3e0;
+  --ink:#1b1a19; --muted:#6b6762; --stage:#26241f; --stage-line:#3a3730;
+  --field:#faf9f8; --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --red:#ff5a5f; --red-soft:rgba(255,90,95,.14);
+    --bg:#131211; --bg-soft:#1b1a18; --panel:#1c1a18; --line:#322f2c;
+    --ink:#f3f1ee; --muted:#a8a39d; --stage:#0e0d0c; --stage-line:#2a2724;
+    --field:#211f1c; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.45);
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}
+button,input,select{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+a{color:var(--red)}
+
+/* ---- top bar ---- */
+.topbar{display:flex;align-items:center;gap:16px;padding:14px 20px calc(14px);border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:var(--bg);z-index:20;flex-wrap:wrap}
+.back{font-size:12.5px;text-decoration:none;color:var(--muted);white-space:nowrap}
+.back:hover{color:var(--red)}
+.brand h1{font-size:17px;margin:0;letter-spacing:-.02em}
+.brand p{margin:1px 0 0;font-size:12.5px;color:var(--muted)}
+.topbar .spacer{flex:1}
+.topbar .ghost{font-size:12.5px;color:var(--muted);padding:8px 10px;border-radius:8px}
+.topbar .ghost:hover{background:var(--bg-soft);color:var(--ink)}
+
+/* ---- layout ---- */
+.layout{display:grid;grid-template-columns:344px 1fr;gap:0;min-height:calc(100vh - 62px)}
+.panel{border-right:1px solid var(--line);padding:6px 18px 60px;overflow-y:auto;max-height:calc(100vh - 62px);
+  position:sticky;top:62px;background:var(--panel)}
+.stage{display:flex;flex-direction:column;min-width:0;background:var(--bg-soft)}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .panel{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line);order:2}
+  .stage{order:1;min-height:56vh}
+}
+
+/* ---- control groups ---- */
+.group{border-bottom:1px solid var(--line);padding:14px 0}
+.group:last-of-type{border-bottom:0}
+.group>h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:650}
+.ctl{margin:0 0 11px}
+.ctl-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px}
+.ctl-head label{font-size:12.5px}
+.ctl-head output{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--red);margin:0;height:18px}
+input[type=number]{width:100%;height:34px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:var(--field)}
+input[type=number]:focus{outline:2px solid var(--red-soft);border-color:var(--red)}
+.hint{font-size:11.5px;color:var(--muted);margin:4px 0 0}
+.seg{display:flex;gap:4px;background:var(--bg-soft);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{flex:1;padding:7px 4px;border-radius:7px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--panel);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+.seg button:disabled{opacity:.35}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;color:var(--muted);background:var(--bg-soft)}
+.chip:hover{border-color:var(--red);color:var(--red)}
+.chip[aria-pressed=true]{background:var(--red);border-color:var(--red);color:#fff}
+.check{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:10px 0 2px;cursor:pointer}
+.check input{accent-color:var(--red);width:15px;height:15px}
+.rowsplit{display:flex;gap:8px;align-items:flex-end}
+.rowsplit>*{flex:1;min-width:0}
+.btn{width:100%;min-height:42px;border-radius:10px;background:var(--red);color:#fff;font-weight:640;padding:0 14px}
+.btn:hover{filter:brightness(1.08)}
+.btn.sec{background:var(--bg-soft);color:var(--ink);border:1px solid var(--line);font-weight:550;min-height:38px}
+.btn.sec:hover{filter:none;border-color:var(--red);color:var(--red)}
+.btnrow{display:flex;gap:8px;margin-top:8px}
+.disabled-block{opacity:.42;pointer-events:none}
+
+/* ---- stage ---- */
+.tabs{display:flex;align-items:center;gap:2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--bg);flex-wrap:wrap}
+.tabs button{padding:7px 12px;border-radius:8px;font-size:12.5px;color:var(--muted)}
+.tabs button[aria-pressed=true]{background:var(--bg-soft);color:var(--ink);font-weight:600}
+.tabs .spacer{flex:1}
+.tabs .tog{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer}
+.tabs .tog input{accent-color:var(--red)}
+.viewwrap{position:relative;flex:1;min-height:340px;background:var(--stage);overflow:hidden;touch-action:none}
+.viewwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#mapCanvas{background:var(--stage)}
+.viewwrap[data-view=map] #glCanvas{visibility:hidden}
+.viewwrap[data-view=three] #mapCanvas{visibility:hidden}
+.drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+  text-align:center;color:#cfcac2;padding:28px;background:var(--stage)}
+.drop h3{font-size:19px;margin:0;letter-spacing:-.02em;color:#f0ece6}
+.drop p{margin:0;font-size:13px;max-width:34ch;color:#a9a49c}
+.drop.hide{display:none}
+.viewwrap.over::after{content:"";position:absolute;inset:10px;border:2px dashed var(--red);border-radius:14px;pointer-events:none}
+.badge{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.55);color:#fff;font-size:11.5px;
+  padding:5px 9px;border-radius:7px;pointer-events:none;backdrop-filter:blur(6px)}
+.badge[hidden]{display:none}
+.statusbar{display:flex;gap:18px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line);background:var(--bg);
+  font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.statusbar b{color:var(--ink);font-weight:600}
+.warn{color:var(--red)}
+
+/* ---- notes ---- */
+.notes{padding:26px 20px 60px;max-width:74ch;margin:0 auto;color:var(--muted);font-size:13px}
+.notes h2{font-size:14px;color:var(--ink);margin:22px 0 6px}
+.notes p{margin:6px 0}
+.notes code{background:var(--bg-soft);padding:1px 5px;border-radius:5px;font-size:12px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);background:#1d1d1f;color:#fff;
+  padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sr{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="back" href="../../">← DEX</a>
+  <div class="brand">
+    <h1>Image → STL</h1>
+    <p>Black-and-white artwork into a printable relief</p>
+  </div>
+  <div class="spacer"></div>
+  <button class="ghost" id="btnReset">Reset settings</button>
+</header>
+
+<main class="layout">
+
+  <section class="panel" aria-label="Settings">
+
+    <div class="group">
+      <h2>Artwork</h2>
+      <div class="btnrow">
+        <button class="btn sec" id="btnFile">Choose image</button>
+        <button class="btn sec" id="btnDemo">Demo</button>
+      </div>
+      <input class="sr" id="fileInput" type="file" accept="image/*">
+      <p class="hint" id="srcInfo">Drop an image on the viewer, or paste one. Nothing leaves your device.</p>
+    </div>
+
+    <div class="group">
+      <h2>Black &amp; white</h2>
+      <div class="ctl">
+        <div class="ctl-head"><label>Positive (printed) colour</label></div>
+        <div class="seg" id="segPositive" role="group" aria-label="Positive colour">
+          <button data-val="black" aria-pressed="true">Black is solid</button>
+          <button data-val="white" aria-pressed="false">White is solid</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="thresh">Threshold</label><output id="threshOut">128</output></div>
+        <input id="thresh" type="range" min="2" max="253" step="1" value="128">
+      </div>
+      <div class="btnrow"><button class="btn sec" id="btnOtsu">Auto threshold</button></div>
+      <div class="ctl" style="margin-top:12px">
+        <div class="ctl-head"><label for="soft">Edge softness</label><output id="softOut">0.06</output></div>
+        <input id="soft" type="range" min="0" max="40" step="1" value="6">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="clean">Despeckle</label><output id="cleanOut">1 px</output></div>
+        <input id="clean" type="range" min="0" max="6" step="1" value="1">
+      </div>
+      <label class="check"><input type="checkbox" id="crop" checked> Crop to the artwork</label>
+      <label class="check"><input type="checkbox" id="mirror"> Mirror (for stamps &amp; moulds)</label>
+    </div>
+
+    <div class="group">
+      <h2>Shape</h2>
+      <div class="ctl">
+        <div class="seg" id="segStyle" role="group" aria-label="Model style">
+          <button data-val="plate" aria-pressed="true">Plate + relief</button>
+          <button data-val="cutout" aria-pressed="false">Cut-out</button>
+        </div>
+        <p class="hint" id="styleHint">A solid rectangular plate with the artwork standing proud of it.</p>
+      </div>
+      <div class="ctl" id="dirWrap">
+        <div class="seg" id="segDir" role="group" aria-label="Relief direction">
+          <button data-val="raised" aria-pressed="true">Raised</button>
+          <button data-val="engraved" aria-pressed="false">Engraved</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="widthMM">Width</label><output id="widthOut">80 mm</output></div>
+        <input id="widthMM" type="range" min="10" max="300" step="1" value="80">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="baseMM" id="baseLabel">Base thickness</label><output id="baseOut">2.0 mm</output></div>
+        <input id="baseMM" type="range" min="0.4" max="12" step="0.2" value="2">
+      </div>
+      <div class="ctl" id="reliefWrap">
+        <div class="ctl-head"><label for="reliefMM">Relief height</label><output id="reliefOut">2.0 mm</output></div>
+        <input id="reliefMM" type="range" min="0.2" max="20" step="0.1" value="2">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="res">Resolution</label><output id="resOut">220 samples</output></div>
+        <input id="res" type="range" min="60" max="520" step="10" value="220">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="minWall">Minimum wall</label><output id="minWallOut">0.6 mm</output></div>
+        <input id="minWall" type="range" min="0.2" max="4" step="0.1" value="0.6">
+        <p class="hint">Texture never cuts the model thinner than this.</p>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Texture</h2>
+      <div class="chips" id="presets">
+        <button class="chip" data-preset="clean">Clean</button>
+        <button class="chip" data-preset="sandblast">Sandblasted</button>
+        <button class="chip" data-preset="brushed">Brushed</button>
+        <button class="chip" data-preset="weathered">Weathered</button>
+        <button class="chip" data-preset="scratched">Scratched</button>
+        <button class="chip" data-preset="corroded">Corroded</button>
+        <button class="chip" data-preset="hammered">Hammered</button>
+        <button class="chip" data-preset="shattered">Shattered</button>
+      </div>
+      <div class="rowsplit" style="margin-bottom:12px">
+        <div>
+          <div class="ctl-head"><label for="seed">Seed</label></div>
+          <input id="seed" type="number" min="1" max="999999" step="1" value="1337">
+        </div>
+        <button class="btn sec" id="btnReroll" style="max-width:110px">Reroll</button>
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="grainA">Grain depth</label><output id="grainAOut">0.06 mm</output></div>
+        <input id="grainA" type="range" min="0" max="150" step="1" value="6">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="grainS">Grain size</label><output id="grainSOut">1.2 mm</output></div>
+        <input id="grainS" type="range" min="2" max="120" step="1" value="12">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="chewA">Edge chew</label><output id="chewAOut">0.12</output></div>
+        <input id="chewA" type="range" min="0" max="60" step="1" value="12">
+        <p class="hint">Eats irregular bites out of the outline.</p>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="chewS">Chew size</label><output id="chewSOut">0.8 mm</output></div>
+        <input id="chewS" type="range" min="2" max="80" step="1" value="8">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="wearA">Edge wear</label><output id="wearAOut">0.15 mm</output></div>
+        <input id="wearA" type="range" min="0" max="200" step="1" value="15">
+        <p class="hint">Knocks the sharpness off the edges, unevenly.</p>
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="scrN">Scratches</label><output id="scrNOut">40</output></div>
+        <input id="scrN" type="range" min="0" max="400" step="1" value="40">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="scrD">Scratch depth</label><output id="scrDOut">0.35 mm</output></div>
+        <input id="scrD" type="range" min="0" max="300" step="1" value="35">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="scrW">Scratch width</label><output id="scrWOut">0.50 mm</output></div>
+        <input id="scrW" type="range" min="5" max="300" step="1" value="50">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="scrAng">Scratch direction</label><output id="scrAngOut">random</output></div>
+        <input id="scrAng" type="range" min="0" max="190" step="10" value="190">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="pitN">Pitting</label><output id="pitNOut">8 /cm²</output></div>
+        <input id="pitN" type="range" min="0" max="200" step="1" value="8">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="pitD">Pit depth</label><output id="pitDOut">0.40 mm</output></div>
+        <input id="pitD" type="range" min="0" max="400" step="1" value="40">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="pitR">Pit size</label><output id="pitROut">0.60 mm</output></div>
+        <input id="pitR" type="range" min="10" max="500" step="1" value="60">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="crkN">Cracks</label><output id="crkNOut">0</output></div>
+        <input id="crkN" type="range" min="0" max="30" step="1" value="0">
+      </div>
+      <div class="ctl">
+        <div class="ctl-head"><label for="crkD">Crack depth</label><output id="crkDOut">1.0 mm</output></div>
+        <input id="crkD" type="range" min="0" max="400" step="1" value="100">
+      </div>
+      <label class="check"><input type="checkbox" id="texBg" checked> Texture the background as well</label>
+      <p class="hint" id="texBgHint">Off: only the artwork itself gets roughed up.</p>
+    </div>
+
+    <div class="group">
+      <h2>Export</h2>
+      <button class="btn" id="btnSTL">Download STL</button>
+      <div class="btnrow">
+        <button class="btn sec" id="btnPNG">Height map PNG</button>
+      </div>
+      <p class="hint">Binary STL, millimetres, Z up — ready for any slicer.</p>
+    </div>
+
+  </section>
+
+  <section class="stage">
+    <div class="tabs">
+      <button id="tabThree" aria-pressed="true">3D preview</button>
+      <button id="tabMap" aria-pressed="false">Height map</button>
+      <div class="spacer"></div>
+      <label class="tog"><input type="checkbox" id="spin"> Spin</label>
+      <label class="tog"><input type="checkbox" id="wire"> Wireframe</label>
+      <button class="ghost" id="btnFit" style="font-size:12px;color:var(--muted)">Reset view</button>
+    </div>
+    <div class="viewwrap" id="viewwrap" data-view="three">
+      <canvas id="glCanvas"></canvas>
+      <canvas id="mapCanvas"></canvas>
+      <div class="badge" id="badge" hidden>Working…</div>
+      <div class="drop" id="drop">
+        <h3>Drop a black-and-white image here</h3>
+        <p>A logo, a stencil, a line drawing, a QR code — anything with a clear light/dark split. Or press <b>Demo</b> to see it working.</p>
+      </div>
+    </div>
+    <div class="statusbar" id="status">
+      <span>Size <b id="stSize">—</b></span>
+      <span>Grid <b id="stGrid">—</b></span>
+      <span>Triangles <b id="stTris">—</b></span>
+      <span>STL <b id="stBytes">—</b></span>
+      <span id="stWarn" class="warn"></span>
+    </div>
+  </section>
+</main>
+
+<div class="notes">
+  <h2>How it works</h2>
+  <p>The image is reduced to one number per grid cell: how much printed material sits there. Anything on the
+  positive side of the threshold becomes solid, the rest becomes background. That field is turned into a height
+  map in millimetres, textured, and then walked cell by cell into a watertight triangle mesh — top surface,
+  vertical walls, flat bottom — written out as a binary STL that any slicer will open.</p>
+
+  <h2>Texture</h2>
+  <p><b>Grain</b> is fractal noise over the whole top surface: a cast, sandblasted or stone-like finish.
+  <b>Edge chew</b> is added <i>before</i> the threshold, so the noise bites into the outline itself rather than the
+  surface — this is what makes a crisp logo look eaten and hand-cut. <b>Edge wear</b> knocks the height down near
+  boundaries, so the top edges arrive chipped rather than machined. <b>Scratches</b>, <b>pits</b> and <b>cracks</b>
+  are carved as strokes and stamps into the height field. Everything is driven by the seed, so the same settings
+  give the same model every time — press <b>Reroll</b> for a different roll of the same dice.</p>
+
+  <h2>Printing</h2>
+  <p>Keep the relief height above about two layer heights or it will vanish in slicing, and keep the finest
+  texture wider than your nozzle — a 0.4 mm nozzle cannot draw a 0.15 mm scratch, though it will still show as a
+  dent. The <b>minimum wall</b> setting stops texture from cutting through the base. Cut-out models have no
+  backing plate, so make sure the artwork is one connected piece before printing: floating islands print as
+  separate parts.</p>
+
+  <h2>Privacy</h2>
+  <p>Everything runs in the browser. The image is never uploaded.</p>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+var clamp = function(v,a,b){ return v<a?a:(v>b?b:v); };
+var lerp = function(a,b,t){ return a+(b-a)*t; };
+
+/* ------------------------------------------------------------------ *
+ *  Deterministic randomness — the same seed always gives the same model
+ * ------------------------------------------------------------------ */
+function mulberry32(a){
+  return function(){
+    a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* Classic 2D gradient noise, permutation table built from the seed. */
+function makeNoise(seed){
+  var perm = new Uint8Array(512), p = new Uint8Array(256), r = mulberry32(seed >>> 0), i, j, t;
+  for(i=0;i<256;i++) p[i] = i;
+  for(i=255;i>0;i--){ j = (r()*(i+1))|0; t = p[i]; p[i] = p[j]; p[j] = t; }
+  for(i=0;i<512;i++) perm[i] = p[i & 255];
+  function fade(t){ return t*t*t*(t*(t*6-15)+10); }
+  function grad(h,x,y){
+    switch(h & 3){ case 0: return  x + y; case 1: return -x + y; case 2: return x - y; default: return -x - y; }
+  }
+  return function(x,y){
+    var fx = Math.floor(x), fy = Math.floor(y);
+    var X = fx & 255, Y = fy & 255, xf = x - fx, yf = y - fy;
+    var u = fade(xf), v = fade(yf);
+    var aa = perm[perm[X] + Y], ab = perm[perm[X] + Y + 1];
+    var ba = perm[perm[X+1] + Y], bb = perm[perm[X+1] + Y + 1];
+    var x1 = lerp(grad(aa,xf,yf), grad(ba,xf-1,yf), u);
+    var x2 = lerp(grad(ab,xf,yf-1), grad(bb,xf-1,yf-1), u);
+    return lerp(x1,x2,v);
+  };
+}
+function fbm(noise,x,y,oct){
+  var amp = 0.5, f = 1, sum = 0, norm = 0;
+  for(var i=0;i<oct;i++){ sum += amp*noise(x*f, y*f); norm += amp; amp *= 0.5; f *= 2.03; }
+  return sum/norm;
+}
+function smoothstep(a,b,x){
+  if(b <= a) return x < a ? 0 : 1;
+  var t = clamp((x-a)/(b-a), 0, 1);
+  return t*t*(3-2*t);
+}
+
+/* Separable box blur on a float field (radius in cells). */
+function boxBlur(src,W,H,r){
+  if(r < 1) return src;
+  var tmp = new Float32Array(W*H), out = new Float32Array(W*H), x, y, i, sum, n;
+  for(y=0;y<H;y++){
+    var row = y*W;
+    sum = 0; n = 0;
+    for(x=-r;x<=r;x++){ sum += src[row + clamp(x,0,W-1)]; n++; }
+    for(x=0;x<W;x++){
+      tmp[row+x] = sum/n;
+      sum += src[row + clamp(x+r+1,0,W-1)] - src[row + clamp(x-r,0,W-1)];
+    }
+  }
+  for(x=0;x<W;x++){
+    sum = 0; n = 0;
+    for(y=-r;y<=r;y++){ sum += tmp[clamp(y,0,H-1)*W + x]; n++; }
+    for(y=0;y<H;y++){
+      out[y*W+x] = sum/n;
+      sum += tmp[clamp(y+r+1,0,H-1)*W + x] - tmp[clamp(y-r,0,H-1)*W + x];
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Controls
+ * ------------------------------------------------------------------ */
+var mm = function(v){ return v.toFixed(2) + ' mm'; };
+var mm1 = function(v){ return v.toFixed(1) + ' mm'; };
+
+/* id -> {scale: slider units to model units, fmt: label} */
+var SLIDERS = {
+  thresh:  { to: function(v){ return v/255; }, fmt: function(v,raw){ return String(raw); } },
+  soft:    { to: function(v){ return v/100; }, fmt: function(v){ return v.toFixed(2); } },
+  clean:   { to: function(v){ return v; },     fmt: function(v){ return v ? v + ' px' : 'off'; } },
+  widthMM: { to: function(v){ return v; },     fmt: function(v){ return v + ' mm'; } },
+  baseMM:  { to: function(v){ return v; },     fmt: mm1 },
+  reliefMM:{ to: function(v){ return v; },     fmt: mm1 },
+  res:     { to: function(v){ return v; },     fmt: function(v){ return v + ' samples'; } },
+  minWall: { to: function(v){ return v; },     fmt: mm1 },
+  grainA:  { to: function(v){ return v/100; }, fmt: mm },
+  grainS:  { to: function(v){ return v/10; },  fmt: mm1 },
+  chewA:   { to: function(v){ return v/100; }, fmt: function(v){ return v.toFixed(2); } },
+  chewS:   { to: function(v){ return v/10; },  fmt: mm1 },
+  wearA:   { to: function(v){ return v/100; }, fmt: mm },
+  scrN:    { to: function(v){ return v; },     fmt: function(v){ return String(v); } },
+  scrD:    { to: function(v){ return v/100; }, fmt: mm },
+  scrW:    { to: function(v){ return v/100; }, fmt: mm },
+  scrAng:  { to: function(v){ return v; },     fmt: function(v){ return v > 180 ? 'random' : v + '°'; } },
+  pitN:    { to: function(v){ return v; },     fmt: function(v){ return v + ' /cm²'; } },
+  pitD:    { to: function(v){ return v/100; }, fmt: mm },
+  pitR:    { to: function(v){ return v/100; }, fmt: mm },
+  crkN:    { to: function(v){ return v; },     fmt: function(v){ return String(v); } },
+  crkD:    { to: function(v){ return v/100; }, fmt: mm }
+};
+var CHECKS = ['crop','mirror','texBg'];
+var SEGS = { positive: 'segPositive', style: 'segStyle', dir: 'segDir' };
+
+var P = {};
+var DEFAULTS = { sliders:{}, checks:{}, segs:{}, seed:1337 };
+
+function readParams(){
+  for(var id in SLIDERS){
+    var raw = parseFloat($(id).value);
+    P[id] = SLIDERS[id].to(raw);
+    var out = $(id + 'Out');
+    if(out) out.textContent = SLIDERS[id].fmt(P[id], raw);
+  }
+  for(var i=0;i<CHECKS.length;i++) P[CHECKS[i]] = $(CHECKS[i]).checked;
+  for(var k in SEGS) P[k] = segValue(SEGS[k]);
+  P.seed = clamp(parseInt($('seed').value,10) || 1, 1, 999999);
+  /* Cut-outs have no backing plate: the whole part is one thickness. */
+  if(P.style === 'cutout'){ P.reliefMM = 0; }
+  if(P.style === 'plate' && P.dir === 'engraved'){ P.engraved = true; } else { P.engraved = false; }
+}
+function segValue(elId){
+  var btns = $(elId).querySelectorAll('button');
+  for(var i=0;i<btns.length;i++) if(btns[i].getAttribute('aria-pressed') === 'true') return btns[i].dataset.val;
+  return btns[0].dataset.val;
+}
+function setSeg(elId,val){
+  var btns = $(elId).querySelectorAll('button');
+  for(var i=0;i<btns.length;i++) btns[i].setAttribute('aria-pressed', String(btns[i].dataset.val === val));
+}
+
+/* Texture presets, in raw slider units. */
+var PRESETS = {
+  clean:     { grainA:0,  grainS:12, chewA:0,  chewS:8,  wearA:0,  scrN:0,   scrD:35, scrW:50, scrAng:190, pitN:0,   pitD:50, pitR:80,  crkN:0,  crkD:100 },
+  sandblast: { grainA:5,  grainS:3,  chewA:4,  chewS:3,  wearA:8,  scrN:0,   scrD:20, scrW:20, scrAng:190, pitN:70,  pitD:14, pitR:22,  crkN:0,  crkD:100 },
+  brushed:   { grainA:3,  grainS:60, chewA:2,  chewS:6,  wearA:6,  scrN:320, scrD:12, scrW:16, scrAng:0,   pitN:0,   pitD:30, pitR:40,  crkN:0,  crkD:100 },
+  weathered: { grainA:10, grainS:18, chewA:14, chewS:10, wearA:30, scrN:60,  scrD:25, scrW:45, scrAng:190, pitN:25,  pitD:40, pitR:70,  crkN:0,  crkD:100 },
+  scratched: { grainA:4,  grainS:10, chewA:6,  chewS:6,  wearA:12, scrN:220, scrD:60, scrW:28, scrAng:190, pitN:5,   pitD:40, pitR:50,  crkN:0,  crkD:100 },
+  corroded:  { grainA:16, grainS:8,  chewA:30, chewS:14, wearA:45, scrN:20,  scrD:30, scrW:60, scrAng:190, pitN:130, pitD:90, pitR:110, crkN:2,  crkD:90  },
+  hammered:  { grainA:22, grainS:45, chewA:8,  chewS:12, wearA:25, scrN:10,  scrD:25, scrW:80, scrAng:190, pitN:45,  pitD:70, pitR:240, crkN:0,  crkD:100 },
+  shattered: { grainA:8,  grainS:14, chewA:22, chewS:20, wearA:35, scrN:90,  scrD:90, scrW:24, scrAng:190, pitN:15,  pitD:60, pitR:60,  crkN:14, crkD:220 }
+};
+
+/* ------------------------------------------------------------------ *
+ *  Model state
+ * ------------------------------------------------------------------ */
+var S = {
+  src: null,        // source canvas, full resolution (capped)
+  W: 0, H: 0,       // working grid
+  cov: null,        // coverage 0..1 per cell
+  hgt: null,        // height in mm per cell
+  present: null,    // Uint8Array, does this cell carry material at all
+  mmPerCell: 1,
+  tris: null,       // Float32Array, 9 floats per triangle
+  triCount: 0
+};
+
+/* Luminance 0..1 of a canvas, resampled onto the working grid. */
+function sampleGrid(){
+  var src = S.src;
+  if(!src) return false;
+  var sx = 0, sy = 0, sw = src.width, sh = src.height;
+  if(P.crop){
+    var bb = contentBox(src);
+    if(bb){ sx = bb.x; sy = bb.y; sw = bb.w; sh = bb.h; }
+  }
+  var W = clamp(Math.round(P.res), 20, 600);
+  var H = Math.round(W * sh / sw);
+  /* Cells stay square, so a very tall image gives up width rather than aspect. */
+  if(H > 1400){ W = Math.max(8, Math.round(W*1400/H)); H = 1400; }
+  if(H < 4) H = 4;
+  var c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  var g = c.getContext('2d', { willReadFrequently:true });
+  g.imageSmoothingEnabled = true;
+  if(g.imageSmoothingQuality) g.imageSmoothingQuality = 'high';
+  /* Transparent pixels should read as background, not as black. */
+  g.fillStyle = (P.positive === 'black') ? '#ffffff' : '#000000';
+  g.fillRect(0,0,W,H);
+  if(P.mirror){ g.translate(W,0); g.scale(-1,1); }
+  g.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+  var d = g.getImageData(0,0,W,H).data;
+  var lum = new Float32Array(W*H);
+  for(var i=0, j=0; i<lum.length; i++, j+=4){
+    lum[i] = (0.2126*d[j] + 0.7152*d[j+1] + 0.0722*d[j+2]) / 255;
+  }
+  S.W = W; S.H = H; S.lum = lum;
+  S.mmPerCell = P.widthMM / W;
+  return true;
+}
+
+/* Bounding box of material in the source image, for "crop to artwork". */
+function contentBox(src){
+  var AW = 300;
+  var aw = Math.min(AW, src.width), ah = Math.max(1, Math.round(src.height * aw / src.width));
+  var c = document.createElement('canvas'); c.width = aw; c.height = ah;
+  var g = c.getContext('2d', { willReadFrequently:true });
+  g.fillStyle = (P.positive === 'black') ? '#ffffff' : '#000000';
+  g.fillRect(0,0,aw,ah);
+  g.drawImage(src, 0, 0, aw, ah);
+  var d = g.getImageData(0,0,aw,ah).data;
+  var minX = aw, minY = ah, maxX = -1, maxY = -1, x, y;
+  for(y=0;y<ah;y++) for(x=0;x<aw;x++){
+    var k = (y*aw+x)*4;
+    var l = (0.2126*d[k] + 0.7152*d[k+1] + 0.0722*d[k+2]) / 255;
+    var solid = (P.positive === 'black') ? (l < P.thresh) : (l > P.thresh);
+    if(solid){
+      if(x<minX) minX=x; if(x>maxX) maxX=x;
+      if(y<minY) minY=y; if(y>maxY) maxY=y;
+    }
+  }
+  if(maxX < 0) return null;
+  var scale = src.width / aw;
+  var padX = (maxX-minX+1)*0.04 + 1, padY = (maxY-minY+1)*0.04 + 1;
+  var x0 = clamp((minX-padX)*scale, 0, src.width);
+  var y0 = clamp((minY-padY)*scale, 0, src.height);
+  var x1 = clamp((maxX+1+padX)*scale, 0, src.width);
+  var y1 = clamp((maxY+1+padY)*scale, 0, src.height);
+  if(x1-x0 < 4 || y1-y0 < 4) return null;
+  return { x:x0, y:y0, w:x1-x0, h:y1-y0 };
+}
+
+/* Otsu's method on the current working grid. */
+function otsu(){
+  if(!S.lum) return 128;
+  var hist = new Float64Array(256), i;
+  for(i=0;i<S.lum.length;i++) hist[clamp(Math.round(S.lum[i]*255),0,255)]++;
+  var total = S.lum.length, sum = 0;
+  for(i=0;i<256;i++) sum += i*hist[i];
+  var sumB = 0, wB = 0, best = 0, bestVar = -1;
+  for(i=0;i<256;i++){
+    wB += hist[i];
+    if(!wB) continue;
+    var wF = total - wB;
+    if(!wF) break;
+    sumB += i*hist[i];
+    var mB = sumB/wB, mF = (sum-sumB)/wF;
+    var between = wB*wF*(mB-mF)*(mB-mF);
+    if(between > bestVar){ bestVar = between; best = i; }
+  }
+  return best;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Coverage: image -> "how much material sits in this cell", 0..1
+ * ------------------------------------------------------------------ */
+function buildCoverage(){
+  var W = S.W, H = S.H, lum = S.lum, N = W*H;
+  var cov = new Float32Array(N);
+  var noise = makeNoise(P.seed * 7919 + 11);
+  var chewF = 1 / Math.max(0.05, P.chewS / S.mmPerCell);   // cells -> noise units
+  var soft = Math.max(0.004, P.soft);
+  var black = (P.positive === 'black');
+  for(var y=0;y<H;y++){
+    for(var x=0;x<W;x++){
+      var i = y*W + x;
+      var signed = black ? (P.thresh - lum[i]) : (lum[i] - P.thresh);
+      if(P.chewA > 0){
+        signed += P.chewA * fbm(noise, x*chewF, y*chewF, 4);
+      }
+      cov[i] = smoothstep(-soft, soft, signed);
+    }
+  }
+  if(P.clean >= 1){
+    var blurred = boxBlur(cov, W, H, Math.round(P.clean));
+    var w = Math.max(0.10, P.soft);
+    for(var k=0;k<N;k++) cov[k] = smoothstep(0.5-w, 0.5+w, blurred[k]);
+  }
+  S.cov = cov;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Heights: coverage -> millimetres, then rough it all up
+ * ------------------------------------------------------------------ */
+function buildHeights(){
+  var W = S.W, H = S.H, N = W*H, cov = S.cov, mmc = S.mmPerCell;
+  var hgt = new Float32Array(N);
+  var weight = new Float32Array(N);        // where texture is allowed to act
+  var base = P.baseMM, relief = P.reliefMM;
+  var i;
+
+  for(i=0;i<N;i++){
+    var c = cov[i];
+    var solid = P.engraved ? (1-c) : c;
+    hgt[i] = base + relief*solid;
+    weight[i] = P.texBg ? 1 : (P.engraved ? (1-c) : c);
+  }
+
+  var rnd = mulberry32(P.seed * 2654435761 % 4294967296);
+  var noise = makeNoise(P.seed * 104729 + 7);
+
+  /* Fractal grain across the whole surface. */
+  if(P.grainA > 0){
+    var gf = 1 / Math.max(0.05, P.grainS / mmc);
+    for(var y=0;y<H;y++) for(var x=0;x<W;x++){
+      i = y*W + x;
+      hgt[i] += P.grainA * fbm(noise, x*gf + 91.7, y*gf - 43.1, 5) * weight[i];
+    }
+  }
+
+  /* Edge wear: knock the height down in a band along every boundary. */
+  if(P.wearA > 0){
+    var covB = boxBlur(cov, W, H, Math.max(1, Math.round(0.35/mmc)));
+    var wf = 1 / Math.max(0.05, 0.6/mmc);
+    for(i=0;i<N;i++){
+      var e = 4*covB[i]*(1-covB[i]);           // peaks on the outline
+      if(e <= 0.02) continue;
+      var xx = i % W, yy = (i / W) | 0;
+      var n = 0.5 + 0.5*fbm(noise, xx*wf - 300.3, yy*wf + 122.9, 3);
+      hgt[i] -= P.wearA * e * (0.35 + 0.65*n);
+    }
+  }
+
+  carveScratches(hgt, weight, rnd, noise);
+  carvePits(hgt, weight, rnd);
+  carveCracks(hgt, weight, rnd);
+
+  /* Never cut through the part. */
+  var floorMM = Math.max(0.05, P.minWall);
+  for(i=0;i<N;i++) if(hgt[i] < floorMM) hgt[i] = floorMM;
+
+  S.hgt = hgt;
+
+  /* Which cells exist at all. */
+  var present = new Uint8Array(N);
+  if(P.style === 'cutout'){
+    for(i=0;i<N;i++) present[i] = cov[i] > 0.5 ? 1 : 0;
+    despurAndFixDiagonals(present, W, H);
+  } else {
+    present.fill(1);
+  }
+  S.present = present;
+}
+
+/* Round brush that subtracts material. */
+function stamp(h, weight, W, H, cx, cy, rad, depth, dish){
+  if(depth <= 0 || rad <= 0) return;
+  var x0 = Math.max(0, Math.floor(cx-rad)), x1 = Math.min(W-1, Math.ceil(cx+rad));
+  var y0 = Math.max(0, Math.floor(cy-rad)), y1 = Math.min(H-1, Math.ceil(cy+rad));
+  var r2 = rad*rad;
+  for(var y=y0;y<=y1;y++){
+    var dy = y - cy;
+    for(var x=x0;x<=x1;x++){
+      var dx = x - cx, d2 = dx*dx + dy*dy;
+      if(d2 > r2) continue;
+      var t = Math.sqrt(d2)/rad;
+      var f = dish ? Math.sqrt(1 - t*t) : Math.pow(1-t, 1.6);
+      var i = y*W + x;
+      var cut = depth*f*weight[i];
+      if(cut > 0) h[i] -= cut;
+    }
+  }
+}
+
+function carveScratches(h, weight, rnd, noise){
+  var n = Math.round(P.scrN);
+  if(!n || P.scrD <= 0) return;
+  var W = S.W, H = S.H, mmc = S.mmPerCell;
+  var diag = Math.hypot(W,H);
+  var randomDir = P.scrAng > 180;
+  var baseAng = (P.scrAng % 180) * Math.PI/180;
+  for(var s=0;s<n;s++){
+    var ang = randomDir ? rnd()*Math.PI*2 : baseAng + (rnd()-0.5)*0.30;
+    var len = (0.10 + 0.90*Math.pow(rnd(), 1.6)) * diag * 0.8;
+    var x = rnd()*W - Math.cos(ang)*len*0.5*rnd();
+    var y = rnd()*H - Math.sin(ang)*len*0.5*rnd();
+    var depth = P.scrD * (0.25 + 0.75*rnd());
+    var rad = Math.max(0.6, (P.scrW*(0.35 + 0.9*rnd())*0.5) / mmc);
+    var steps = Math.max(2, Math.ceil(len / Math.max(0.4, rad*0.5)));
+    var stepLen = len/steps, a = ang;
+    for(var k=0;k<=steps;k++){
+      var t = k/steps;
+      a += (rnd()-0.5)*0.04;
+      x += Math.cos(a)*stepLen;
+      y += Math.sin(a)*stepLen;
+      if(x < -rad || y < -rad || x > W+rad || y > H+rad) continue;
+      var taper = Math.min(1, 5*Math.min(t, 1-t));
+      var jit = 0.5 + 0.5*(0.5 + 0.5*noise(x*0.28 + 17.3, y*0.28 - 5.1));
+      stamp(h, weight, W, H, x, y, rad, depth*taper*jit, false);
+    }
+  }
+}
+
+function carvePits(h, weight, rnd){
+  if(P.pitN <= 0 || P.pitD <= 0) return;
+  var W = S.W, H = S.H, mmc = S.mmPerCell;
+  var areaCm2 = (W*mmc/10) * (H*mmc/10);
+  var n = Math.min(200000, Math.round(P.pitN * areaCm2));
+  for(var i=0;i<n;i++){
+    var x = rnd()*W, y = rnd()*H;
+    var rad = Math.max(0.55, (P.pitR*(0.3 + 1.5*rnd())*0.5) / mmc);
+    var depth = P.pitD * (0.25 + 0.9*rnd());
+    stamp(h, weight, W, H, x, y, rad, depth, true);
+  }
+}
+
+function carveCracks(h, weight, rnd){
+  var n = Math.round(P.crkN);
+  if(!n || P.crkD <= 0) return;
+  var W = S.W, H = S.H, mmc = S.mmPerCell;
+  var diag = Math.hypot(W,H);
+  var queue = [], i;
+  for(i=0;i<n;i++){
+    queue.push({ x: rnd()*W, y: rnd()*H, a: rnd()*Math.PI*2,
+                 len: diag*(0.15 + 0.7*rnd()), w: 0.16 + 0.3*rnd(), d: P.crkD*(0.55+0.55*rnd()), gen:0 });
+  }
+  var guard = 0;
+  while(queue.length && guard++ < 400){
+    var c = queue.shift();
+    var rad = Math.max(0.5, (c.w*0.5)/mmc);
+    var steps = Math.max(2, Math.ceil(c.len/0.7));
+    var x = c.x, y = c.y, a = c.a;
+    for(var k=0;k<=steps;k++){
+      var t = k/steps;
+      a += (rnd()-0.5)*0.55;
+      x += Math.cos(a)*0.7;
+      y += Math.sin(a)*0.7;
+      if(x < 0 || y < 0 || x >= W || y >= H) break;
+      var taper = Math.min(1, 6*(1-t));
+      stamp(h, weight, W, H, x, y, rad*(0.6+0.7*(1-t)), c.d*taper, false);
+      if(c.gen < 2 && rnd() < 0.006 && queue.length < 120){
+        queue.push({ x:x, y:y, a: a + (rnd() < 0.5 ? 0.7 : -0.7), len: c.len*0.45*(0.4+rnd()),
+                     w: c.w*0.7, d: c.d*0.75, gen: c.gen+1 });
+      }
+    }
+  }
+}
+
+/* Cut-outs: drop dangling single cells, and close diagonal-only joins so the
+   mesh stays manifold (a corner-touching pair shares an edge with four faces). */
+function despurAndFixDiagonals(present, W, H){
+  var x, y, i, pass;
+  for(pass=0; pass<2; pass++){
+    var drop = [];
+    for(y=0;y<H;y++) for(x=0;x<W;x++){
+      i = y*W+x;
+      if(!present[i]) continue;
+      var nb = (x>0 && present[i-1]) + (x<W-1 && present[i+1]) +
+               (y>0 && present[i-W]) + (y<H-1 && present[i+W]);
+      if(nb === 0) drop.push(i);
+    }
+    if(!drop.length) break;
+    for(i=0;i<drop.length;i++) present[drop[i]] = 0;
+  }
+  for(pass=0; pass<4; pass++){
+    var added = 0;
+    for(y=0;y<H-1;y++) for(x=0;x<W-1;x++){
+      var a = present[y*W+x], b = present[y*W+x+1], c = present[(y+1)*W+x], d = present[(y+1)*W+x+1];
+      if(a && d && !b && !c){ present[y*W+x+1] = 1; added++; }
+      else if(b && c && !a && !d){ present[y*W+x] = 1; added++; }
+    }
+    if(!added) break;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Mesh: height field -> watertight triangle soup (Z up, millimetres)
+ * ------------------------------------------------------------------ */
+function buildMesh(){
+  var W = S.W, H = S.H, hgt = S.hgt, present = S.present, mmc = S.mmPerCell;
+  var VW = W+1, VH = H+1;
+  var vh = new Float32Array(VW*VH), vc = new Uint8Array(VW*VH);
+  var x, y, i, vi;
+
+  for(y=0;y<H;y++) for(x=0;x<W;x++){
+    i = y*W+x;
+    if(!present[i]) continue;
+    var h = hgt[i];
+    vi = y*VW+x;       vh[vi] += h; vc[vi]++;
+    vi = y*VW+x+1;     vh[vi] += h; vc[vi]++;
+    vi = (y+1)*VW+x;   vh[vi] += h; vc[vi]++;
+    vi = (y+1)*VW+x+1; vh[vi] += h; vc[vi]++;
+  }
+  for(i=0;i<vh.length;i++) if(vc[i] > 1) vh[i] /= vc[i];
+
+  var plate = P.style !== 'cutout';
+  var cells = 0, walls = 0;
+  for(y=0;y<H;y++) for(x=0;x<W;x++){
+    i = y*W+x;
+    if(!present[i]) continue;
+    cells++;
+    if(x === 0     || !present[i-1]) walls++;
+    if(x === W-1   || !present[i+1]) walls++;
+    if(y === 0     || !present[i-W]) walls++;
+    if(y === H-1   || !present[i+W]) walls++;
+  }
+  if(!cells){ S.tris = new Float32Array(0); S.triCount = 0; S.islands = 0; S.maxZ = 0; return; }
+
+  var triCount = 2*cells + (plate ? 2*(W+H) : 2*cells) + 2*walls;
+  var t = new Float32Array(triCount*9);
+  var n = 0;
+  function tri(ax,ay,az,bx,by,bz,cx,cy,cz){
+    t[n]=ax; t[n+1]=ay; t[n+2]=az;
+    t[n+3]=bx; t[n+4]=by; t[n+5]=bz;
+    t[n+6]=cx; t[n+7]=cy; t[n+8]=cz;
+    n += 9;
+  }
+  var ox = W/2, oy = H/2;
+  function VX(ix){ return (ix - ox)*mmc; }
+  function VY(iy){ return (oy - iy)*mmc; }
+
+  /* Vertical wall between the two top points P and Q, hanging down to z = 0.
+     P -> Q is ordered so the outward normal points away from the solid. */
+  function wall(px,py,pz, qx,qy,qz){
+    tri(px,py,0, qx,qy,0, qx,qy,qz);
+    tri(px,py,0, qx,qy,qz, px,py,pz);
+  }
+
+  var maxZ = 0;
+  for(y=0;y<H;y++){
+    var yA = VY(y), yC = VY(y+1);
+    for(x=0;x<W;x++){
+      i = y*W+x;
+      if(!present[i]) continue;
+      var xA = VX(x), xB = VX(x+1);
+      var zA = vh[y*VW+x], zB = vh[y*VW+x+1], zC = vh[(y+1)*VW+x], zD = vh[(y+1)*VW+x+1];
+      if(zA > maxZ) maxZ = zA;
+      if(zD > maxZ) maxZ = zD;
+
+      /* top, wound counter-clockwise seen from +Z */
+      tri(xA,yA,zA, xA,yC,zC, xB,yC,zD);
+      tri(xA,yA,zA, xB,yC,zD, xB,yA,zB);
+
+      if(!plate){
+        tri(xA,yA,0, xB,yC,0, xA,yC,0);
+        tri(xA,yA,0, xB,yA,0, xB,yC,0);
+      }
+
+      if(x === 0   || !present[i-1]) wall(xA,yA,zA, xA,yC,zC);   /* -X face */
+      if(x === W-1 || !present[i+1]) wall(xB,yC,zD, xB,yA,zB);   /* +X face */
+      if(y === 0   || !present[i-W]) wall(xB,yA,zB, xA,yA,zA);   /* +Y face */
+      if(y === H-1 || !present[i+W]) wall(xA,yC,zC, xB,yC,zD);   /* -Y face */
+    }
+  }
+
+  if(plate){
+    /* One flat bottom, fanned across the same boundary vertices the walls use —
+       a single big quad would leave T-junctions where every wall segment lands.
+       Fanned from the centre so no facet comes out degenerate. */
+    var bnd = [], ix, iy;
+    for(ix=0;ix<W;ix++) bnd.push(ix, H);
+    for(iy=H;iy>0;iy--) bnd.push(W, iy);
+    for(ix=W;ix>0;ix--) bnd.push(ix, 0);
+    for(iy=0;iy<H;iy++) bnd.push(0, iy);
+    var m = bnd.length/2;
+    for(var b=0;b<m;b++){
+      var c1 = ((b+1) % m)*2;
+      tri(0, 0, 0,
+          VX(bnd[c1]),  VY(bnd[c1+1]),  0,
+          VX(bnd[b*2]), VY(bnd[b*2+1]), 0);
+    }
+  }
+
+  S.tris = t;
+  S.triCount = n/9;
+  S.maxZ = maxZ;
+  S.islands = plate ? 1 : countIslands(present, W, H);
+}
+
+function countIslands(present, W, H){
+  var seen = new Uint8Array(W*H), stack = new Int32Array(W*H), count = 0, i;
+  for(i=0;i<present.length;i++){
+    if(!present[i] || seen[i]) continue;
+    count++;
+    if(count > 999) return count;
+    var sp = 0;
+    stack[sp++] = i; seen[i] = 1;
+    while(sp){
+      var c = stack[--sp], x = c % W, y = (c/W)|0;
+      if(x>0   && present[c-1] && !seen[c-1]){ seen[c-1]=1; stack[sp++]=c-1; }
+      if(x<W-1 && present[c+1] && !seen[c+1]){ seen[c+1]=1; stack[sp++]=c+1; }
+      if(y>0   && present[c-W] && !seen[c-W]){ seen[c-W]=1; stack[sp++]=c-W; }
+      if(y<H-1 && present[c+W] && !seen[c+W]){ seen[c+W]=1; stack[sp++]=c+W; }
+    }
+  }
+  return count;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Binary STL
+ * ------------------------------------------------------------------ */
+function buildSTL(){
+  var t = S.tris, n = S.triCount;
+  var buf = new ArrayBuffer(84 + n*50), dv = new DataView(buf);
+  var header = 'Binary STL - DEX Image to STL - ' + new Date().toISOString().slice(0,10);
+  for(var c=0;c<80;c++) dv.setUint8(c, c < header.length ? header.charCodeAt(c) & 0x7f : 0x20);
+  dv.setUint32(80, n, true);
+  var o = 84;
+  for(var i=0;i<n;i++){
+    var k = i*9;
+    var ax=t[k], ay=t[k+1], az=t[k+2], bx=t[k+3], by=t[k+4], bz=t[k+5], cx=t[k+6], cy=t[k+7], cz=t[k+8];
+    var ux=bx-ax, uy=by-ay, uz=bz-az, vx=cx-ax, vy=cy-ay, vz=cz-az;
+    var nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+    var len=Math.sqrt(nx*nx+ny*ny+nz*nz) || 1;
+    dv.setFloat32(o, nx/len, true); dv.setFloat32(o+4, ny/len, true); dv.setFloat32(o+8, nz/len, true);
+    dv.setFloat32(o+12, ax, true); dv.setFloat32(o+16, ay, true); dv.setFloat32(o+20, az, true);
+    dv.setFloat32(o+24, bx, true); dv.setFloat32(o+28, by, true); dv.setFloat32(o+32, bz, true);
+    dv.setFloat32(o+36, cx, true); dv.setFloat32(o+40, cy, true); dv.setFloat32(o+44, cz, true);
+    dv.setUint16(o+48, 0, true);
+    o += 50;
+  }
+  return new Blob([buf], { type:'model/stl' });
+}
+
+function download(blob, name){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+
+/* ------------------------------------------------------------------ *
+ *  3D preview
+ * ------------------------------------------------------------------ */
+var V = { ok:false, dirty:true, az:-1.07, el:0.82, dist:180, spin:false, mesh:null, grid:null };
+
+function initThree(){
+  if(typeof THREE === 'undefined') return false;
+  var canvas = $('glCanvas');
+  try {
+    V.renderer = new THREE.WebGLRenderer({ canvas:canvas, antialias:true });
+  } catch(e){ return false; }
+  V.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  V.scene = new THREE.Scene();
+  V.scene.background = new THREE.Color(0x1a1917);
+  V.camera = new THREE.PerspectiveCamera(38, 1, 0.5, 8000);
+  V.camera.up.set(0,0,1);
+
+  V.scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2621, 0.55));
+  var d1 = new THREE.DirectionalLight(0xfff4e6, 0.85); d1.position.set(0.7,-1.1,1.4); V.scene.add(d1);
+  var d2 = new THREE.DirectionalLight(0xdce8ff, 0.35); d2.position.set(-1.1,0.9,0.6); V.scene.add(d2);
+  var d3 = new THREE.DirectionalLight(0xffffff, 0.18); d3.position.set(0.2,1.2,-0.8); V.scene.add(d3);
+
+  V.material = new THREE.MeshStandardMaterial({ color:0xd8d3cb, roughness:0.82, metalness:0.02, flatShading:true });
+  V.wireMat = new THREE.MeshBasicMaterial({ color:0x8a8378, wireframe:true });
+  V.ok = true;
+  bindOrbit();
+  resizeThree();
+  requestAnimationFrame(tick);
+  return true;
+}
+
+function makeGrid(w,h){
+  if(V.grid){ V.scene.remove(V.grid); V.grid.geometry.dispose(); V.grid.material.dispose(); V.grid = null; }
+  var span = Math.max(w,h) * 1.5;
+  var step = 10;
+  var lines = Math.ceil(span/step/2)*2;
+  var g = new THREE.GridHelper(lines*step, lines, 0x4a453d, 0x332f2a);
+  g.rotation.x = Math.PI/2;
+  g.position.z = -0.02;
+  V.grid = g;
+  V.scene.add(g);
+}
+
+function updatePreview(){
+  if(!V.ok) return;
+  if(V.mesh){ V.scene.remove(V.mesh); V.mesh.geometry.dispose(); V.mesh = null; }
+  if(!S.triCount) { V.dirty = true; return; }
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(S.tris, 3));
+  geo.computeVertexNormals();
+  V.mesh = new THREE.Mesh(geo, $('wire').checked ? V.wireMat : V.material);
+  V.scene.add(V.mesh);
+  makeGrid(S.W*S.mmPerCell, S.H*S.mmPerCell);
+  V.dirty = true;
+}
+
+function fitView(){
+  if(!V.ok || !S.W) return;
+  var w = S.W*S.mmPerCell, h = S.H*S.mmPerCell;
+  var r = 0.5*Math.hypot(w,h) + (S.maxZ||2);
+  V.dist = r / Math.tan(V.camera.fov*Math.PI/360) * 1.25;
+  V.az = -1.07; V.el = 0.82;
+  V.dirty = true;
+}
+
+function resizeThree(){
+  if(!V.ok) return;
+  var wrap = $('viewwrap');
+  var w = wrap.clientWidth || 640, h = wrap.clientHeight || 420;
+  V.renderer.setSize(w, h, false);
+  V.camera.aspect = w/h;
+  V.camera.updateProjectionMatrix();
+  V.dirty = true;
+}
+
+function tick(){
+  requestAnimationFrame(tick);
+  if(!V.ok) return;
+  if(V.spin){ V.az += 0.005; V.dirty = true; }
+  if(!V.dirty) return;
+  V.dirty = false;
+  var ce = Math.cos(V.el), se = Math.sin(V.el);
+  var cz = (S.maxZ || 2)*0.35;
+  V.camera.position.set(V.dist*ce*Math.cos(V.az), V.dist*ce*Math.sin(V.az), V.dist*se + cz);
+  V.camera.lookAt(0,0,cz);
+  V.renderer.render(V.scene, V.camera);
+}
+
+function bindOrbit(){
+  var wrap = $('viewwrap'), pointers = new Map(), lastPinch = 0;
+  wrap.addEventListener('pointerdown', function(e){
+    if(e.target.closest && e.target.closest('.drop') && !S.src) return;
+    wrap.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  });
+  wrap.addEventListener('pointermove', function(e){
+    var prev = pointers.get(e.pointerId);
+    if(!prev) return;
+    var dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+    pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if(pointers.size === 2){
+      var pts = Array.from(pointers.values());
+      var d = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      if(lastPinch) V.dist = clamp(V.dist * lastPinch/d, 8, 6000);
+      lastPinch = d;
+      V.dirty = true;
+      return;
+    }
+    V.az -= dx*0.008;
+    V.el = clamp(V.el - dy*0.008, -1.45, 1.45);
+    V.dirty = true;
+  });
+  function end(e){ pointers.delete(e.pointerId); if(pointers.size < 2) lastPinch = 0; }
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('wheel', function(e){
+    e.preventDefault();
+    V.dist = clamp(V.dist * Math.exp(e.deltaY*0.0012), 8, 6000);
+    V.dirty = true;
+  }, { passive:false });
+}
+
+/* ------------------------------------------------------------------ *
+ *  Height-map view (also what the PNG export draws)
+ * ------------------------------------------------------------------ */
+function shadeField(){
+  var W = S.W, H = S.H, hgt = S.hgt, present = S.present, mmc = S.mmPerCell;
+  var img = new ImageData(W,H), d = img.data;
+  var lx = -0.55, ly = 0.62, lz = 0.56;
+  var ln = Math.sqrt(lx*lx+ly*ly+lz*lz); lx/=ln; ly/=ln; lz/=ln;
+  var lo = Infinity, hi = -Infinity, i;
+  for(i=0;i<hgt.length;i++){ if(!present[i]) continue; if(hgt[i]<lo) lo=hgt[i]; if(hgt[i]>hi) hi=hgt[i]; }
+  if(!isFinite(lo)){ lo = 0; hi = 1; }
+  if(hi-lo < 1e-6) hi = lo + 1e-6;
+  for(var y=0;y<H;y++) for(var x=0;x<W;x++){
+    i = y*W+x;
+    var k = i*4;
+    if(!present[i]){ d[k]=22; d[k+1]=21; d[k+2]=19; d[k+3]=255; continue; }
+    var xm = x>0 ? x-1 : x, xp = x<W-1 ? x+1 : x;
+    var ym = y>0 ? y-1 : y, yp = y<H-1 ? y+1 : y;
+    var dzdx = (hgt[y*W+xp] - hgt[y*W+xm]) / ((xp-xm)*mmc || mmc);
+    var dzdy = (hgt[yp*W+x] - hgt[ym*W+x]) / ((yp-ym)*mmc || mmc);
+    var nx = -dzdx, ny = dzdy, nz = 1;
+    var nl = Math.sqrt(nx*nx+ny*ny+1);
+    var diff = Math.max(0, (nx*lx + ny*ly + nz*lz)/nl);
+    var t = (hgt[i]-lo)/(hi-lo);
+    var v = clamp((0.20 + 0.80*Math.pow(diff,1.1)) * (0.62 + 0.38*t), 0, 1);
+    d[k]   = Math.round(232*v);
+    d[k+1] = Math.round(226*v);
+    d[k+2] = Math.round(214*v);
+    d[k+3] = 255;
+  }
+  var c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.getContext('2d').putImageData(img, 0, 0);
+  return c;
+}
+
+function drawMap(){
+  var cv = $('mapCanvas'), wrap = $('viewwrap');
+  var dpr = Math.min(2, window.devicePixelRatio || 1);
+  var w = wrap.clientWidth || 640, h = wrap.clientHeight || 420;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  var g = cv.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.fillStyle = '#1a1917';
+  g.fillRect(0,0,w,h);
+  if(!S.hgt) return;
+  var shaded = shadeField();
+  var pad = 22;
+  var scale = Math.min((w-2*pad)/shaded.width, (h-2*pad)/shaded.height);
+  var dw = shaded.width*scale, dh = shaded.height*scale;
+  g.imageSmoothingEnabled = true;
+  g.drawImage(shaded, (w-dw)/2, (h-dh)/2, dw, dh);
+}
+
+function heightPNG(){
+  var W = S.W, H = S.H, hgt = S.hgt, present = S.present;
+  var img = new ImageData(W,H), d = img.data, i;
+  var hi = 0;
+  for(i=0;i<hgt.length;i++) if(present[i] && hgt[i] > hi) hi = hgt[i];
+  if(hi <= 0) hi = 1;
+  for(i=0;i<hgt.length;i++){
+    var v = present[i] ? Math.round(255*clamp(hgt[i]/hi,0,1)) : 0;
+    d[i*4] = d[i*4+1] = d[i*4+2] = v;
+    d[i*4+3] = 255;
+  }
+  var c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.getContext('2d').putImageData(img,0,0);
+  return c;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Pipeline
+ * ------------------------------------------------------------------ */
+var pending = 0, working = false;
+
+function schedule(){
+  if(!S.src) return;
+  $('badge').hidden = false;
+  $('badge').textContent = 'Working…';
+  clearTimeout(pending);
+  pending = setTimeout(function(){
+    requestAnimationFrame(recompute);
+  }, 110);
+}
+
+function recompute(){
+  if(!S.src || working) return;
+  working = true;
+  var t0 = performance.now();
+  try {
+    readParams();
+    if(!sampleGrid()) return;
+    buildCoverage();
+    buildHeights();
+    buildMesh();
+    updatePreview();
+    if($('viewwrap').dataset.view === 'map') drawMap();
+    updateStatus(performance.now() - t0);
+  } catch(err){
+    console.error(err);
+    toast('Something went wrong building the model.');
+  } finally {
+    working = false;
+    $('badge').hidden = true;
+  }
+}
+
+function fmtInt(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+
+function updateStatus(ms){
+  var w = S.W*S.mmPerCell, h = S.H*S.mmPerCell;
+  $('stSize').textContent = w.toFixed(1) + ' × ' + h.toFixed(1) + ' × ' + (S.maxZ||0).toFixed(2) + ' mm';
+  $('stGrid').textContent = S.W + ' × ' + S.H + ' · ' + S.mmPerCell.toFixed(3) + ' mm/cell';
+  $('stTris').textContent = fmtInt(S.triCount);
+  var bytes = 84 + S.triCount*50;
+  $('stBytes').textContent = bytes > 1048576 ? (bytes/1048576).toFixed(1) + ' MB' : Math.round(bytes/1024) + ' kB';
+
+  var warn = [];
+  if(!S.triCount) warn.push('Nothing solid at this threshold — try the other positive colour.');
+  if(P.style === 'cutout' && S.islands > 1) warn.push(S.islands + ' separate pieces');
+  if(P.style === 'plate' && P.reliefMM < 0.4) warn.push('relief under 0.4 mm may vanish in slicing');
+  if(S.triCount > 1200000) warn.push('very heavy mesh — lower the resolution');
+  if(S.mmPerCell > 0.8) warn.push('coarse grid (' + S.mmPerCell.toFixed(2) + ' mm/cell)');
+  $('stWarn').textContent = warn.join(' · ');
+  $('btnSTL').disabled = !S.triCount;
+  $('btnPNG').disabled = !S.triCount;
+  if(ms > 900) console.log('build took', Math.round(ms), 'ms');
+}
+
+/* ------------------------------------------------------------------ *
+ *  Loading images
+ * ------------------------------------------------------------------ */
+function setSource(canvas, label){
+  S.src = canvas;
+  $('drop').classList.add('hide');
+  $('srcInfo').textContent = label + ' · ' + canvas.width + ' × ' + canvas.height + ' px';
+  readParams();
+  sampleGrid();
+  $('thresh').value = String(clamp(otsu(), 2, 253));
+  recompute();
+  fitView();
+}
+
+function loadImageSrc(src, label){
+  var img = new Image();
+  img.onload = function(){
+    var max = 2000;
+    var k = Math.min(1, max/Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+    var c = document.createElement('canvas');
+    c.width = Math.max(2, Math.round((img.naturalWidth || img.width)*k));
+    c.height = Math.max(2, Math.round((img.naturalHeight || img.height)*k));
+    var g = c.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.drawImage(img, 0, 0, c.width, c.height);
+    setSource(c, label);
+  };
+  img.onerror = function(){ toast('That image could not be opened.'); };
+  img.src = src;
+}
+
+function loadFile(file){
+  if(!file || !/^image\//.test(file.type)){ toast('Please choose an image file.'); return; }
+  var r = new FileReader();
+  r.onload = function(){ loadImageSrc(r.result, file.name); };
+  r.onerror = function(){ toast('That file could not be read.'); };
+  r.readAsDataURL(file);
+}
+
+function demoImage(){
+  var c = document.createElement('canvas');
+  c.width = 1000; c.height = 620;
+  var g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height);
+  g.fillStyle = '#000';
+  g.strokeStyle = '#000';
+  g.lineWidth = 26;
+  g.beginPath(); g.arc(500, 300, 210, 0, Math.PI*2); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '700 190px Helvetica, Arial, sans-serif';
+  g.fillText('DEX', 500, 268);
+  g.font = '600 46px Helvetica, Arial, sans-serif';
+  g.fillText('2DPHYS', 500, 372);
+  g.fillRect(300, 520, 400, 22);
+  setSource(c, 'Demo artwork');
+}
+
+function toast(msg){
+  var el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ el.classList.remove('show'); }, 2600);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Wiring
+ * ------------------------------------------------------------------ */
+function syncStyleUI(){
+  var cutout = segValue('segStyle') === 'cutout';
+  $('reliefWrap').style.display = cutout ? 'none' : '';
+  $('dirWrap').classList.toggle('disabled-block', cutout);
+  $('baseLabel').textContent = cutout ? 'Thickness' : 'Base thickness';
+  $('texBg').parentNode.style.display = cutout ? 'none' : '';
+  $('texBgHint').style.display = cutout ? 'none' : '';
+  $('styleHint').textContent = cutout
+    ? 'Only the artwork itself, cut out as a flat part with no backing plate.'
+    : 'A solid rectangular plate with the artwork standing proud of it.';
+}
+
+function markPreset(name){
+  var chips = $('presets').querySelectorAll('.chip');
+  for(var i=0;i<chips.length;i++) chips[i].setAttribute('aria-pressed', String(chips[i].dataset.preset === name));
+}
+
+function applyPreset(name){
+  var pr = PRESETS[name];
+  if(!pr) return;
+  for(var id in pr){ if($(id)) $(id).value = String(pr[id]); }
+  markPreset(name);
+  readParams();
+  schedule();
+}
+
+function captureDefaults(){
+  for(var id in SLIDERS) DEFAULTS.sliders[id] = $(id).value;
+  for(var i=0;i<CHECKS.length;i++) DEFAULTS.checks[CHECKS[i]] = $(CHECKS[i]).checked;
+  for(var k in SEGS) DEFAULTS.segs[k] = segValue(SEGS[k]);
+  DEFAULTS.seed = $('seed').value;
+}
+
+function resetSettings(){
+  for(var id in DEFAULTS.sliders) $(id).value = DEFAULTS.sliders[id];
+  for(var c in DEFAULTS.checks) $(c).checked = DEFAULTS.checks[c];
+  for(var k in DEFAULTS.segs) setSeg(SEGS[k], DEFAULTS.segs[k]);
+  $('seed').value = DEFAULTS.seed;
+  markPreset(null);
+  syncStyleUI();
+  readParams();
+  if(S.src){ $('thresh').value = String(clamp(otsu(), 2, 253)); recompute(); fitView(); }
+}
+
+function bindUI(){
+  var id;
+  for(id in SLIDERS){
+    $(id).addEventListener('input', function(){ readParams(); markPreset(null); schedule(); });
+  }
+  for(var i=0;i<CHECKS.length;i++) $(CHECKS[i]).addEventListener('change', function(){ readParams(); schedule(); });
+  $('seed').addEventListener('input', function(){ readParams(); schedule(); });
+
+  Object.keys(SEGS).forEach(function(key){
+    $(SEGS[key]).addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if(!b) return;
+      setSeg(SEGS[key], b.dataset.val);
+      syncStyleUI();
+      readParams();
+      schedule();
+    });
+  });
+
+  $('presets').addEventListener('click', function(e){
+    var b = e.target.closest('.chip');
+    if(b) applyPreset(b.dataset.preset);
+  });
+
+  $('btnReroll').addEventListener('click', function(){
+    $('seed').value = String(1 + Math.floor(Math.random()*999998));
+    readParams();
+    schedule();
+  });
+
+  $('btnOtsu').addEventListener('click', function(){
+    if(!S.src){ toast('Load an image first.'); return; }
+    readParams();
+    sampleGrid();
+    $('thresh').value = String(clamp(otsu(), 2, 253));
+    readParams();
+    recompute();
+  });
+
+  $('btnReset').addEventListener('click', resetSettings);
+  $('btnFile').addEventListener('click', function(){ $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function(e){ loadFile(e.target.files[0]); e.target.value = ''; });
+  $('btnDemo').addEventListener('click', demoImage);
+
+  $('btnSTL').addEventListener('click', function(){
+    if(!S.triCount) return;
+    download(buildSTL(), 'relief-' + S.W + 'x' + S.H + '-seed' + P.seed + '.stl');
+    toast('STL saved — ' + fmtInt(S.triCount) + ' triangles');
+  });
+  $('btnPNG').addEventListener('click', function(){
+    if(!S.hgt) return;
+    heightPNG().toBlob(function(b){ download(b, 'heightmap-' + S.W + 'x' + S.H + '.png'); });
+  });
+
+  $('tabThree').addEventListener('click', function(){ setView('three'); });
+  $('tabMap').addEventListener('click', function(){ setView('map'); });
+  $('btnFit').addEventListener('click', fitView);
+  $('spin').addEventListener('change', function(){ V.spin = this.checked; V.dirty = true; });
+  $('wire').addEventListener('change', function(){
+    if(V.mesh) V.mesh.material = this.checked ? V.wireMat : V.material;
+    V.dirty = true;
+  });
+
+  var wrap = $('viewwrap');
+  ['dragenter','dragover'].forEach(function(ev){
+    wrap.addEventListener(ev, function(e){ e.preventDefault(); wrap.classList.add('over'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    wrap.addEventListener(ev, function(e){ e.preventDefault(); wrap.classList.remove('over'); });
+  });
+  wrap.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) loadFile(f);
+  });
+  window.addEventListener('paste', function(e){
+    var items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image') === 0){ loadFile(items[i].getAsFile()); break; }
+    }
+  });
+
+  window.addEventListener('resize', function(){
+    resizeThree();
+    if($('viewwrap').dataset.view === 'map') drawMap();
+  });
+}
+
+function setView(v){
+  $('viewwrap').dataset.view = v;
+  $('tabThree').setAttribute('aria-pressed', String(v === 'three'));
+  $('tabMap').setAttribute('aria-pressed', String(v === 'map'));
+  if(v === 'map') drawMap(); else { resizeThree(); V.dirty = true; }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Start
+ * ------------------------------------------------------------------ */
+captureDefaults();
+syncStyleUI();
+readParams();
+bindUI();
+if(!initThree()){
+  $('drop').innerHTML = '<h3>3D preview unavailable</h3>' +
+    '<p>WebGL or the three.js library could not be loaded, so the spinning preview is off. ' +
+    'Everything else — including the height map and the STL export — still works.</p>';
+  $('tabThree').disabled = true;
+  setView('map');
+}
+$('badge').hidden = true;
+})();
+</script>
+</body>
+</html>

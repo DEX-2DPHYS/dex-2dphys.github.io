@@ -61,6 +61,7 @@
     "graphene-md",
     "moire-disorder",
     "graphene-antidot-lattice",
-    "ebl-spot-size"
+    "ebl-spot-size",
+    "image-to-stl"
   ]
 }
