@@ -79,3 +79,22 @@ gap draws as 10 A.
 materials: what the toy model gets right, what LAMMPS adds, how the pressure is
 actually implemented and where that approximation bites, and a fully commented
 LAMMPS deck as an appendix. The LaTeX source is beside it.
+
+## A warning about paths
+
+These are working research scripts, published as they were run. Several of them
+have the author's own directories baked in - output folders in the `analysis/`
+scripts and the `run-*.sh` drivers, and a venv path in
+`2d-materials/graphene-md/ml/start-ml-server.bat`. Expect to edit those before
+running anything.
+
+The one that matters for building is already parameterised:
+`graphene-md/CMakeLists.txt` takes `LAMMPS_ROOT` as a cache variable, so point
+it at your own tree:
+
+```
+cmake -B build -S . -D LAMMPS_ROOT=/path/to/your/lammps
+```
+
+The default it falls back to is the machine this was developed on, and will not
+exist on yours.
