@@ -45,7 +45,7 @@ To add a new label, add an entry to `labels`; tools reference it by `id`.
 | `description` | string   | One or two sentences shown on the card.                              |
 | `status`      | string   | `"coming-soon"` or `"live"`. `live` cards link to `url`.             |
 | `url`         | string   | Link to the tool (e.g. `"tools/transim/"`). Leave `""` while coming soon. |
-| `icon`        | string   | Icon key from the set in `index.html` (`transport`, `device`, `chart`, `atom`, `book`, `more`). Unknown keys fall back to a default. |
+| `icon`        | string   | Icon key from the set in `index.html` (`transport`, `device`, `chart`, `atom`, `book`, `moon`, `cube`, `more`). Unknown keys fall back to a default. |
 | `tags`        | string[] | Label `id`s from `manifest.json`. A tool may have several.            |
 
 ### Tags / labels
