@@ -337,8 +337,50 @@ as the reference it needs to be.
 Neither would have been caught by "is it faster" or "is it close enough". They
 were caught by asserting that refinement must *help*.
 
-The UI is a placeholder by design — phase 6 consolidates it. Drive the plugin
-from the probes until then.
+**Phase 6 is DONE** (2026-09-02). The panel IS graphene-md's, not a new one.
+
+The first attempt wrote a fresh 2-D canvas panel and it looked nothing like the
+plugin it replaces — graphene-md draws with three.js (perspective camera,
+lights, instanced spheres, bond lines). So the second attempt takes that file
+wholesale and changes only what FEEDS the renderer:
+
+    S.top   <- every mobile layer, concatenated
+    S.sub   <- layer 0, the rigid substrate
+    S.bonds <- derived in the page, since 2DM1 carries no topology
+
+Added: the stack controls (live sheets, above-substrate), both epsilons, the
+tabulated-substrate switch and its grid, the gas model and gap selectors,
+registry-per-cell. 106 controls in all.
+
+**Controls grey out when an engine or model cannot honour them** — the
+capability table from this document, made visible. Under LAMMPS the Morse
+parameters go grey (AIREBO owns the sheets' chemistry) while the substrate's
+epsilon stays live, because the substrate is the plugin's own LJ in both
+engines. The open-loop gas greys the temperature (there is no N). One sheet
+greys the interlayer epsilon. A control that lies is worse than one that is
+absent.
+
+**Registry is averaged per Bravais CELL**, which fixes the known limitation:
+per-atom colouring laid the honeycomb's two-sublattice checkerboard over the
+moire and swamped it. The beat was always in the data; only this makes it
+legible.
+
+The bug worth remembering: after `setupMeshes()` replaces the instanced meshes,
+every atom sits at the origin until something writes the matrices. 6724 spheres
+in one clump renders as a dot, which reads as "nothing drawn at all" — the data,
+the meshes, the camera and the materials were all fine. Diagnosed by reading the
+instance matrix rather than by looking at the picture.
+
+## What is NOT done
+
+**Phase 7 (exporter)**: `src/dmexport.h` is written — a stock LAMMPS deck for N
+layers, with the substrate as real frozen atoms since a standalone deck has no
+callback — but it is NOT wired into the plugin and NOT tested. `lmp.exe` is
+present at `C:/Users/pbog/b/lammps/build/lmp.exe`, so the right acceptance is to
+RUN the exported deck and compare, not merely to read it.
+
+**Phase 8 (acceptance and retiring)**: not run. The three old plugins stay.
+
 
 ## Order of work
 
