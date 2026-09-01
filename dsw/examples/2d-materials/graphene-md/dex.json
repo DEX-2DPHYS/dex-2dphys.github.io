@@ -1,0 +1,6 @@
+{
+  "name": "2D Materials Molecular Dynamics",
+  "description": "A bilayer 2D-materials MD sandbox — graphene, hBN, MoS₂, WS₂, MoTe₂ or WTe₂. The top sheet is live molecular dynamics on real published potentials (AIREBO, ExTeP, REBO-MoS₂, Stillinger–Weber via an embedded LAMMPS; or the fast Morse toy model for graphene), resting on a rigid substrate through Lennard-Jones forces. Push mesas, Gaussian bumps or Hencky gas blisters up through the sheet and watch it drape, wrinkle and tear.",
+  "accent": "#4aa3ff",
+  "version": "1.2"
+}

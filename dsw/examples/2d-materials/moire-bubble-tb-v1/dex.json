@@ -1,0 +1,6 @@
+{
+  "name": "Moire Bubbles (twisted bubble v1)",
+  "description": "The twisted-bubble study set: a 2 deg twisted bilayer with a fixed-N gas pocket and a free peel front, preset for the two placements that differ only in where the gas sits - BETWEEN the layers, and BELOW the whole bilayer. Same physics as Moire Bubbles in Bilayers; this copy carries the exact settings used for the comparison figures.",
+  "accent": "#8a4fbd",
+  "version": "1.0"
+}

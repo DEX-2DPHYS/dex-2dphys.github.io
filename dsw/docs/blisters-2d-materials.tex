@@ -1,0 +1,756 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=24mm]{geometry}
+\usepackage{graphicx,booktabs,amsmath,amssymb,microtype}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,columns=fullflexible,
+        frame=single,framesep=4pt,showstringspaces=false,
+        numbers=left,numberstyle=\tiny\color{gray},xleftmargin=16pt}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+\newcommand{\ED}{E_{2\mathrm{D}}}
+
+\title{\textbf{Blisters, bubbles and protrusions in 2D materials}\\[2mm]
+\large A working note on toy molecular dynamics, AIREBO and LAMMPS ---\\
+what each model is, what it can be trusted for, and how to check it}
+\author{Prepared for Peter Bøggild (DTU) \\ \small Digital Science Workstation}
+\date{29 August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+This note covers three things that turned out to be one thing. First, what the
+DSW \texttt{graphene-md} toy model actually is --- Morse bonds, angular springs
+and a Lennard-Jones substrate --- and how that differs from AIREBO and from what
+LAMMPS brings. Second, the mechanics of pressurised blisters in 2D membranes,
+from the Hencky solution through the adhesion balance that Bunch and co-workers
+used to measure the adhesion energy of graphene. Third, and most usefully, a
+method for validating a fast approximate model against an expensive accurate
+one, including the ways such a validation can look convincing while proving
+nothing. All measurements quoted are from runs performed for this note.
+\end{abstract}
+
+\tableofcontents
+
+\section{The two models}
+
+\subsection{The toy model: Morse plus angular springs plus Lennard-Jones}
+
+Three ingredients, each a pair or triplet interaction with an explicit formula.
+
+\paragraph{Morse bonds.} Nearest neighbours interact through
+\begin{equation}
+U_\mathrm{M}(d) = D_e\left[\left(1-e^{-\alpha(d-r_e)}\right)^2 - 1\right],
+\end{equation}
+a spring near $r_e$ that softens and goes flat at large separation. Because it
+flattens, it can represent a bond \emph{breaking}: past a chosen extension the
+restoring force falls away. The neighbour list is fixed at build time, so the
+model knows which pairs are ``bonded'' and never discovers new ones except
+through an explicit re-forming rule.
+
+\paragraph{Angular springs.} A honeycomb held together only by central forces
+between nearest neighbours has \emph{no shear rigidity} --- it is a mechanism,
+not a solid, and it collapses. The toy model restores stiffness with harmonic
+springs to second neighbours at $\sqrt{3}\,r_e$ (equivalently, a bond-angle
+term). This is a device, not chemistry: it produces a stable lattice with
+roughly the right elastic constants and nothing more.
+
+\paragraph{Lennard-Jones substrate.} The sheet is attracted to a rigid
+substrate by a 12--6 potential, truncated at $3\sigma$. This provides adhesion,
+and it is the term that decides whether a blister stays stuck down.
+
+\paragraph{Bending.} A crude ``umbrella'' term penalising out-of-plane
+displacement of an atom relative to its neighbours. It has no LAMMPS analogue
+and is the one term the plugin's LAMMPS exporter cannot translate.
+
+\subsection{AIREBO: a bond-order potential}
+
+AIREBO is a different kind of object. Its core is REBO, a \emph{bond-order}
+potential in the Tersoff--Brenner family:
+\begin{equation}
+U = \sum_{i}\sum_{j>i}\Big[ V^{R}(r_{ij}) - b_{ij}\,V^{A}(r_{ij}) \Big],
+\end{equation}
+a repulsive term minus an attractive term whose strength $b_{ij}$ depends on
+the \emph{local environment} --- how many neighbours atom $i$ has, at what
+angles, and how their own bonding looks. That single feature is the difference
+that matters:
+
+\begin{itemize}
+\item \textbf{There is no bond list.} Bonding is recomputed from geometry every
+      step. Atoms form and break bonds because the environment changed, not
+      because a distance crossed a threshold.
+\item \textbf{Coordination is energetic.} A three-fold carbon and a two-fold
+      carbon are genuinely different, so edges, vacancies and reconstructions
+      come out of the potential rather than being imposed.
+\item \textbf{Angles are implicit.} No separate angular spring is needed; the
+      bond order carries the angular dependence.
+\end{itemize}
+
+AIREBO adds to REBO an \emph{adaptive} Lennard-Jones term (switched off between
+bonded neighbours, on between non-bonded ones, so interlayer vdW works without
+corrupting covalent bonding) and a torsional term for dihedral angles. Hence
+\textbf{A}daptive \textbf{I}ntermolecular \textbf{REBO}.
+
+The price is cost: the bond order requires neighbour-of-neighbour sums, so
+AIREBO is one to two orders of magnitude more expensive per atom-step than a
+pair potential with a fixed bond list.
+
+\subsection{What each is good for}
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lll}
+\toprule
+Question & Toy model & AIREBO \\
+\midrule
+membrane stretching, blister shape & \textbf{reliable} & reliable \\
+adhesion-driven draping, wrinkling & reliable & reliable \\
+phonons, elastic constants & reliable if fitted & reliable \\
+bending near a peel front & crude & reliable \\
+bond breaking, tearing, edges & \textbf{a distance rule, not chemistry} & reliable \\
+defects, reconstruction, chemistry & \textbf{no} & reliable \\
+speed & \textbf{25 steps/s at 233k atoms} & 9 steps/s \\
+\bottomrule
+\end{tabular}
+\caption{The split is not ``approximate vs exact'' but ``mechanics vs
+chemistry''. Where the physics is membrane mechanics, the cheap model is not an
+approximation to the expensive one --- it contains the same physics.}
+\end{table}
+
+\section{What LAMMPS adds over a toy MD}
+
+A purpose-built simulation does one thing quickly. LAMMPS is a framework, and
+the difference shows up in five places.
+
+\begin{enumerate}
+\item \textbf{A potentials library.} AIREBO, ExTeP, REBO-MoS$_2$, Stillinger--Weber,
+      ReaxFF, machine-learned potentials --- all published, parameterised and
+      tested. Writing one yourself is a research project.
+\item \textbf{Fixes as composable physics.} Thermostats and barostats, real
+      ensembles (NVE/NVT/NPT), constraints, external forces, moving boundaries,
+      bond breaking and creation. Each is a well-tested module you switch on.
+\item \textbf{Neighbour machinery.} Binning, skins, rebuild criteria, exclusion
+      lists, and the diagnostics to see when it goes wrong.
+\item \textbf{Scale.} MPI domain decomposition to thousands of cores; the toy
+      model is one shared-memory node.
+\item \textbf{Analysis.} Computes, ensemble averages, stress per atom,
+      correlation functions, dumps in formats other tools read.
+\end{enumerate}
+
+What it costs is generality overhead, and it is measurable. On the identical
+Morse system LAMMPS spent \textbf{43\,\% of its time in \texttt{Modify}} ---
+\texttt{fix move variable} evaluating an \texttt{exp()} per substrate atom per
+step --- against 38\,\% in \texttt{Pair}. On the identical AIREBO system,
+\textbf{Pair rose to 73\,\%} and Modify fell to 23\,\%. The framework overhead
+is a fixed cost that stops mattering once the potential is genuinely expensive.
+Correspondingly the plugin's speed advantage falls from $1.9\times$ on the toy
+model to $1.15\times$ on AIREBO.
+
+\section{Blister mechanics}
+
+\subsection{The Hencky solution}
+
+A clamped circular membrane of radius $a$ under uniform pressure $p$, with 2D
+modulus $\ED$, deflects at its centre by $\delta$ where
+\begin{equation}
+\frac{p\,a}{\ED} = K(\nu)\left(\frac{\delta}{a}\right)^{3},
+\qquad K \approx 3.09 \ \ (\nu = 0.16),
+\label{eq:hencky}
+\end{equation}
+with shape $w(\rho) = \delta\,(1-\rho^2)^{2/3}$, $\rho = r/a$, and enclosed
+volume
+\begin{equation}
+V = C\,\pi a^2 \delta, \qquad C \approx 0.52 .
+\end{equation}
+The cubic in $\delta$ is the signature of a \emph{membrane}: stiffness comes
+from stretching, not bending, so the structure gets stiffer as it deflects.
+
+\subsection{The adhesion balance}
+
+Blisters are not clamped --- they are stuck down, and they can peel. Integrating
+$p\,\mathrm{d}V$ at fixed $a$ using \eqref{eq:hencky} gives the stored strain
+energy as exactly one quarter of the pressure--volume work, so the potential
+energy is $\Pi = -\tfrac34 pV$. The energy release rate at the delamination
+front follows from $G = -(2\pi a)^{-1}\,\partial\Pi/\partial a$:
+\begin{equation}
+\boxed{\;G = \tfrac54\,C\,p\,\delta \;\approx\; 0.65\,p\,\delta\;}
+\label{eq:G}
+\end{equation}
+Setting $G = \Gamma$, the adhesion energy per unit area, and eliminating $p$
+with \eqref{eq:hencky}:
+\begin{equation}
+\boxed{\;\frac{\delta}{a} = \left[\frac{4\Gamma}{5\,C\,K\,\ED}\right]^{1/4}
+   \approx \left(\frac{\Gamma}{680\ \mathrm{N/m}}\right)^{1/4}\;}
+\label{eq:aspect}
+\end{equation}
+and, at that aspect ratio,
+\begin{equation}
+\boxed{\;p \;\propto\; \frac{\Gamma^{3/4}\ED^{1/4}}{a}\;}
+\end{equation}
+
+Two consequences worth internalising. The aspect ratio is
+\textbf{size-independent} --- no length appears in \eqref{eq:aspect} --- which is
+why measured graphene bubbles cluster around $\delta/a \sim 0.1$--$0.2$ across
+orders of magnitude in radius. And it depends on adhesion only as a
+\textbf{fourth root}, so a blister is a blunt instrument for measuring $\Gamma$:
+a factor of two error in $\delta/a$ is a factor of sixteen in $\Gamma$.
+
+This is the basis of the constant-$N$ blister test of Koenig, Boddeti, Dunn and
+Bunch, who used it to obtain $\Gamma = 0.45\,\mathrm{J/m^2}$ for monolayer
+graphene on SiO$_2$ and $0.31\,\mathrm{J/m^2}$ for two-to-five layers.
+
+\subsection{Constant pressure versus constant $N$}
+
+If the pressure is held fixed, inflation is unstable: the gas does unlimited
+work. If instead a \emph{fixed number of molecules} is trapped, then
+$p = Nk_BT/V$, and inflating raises $V$ and drops $p$. That negative feedback is
+what makes a blister an equilibrium object rather than a runaway.
+
+This matters for simulation, and it was the origin of a bug in ours: the
+protrusion driver applied a \emph{prescribed} pressure schedule, so the blister
+inflated without limit and was still rising when the schedule had returned the
+pressure to zero. Replacing it with a fixed-$N$ gas law, measuring $V$ from the
+sheet each step, made the pressure fall from 2492 to 557\,MPa as the blister
+grew --- the feedback appearing where before there was none.
+
+\subsection{How the pressure is actually implemented, and how far to trust it}
+\label{sec:gasreal}
+
+The gas is not simulated. It is a boundary condition, applied as follows: at
+each step the pocket volume is measured from the sheet,
+\begin{equation}
+V = \sum_{i \,:\, r_i < R} \max\!\left(z_i - z_0,\, 0\right) A_\mathrm{atom},
+\end{equation}
+the pressure is taken from the isothermal ideal gas law $p = Nk_BT/V$ at fixed
+$T = 300$\,K, and a \emph{uniform vertical} force $pA_\mathrm{atom}$ is added to
+every sheet atom inside a hard-edged disc of radius $R$. $N$ is fixed once, from
+the requested pressure at the Hencky equilibrium volume.
+
+Six approximations are buried in that paragraph, in decreasing order of how much
+they should worry you.
+
+\paragraph{1. The ideal gas law is unphysical at these pressures.} At 1\,GPa and
+300\,K, $n = p/k_BT = 241\,\mathrm{nm^{-3}}$ --- roughly \emph{fourteen times}
+the number density of liquid nitrogen. No real gas can be that dense; the
+molecules do not fit. So the ``$N$ molecules'' in the model are a bookkeeping
+device, not a physical count.
+
+What survives is the \emph{stiffness law}: the model asserts
+$p \propto V^{-1}$, i.e. $\mathrm{d}p/\mathrm{d}V = -p/V$. A real fluid at
+liquid-like density is far stiffer than that --- excluded volume makes $p$ rise
+much faster as $V$ shrinks. Our blister is therefore \textbf{too soft against
+volume change}. Practically: a real gas would resist the initial inflation more,
+snap through less violently, and ring down differently. A van der Waals form,
+$p = Nk_BT/(V-Nb) - a(N/V)^2$, would cost one line and remove most of the error.
+
+\paragraph{2. The footprint is fixed and cannot follow a peel front --- and
+peeling is the whole mechanism.} The gas pushes only inside $r < R$, always. This
+is not one limitation among several: \textbf{the blister test measures $\Gamma$
+\emph{because} the contact line moves}. Equation~\eqref{eq:G} comes from
+$\partial \Pi/\partial a$ at a free delamination front, so the radius must be an
+\emph{output} of the calculation. Pinning it is differentiating with respect to a
+variable the model does not allow to vary.
+
+Two things save the result in practice, and they are worth separating.
+
+First, \textbf{the peel is present, just not where the gas is}. The sheet outside
+$R$ is genuinely free: lifted by membrane tension, held down by adhesion, with a
+contact line that finds its own radius. That is why the blister behaves as though
+its radius were 22\,\% larger than the footprint. What is missing is not the
+moving contact line but the gas loading over the newly opened annulus.
+
+Second, \textbf{we can check the answer, which an experiment cannot}. Koenig
+\textit{et al.}\ had to trust the blister analysis because $\Gamma$ was the
+unknown quantity. Here $\Gamma$ is an \emph{input}: integrating the 12--6
+substrate potential over a continuum sheet gives
+\begin{equation}
+\Gamma_\mathrm{LJ} = 1.2\,\pi\, n_t n_s\, \varepsilon\, \sigma^2
+ = 0.246\ \mathrm{J/m^2} \quad (0.241 \ \text{with the } 3\sigma \text{ cutoff}),
+\end{equation}
+at an equilibrium separation of exactly $d = \sigma = 3.42$\,\AA. The blister
+test returned $0.22\,\mathrm{J/m^2}$ --- \textbf{9\,\% low}, with the sign one
+would predict: a pinned footprint pressurises less area than a true blister of
+the same delaminated radius, so $p\delta$ slightly under-counts $G$.
+
+That the cutoff costs only 2.1\,\% of the adhesion energy also disposes of a
+plausible-sounding worry: extending the Lennard-Jones range would not
+meaningfully change any threshold in this note.
+
+\paragraph{The fix.} Replace the $r<R$ test with a \emph{gap} test: pressurise
+wherever the sheet stands more than about a molecular diameter above contact, and
+count that volume. The gas then occupies the void it actually occupies, the
+pressurised region follows the delamination front automatically, and the blister
+radius becomes an output. A small pre-lifted patch is needed to nucleate, since a
+perfectly adhered sheet encloses no volume. With that change the model would be a
+blister test by construction rather than by accident, and the 9\,\% could be
+re-measured to see whether it closes.
+
+\paragraph{3. Volume is counted only inside the footprint.} Any lift outside $R$
+contributes gas volume in reality but not in the model, so $p$ is
+correspondingly overestimated. Consistent with (2), and in the same direction.
+
+\paragraph{4. The force is vertical, not normal to the surface.} Real pressure
+acts along the local surface normal. At $\delta/a \approx 0.13$ the steepest
+part of the profile is inclined by roughly $20$--$25^\circ$, so near the rim the
+model over-counts the vertical component by $\sim$10\,\% and omits an inward
+radial component of comparable size. The rim is exactly where the adhesion
+balance is decided, so this is not as harmless as its magnitude suggests.
+
+\paragraph{5. Isothermal, with no thermal coupling.} $T$ is pinned at 300\,K.
+A real snap-through expansion is closer to adiabatic: the gas would cool, $p$
+would fall further than $V^{-1}$ alone predicts, and the overshoot would be
+smaller. Our ring-down is more violent than reality.
+
+\paragraph{6. No leakage --- and here the model is right.} Fixed $N$ assumes a
+perfect seal. For graphene that is a genuinely good idealisation: Bunch
+\textit{et al.} showed graphene membranes to be impermeable to standard gases,
+which is what makes the constant-$N$ blister test possible experimentally in the
+first place.
+
+\paragraph{What this does \emph{not} contaminate.} The adhesion energy extracted
+in Section~\ref{sec:gamma} is safe from all of the above, because
+$G = \tfrac54 C p \delta$ uses the pressure and deflection \emph{measured at
+equilibrium}. Whatever route the gas took to get there, and whatever equation of
+state generated that pressure, the balance at equilibrium involves only $p$ and
+$\delta$. The gas law determines \emph{which} equilibrium you land on; it does
+not change the condition that defines it. Results that depend on the path ---
+the snap-through amplitude, the ring-down, the dynamic threshold pressure ---
+are a different matter and should be treated as model behaviour.
+
+\section{What we measured}
+
+\subsection{The exporter reproduces the plugin}
+
+The strongest available check on two implementations is to put them in the
+\emph{same state} and compare an extensive quantity. Exporting a LAMMPS deck
+from the plugin and evaluating step 0:
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lrrr}
+\toprule
+System & Plugin $E_\mathrm{pot}$ & Stock LAMMPS & rel.\ difference \\
+\midrule
+930\,629 atoms, Morse  & $-14591.6$ eV & $-14591.569$ eV & $2\times10^{-6}$ \\
+232\,735 atoms, Morse  & $-3655.11$ eV & $-3655.106$ eV  & $1\times10^{-6}$ \\
+232\,735 atoms, AIREBO & $-711418$ eV  & $-711418.41$ eV & $6\times10^{-7}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+AIREBO's cohesive energy comes out at $-7.44$\,eV/atom against the published
+$-7.408$ for infinite graphene, the balance being substrate adhesion --- an
+independent check that the potential is correctly parameterised.
+
+\subsection{Blister geometry across engines}
+
+For the twisted-bubble case the four engines split cleanly:
+
+\begin{itemize}
+\item \textbf{In-plane} quantities are engine-insensitive. Lattice registry
+      statistics agreed to four decimal places (mean $0.6668$, s.d.\ $0.2717$)
+      between the plugin's embedded AIREBO and stock LAMMPS, and the atoms
+      differed by at most $0.097$\,\AA{} in plane.
+\item \textbf{Out-of-plane} quantities are not. The same two runs differed by
+      $1.58$\,\AA{} vertically, and blister heights differed by up to 15\,\%.
+\end{itemize}
+
+\subsection{A stable blister, and $\Gamma$}
+\label{sec:gamma}
+
+With the fixed-$N$ gas, a stable blister exists in a narrow window. At
+$R = 3$\,nm and 700\,MPa the volume drift fell to 1.7\,\% over 49\,000 steps,
+settling at $\delta = 5.13$\,\AA, $\delta/a = 0.171$, at a settled pressure of
+658\,MPa. Applying \eqref{eq:G}:
+\begin{equation}
+\Gamma = 0.65\,p\,\delta
+       = 0.65 \times 658\times10^{6} \times 5.13\times10^{-10}
+       = 0.22\ \mathrm{J/m^2},
+\end{equation}
+The number to compare against is not Koenig's experimental value but the
+adhesion energy we \emph{put into} the model,
+$\Gamma_\mathrm{LJ} = 0.241\,\mathrm{J/m^2}$ (Section~\ref{sec:gasreal}): the
+blister test recovers its own input to \textbf{9\,\%}, and low, as a pinned
+footprint should make it. It also happens to sit near the
+$0.24\,\mathrm{J/m^2}$ Koenig \textit{et al.}\ report, but that is a different
+interface and the closeness is a coincidence of parameterisation, not evidence.
+
+Feeding that $\Gamma$ back through \eqref{eq:aspect} predicts runaway near
+250\,MPa at $R = 10$\,nm; the measured transition was 200--260\,MPa.
+
+\subsection{The rule tested at a different size}
+
+The strongest test of \eqref{eq:aspect} is prediction rather than fitting. Taking
+$\Gamma = 0.22\,\mathrm{J/m^2}$ from the $R = 3$\,nm blister above, the rule
+predicts $\delta/a = 0.134$ at \emph{any} radius. Running $R = 10$\,nm at
+160\,MPa --- a different size, and a quarter of the pressure --- gives a settled
+$\delta/a = 0.128$ (Figure~\ref{fig:blister10}), within 4\,\% of the prediction.
+
+The approach to equilibrium is itself instructive. The sheet stays pinned flat
+while the gas fills, then delaminates in a \emph{snap-through} at around step
+10\,000, overshoots to 24\,\AA, and rings down to $12.84 \pm 1.8$\,\AA{} over
+the following 60\,000 steps, the oscillation amplitude decaying by a factor of
+fourteen. The snap is physical: adhesion pins the membrane until the gas load
+exceeds the peel threshold, and then releases abruptly.
+
+\begin{figure}[h]\centering
+\includegraphics[width=\textwidth]{figs/blister10-settled.png}
+\caption{A settled fixed-$N$ blister, $R = 10$\,nm at 160\,MPa. Left: plan view,
+dashed circle marking the gas footprint. Centre: the measured radial profile
+against the Hencky shape through the same peak --- it tracks near the centre and
+falls below from $r \approx 40$\,\AA{} outward, as a peeling rim should. Right:
+centre height against step, showing the snap-through and the ring-down.}
+\label{fig:blister10}
+\end{figure}
+
+\paragraph{A measurement artefact worth naming.} The automated settling test
+reported ``still moving'' with 13\,\% drift, because it compared the means of
+two successive windows --- a statistic that a \emph{decaying oscillation}
+defeats. The mean was in fact stationary (a linear fit over the last half gives
+$-0.55$\,\AA{} across 35\,000 steps) while the amplitude fell from 6.05 to
+0.43\,\AA. The system had settled; the test could not see it. This belongs with
+the failure modes of Section~5.2.
+
+\paragraph{The catch.} Extracting $\Gamma$ the \emph{other} way --- from the
+measured aspect ratio through \eqref{eq:aspect} --- gives $0.58\,\mathrm{J/m^2}$,
+a factor $2.6$ different. The two routes disagree because our blister does not
+satisfy \eqref{eq:hencky}: it sits 31\,\% above the Hencky height at $R = 3$\,nm.
+The Koenig extraction assumes the membrane obeys Hencky. When it does not, the
+choice of extraction route silently changes the answer threefold, and nothing in
+either calculation warns you.
+
+The discrepancy is a \emph{boundary condition}, not a modulus. Hencky clamps the
+rim; a real blister peels, so the effective radius exceeds the gas footprint, and
+since $\delta \propto a^{4/3}$ a 22\,\% larger effective radius produces exactly
+the observed 31\,\% excess. Two pieces of evidence support this over the obvious
+alternative that the toy model is too soft. First, running the identical case on
+AIREBO --- which has the correct graphene stiffness --- gave $5.105$\,\AA{}
+against the toy model's $5.131$\,\AA, agreeing to 0.5\,\%. Second, the excess
+\emph{shrinks with size}: $+31\,\%$ at $R = 3$\,nm but $+8.3\,\%$ at
+$R = 10$\,nm, exactly as a rim correction should.
+
+\section{Twisted bubbles: registry and strain}
+
+\subsection{A single sheet, with a free peel front}
+
+Replacing the fixed footprint with one that follows the peel front
+(Section~\ref{sec:gasreal}) makes the delamination radius an output. For a
+$2^\circ$ twisted sheet with a 4\,nm seed at 600\,MPa the front settled at
+45\,\AA{} against an adhesion-limited prediction of 42.6\,\AA.
+
+The distortion is not where one might guess. The bubble interior is in mild
+tension ($\mathrm{tr}\,\varepsilon \approx +0.017$ at the centre), but the
+dominant features are a \textbf{ring of compression reaching $-0.045$ and a ring
+of shear reaching $0.031$ sitting exactly at the delamination edge}, with the
+adhered region beyond essentially unstrained. That is the classic blister
+signature --- radial tension, azimuthal compression at the rim --- resolved atom
+by atom.
+
+The moiré is also visibly smeared inside the bubble. Registry depends only on
+in-plane position, so that is real lateral displacement: the sheet stretches
+radially to accommodate the bulge and slides out of registry with the substrate.
+
+\subsection{A genuine bilayer, and where the gas sits}
+
+With two live layers the placement of the gas changes the answer completely.
+Identical twist, seed and pressure; only \texttt{gasWhere} differs.
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{peak height (\AA)} & \multicolumn{2}{c}{dilatation range} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Placement & layer 1 & layer 2 & layer 1 & layer 2 \\
+\midrule
+gas \textbf{between} the layers & 3.53 & 12.35 & $-0.003 \dots +0.001$ & $-0.023 \dots +0.006$ \\
+gas \textbf{below} the bilayer  & 7.54 & 10.94 & $-0.011 \dots +0.003$ & $-0.011 \dots +0.003$ \\
+\bottomrule
+\end{tabular}
+\caption{Gas between the layers puts essentially all the deformation into the
+upper layer --- the lower one stays flat and ten times less strained. Gas below
+deforms both almost identically.}
+\end{table}
+
+Two consequences follow. First, the below case is \textbf{1.4\,\AA{} lower at
+the same pressure} (10.94 against 12.35\,\AA), because two layers are being bent
+rather than one: the effective bending rigidity is higher. Second, the
+interlayer gap behaves quite differently:
+
+\begin{table}[h]\centering\small
+\begin{tabular}{lrr}
+\toprule
+& gap at the bubble centre & gap in the far field \\
+\midrule
+gas between, 600\,MPa  & 8.28\,\AA  & 3.42\,\AA \\
+gas between, 1400\,MPa & 13.04\,\AA & 3.42\,\AA \\
+gas below, 600\,MPa    & 3.40\,\AA  & 3.42\,\AA \\
+gas below, 1400\,MPa   & 3.41\,\AA  & 3.42\,\AA \\
+\bottomrule
+\end{tabular}
+\caption{A bubble between the layers prises them apart, so $h \gg 3.35$\,\AA{}
+over the bubble is physics, not an artefact. A bubble below carries the pair up
+together and the spacing never departs from equilibrium, even with the bilayer
+lifted 10.7\,\AA{} off the substrate. The far field is 3.42\,\AA{} in every
+run, which is the built-in 3.35\,\AA{} plus thermal roughness.}
+\end{table}
+
+\begin{figure}[h]\centering
+\includegraphics[width=\textwidth]{figs/bilayer-layers.png}
+\caption{Dilatation in both layers for each placement, with the layer height
+profiles. Top row, gas between: the strain is confined to layer 2. Bottom row,
+gas below: the two layers carry nearly identical strain and their height
+profiles are parallel curves a constant 3.35\,\AA{} apart.}
+\end{figure}
+
+\begin{figure}[h]\centering
+\includegraphics[width=\textwidth]{figs/bilayer-compare.png}
+\caption{Height, registry, dilatation and shear for the driven layer in each
+placement. The strain rings sit at the seed radius in every panel.}
+\end{figure}
+
+\paragraph{A threshold that differs from the monolayer.} At 600\,MPa the
+contact line stayed pinned at the seed in both bilayer runs, where a single
+sheet at the same seed and pressure advanced from 40 to 45\,\AA. Raising the
+pressure to 1400\,MPa moved the bilayer front out to 62\,\AA. The plausible
+reading is that a bilayer's lower layer can dish downward and absorb part of the
+gas work, so less of it goes into opening new interface --- but that is an
+interpretation of two pressures, not a measured threshold, and it deserves a
+proper sweep before being believed.
+
+\section{How to validate a toy model against LAMMPS}
+
+\subsection{The tests, strongest first}
+
+\begin{enumerate}
+\item \textbf{Same state, same energy.} Export the exact configuration and
+      compare total potential energy. This is by far the strongest test: it is
+      a single number summing every interaction, and agreement to six figures
+      is very hard to obtain by accident. Everything else is weaker.
+\item \textbf{Known physical constants.} Cohesive energy per atom, lattice
+      constant, elastic moduli, phonon frequencies. These catch a
+      mis-parameterised potential that is nonetheless self-consistent.
+\item \textbf{An analytic limit.} Hencky, a harmonic oscillator, an isolated
+      dimer --- anything with a closed-form answer.
+\item \textbf{Observable geometry.} Heights, profiles, aspect ratios. Weaker,
+      because many wrong models produce plausible shapes.
+\item \textbf{Trajectory agreement.} Effectively worthless. MD is chaotic;
+      correct implementations diverge atom-for-atom within hundreds of steps,
+      and float32 versus float64 is enough to do it.
+\end{enumerate}
+
+\subsection{Five ways a validation lies}
+
+Each of these occurred while preparing this note.
+
+\paragraph{The vacuous test.} A check that ``no surviving bond exceeds the break
+threshold'' passed with a maximum strain of $0.0000$ --- because every bond had
+broken and the set was empty. \emph{Always assert that the set under test is
+non-empty}, and prefer conditions that would fail if the system were destroyed.
+
+\paragraph{The unconverged measurement.} A pressure scan reported an aspect
+ratio of $0.083$ at $R = 10$\,nm, suggesting the size-independence of
+\eqref{eq:aspect} was violated. The runs were time-limited to $\sim$4700 steps.
+Given ten times as long the same case reached $0.129$ and was still rising
+toward the predicted $0.134$. \emph{A quantity that has not stopped changing is
+not a measurement.}
+
+\paragraph{The shared term.} Toy model and AIREBO agreed on blister height to
+0.5\,\%, which looks like strong mutual validation. But the two engines differ
+\emph{only} in the in-plane potential: they share the same Lennard-Jones
+substrate adhesion and the same gas model, both of which live in the plugin
+rather than in the potential. So the agreement validates the membrane half and
+says nothing about adhesion --- and adhesion is precisely what sets the boundary
+condition responsible for the 31\,\% Hencky discrepancy. \emph{Two models agree
+most easily about the parts they share.}
+
+\paragraph{The statistic that cannot see the answer.} A settling test built on
+the difference between two window means reported 13\,\% ``drift'' for a system
+whose mean was flat to $0.55$\,\AA{} over 35\,000 steps. It was measuring a
+decaying oscillation, which that statistic cannot distinguish from a trend.
+\emph{Choose a convergence statistic that matches how the system actually
+approaches equilibrium} --- for a ringing system, fit the trend and track the
+amplitude separately.
+
+\paragraph{The proxy that stops meaning what it meant.} A stability criterion
+written as ``the blister centre is below the Lennard-Jones cutoff'' was sound
+for a 3\,nm blister and nonsense for a 10\,nm one, where a correct blister is
+necessarily taller than the cutoff. It silently relabelled every large blister
+as ``escaped''. \emph{A threshold derived for one regime must be re-derived, not
+rescaled, for another.}
+
+\subsection{A working procedure}
+
+\begin{enumerate}
+\item Build the configuration once, in the fast model.
+\item Export it and confirm the energy matches to five or six figures. If it
+      does not, stop --- nothing downstream is meaningful.
+\item Identify which terms the two codes \emph{share}, and state explicitly that
+      those are untested by the comparison.
+\item Compare a physical observable, with a convergence criterion measured, not
+      assumed.
+\item Check against an analytic limit where one exists, and when it disagrees,
+      determine whether the model or the analytic assumption is at fault.
+\item Use the fast model for exploration and the expensive one for spot checks
+      at the settings that matter.
+\end{enumerate}
+
+\section{Practical notes}
+
+Tooling for the above lives in \texttt{DSW/tools/}: \texttt{cyclerun.js} (build,
+drive, export, capture), \texttt{gassweep.js} and \texttt{gasconfirm.js} (blister
+equilibria and Hencky comparison), \texttt{registry.py} (registry computed
+identically for plugin and LAMMPS data), \texttt{makemovies.py} and
+\texttt{blister\_movie.py}. \texttt{DSW/tools/README.md} lists the traps that
+cost real time.
+
+For simulating a membrane in a material with no classical potential ---
+$\alpha$-RuCl$_3$ being the case at hand --- the ordering follows from
+Section~1.3. Blister mechanics needs only $\ED$, bending rigidity and $\Gamma$,
+so refitting the toy model to those three numbers gives a usable membrane
+quickly and will be honestly wrong about chemistry. A Stillinger--Weber fit to
+DFT phonons is the middle route, and the three-type reduced realisation already
+used for WS$_2$, MoTe$_2$ and WTe$_2$ applies unchanged to a Cl--Ru--Cl
+trilayer. A universal machine-learned potential is the best fidelity available.
+None of them is magnetic, which for a Kitaev material is a real limitation.
+
+\appendix
+
+\section{A worked LAMMPS deck, line by line}
+\label{sec:deck}
+
+This is not an illustrative script. It is the deck the plugin exported for a
+\textbf{twisted bubble} --- $2^\circ$ twist, 7.5\,nm Hencky gas pocket at
+100\,kPa, 232\,497 atoms --- and it is the one that was actually run:
+7\,min 06\,s on 18 threads, 226 dump frames, no errors. Its first line of output
+is the check that matters:
+
+\begin{center}\small
+\begin{tabular}{lr}
+\toprule
+plugin $E_\mathrm{pot}$ at the moment of export & $-709090$ eV \\
+LAMMPS \texttt{PotEng} at step 0 of this deck   & $-709089.85$ eV \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Six significant figures, from two independent codes evaluating the
+same configuration. If any line below were wrong, that number would not match.
+
+\lstinputlisting[caption={\texttt{run.in} as exported, verbatim.}]{appendix-run.in}
+
+\subsection*{What each part does}
+
+\paragraph{Lines 5--11, threads.} LAMMPS silently falls back to \emph{one}
+OpenMP thread when \texttt{OMP\_NUM\_THREADS} is unset, which quietly wastes an
+18-core machine. \texttt{suffix omp} then selects the \texttt{/omp} variants of
+every style that has one.
+
+\paragraph{Line 13, \texttt{units metal}.} Energies in eV, distances in
+\AA{}, time in ps, so \texttt{timestep 0.001} is 1\,fs. Every number below is in
+those units.
+
+\paragraph{Line 15, \texttt{boundary m m m}.} Non-periodic with a
+\emph{minimum} box rather than shrink-wrapped (\texttt{s}). This matters: on a
+flat sheet, shrink-wrapping collapses the box in $z$ to near-zero thickness and
+LAMMPS refuses to bin the neighbour list.
+
+\paragraph{Line 16, \texttt{atom\_style atomic}.} No bond list at all. AIREBO
+determines bonding from geometry every step, so there is nothing to declare ---
+the difference from the classic engine's \texttt{molecular} style, which does
+carry an explicit bond and angle list.
+
+\paragraph{Lines 20--23, the potential.}
+\begin{itemize}
+\item \texttt{airebo 3.0} --- the 3.0 is the LJ cutoff in units of $\sigma$;
+      the adaptive LJ and torsion terms are on by default.
+\item \texttt{pair\_coeff * * airebo CH.airebo C NULL} --- one element per atom
+      type. Type 1 is carbon; type 2 is \texttt{NULL}, i.e. the substrate takes
+      no part in AIREBO at all.
+\item \texttt{pair\_coeff 1 2 lj/cut 0.002387 3.42 10.26} --- the sheet's
+      adhesion to the substrate, $\varepsilon = 2.387$\,meV, $\sigma = 3.42$\,\AA,
+      cut at $3\sigma$. This replaces the \texttt{fix external} callback the
+      plugin uses internally.
+\item \texttt{pair\_coeff 2 2 none} --- the substrate does not interact with
+      itself. It is rigid, so that energy is a constant and computing it would
+      only cost time.
+\end{itemize}
+
+\paragraph{Lines 29--31, groups.} \texttt{sheet} and \texttt{sub} by type. The
+\texttt{edge} group is empty here because the edge-spring collar is switched
+off; it is emitted as \texttt{group edge empty} rather than as a list of atom
+ids, because \texttt{group \dots id} rescans every atom once per argument and a
+37\,000-id list once kept LAMMPS in setup for over twelve minutes.
+
+\paragraph{Lines 33--35, integration.} \textbf{Only the sheet is integrated}
+--- there is no \texttt{fix nve} on \texttt{sub}, which is exactly how a rigid
+substrate is expressed. \texttt{fix viscous} supplies the plugin's damping.
+Note this is \emph{not} a thermostat: it removes energy without supplying
+fluctuations, so the run relaxes toward $T=0$ rather than sampling an ensemble.
+
+\paragraph{Lines 37--43, the protrusion driver.} The interesting part, and the
+one worth checking arithmetic on.
+\begin{itemize}
+\item \texttt{v\_tps} is elapsed time in ps.
+\item \texttt{v\_elev} is a ramp--hold--return written as boolean algebra,
+      because LAMMPS equal-style variables have no \texttt{if}. The three terms
+      are (rise)$\times$($t<t_1$) $+$ (hold)$\times$($t_1\le t<t_2$) $+$
+      (fall)$\times$($t_2\le t<t_3$). With a rise rate of 10\,\AA/ps (the
+      plugin's 0.01\,\AA/step over a 1\,fs step) from 0.05\,\AA{} to the Hencky
+      height 6.922\,\AA{}: $t_1 = 0.6872$\,ps, a 0.5\,ps hold gives
+      $t_2 = 1.1872$, and the fall gives $t_3 = 1.8794$\,ps. That is 1879 steps,
+      which is exactly the cycle length quoted at line 60.
+\item \texttt{v\_gasF} is the force per atom at full pressure,
+      $0.0408818$\,eV/\AA. Check it:
+      $10^{8}\,\mathrm{Pa} \times 6.2415\times10^{-12} \times 2.62\,\text{\AA}^2
+      \times 25 = 0.04088$. \textbf{The 25 is \texttt{betweenBoost}}, a
+      deliberate fudge in the open-loop model without which a 1\,bar pocket
+      does nothing at this scale. It is not physics, and the fixed-$N$ model in
+      Section~\ref{sec:gasreal} does not use it.
+\item \texttt{v\_wfoot} is the Hencky footprint $(1-r^2/R^2)^{2/3}$ with
+      $R^2 = 5625\,\text{\AA}^2$, i.e. $R = 75$\,\AA. The nested
+      $((r^2<R^2))$ inside the base is not redundant: outside the blister
+      $1-r^2/R^2$ is negative, a negative base to a fractional power is NaN, and
+      $0\times\mathrm{NaN}=\mathrm{NaN}$. Folding the guard into the base keeps
+      it at exactly 1 outside. An earlier version guarded only the result and
+      NaN'd the entire sheet on the first step.
+\item \texttt{fix gas sheet addforce} applies it, upward only.
+\end{itemize}
+
+\paragraph{Lines 45--48, thermodynamics.} \texttt{compute Tsheet sheet temp} is
+not cosmetic: thermo's default temperature averages over the frozen substrate
+as well, and with roughly 60\,\% of the atoms frozen it reads about half the
+true sheet temperature.
+
+\paragraph{Lines 49--54, output.} The sheet is dumped ten times more often than
+the substrate. Dumping every atom at the sheet's cadence would be gigabytes of
+text for no extra information, since the substrate is rigid.
+
+\subsection*{What this deck does \emph{not} reproduce}
+
+Worth stating plainly, because it is what a reader would otherwise assume.
+
+\begin{enumerate}
+\item \textbf{This is the open-loop gas model.} Pressure follows the schedule
+      regardless of the bubble's volume, so it inflates without the
+      $p = NkT/V$ feedback of Section~\ref{sec:gasreal}, and the
+      \texttt{betweenBoost} factor of 25 is active. It faithfully reproduces
+      what the plugin did in this run --- it is not the better model.
+\item \textbf{The footprint is a fixed disc.} The free peel front is
+      \emph{not} exported: the exporter emits the fixed-radius form, so a deck
+      cannot currently reproduce a moving contact line. Since $\Gamma$ is defined
+      at a moving front, no adhesion energy should be extracted from this deck.
+\item \textbf{No bilayer.} This is one mobile sheet on a rigid substrate. The
+      two-live-layer runs come from a different plugin (\texttt{moire-bubble})
+      which has no exporter at all, so those results exist only inside DSW.
+\item \textbf{Velocities are carried but the state is not a thermal ensemble.}
+      \texttt{system.data} includes a \texttt{Velocities} section so the run
+      continues from the plugin's instant, but with \texttt{fix viscous} and no
+      thermostat the trajectory relaxes rather than samples.
+\item \textbf{Classic-engine decks omit the bending umbrella.} Not an issue
+      here --- this is the AIREBO engine, where bending is carried by the
+      potential --- but a deck exported from the Morse engine loses that term,
+      which is why its blisters sit lower.
+\end{enumerate}
+
+\end{document}

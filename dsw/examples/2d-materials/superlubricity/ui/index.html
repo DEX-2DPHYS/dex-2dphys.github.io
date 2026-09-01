@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Structural Superlubricity — DSW</title>
+<style>
+  /* Dark is the default; [data-theme="light"] on <html> swaps the palette.
+     Every colour below is a token so the two themes stay in step. */
+  :root {
+    --bg:#0b0e14; --panel:#131824; --sunk:#0d111a; --ink:#e8ecf4;
+    --muted:#8a94a8; --line:#232b3d; --accent:#22d3ee; --accent-ink:#04222a;
+    --good:#34d399; --warn:#fbbf24; --bad:#f87171; --chart:#22d3ee;
+  }
+  :root[data-theme="light"] {
+    --bg:#f6f7fb; --panel:#ffffff; --sunk:#f1f4f9; --ink:#10213f;
+    --muted:#5a6a85; --line:#d7deea; --accent:#0b57d0; --accent-ink:#ffffff;
+    --good:#0f766e; --warn:#b45309; --bad:#b91c1c; --chart:#0b57d0;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink);
+         font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1560px; margin:0 auto; padding:18px 20px 40px; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  header a { color:var(--muted); text-decoration:none; font-size:13px; }
+  header a:hover { color:var(--accent); }
+  h1 { font-size:19px; letter-spacing:-.01em; }
+  .spacer { margin-left:auto; }
+  .status { font-size:12.5px; color:var(--muted); font-family:ui-monospace,Menlo,monospace; }
+  .status .live { color:var(--accent); }
+
+  .layout { display:grid; grid-template-columns:330px minmax(0,1fr) 300px; gap:16px; align-items:start; }
+  @media (max-width:1280px){ .layout { grid-template-columns:320px minmax(0,1fr); } }
+  @media (max-width:900px){ .layout { grid-template-columns:1fr; } }
+
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px; }
+  .card + .card { margin-top:14px; }
+  h2 { font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted);
+       font-weight:700; margin:16px 0 8px; display:flex; align-items:center; }
+  h2:first-child { margin-top:0; }
+
+  label.f { display:block; font-size:12px; color:var(--muted); margin:9px 0 3px; }
+  label.f b { color:var(--ink); font-weight:600; font-family:ui-monospace,Menlo,monospace; float:right; }
+  input[type=number], input[type=text], select {
+    width:100%; background:var(--sunk); color:var(--ink); border:1px solid var(--line);
+    border-radius:7px; padding:5px 7px; font:inherit; font-size:12.5px; }
+  input[type=range] { width:100%; accent-color:var(--accent); height:20px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .chk { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink);
+         margin:7px 0; cursor:pointer; }
+  .chk input { accent-color:var(--accent); }
+
+  button { background:var(--sunk); color:var(--ink); border:1px solid var(--line);
+           border-radius:7px; padding:7px 8px; font:inherit; font-size:12.5px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.45; cursor:default; }
+  button.on { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:650; }
+  button.wide { width:100%; }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:8px; }
+  .btns.three { grid-template-columns:1fr 1fr 1fr; }
+
+  canvas#view { width:100%; aspect-ratio:900/620; display:block; border:1px solid var(--line);
+                border-radius:11px; background:var(--sunk); cursor:grab; touch-action:none; }
+  canvas#view.grabbing { cursor:grabbing; }
+  canvas.plot { width:100%; display:block; }
+
+  .read { font-size:12px; font-family:ui-monospace,Menlo,monospace; }
+  .read div { display:flex; justify-content:space-between; gap:8px; padding:2.5px 0;
+              border-bottom:1px solid var(--line); }
+  .read div:last-child { border-bottom:0; }
+  .read .k { color:var(--muted); }
+  .read .v { color:var(--ink); text-align:right; }
+  .big { font-size:19px; font-family:ui-monospace,Menlo,monospace; color:var(--accent);
+         padding:8px 0 2px; letter-spacing:-.02em; }
+  .big small { display:block; font-size:10.5px; color:var(--muted); letter-spacing:.08em;
+               text-transform:uppercase; font-family:system-ui,sans-serif; margin-bottom:2px; }
+
+  .bar { height:4px; background:var(--sunk); border-radius:3px; overflow:hidden; margin-top:9px; }
+  .bar i { display:block; height:100%; background:var(--accent); width:0; transition:width .12s; }
+  .note { font-size:11.5px; color:var(--muted); line-height:1.55; margin-top:9px; }
+  .warn { font-size:11.5px; line-height:1.5; margin-top:8px; padding:7px 9px; border-radius:8px;
+          border:1px solid var(--line); color:var(--muted); background:var(--sunk); }
+
+  .ti { cursor:help; color:var(--muted); font-size:9px; width:14px; height:14px;
+        border:1px solid var(--line); border-radius:50%; display:inline-flex;
+        align-items:center; justify-content:center; margin-left:6px; flex:0 0 auto; line-height:1; }
+  .ti:hover { color:var(--accent); border-color:var(--accent); }
+  .tb { position:fixed; background:#0f172a; color:#e2e8f0; border:1px solid #334155;
+        border-radius:9px; padding:10px 13px; line-height:1.65; max-width:310px;
+        pointer-events:none; display:none; z-index:999; box-shadow:0 8px 28px rgba(0,0,0,.55);
+        font-size:11.5px; }
+  .tb .th { font-weight:700; color:#38bdf8; display:block; margin-bottom:4px; }
+  .tb .eq { font-family:ui-monospace,monospace; background:#172033; border-left:3px solid #38bdf8;
+            padding:3px 7px; margin:4px 0; display:block; border-radius:0 4px 4px 0;
+            color:#bfdbfe; font-size:11px; }
+  .tb .nt { color:#94a3b8; font-size:11px; display:block; margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="/">← DSW</a>
+    <h1>Structural Superlubricity</h1>
+    <span class="status" id="status">connecting…</span>
+    <span class="spacer"></span>
+    <button id="themeBtn" title="Switch between the light and dark panel">☾ Dark</button>
+  </header>
+
+  <div class="layout">
+
+    <!-- ------------------------------------------------ left: the controls -->
+    <div>
+      <div class="card">
+        <h2>Geometry <span class="ti" id="ti-geom">?</span></h2>
+        <div class="two">
+          <div>
+            <label class="f">Bottom N <b id="vnB">30</b></label>
+            <input type="number" id="nB" min="1" max="250" value="30">
+          </div>
+          <div>
+            <label class="f">Top N <b id="vnT">18</b></label>
+            <input type="number" id="nT" min="1" max="250" value="18">
+          </div>
+        </div>
+        <label class="f">Interlayer d (Å) <b id="vd">3.34</b></label>
+        <input type="range" id="dR" min="3.34" max="3.75" step="0.01" value="3.34">
+        <label class="f">Twist θ (deg) <b id="vang">0.0°</b></label>
+        <input type="range" id="ang" min="0" max="360" step="0.1" value="0">
+        <label class="f">Offset x (Å) <b id="vtx">0.00</b></label>
+        <input type="range" id="tx" min="-24.6" max="24.6" step="0.01" value="0">
+        <label class="f">Offset y (Å) <b id="vty">0.00</b></label>
+        <input type="range" id="ty" min="-24.6" max="24.6" step="0.01" value="0">
+      </div>
+
+      <div class="card">
+        <h2>vdW model <span class="ti" id="ti-vdw">?</span></h2>
+        <label class="f">Neighbour summation</label>
+        <select id="neigh">
+          <option value="0" selected>All (accurate)</option>
+          <option value="1">Faster (limited window)</option>
+        </select>
+        <label class="f">N neighbours (window) <b id="vnn">6</b></label>
+        <input type="number" id="nneigh" min="0" max="200" value="6" disabled>
+        <label class="chk"><input type="checkbox" id="tail" checked>
+          Hamaker continuum tail <span class="ti" id="ti-ham">?</span></label>
+        <label class="f">C₆ dispersion (J·m⁶)</label>
+        <input type="text" id="c6" value="2.45e-78">
+        <label class="f">Energy metric</label>
+        <select id="metric">
+          <option value="1" selected>U/A (mJ m⁻²)</option>
+          <option value="0">U total (J)</option>
+        </select>
+        <div class="warn" id="hamNote">—</div>
+      </div>
+
+      <div class="card">
+        <h2>Relaxation <span class="ti" id="ti-relax">?</span></h2>
+        <label class="chk"><input type="checkbox" id="rxy" checked> xy relax (lateral offset)</label>
+        <label class="chk"><input type="checkbox" id="rd" checked> h relax (interlayer d)</label>
+        <div class="btns">
+          <button id="relaxBtn">Relax now</button>
+          <button id="resetPosBtn">Reset position</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Lateral MD <span class="ti" id="ti-md">?</span></h2>
+        <label class="f">Spring k (N/m) — C–C <b id="vk">950</b></label>
+        <input type="number" id="kspring" min="1" max="20000" step="10" value="950">
+        <label class="f">Max steepest-descent steps</label>
+        <input type="number" id="mdsteps" min="10" max="5000" value="400">
+        <label class="f">Visual displacement amp × <b id="vamp">50</b></label>
+        <input type="range" id="amp" min="1" max="500" step="1" value="50">
+        <div class="btns three">
+          <button id="mdRun">Run MD</button>
+          <button id="mdStop" disabled>Stop</button>
+          <button id="mdReset">Reset</button>
+        </div>
+        <div class="note">k = 950 N/m is C–C bond stretch. Drop to ~5 N/m
+          (acoustic shear) to grow wide, visible reconstruction domains.</div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------ middle: stage + chart -->
+    <div>
+      <canvas id="view"></canvas>
+
+      <div class="card" style="margin-top:14px">
+        <h2 style="margin:0 0 8px">Automated modes <span class="ti" id="ti-auto">?</span></h2>
+        <div class="two" style="margin-bottom:8px">
+          <div>
+            <label class="f">Angle step (deg)</label>
+            <input type="number" id="angleStep" min="0.05" max="30" step="0.05" value="2">
+          </div>
+          <div>
+            <label class="f">Translation step (Å)</label>
+            <input type="number" id="translationStep" min="0.01" max="12" step="0.01" value="0.20">
+          </div>
+        </div>
+        <div class="btns" style="grid-template-columns:repeat(5,1fr)">
+          <button id="sweepRot">Rotation</button>
+          <button id="sweepR">Translate →</button>
+          <button id="sweepL">← Translate</button>
+          <button id="stopBtn" disabled>Stop</button>
+          <button id="clearChart">Reset graph</button>
+        </div>
+        <div class="bar"><i id="prog"></i></div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h2 style="margin:0 0 8px">Energy
+          <span class="ti" id="ti-chart">?</span>
+          <span class="spacer"></span>
+          <span style="font-size:11px;color:var(--muted);font-family:ui-monospace,monospace"
+                id="chartInfo">0 points</span>
+        </h2>
+        <div class="btns three" style="margin:0 0 10px">
+          <button id="xTime" class="on">vs time</button>
+          <button id="xAng">vs θ</button>
+          <button id="xTx">vs offset x</button>
+        </div>
+        <canvas class="plot" id="chart" height="250"></canvas>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------ right: the numbers -->
+    <div>
+      <div class="card">
+        <h2>Result <span class="ti" id="ti-res">?</span></h2>
+        <div class="big"><small id="bigLabel">Energy / area (mJ m⁻²)</small>
+          <span id="bigVal">—</span></div>
+        <div class="read" style="margin-top:8px">
+          <div><span class="k">U total (J)</span><span class="v" id="rU">—</span></div>
+          <div><span class="k">Hamaker tail (J)</span><span class="v" id="rTail">—</span></div>
+          <div><span class="k">lateral |F| (nN)</span><span class="v" id="rF">—</span></div>
+          <div><span class="k">F<sub>x</sub> / F<sub>y</sub></span><span class="v" id="rFxy">—</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>System</h2>
+        <div class="read">
+          <div><span class="k">atoms top / bottom</span><span class="v" id="rAtoms">—</span></div>
+          <div><span class="k">atom pairs</span><span class="v" id="rPairs">—</span></div>
+          <div><span class="k">area top (m²)</span><span class="v" id="rArea">—</span></div>
+          <div><span class="k">θ / d</span><span class="v" id="rGeo">—</span></div>
+          <div><span class="k">offset x, y (Å)</span><span class="v" id="rOff">—</span></div>
+          <div><span class="k">eval time (ms)</span><span class="v" id="rMs">—</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Hamaker check <span class="ti" id="ti-hamchk">?</span></h2>
+        <div class="read">
+          <div><span class="k">A (J)</span><span class="v" id="rHamA">—</span></div>
+          <div><span class="k">W(d) sheet (mJ m⁻²)</span><span class="v" id="rHamW">—</span></div>
+          <div><span class="k">discrete / continuum</span><span class="v" id="rHamR">—</span></div>
+        </div>
+        <div class="note" id="hamVerdict">—</div>
+      </div>
+
+      <div class="card">
+        <h2>Display</h2>
+        <label class="chk"><input type="checkbox" id="registry" checked> Registry map (AA→hollow)</label>
+        <label class="chk"><input type="checkbox" id="arrows" checked> Displacement arrows</label>
+        <label class="chk"><input type="checkbox" id="bottom" checked> Show bottom layer</label>
+        <label class="f">Atom size (px) <b id="vas">4</b></label>
+        <input type="range" id="atomSize" min="1" max="10" step="1" value="4">
+        <label class="f">Zoom <b id="vzoom">1.0×</b></label>
+        <input type="range" id="zoom" min="0.2" max="8" step="0.1" value="1">
+        <div class="read" style="margin-top:10px">
+          <div><span class="k">max atom disp (Å)</span><span class="v" id="rDisp">—</span></div>
+          <div><span class="k">MD step</span><span class="v" id="rStep">—</span></div>
+        </div>
+        <div class="note">Drag the flake centre to slide it, the outer ring to
+          twist it. The energy follows live.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="tb" class="tb"></div>
+
+<script src="/dex.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const view = $("view");
+
+  let S = {};                 // last state from the core
+  let series = [];            // {ts, ang, tx, U, UA}
+  let xMode = "time";
+  let metric = 1;
+  let dragging = false;
+
+  // ---------------------------------------------------------------- theme
+  // Persisted per browser; the core is told too, because the atomistic stage
+  // is rendered natively and has to repaint on the matching background.
+  function applyTheme(name) {
+    document.documentElement.setAttribute("data-theme", name);
+    localStorage.setItem("superlub.theme", name);
+    $("themeBtn").textContent = name === "light" ? "☾ Dark" : "☀ Light";
+    dex.send({ t: "set", k: "theme", v: name === "light" ? 1 : 0 });
+    drawChart();
+  }
+  let theme = localStorage.getItem("superlub.theme") || "light";
+
+  // ---------------------------------------------------------------- link
+  const dex = DEX.connect({
+    canvas: view,
+    onStatus(s) {
+      const st = $("status");
+      if (s === "open") { st.innerHTML = '<span class="live">●</span> live'; applyTheme(theme); pushAll(); }
+      else if (s === "closed") st.textContent = "disconnected — reload";
+      else st.textContent = s;
+    },
+    onMessage(m) {
+      if (m.t === "state") { S = m; readout(m); }
+      else if (m.t === "point") {
+        series.push(m);
+        if (series.length > 4000) series.shift();
+        drawChart();
+      }
+    },
+  });
+
+  const fmtE = (v, n = 3) => (v === undefined || v === null || !isFinite(v)) ? "—" : Number(v).toExponential(n);
+  const fmtN = (v, n = 2) => (v === undefined || !isFinite(v)) ? "—" : Number(v).toFixed(n);
+
+  // ---------------------------------------------------------------- readout
+  function readout(m) {
+    $("bigVal").textContent = metric === 1 ? fmtE(m.UA) : fmtE(m.U);
+    $("bigLabel").textContent = metric === 1 ? "Energy / area (mJ m⁻²)" : "Total energy (J)";
+    $("rU").textContent = fmtE(m.U);
+    $("rTail").textContent = fmtE(m.tail);
+    $("rF").textContent = fmtE(m.fmag, 2);
+    $("rFxy").textContent = fmtE(m.fx, 1) + " / " + fmtE(m.fy, 1);
+    $("rAtoms").textContent = (m.atop || 0).toLocaleString() + " / " + (m.abot || 0).toLocaleString();
+    $("rPairs").textContent = (m.pairs || 0).toLocaleString();
+    $("rArea").textContent = fmtE(m.area);
+    $("rGeo").textContent = fmtN(m.angle, 2) + "° / " + fmtN(m.d, 2) + " Å";
+    $("rOff").textContent = fmtN(m.tx) + ", " + fmtN(m.ty);
+    $("rMs").textContent = fmtN(m.ms, 1);
+    $("rDisp").textContent = fmtN(m.maxdisp, 4);
+    $("rStep").textContent = (m.mdstep || 0).toLocaleString();
+
+    // Hamaker cross-check
+    $("rHamA").textContent = fmtE(m.hamA, 2);
+    $("rHamW").textContent = fmtE(m.hamW, 3);
+    const ratio = (m.hamW && m.UA) ? (m.UA / m.hamW) : NaN;
+    $("rHamR").textContent = isFinite(ratio) ? ratio.toFixed(3) + "×" : "—";
+    const A = m.hamA || 0;
+    const inRange = A > 2.0e-19 && A < 5.0e-19;
+    $("hamVerdict").innerHTML = inRange
+      ? "A sits inside the measured graphite range (2.4–4.7×10⁻¹⁹ J), so this C₆ is physically sensible."
+      : "A is outside the measured graphite range (2.4–4.7×10⁻¹⁹ J) — check C₆.";
+    $("hamNote").innerHTML = S.tail && Math.abs(S.tail) > 0
+      ? "Tail adds <b>" + fmtE(S.tail, 2) + " J</b> — the binding a finite window misses."
+      : "Tail correction off: a truncated window under-binds.";
+
+    // sweep/job state
+    const busy = !!m.busy, job = m.job || 0;
+    $("prog").style.width = (100 * (m.prog || 0)).toFixed(1) + "%";
+    $("stopBtn").disabled = job === 0;
+    $("mdStop").disabled = job !== 4;
+    for (const id of ["sweepRot", "sweepR", "sweepL", "relaxBtn", "mdRun"])
+      $(id).disabled = job !== 0;
+    if (m.status) $("status").innerHTML = '<span class="live">●</span> ' + m.status;
+    else if (!busy) $("status").innerHTML = '<span class="live">●</span> live';
+
+    if (!dragging) {
+      $("ang").value = m.angle; $("vang").textContent = fmtN(m.angle, 1) + "°";
+      $("tx").value = m.tx; $("vtx").textContent = fmtN(m.tx);
+      $("ty").value = m.ty; $("vty").textContent = fmtN(m.ty);
+      $("dR").value = m.d; $("vd").textContent = fmtN(m.d);
+    }
+  }
+
+  // ---------------------------------------------------------------- chart
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  function drawChart() {
+    const c = $("chart");
+    c.style.height = "250px";
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const w = c.clientWidth, h = 250;
+    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const g = c.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const pad = { l: 74, r: 12, t: 12, b: 30 };
+    const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    const line = css("--line"), muted = css("--muted"), acc = css("--chart");
+
+    $("chartInfo").textContent = series.length + " points";
+    if (series.length < 1) {
+      g.fillStyle = muted; g.textAlign = "center"; g.font = "12px system-ui";
+      g.fillText("run a sweep, or drag the flake, to record energy", w / 2, h / 2);
+      return;
+    }
+    const xOf = p => xMode === "angle" ? p.ang : xMode === "tx" ? p.tx : p.ts;
+    const yOf = p => metric === 1 ? p.UA : p.U;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of series) {
+      const x = xOf(p), y = yOf(p);
+      if (!isFinite(x) || !isFinite(y)) continue;
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+    }
+    if (!isFinite(x0)) return;
+    if (x1 - x0 < 1e-12) { x0 -= 0.5; x1 += 0.5; }
+    const span = (y1 - y0) || Math.abs(y1) * 0.02 || 1;
+    y0 -= span * 0.08; y1 += span * 0.08;
+
+    const X = x => pad.l + (x - x0) / (x1 - x0) * pw;
+    const Y = y => pad.t + ph - (y - y0) / (y1 - y0) * ph;
+
+    g.strokeStyle = line; g.lineWidth = 1;
+    g.fillStyle = muted; g.font = "10px ui-monospace,monospace"; g.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+      const yy = pad.t + (i / 4) * ph, v = y1 - (i / 4) * (y1 - y0);
+      g.beginPath(); g.moveTo(pad.l, yy); g.lineTo(pad.l + pw, yy); g.stroke();
+      g.fillText(Number(v).toExponential(2), pad.l - 6, yy + 3);
+    }
+    g.textAlign = "center";
+    for (let i = 0; i <= 5; i++) {
+      const xx = pad.l + (i / 5) * pw, v = x0 + (i / 5) * (x1 - x0);
+      g.strokeStyle = line;
+      g.beginPath(); g.moveTo(xx, pad.t); g.lineTo(xx, pad.t + ph); g.stroke();
+      g.fillStyle = muted;
+      g.fillText(xMode === "angle" ? v.toFixed(0) + "°" : v.toFixed(xMode === "tx" ? 1 : 0), xx, h - 10);
+    }
+    g.fillStyle = muted; g.textAlign = "center";
+    g.fillText(xMode === "angle" ? "twist θ (deg)" : xMode === "tx" ? "offset x (Å)" : "sample",
+               pad.l + pw / 2, h - 1);
+
+    // sort by x so a sweep draws as a curve rather than a scribble
+    const pts = series.slice().filter(p => isFinite(xOf(p)) && isFinite(yOf(p)));
+    if (xMode !== "time") pts.sort((a, b) => xOf(a) - xOf(b));
+    g.strokeStyle = acc; g.lineWidth = 1.7; g.beginPath();
+    pts.forEach((p, i) => { const x = X(xOf(p)), y = Y(yOf(p)); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke();
+    g.fillStyle = acc;
+    if (pts.length < 400) for (const p of pts) { g.beginPath(); g.arc(X(xOf(p)), Y(yOf(p)), 1.9, 0, 7); g.fill(); }
+
+    // where we are now
+    if (S && isFinite(S.UA)) {
+      const cx = X(xMode === "angle" ? S.angle : xMode === "tx" ? S.tx : xOf(pts[pts.length - 1]));
+      const cy = Y(metric === 1 ? S.UA : S.U);
+      if (cx >= pad.l && cx <= pad.l + pw) {
+        g.strokeStyle = muted; g.save(); g.setLineDash([3, 3]);
+        g.beginPath(); g.moveTo(cx, pad.t); g.lineTo(cx, pad.t + ph); g.stroke(); g.restore();
+        g.fillStyle = css("--bad");
+        g.beginPath(); g.arc(cx, Math.max(pad.t, Math.min(pad.t + ph, cy)), 4, 0, 7); g.fill();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- controls
+  const send = (k, v) => dex.send({ t: "set", k, v });
+
+  function bindRange(id, key, label, dp, suffix) {
+    const el = $(id);
+    el.addEventListener("pointerdown", () => { dragging = true; });
+    window.addEventListener("pointerup", () => { dragging = false; });
+    el.addEventListener("input", () => {
+      $(label).textContent = (+el.value).toFixed(dp) + (suffix || "");
+      send(key, +el.value);
+    });
+  }
+  bindRange("dR", "d", "vd", 2, "");
+  bindRange("ang", "angle", "vang", 1, "°");
+  bindRange("tx", "tx", "vtx", 2, "");
+  bindRange("ty", "ty", "vty", 2, "");
+  bindRange("amp", "amp", "vamp", 0, "");
+  bindRange("atomSize", "atomSize", "vas", 0, "");
+  bindRange("zoom", "zoom", "vzoom", 1, "×");
+
+  function bindNum(id, key, label) {
+    const el = $(id);
+    el.addEventListener("change", () => {
+      if (label) $(label).textContent = el.value;
+      send(key, +el.value);
+    });
+  }
+  bindNum("nB", "nB", "vnB");
+  bindNum("nT", "nT", "vnT");
+  bindNum("nneigh", "nneigh", "vnn");
+  bindNum("kspring", "kspring", "vk");
+  bindNum("mdsteps", "mdsteps", null);
+  bindNum("angleStep", "angleStep", null);
+  bindNum("translationStep", "translationStep", null);
+
+  $("c6").addEventListener("change", () => {
+    const v = parseFloat($("c6").value);
+    if (isFinite(v) && v > 0) send("c6", v);
+  });
+  $("neigh").addEventListener("change", () => {
+    const lim = $("neigh").value === "1";
+    $("nneigh").disabled = !lim;
+    send("neigh", lim ? 1 : 0);
+  });
+  $("metric").addEventListener("change", () => {
+    metric = +$("metric").value; send("metric", metric); readout(S); drawChart();
+  });
+  for (const [id, key] of [["tail", "tail"], ["rxy", "relaxXY"], ["rd", "relaxD"],
+                           ["registry", "registry"], ["arrows", "arrows"], ["bottom", "bottom"]])
+    $(id).addEventListener("change", () => send(key, $(id).checked ? 1 : 0));
+
+  $("relaxBtn").onclick = () => dex.send({ t: "relax", quick: 0 });
+  $("resetPosBtn").onclick = () => dex.send({ t: "resetpos" });
+  $("sweepRot").onclick = () => dex.send({ t: "sweeprot" });
+  $("sweepR").onclick = () => dex.send({ t: "sweeptx", dir: 1 });
+  $("sweepL").onclick = () => dex.send({ t: "sweeptx", dir: -1 });
+  $("stopBtn").onclick = () => dex.send({ t: "stop" });
+  $("mdRun").onclick = () => dex.send({ t: "md" });
+  $("mdStop").onclick = () => dex.send({ t: "mdstop" });
+  $("mdReset").onclick = () => dex.send({ t: "mdreset" });
+  $("clearChart").onclick = () => { series = []; drawChart(); };
+  $("themeBtn").onclick = () => { theme = theme === "light" ? "dark" : "light"; applyTheme(theme); };
+
+  for (const [id, mode] of [["xTime", "time"], ["xAng", "angle"], ["xTx", "tx"]])
+    $(id).onclick = () => {
+      xMode = mode;
+      for (const o of ["xTime", "xAng", "xTx"]) $(o).classList.toggle("on", o === id);
+      drawChart();
+    };
+
+  // Push the whole panel once on connect so the core and the DOM agree.
+  function pushAll() {
+    send("nB", +$("nB").value); send("nT", +$("nT").value);
+    send("d", +$("dR").value); send("angle", +$("ang").value);
+    send("tx", +$("tx").value); send("ty", +$("ty").value);
+    send("neigh", $("neigh").value === "1" ? 1 : 0);
+    send("nneigh", +$("nneigh").value);
+    send("tail", $("tail").checked ? 1 : 0);
+    send("c6", parseFloat($("c6").value));
+    send("metric", +$("metric").value);
+    send("atomSize", +$("atomSize").value); send("zoom", +$("zoom").value);
+    send("kspring", +$("kspring").value); send("mdsteps", +$("mdsteps").value);
+    send("angleStep", +$("angleStep").value);
+    send("translationStep", +$("translationStep").value);
+    send("amp", +$("amp").value);
+    send("relaxXY", $("rxy").checked ? 1 : 0); send("relaxD", $("rd").checked ? 1 : 0);
+    send("registry", $("registry").checked ? 1 : 0);
+    send("arrows", $("arrows").checked ? 1 : 0);
+    send("bottom", $("bottom").checked ? 1 : 0);
+    metric = +$("metric").value;
+  }
+
+  // ---------------------------------------------------------------- pointer
+  function norm(ev) {
+    const r = view.getBoundingClientRect();
+    return { x: (ev.clientX - r.left) / r.width, y: (ev.clientY - r.top) / r.height };
+  }
+  let down = false;
+  view.addEventListener("pointerdown", ev => {
+    const p = norm(ev); down = true;
+    view.classList.add("grabbing");
+    view.setPointerCapture(ev.pointerId);
+    dex.send({ t: "grab", x: p.x, y: p.y });
+  });
+  view.addEventListener("pointermove", ev => {
+    if (!down) return;
+    const p = norm(ev);
+    dex.send({ t: "move", x: p.x, y: p.y });
+  });
+  const up = () => {
+    if (!down) return;
+    down = false; view.classList.remove("grabbing");
+    dex.send({ t: "release" });
+    dex.send({ t: "point" });   // record where the drag landed
+  };
+  view.addEventListener("pointerup", up);
+  view.addEventListener("pointercancel", up);
+
+  addEventListener("resize", drawChart);
+  drawChart();
+
+  // ---------------------------------------------------------------- tooltips
+  const TB = $("tb");
+  function tip(id, html) {
+    const el = $(id); if (!el) return;
+    el.addEventListener("mouseenter", () => {
+      TB.innerHTML = html; TB.style.display = "block";
+      const r = el.getBoundingClientRect(), pad = 8, tw = 310;
+      let l = r.left, t = r.bottom + 6;
+      if (l + tw > innerWidth - pad) l = innerWidth - tw - pad;
+      if (t + TB.offsetHeight > innerHeight - pad) t = r.top - TB.offsetHeight - 6;
+      TB.style.left = Math.max(pad, l) + "px"; TB.style.top = Math.max(pad, t) + "px";
+    });
+    el.addEventListener("mouseleave", () => { TB.style.display = "none"; });
+  }
+
+  tip("ti-geom", `<span class="th">Geometry</span>
+Bottom N and Top N are the side lengths in unit cells. The bottom is masked to a
+square, the top to the inscribed circle, so a twist never changes how many atoms
+are in contact.
+<span class="nt">Cost grows as N_top² × N_bottom². 30/18 is instant; 250/250 is ~1.2×10¹⁰ pair terms and takes seconds per evaluation — the sum is resumable, so the panel stays live while it runs.</span>`);
+
+  tip("ti-vdw", `<span class="th">The pair potential</span>
+Every top atom against every bottom atom, Lennard-Jones 12-6 in SI units:
+<span class="eq">V(r) = C₁₂/r¹² − C₆/r⁶,  r² = dx² + dy² + d²</span>
+C₁₂ is fixed by C₆ so that dV/dr = 0 at r₀ = 3.40 Å, leaving C₆ as the single
+free parameter. 2.45×10⁻⁷⁸ J·m⁶ is the graphene-fitted value.`);
+
+  tip("ti-ham", `<span class="th">Hamaker continuum tail</span>
+Summing −C₆/r⁶ over a plane converges only as R⁻⁴, so a finite window throws
+away real binding energy. Hamaker's continuum integral gives what is missing in
+closed form:
+<span class="eq">E_tail/atom = −π C₆ n / (2 (R² + d²)²)</span>
+Adding it makes the fast neighbour mode trustworthy and removes the edge error
+from the accurate one.
+<span class="nt">It depends on d alone, so it shifts the binding energy without touching the lateral gradient — which is exactly why Hamaker cannot produce superlubricity by itself.</span>`);
+
+  tip("ti-hamchk", `<span class="th">Hamaker as a sanity check</span>
+The same C₆ implies a conventional 3D Hamaker constant
+<span class="eq">A = π² C₆ ρ²</span>
+with ρ the volume density of graphite. Measured graphite sits at
+2.4–4.7×10⁻¹⁹ J, so this is an independent test that C₆ is physical.
+W(d) is the continuum sheet-on-sheet energy, −πC₆n²/2d⁴ — the smooth baseline
+the discrete lattice sum oscillates around as the layers twist and slide.`);
+
+  tip("ti-relax", `<span class="th">Relaxation</span>
+<b>xy relax</b> slides the flake downhill to the nearest lateral minimum,
+following −∇U, which the energy pass already computes exactly — no search over
+trial offsets. It is clamped to one lattice constant so it finds the
+<i>nearest</i> minimum, not the global one.
+<b>h relax</b> scans the interlayer spacing over 3.34–3.75 Å.
+<span class="nt">With both ticked they alternate until the energy stops changing.</span>`);
+
+  tip("ti-md", `<span class="th">Lateral MD — moiré reconstruction</span>
+Instead of moving the flake rigidly, every top atom moves: three Hooke springs
+to its C–C neighbours (r_eq = 1.42 Å) against the vdW pull from the layer below,
+integrated by normalised steepest descent.
+<span class="nt">Stiff k holds the lattice rigid and the moiré stays sinusoidal. Soft k lets the flake lock into commensurate patches separated by narrow domain walls — the reconstruction seen in twisted bilayers. Displacements are ~0.001–0.1 Å, so they are amplified for display only.</span>`);
+
+  tip("ti-auto", `<span class="th">Automated modes</span>
+<b>Rotation</b> steps θ from 0° to 180° using the selected angle step.
+<b>Translate</b> slides the flake 12 Å along x using the selected translation
+step. Each sample optionally relaxes first, then records a point.
+<span class="nt">These run inside the simulation core as resumable jobs, so frames and readouts keep flowing and Stop responds immediately, however large the system.</span>`);
+
+  tip("ti-chart", `<span class="th">The energy trace</span>
+Every recorded point carries its θ, offset and energy, so the same series can be
+replotted against time, twist angle or offset without recomputing.
+<span class="nt">Energy vs offset is the corrugation the flake has to climb to slide; its slope is the lateral force. Energy vs θ is the lock-in landscape — deep minima at commensurate angles, almost flat in between.</span>`);
+
+  tip("ti-res", `<span class="th">Result</span>
+U is the total interaction energy of the flake with the sheet; U/A divides by the
+flake area so systems of different size are comparable.
+<span class="eq">F = −∇U,  exact from the same pass</span>
+The lateral force is what an AFM would measure dragging this flake — the number
+that collapses when the lattices go incommensurate.`);
+})();
+</script>
+</body>
+</html>

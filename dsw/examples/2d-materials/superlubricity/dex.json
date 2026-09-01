@@ -1,0 +1,6 @@
+{
+  "name": "Structural Superlubricity",
+  "description": "A van der Waals calculator for twisted graphene: the total interaction energy of a real atomistic flake on a graphene sheet, summed pair by pair, with a Hamaker continuum tail for what a finite window misses. Relax the offset and the interlayer spacing, sweep the twist angle or slide the flake, and run lateral MD to watch the moire reconstruct into commensurate domains.",
+  "accent": "#22d3ee",
+  "version": "2.0"
+}

@@ -1,0 +1,581 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Moiré Bubbles in Bilayers</title>
+<style>
+  :root { --panel: 286px; --accent: #e0653a; --bg: #fbfbfd; --ink: #16181d; --line: #e3e6ec; }
+  body.dark { --bg: #0d0f14; --ink: #e8ecf5; --line: #2a2f3a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #fff; color: var(--ink);
+               font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body.dark { background: #11141b; }
+  #wrap { display: flex; height: 100%; }
+  #panel { width: var(--panel); flex: 0 0 var(--panel); overflow-y: auto;
+           border-right: 1px solid var(--line); padding: 12px 12px 48px;
+           background: #fff; }
+  body.dark #panel { background: #151922; }
+  #stage { flex: 1; position: relative; background: var(--bg); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+  canvas.drag { cursor: grabbing; }
+  h1 { font-size: 15px; margin: 2px 0 10px; }
+  details.grp { border: 1px solid var(--line); border-radius: 7px; margin-bottom: 8px;
+                background: transparent; }
+  details.grp > summary { list-style: none; cursor: pointer; padding: 7px 9px;
+    font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+    color: #6b7280; font-weight: 600; }
+  body.dark details.grp > summary { color: #9aa3b2; }
+  details.grp > summary::-webkit-details-marker { display: none; }
+  details.grp > summary::after { content: "＋"; float: right; opacity: .55; }
+  details.grp[open] > summary::after { content: "－"; }
+  .body { padding: 0 9px 10px; }
+  label { display: block; margin: 6px 0 2px; font-size: 12px; }
+  .row { display: flex; align-items: center; gap: 7px; }
+  .row input[type=range] { flex: 1; min-width: 0; }
+  .val { width: 62px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+  select, button, input[type=color] { font: inherit; }
+  select { width: 100%; padding: 3px 4px; border: 1px solid #d3d8e0; border-radius: 5px;
+           background: #fff; color: #16181d; }
+  button { padding: 5px 9px; border: 1px solid #d3d8e0; border-radius: 6px;
+           background: #fff; color: #16181d; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chk { display: flex; align-items: center; gap: 6px; margin: 5px 0; font-size: 12px; }
+  .hint { color: #6b7280; font-size: 11.5px; margin-top: 6px; }
+  #kpi { position: absolute; left: 12px; top: 10px; background: rgba(255,255,255,.92);
+         border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px;
+         font-variant-numeric: tabular-nums; font-size: 12px; pointer-events: none; }
+  body.dark #kpi { background: rgba(20,24,32,.9); }
+  #status { position: absolute; right: 12px; top: 10px; font-size: 12px; color: #6b7280; }
+  .live { color: #16a34a; }
+  /* info panel, house pattern */
+  #siminfo-bubble { position: absolute; left: 0; top: 90px; width: 26px; height: 26px;
+    border-radius: 0 13px 13px 0; background: #0a58c0; color: #fff; display: grid;
+    place-items: center; font-style: italic; font-weight: 700; cursor: pointer;
+    opacity: 0; transition: opacity .25s; z-index: 6; }
+  #siminfo-bubble.visible { opacity: .92; }
+  #siminfo { position: absolute; top: 0; right: 0; height: 100%; width: 380px;
+    max-width: 84%; background: #fff; border-left: 1px solid var(--line);
+    transform: translateX(102%); transition: transform .28s; overflow-y: auto;
+    padding: 16px 18px 40px; z-index: 7; }
+  body.dark #siminfo { background: #151922; }
+  #siminfo.open { transform: translateX(0); }
+  #siminfo h2 { font-size: 13px; margin: 16px 0 6px; }
+  #siminfo p, #siminfo li { font-size: 12.5px; color: #333; }
+  body.dark #siminfo p, body.dark #siminfo li { color: #c8cfdb; }
+</style>
+
+<div id="wrap">
+  <div id="panel">
+    <h1 id="title">Moiré bubbles in bilayers</h1>
+    <div id="presetSlot"></div>
+
+    <details class="grp" open><summary>Geometry</summary><div class="body">
+      <label>Layer size <span class="val" id="NnmV"></span> nm</label>
+      <div class="row"><input type="range" id="Nnm" min="6" max="60" step="1" value="24"></div>
+      <label>Substrate size <span class="val" id="NsubnmV"></span> nm</label>
+      <div class="row"><input type="range" id="Nsubnm" min="6" max="72" step="1" value="29"></div>
+      <label>Twist angle <span class="val" id="twistDegV"></span>°</label>
+      <div class="row"><input type="range" id="twistDeg" min="0" max="15" step="0.05" value="2"></div>
+      <label>Interlayer spacing z₀ <span class="val" id="z0V"></span> Å</label>
+      <div class="row"><input type="range" id="z0" min="2.8" max="5" step="0.05" value="3.35"></div>
+      <label>Layer 1 above substrate <span class="val" id="zSubV"></span> Å</label>
+      <div class="row"><input type="range" id="zSub" min="2.8" max="5" step="0.05" value="3.35"></div>
+      <div class="chk"><input type="checkbox" id="substrateOn" checked><label for="substrateOn" style="margin:0">Rigid substrate below</label></div>
+      <div class="btns"><button id="rebuildBtn">Rebuild</button><button id="resetBtn">Reset</button></div>
+      <div class="hint">Geometry changes need a rebuild.</div>
+    </div></details>
+
+    <details class="grp"><summary>Physics</summary><div class="body">
+      <label>Morse depth D<sub>e</sub> <span class="val" id="DeV"></span> eV</label>
+      <div class="row"><input type="range" id="De" min="1" max="12" step="0.1" value="4.5"></div>
+      <label>Morse width α <span class="val" id="alphaV"></span> Å⁻¹</label>
+      <div class="row"><input type="range" id="alpha" min="0.8" max="4" step="0.05" value="1.8"></div>
+      <label>Bond length r<sub>e</sub> <span class="val" id="reV"></span> Å</label>
+      <div class="row"><input type="range" id="re" min="1.2" max="1.7" step="0.01" value="1.42"></div>
+      <label>2nd-neighbour spring k₂ <span class="val" id="k2V"></span></label>
+      <div class="row"><input type="range" id="k2" min="0" max="30" step="0.25" value="6"></div>
+      <label>Bending k<sub>bend</sub> <span class="val" id="kbendV"></span> eV</label>
+      <div class="row"><input type="range" id="kbend" min="0" max="4" step="0.05" value="0.9"></div>
+      <label>vdW σ <span class="val" id="sigmaV"></span> Å</label>
+      <div class="row"><input type="range" id="sigma" min="2.8" max="4.2" step="0.02" value="3.42"></div>
+      <label>Interlayer ε <span class="val" id="epsInterV"></span> meV</label>
+      <div class="row"><input type="range" id="epsInter" min="0" max="12" step="0.1" value="2.387"></div>
+      <label>Substrate ε <span class="val" id="epsSubV"></span> meV</label>
+      <div class="row"><input type="range" id="epsSub" min="0" max="12" step="0.1" value="2.387"></div>
+      <div class="hint">k₂ gives the honeycomb its shear rigidity — without it a
+        central-force lattice is a mechanism and collapses.</div>
+    </div></details>
+
+    <details class="grp" open><summary>Gas pocket</summary><div class="body">
+      <label>Placement</label>
+      <select id="gasWhere">
+        <option value="between">Between the layers</option>
+        <option value="below">Below the bilayer</option>
+      </select>
+      <label>Seed radius <span class="val" id="bubbleRnmV"></span> nm</label>
+      <div class="row"><input type="range" id="bubbleRnm" min="0.5" max="12" step="0.25" value="4"></div>
+      <label>Pressure <span class="val" id="bubblePV"></span> MPa</label>
+      <div class="row"><input type="range" id="bubbleP" min="20" max="3000" step="10" value="600"></div>
+      <label>Gas temperature <span class="val" id="gasTV"></span> K</label>
+      <div class="row"><input type="range" id="gasT" min="50" max="900" step="10" value="300"></div>
+      <label>Peel gap threshold <span class="val" id="gasGapV"></span> Å</label>
+      <div class="row"><input type="range" id="gasGap" min="0.4" max="3" step="0.1" value="1.2"></div>
+      <label>Fill rate <span class="val" id="fillRateV"></span> /step</label>
+      <div class="row"><input type="range" id="fillRate" min="0.0002" max="0.01" step="0.0002" value="0.0015"></div>
+      <label>Centre x <span class="val" id="CxnmV"></span> nm</label>
+      <div class="row"><input type="range" id="Cxnm" min="-10" max="10" step="0.25" value="0"></div>
+      <label>Centre y <span class="val" id="CynmV"></span> nm</label>
+      <div class="row"><input type="range" id="Cynm" min="-10" max="10" step="0.25" value="0"></div>
+      <div class="btns"><button id="gasBtn">Admit gas</button></div>
+      <div class="hint">Fixed N: p = NkT/V from the volume the layer encloses, and
+        the footprint follows the peel front.</div>
+    </div></details>
+
+    <details class="grp" open><summary>Run</summary><div class="body">
+      <label>Time step <span class="val" id="dtV"></span> fs</label>
+      <div class="row"><input type="range" id="dt" min="0.1" max="1.5" step="0.05" value="0.5"></div>
+      <label>Damping <span class="val" id="gammaV"></span></label>
+      <div class="row"><input type="range" id="gamma" min="0" max="4" step="0.05" value="1"></div>
+      <label>Max step size <span class="val" id="maxDXV"></span> Å</label>
+      <div class="row"><input type="range" id="maxDX" min="0.05" max="0.6" step="0.01" value="0.25"></div>
+      <label>Steps per frame <span class="val" id="stepsPerFrameV"></span></label>
+      <div class="row"><input type="range" id="stepsPerFrame" min="1" max="300" step="1" value="20"></div>
+      <div class="btns"><button id="runBtn">Run</button><button id="stepBtn">Step 200</button></div>
+    </div></details>
+
+    <details class="grp" open><summary>Display</summary><div class="body">
+      <label>Colour by</label>
+      <select id="colorMode">
+        <option value="height">Height</option>
+        <option value="registry">Registry (CSL)</option>
+        <option value="strain">Strain (bond dilatation)</option>
+        <option value="layer">Layer</option>
+      </select>
+      <label>Show</label>
+      <select id="showSel">
+        <option value="2">Layer 2 (top)</option>
+        <option value="1">Layer 1 (bottom)</option>
+        <option value="both">Both layers</option>
+      </select>
+      <div class="chk"><input type="checkbox" id="showSub"><label for="showSub" style="margin:0">Show substrate</label></div>
+      <label>Tilt <span class="val" id="tiltV"></span>°</label>
+      <div class="row"><input type="range" id="tilt" min="0" max="90" step="1" value="90"></div>
+      <label>Rotate <span class="val" id="azimV"></span>°</label>
+      <div class="row"><input type="range" id="azim" min="-180" max="180" step="1" value="0"></div>
+      <label>Zoom <span class="val" id="zoomV"></span>×</label>
+      <div class="row"><input type="range" id="zoom" min="0.3" max="6" step="0.05" value="1"></div>
+      <label>Height exaggeration <span class="val" id="zexV"></span>×</label>
+      <div class="row"><input type="range" id="zex" min="1" max="12" step="0.5" value="1"></div>
+      <label>Atom size <span class="val" id="atomSizeV"></span></label>
+      <div class="row"><input type="range" id="atomSize" min="0.5" max="6" step="0.25" value="1.6"></div>
+      <label>Strain full scale <span class="val" id="strainRedV"></span></label>
+      <div class="row"><input type="range" id="strainRed" min="0.002" max="0.08" step="0.002" value="0.02"></div>
+      <label>Registry γ <span class="val" id="regGammaV"></span></label>
+      <div class="row"><input type="range" id="regGamma" min="0.3" max="3" step="0.05" value="1"></div>
+      <div class="chk"><input type="checkbox" id="themeChk"><label for="themeChk" style="margin:0">Dark background</label></div>
+      <div class="btns"><button id="centerBtn">Fit true scale</button></div>
+      <div class="hint">Drag to rotate, wheel to zoom. Fit true scale resets
+        Zoom and Height exaggeration to 1×. Tilt 90° is plan view.</div>
+    </div></details>
+
+    <details class="grp"><summary>File</summary><div class="body">
+      <div class="btns">
+        <button id="btnSave">Save parameters</button>
+        <button id="btnLoad">Load parameters</button>
+      </div>
+      <div class="hint">JSON, same field names the plugin accepts.</div>
+    </div></details>
+  </div>
+
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="kpi"></div>
+    <div id="status">connecting…</div>
+    <div id="siminfo-bubble" title="About this simulation (I)"></div>
+    <div id="siminfo">
+      <h2>What it shows</h2>
+      <p>A twisted bilayer — two <em>live</em> layers, each a honeycomb of Morse
+         bonds with second-neighbour springs and a bending term — resting on a
+         rigid substrate through Lennard-Jones forces. A fixed-N gas pocket can
+         be placed either <b>between the layers</b> or <b>below the whole
+         bilayer</b>, which is the distinction this plugin exists for: in the
+         first case only the top layer lifts, in the second the pair moves
+         together and bends as a stiffer composite membrane.</p>
+      <p>The gas is not simulated as molecules. Its pressure follows
+         <i>p = NkT/V</i> from the volume the layer actually encloses, so
+         inflating the bubble lowers the pressure — the feedback that makes a
+         blister an equilibrium object rather than a runaway. The pressurised
+         footprint follows the peel front instead of being a fixed disc, so the
+         delamination radius is an <em>output</em>.</p>
+      <h2>How to use</h2>
+      <ul>
+        <li>Set a twist and rebuild, then <b>Admit gas</b> and <b>Run</b>.</li>
+        <li>Switch <b>Placement</b> between and below to compare — everything
+            else identical.</li>
+        <li>Colour by <b>Registry</b> for the moiré, by <b>Strain</b> for the
+            distortion. The compression and shear rings sit at the peel front.</li>
+        <li>Drag to rotate, wheel to zoom, tilt 90° for plan view.</li>
+      </ul>
+      <h2>Keyboard shortcuts</h2>
+      <ul>
+        <li><b>Space</b> run / pause &nbsp; <b>S</b> single step</li>
+        <li><b>G</b> admit or stop gas &nbsp; <b>R</b> reset &nbsp; <b>B</b> rebuild</li>
+        <li><b>C</b> cycle colour mode &nbsp; <b>D</b> dark &nbsp; <b>I</b> this panel</li>
+      </ul>
+      <h2>Accuracy &amp; limitations</h2>
+      <p>The in-plane model is a toy: Morse bonds plus springs, not a bond-order
+         potential. It is reliable for membrane mechanics — blister shapes,
+         draping, registry — and it is <em>not</em> chemistry: there is no bond
+         breaking here, and nothing about defects or edges should be trusted.
+         The ideal gas law is used well outside its range at GPa pressures; what
+         survives is the stiffness <i>p ∝ 1/V</i>, not the molecule count.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/dex.js"></script>
+<script>
+(function () {
+  const $ = s => document.getElementById(s);
+  const canvas = $("view"), ctx = canvas.getContext("2d");
+  const MAGIC = 0x314C424D;                  // 'MBL1'
+  const A_LATT = 2.46, REG_SMIN = -1.5, REG_SMAX = 3.0;
+
+  let L1 = null, L2 = null, SUB = null, frameNo = 0, ePot = 0, eKin = 0;
+  let ref = null, nbr = null;                // reference frame + neighbour list, for strain
+  const cam = { s: 1, ox: 0, oy: 0, fitted: false };
+  const dpr = () => window.devicePixelRatio || 1;
+
+  // ---- frame -------------------------------------------------------------
+  function parse(bytes) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (dv.byteLength < 32 || dv.getUint32(0, true) !== MAGIC) return false;
+    const flags = dv.getUint32(4, true);
+    const n1 = dv.getUint32(8, true), n2 = dv.getUint32(12, true), ns = dv.getUint32(16, true);
+    frameNo = dv.getUint32(20, true);
+    ePot = dv.getFloat32(24, true); eKin = dv.getFloat32(28, true);
+    let o = bytes.byteOffset + 32;
+    L1 = new Float32Array(bytes.buffer, o, 3 * n1); o += 12 * n1;
+    L2 = new Float32Array(bytes.buffer, o, 3 * n2); o += 12 * n2;
+    if (flags & 2) SUB = new Float32Array(bytes.buffer, o, 3 * ns);
+    return true;
+  }
+
+  // Reference geometry for the strain colouring: the first frame after a build.
+  // Neighbours are taken from the REFERENCE, so the measure stays defined even
+  // as the lattice deforms.
+  function captureReference() {
+    ref = { l1: L1.slice(), l2: L2.slice() };
+    nbr = { l1: buildNbr(ref.l1), l2: buildNbr(ref.l2) };
+  }
+  function buildNbr(a) {
+    const n = a.length / 3, cut = 1.8, c2 = cut * cut, cell = cut;
+    let lo = Infinity, ly = Infinity;
+    for (let i = 0; i < n; i++) { if (a[3*i] < lo) lo = a[3*i]; if (a[3*i+1] < ly) ly = a[3*i+1]; }
+    const gx = new Int32Array(n), gy = new Int32Array(n);
+    let nx = 0;
+    for (let i = 0; i < n; i++) { gx[i] = ((a[3*i]-lo)/cell)|0; gy[i] = ((a[3*i+1]-ly)/cell)|0;
+      if (gx[i] > nx) nx = gx[i]; }
+    nx += 2;
+    const map = new Map();
+    for (let i = 0; i < n; i++) { const k = gy[i]*nx + gx[i];
+      let v = map.get(k); if (!v) { v = []; map.set(k, v); } v.push(i); }
+    const off = new Int32Array(n + 1), tmp = [];
+    for (let i = 0; i < n; i++) {
+      const list = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const v = map.get((gy[i]+dy)*nx + gx[i]+dx); if (!v) continue;
+        for (const j of v) { if (j === i) continue;
+          const ddx = a[3*j]-a[3*i], ddy = a[3*j+1]-a[3*i+1], ddz = a[3*j+2]-a[3*i+2];
+          if (ddx*ddx+ddy*ddy+ddz*ddz <= c2) list.push(j); }
+      }
+      off[i+1] = off[i] + list.length; tmp.push(list);
+    }
+    const idx = new Int32Array(off[n]), d0 = new Float32Array(off[n]);
+    let q = 0;
+    for (let i = 0; i < n; i++) for (const j of tmp[i]) {
+      idx[q] = j;
+      const ddx = a[3*j]-a[3*i], ddy = a[3*j+1]-a[3*i+1], ddz = a[3*j+2]-a[3*i+2];
+      d0[q] = Math.hypot(ddx, ddy, ddz); q++;
+    }
+    return { off, idx, d0 };
+  }
+  // Mean bond-length change: a cheap stand-in for tr(eps)/2. The full tensor is
+  // in tools/strain.py; this is the live view, not the measurement.
+  function strainOf(a, N) {
+    const n = a.length / 3, out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0, c = 0;
+      for (let q = N.off[i]; q < N.off[i+1]; q++) {
+        const j = N.idx[q];
+        const dx = a[3*j]-a[3*i], dy = a[3*j+1]-a[3*i+1], dz = a[3*j+2]-a[3*i+2];
+        s += Math.hypot(dx, dy, dz) / N.d0[q] - 1; c++;
+      }
+      out[i] = c ? 2 * s / c : 0;
+    }
+    return out;
+  }
+
+  function registryOf(x, y, g0) {
+    const g = 4 * Math.PI / (Math.sqrt(3) * A_LATT);
+    let s = 0;
+    for (let k = 0; k < 3; k++) {
+      const a = Math.PI / 2 + k * 2 * Math.PI / 3;
+      s += Math.cos(g * Math.cos(a) * x + g * Math.sin(a) * y);
+    }
+    let t = 1 - (s - REG_SMIN) / (REG_SMAX - REG_SMIN);
+    t = t < 0 ? 0 : (t > 1 ? 1 : t);
+    return g0 === 1 ? t : Math.pow(t, g0);
+  }
+
+  // ---- camera ------------------------------------------------------------
+  function project(x, y, z, zex, zref = 0) {
+    const az = +$("azim").value * Math.PI/180, el = +$("tilt").value * Math.PI/180;
+    const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+    const fwd = x*ca + y*sa;
+    // Exaggerate deformation about each layer's own equilibrium plane.  Scaling
+    // absolute z would turn the physical 3.35 A interlayer gap into 10.05 A at
+    // 3x, making an undisturbed bilayer look artificially delaminated.
+    const zd = zref + (z - zref) * zex;
+    // elevation 90 deg must be PLAN view: the screen vertical is then the
+    // in-plane coordinate, not the height. Transposing ce/se here collapses a
+    // flat layer onto a single line, which is exactly what it did.
+    return [(-x*sa + y*ca), (-fwd*se + zd*ce), fwd*ce + zd*se];
+  }
+  function fit() {
+    if (!L2) return;
+    const zex = +$("zex").value;
+    let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;
+    const layers = [[L1, +$("zSub").value],
+                    [L2, +$("zSub").value + +$("z0").value]];
+    for (const [A, zref] of layers) for (let i = 0; i < A.length; i += 3) {
+      const p = project(A[i], A[i+1], A[i+2], zex, zref);
+      if (p[0]<x0)x0=p[0]; if (p[0]>x1)x1=p[0];
+      if (p[1]<y0)y0=p[1]; if (p[1]>y1)y1=p[1];
+    }
+    const pad = 24*dpr();
+    cam.s = Math.min((canvas.width-2*pad)/Math.max(x1-x0,1e-6),
+                     (canvas.height-2*pad)/Math.max(y1-y0,1e-6));
+    cam.ox = canvas.width/2 - cam.s*(x0+x1)/2;
+    cam.oy = canvas.height/2 + cam.s*(y0+y1)/2;
+    cam.fitted = true;
+  }
+  function turbo(t) {
+    t = t<0?0:(t>1?1:t);
+    const r = 255*Math.min(1, Math.max(0, 4*t-1.5));
+    const g = 255*Math.min(1, Math.max(0, (t<0.5?2*t:2-2*t)+0.15));
+    const b = 255*Math.min(1, Math.max(0, 1.5-4*t));
+    return "rgb("+(r|0)+","+(g|0)+","+(b|0)+")";
+  }
+  function coolwarm(t) {              // t in -1..1
+    const u = (t+1)/2, r = 255*Math.min(1,0.3+1.4*u), b = 255*Math.min(1,1.7-1.4*u);
+    const g = 255*(1-Math.abs(t)*0.75);
+    return "rgb("+(r|0)+","+(g|0)+","+(b|0)+")";
+  }
+
+  function draw() {
+    const w = canvas.width, h = canvas.height, dark = $("themeChk").checked;
+    ctx.fillStyle = dark ? "#0d0f14" : "#fbfbfd"; ctx.fillRect(0,0,w,h);
+    if (!L2) return;
+    if (!cam.fitted) fit();
+    const zex = +$("zex").value * (+$("zoom").value);
+    const zm = +$("zoom").value, mode = $("colorMode").value, which = $("showSel").value;
+    const r = +$("atomSize").value * dpr();
+    const sMax = +$("strainRed").value, g0 = +$("regGamma").value;
+
+    const sets = [];
+    if ($("showSub").checked && SUB) sets.push([SUB, "sub", null]);
+    if (which === "both" || which === "1") sets.push([L1, "l1", nbr && nbr.l1]);
+    if (which === "both" || which === "2") sets.push([L2, "l2", nbr && nbr.l2]);
+
+    let zlo = Infinity, zhi = -Infinity;
+    for (const [A, tag] of sets) { if (tag === "sub") continue;
+      for (let i = 2; i < A.length; i += 3) { if (A[i]<zlo) zlo=A[i]; if (A[i]>zhi) zhi=A[i]; } }
+    if (!(zhi > zlo)) { zlo = 0; zhi = 1; }
+
+    for (const [A, tag, N] of sets) {
+      let str = null;
+      if (mode === "strain" && N && ref) str = strainOf(A, N);
+      const pts = [];
+      for (let i = 0; i < A.length; i += 3) {
+        const zref = tag === "l1" ? +$("zSub").value :
+                     tag === "l2" ? +$("zSub").value + +$("z0").value : 0;
+        const p = project(A[i], A[i+1], A[i+2], +$("zex").value, zref);
+        pts.push([cam.ox + cam.s*zm*p[0], cam.oy - cam.s*zm*p[1], p[2], i/3]);
+      }
+      pts.sort((a,b) => a[2]-b[2]);
+      for (const [X, Y, , k] of pts) {
+        if (X<-4||Y<-4||X>w+4||Y>h+4) continue;
+        let col;
+        if (tag === "sub") col = dark ? "#333a49" : "#cbd0d9";
+        else if (mode === "layer") col = tag === "l1" ? "#7aa6d8" : "#e0653a";
+        else if (mode === "height") col = turbo((A[3*k+2]-zlo)/(zhi-zlo));
+        else if (mode === "registry") { const t = registryOf(A[3*k], A[3*k+1], g0);
+          const v = (40+200*t)|0; col = "rgb("+v+","+((40+120*t)|0)+","+(255-v)+")"; }
+        else col = str ? coolwarm(Math.max(-1, Math.min(1, str[k]/sMax))) : "#888";
+        ctx.fillStyle = col;
+        ctx.fillRect(X-r/2, Y-r/2, r, r);
+      }
+    }
+    $("kpi").innerHTML = "step <b>"+frameNo.toLocaleString()+"</b><br>E<sub>pot</sub> "+
+      ePot.toFixed(1)+" eV<br>z "+zlo.toFixed(2)+"–"+zhi.toFixed(2)+" Å";
+  }
+
+  function resize() {
+    const b = canvas.getBoundingClientRect(), d = dpr();
+    canvas.width = Math.max(1, Math.round(b.width*d));
+    canvas.height = Math.max(1, Math.round(b.height*d));
+    cam.fitted = false; draw();
+  }
+  window.addEventListener("resize", resize);
+
+  // ---- connection --------------------------------------------------------
+  let firstAfterBuild = false;
+  const dex = DEX.connect({
+    onStatus(s) { $("status").innerHTML = s === "open" ? '<span class="live">●</span> live'
+      : (s === "closed" ? "disconnected — reload" : s); },
+    onMessage(m) {
+      if (m.t !== "state") return;
+      let t = '<span class="live">●</span> ' +
+        Number(m.sps||0).toLocaleString(undefined,{maximumFractionDigits:0}) + " steps/s";
+      if (m.gas) t += " · gas " + (m.gasP/1e6).toFixed(0) + " MPa, peel r " +
+        Number(m.gasR).toFixed(0) + " Å, fill " + (100*m.fill).toFixed(0) + "%";
+      $("status").innerHTML = t;
+    },
+    onFrame(w, h, rgba) {
+      if (!parse(rgba)) return;
+      if (firstAfterBuild) { captureReference(); firstAfterBuild = false; }
+      draw();
+    }
+  });
+
+  // ---- controls ----------------------------------------------------------
+  const SL = ["Nnm","Nsubnm","twistDeg","z0","zSub","De","alpha","re","k2","kbend",
+              "sigma","epsInter","epsSub","bubbleRnm","bubbleP","gasT","gasGap",
+              "fillRate","Cxnm","Cynm","dt","gamma","maxDX","stepsPerFrame",
+              "tilt","azim","zoom","zex","atomSize","strainRed","regGamma"];
+  const DEC = { Nnm:0,Nsubnm:0,twistDeg:2,z0:2,zSub:2,De:1,alpha:2,re:2,k2:2,kbend:2,
+                sigma:2,epsInter:3,epsSub:3,bubbleRnm:2,bubbleP:0,gasT:0,gasGap:1,
+                fillRate:4,Cxnm:2,Cynm:2,dt:2,gamma:2,maxDX:2,stepsPerFrame:0,
+                tilt:0,azim:0,zoom:2,zex:1,atomSize:2,strainRed:3,regGamma:2 };
+  const LOCAL = new Set(["tilt","azim","zoom","zex","atomSize","strainRed","regGamma"]);
+  const REBUILD = new Set(["Nnm","Nsubnm","twistDeg","z0","zSub"]);
+  const lab = id => { const e = $(id+"V"); if (e) e.textContent = (+$(id).value).toFixed(DEC[id]??2); };
+
+  function params() {
+    return { t:"params",
+      De:+$("De").value, alpha:+$("alpha").value, re:+$("re").value,
+      k2:+$("k2").value, kbend:+$("kbend").value, sigma:+$("sigma").value,
+      epsInter:+$("epsInter").value/1000, epsSub:+$("epsSub").value/1000,
+      substrateOn:$("substrateOn").checked?1:0,
+      gasWhere:$("gasWhere").value, bubbleRnm:+$("bubbleRnm").value,
+      bubbleP:+$("bubbleP").value, gasT:+$("gasT").value, gasGap:+$("gasGap").value,
+      fillRate:+$("fillRate").value, Cxnm:+$("Cxnm").value, Cynm:+$("Cynm").value,
+      dt:+$("dt").value, gamma:+$("gamma").value, maxDX:+$("maxDX").value,
+      stepsPerFrame:+$("stepsPerFrame").value };
+  }
+  for (const id of SL) { lab(id);
+    $(id).addEventListener("input", () => { lab(id);
+      if (LOCAL.has(id)) { if (id==="tilt"||id==="azim"||id==="zex") cam.fitted=false; draw(); return; }
+      if (REBUILD.has(id)) return;
+      dex.send(params()); }); }
+  for (const id of ["gasWhere","substrateOn"]) $(id).addEventListener("change", () => dex.send(params()));
+  for (const id of ["colorMode","showSel","showSub"]) $(id).addEventListener("change", draw);
+  $("themeChk").addEventListener("change", () => {
+    document.body.classList.toggle("dark", $("themeChk").checked); draw(); });
+  $("centerBtn").onclick = () => {
+    $("zoom").value = 1;
+    $("zex").value = 1;
+    lab("zoom"); lab("zex");
+    cam.fitted = false;
+    draw();
+  };
+
+  function rebuild() {
+    const m = params(); m.t = "build";
+    m.Nnm = +$("Nnm").value; m.Nsubnm = +$("Nsubnm").value;
+    m.twistDeg = +$("twistDeg").value; m.z0 = +$("z0").value; m.zSub = +$("zSub").value;
+    cam.fitted = false; firstAfterBuild = true; ref = null; nbr = null;
+    dex.send(m); dex.send({ t:"run", on: running?1:0 });
+  }
+  $("rebuildBtn").onclick = rebuild;
+  $("resetBtn").onclick = () => { firstAfterBuild = true; dex.send({ t:"reset" }); };
+
+  let gasOn = false, running = false;
+  $("gasBtn").onclick = () => { gasOn = !gasOn;
+    $("gasBtn").textContent = gasOn ? "Stop gas" : "Admit gas";
+    $("gasBtn").classList.toggle("on", gasOn);
+    dex.send({ t:"gas", on: gasOn?1:0 });
+    if (gasOn && !running) $("runBtn").click(); };
+  $("runBtn").onclick = () => { running = !running;
+    $("runBtn").textContent = running ? "Pause" : "Run";
+    $("runBtn").classList.toggle("on", running);
+    dex.send({ t:"run", on: running?1:0 }); };
+  $("stepBtn").onclick = () => dex.send({ t:"step", n:200 });
+
+  // ---- save / load -------------------------------------------------------
+  $("btnSave").onclick = () => {
+    const o = {}; for (const id of SL) o[id] = +$(id).value;
+    o.gasWhere = $("gasWhere").value; o.substrateOn = $("substrateOn").checked;
+    o.colorMode = $("colorMode").value; o.showSel = $("showSel").value;
+    const b = new Blob([JSON.stringify(o, null, 1)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "moire-bubble-params-" + new Date().toISOString().replace(/[:.]/g,"-") + ".json";
+    a.click();
+  };
+  $("btnLoad").onclick = () => {
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/json";
+    inp.onchange = async () => { const f = inp.files && inp.files[0]; if (!f) return;
+      try { const o = JSON.parse(await f.text());
+        for (const k in o) { const el = $(k); if (!el) continue;
+          if (el.type === "checkbox") el.checked = !!o[k]; else el.value = o[k];
+          if (SL.includes(k)) lab(k); }
+        rebuild();
+      } catch (e) { console.error(e); alert("Could not read that parameter file."); } };
+    inp.click();
+  };
+
+  // ---- mouse: drag to rotate, wheel to zoom ------------------------------
+  let drag = null;
+  canvas.addEventListener("pointerdown", e => { drag = {x:e.clientX, y:e.clientY,
+    az:+$("azim").value, tl:+$("tilt").value}; canvas.classList.add("drag");
+    canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", e => { if (!drag) return;
+    $("azim").value = Math.max(-180, Math.min(180, drag.az - (e.clientX-drag.x)*0.4));
+    $("tilt").value = Math.max(0, Math.min(90, drag.tl + (e.clientY-drag.y)*0.3));
+    lab("azim"); lab("tilt"); cam.fitted = false; draw(); });
+  const endDrag = e => { drag = null; canvas.classList.remove("drag");
+    try { canvas.releasePointerCapture(e.pointerId); } catch(_){} };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("wheel", e => { e.preventDefault();
+    $("zoom").value = Math.max(0.3, Math.min(6, +$("zoom").value * (e.deltaY < 0 ? 1.1 : 0.9)));
+    lab("zoom"); draw(); }, {passive:false});
+
+  // ---- info panel + shortcuts -------------------------------------------
+  const info = $("siminfo"), bub = $("siminfo-bubble");
+  const showInfo = v => info.classList.toggle("open", v);
+  bub.onclick = () => showInfo(!info.classList.contains("open"));
+  $("stage").addEventListener("mousemove", e => {
+    bub.classList.toggle("visible", e.clientX - $("stage").getBoundingClientRect().left < 60); });
+  document.addEventListener("keydown", e => {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target||{}).tagName||"")) return;
+    const k = e.key.toLowerCase();
+    if (k === " ") { e.preventDefault(); $("runBtn").click(); }
+    else if (k === "s") $("stepBtn").click();
+    else if (k === "g") $("gasBtn").click();
+    else if (k === "r") $("resetBtn").click();
+    else if (k === "b") $("rebuildBtn").click();
+    else if (k === "d") { $("themeChk").checked = !$("themeChk").checked;
+      $("themeChk").dispatchEvent(new Event("change")); }
+    else if (k === "c") { const s = $("colorMode");
+      s.selectedIndex = (s.selectedIndex + 1) % s.options.length; draw(); }
+    else if (k === "i" || k === "?") showInfo(!info.classList.contains("open"));
+    else if (k === "escape") showInfo(false);
+  });
+
+  resize();
+  setTimeout(rebuild, 180);
+})();
+</script>

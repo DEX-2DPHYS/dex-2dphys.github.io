@@ -1,0 +1,6 @@
+{
+  "name": "Graphene MD (GPU)",
+  "description": "The bilayer-graphene MD sandbox with the classic Morse engine ported to the GPU: OpenCL kernels compiled at runtime through the driver, no SDK needed, automatic CPU fallback. Same physics, much larger sheets - the force evaluation, integration and substrate lift all run device-side, with bond breaking kept on the CPU once per frame batch.",
+  "accent": "#76b900",
+  "version": "1.0"
+}

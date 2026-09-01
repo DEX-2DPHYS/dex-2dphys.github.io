@@ -1,0 +1,6 @@
+{
+  "name": "Moire Bubbles in Bilayers",
+  "description": "A twisted bilayer with two live layers on a rigid substrate, and a fixed-N gas pocket with a free peel front that can be placed either BETWEEN the layers or BENEATH the whole bilayer. Built to study the atomistic configuration of moire bubbles at equilibrium: registry (CSL) and the in-plane strain field, not just the overall shape.",
+  "accent": "#e0653a",
+  "version": "1.0"
+}

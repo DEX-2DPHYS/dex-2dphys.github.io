@@ -1,0 +1,6 @@
+{
+  "name": "Graphene Lattice Vibrations",
+  "description": "A honeycomb lattice of point masses with Morse or harmonic nearest-neighbour bonds and second-neighbour angular springs. Watch phonons and thermal motion, grab an atom to drive it, and switch on bond breaking to see the lattice tear and heal. Ported from the browser sim 'Graphene Lattice Vibrations 2'.",
+  "accent": "#7a5cff",
+  "version": "1.0"
+}

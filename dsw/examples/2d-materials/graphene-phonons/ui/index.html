@@ -1,0 +1,503 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Graphene Lattice Vibrations</title>
+<style>
+  :root { --panel: 268px; --accent: #7a5cff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #fff; color: #16181d;
+               font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #wrap { display: flex; height: 100%; }
+  #panel { width: var(--panel); flex: 0 0 var(--panel); overflow-y: auto;
+           border-right: 1px solid #e3e6ec; padding: 12px 12px 40px; }
+  #stage { flex: 1; position: relative; background: #fbfbfd; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  h1 { font-size: 15px; margin: 2px 0 10px; }
+  .grp { border: 1px solid #e3e6ec; border-radius: 7px; padding: 8px 9px 10px; margin-bottom: 9px; }
+  .grp > h2 { font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+              color: #6b7280; margin: 0 0 7px; font-weight: 600; }
+  label { display: block; margin: 6px 0 2px; font-size: 12px; color: #374151; }
+  .row { display: flex; align-items: center; gap: 7px; }
+  .row input[type=range] { flex: 1; min-width: 0; }
+  .range-scale { display:flex; justify-content:space-between; margin:2px 0 0;
+    color:#777f8e; font-size:10px; font-variant-numeric:tabular-nums; }
+  .val { width: 54px; text-align: right; font-variant-numeric: tabular-nums;
+         color: #111827; font-size: 12px; }
+  select, button { font: inherit; }
+  select { width: 100%; padding: 3px 4px; border: 1px solid #d3d8e0; border-radius: 5px; background: #fff; }
+  button { padding: 5px 9px; border: 1px solid #d3d8e0; border-radius: 6px;
+           background: #fff; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .chk { display: flex; align-items: center; gap: 6px; margin: 5px 0; font-size: 12px; }
+  #kpi { position: absolute; left: 12px; top: 10px; background: rgba(255,255,255,.9);
+         border: 1px solid #e3e6ec; border-radius: 7px; padding: 7px 10px;
+         font-variant-numeric: tabular-nums; font-size: 12px; pointer-events: none; }
+  #kpi b { font-weight: 600; }
+  #status { position: absolute; right: 12px; top: 10px; font-size: 12px; color: #6b7280; }
+  .live { color: #16a34a; }
+  .hint { color: #6b7280; font-size: 11.5px; margin-top: 6px; }
+  #siminfo-bubble { position: absolute; left: 0; top: 90px; width: 26px; height: 26px;
+    border-radius: 0 13px 13px 0; background: #0a58c0; color: #fff; display: grid;
+    place-items: center; font-style: italic; font-weight: 700; cursor: pointer;
+    opacity: 0; transition: opacity .25s; z-index: 6; }
+  #siminfo-bubble::before { content: "i"; }
+  #siminfo-bubble.visible { opacity: .92; }
+  #siminfo { position: absolute; top: 0; right: 0; height: 100%; width: 370px;
+    max-width: 84%; background: #fff; border-left: 1px solid #e3e6ec;
+    transform: translateX(102%); transition: transform .28s; overflow-y: auto;
+    padding: 16px 18px 40px; z-index: 7; }
+  #siminfo.open { transform: translateX(0); }
+  #siminfo h2 { font-size: 13px; margin: 16px 0 6px; }
+  #siminfo p, #siminfo li { font-size: 12.5px; color: #333; }
+</style>
+
+<div id="wrap">
+  <div id="panel">
+    <h1>Graphene lattice vibrations</h1>
+
+    <div class="grp"><h2>Lattice</h2>
+      <label>Cells <span class="val" id="cellsV"></span></label>
+      <div class="row"><input type="range" id="cells" min="0" max="2" step="0.001" value="0.380"></div>
+      <div class="range-scale"><span>5</span><span>50</span><span>500</span></div>
+      <label>Bond length L₀ <span class="val" id="L0V"></span></label>
+      <div class="row"><input type="range" id="L0" min="0.5" max="2" step="0.05" value="1"></div>
+      <div class="btns">
+        <button id="rebuild">Rebuild</button>
+        <button id="reset">Reset</button>
+        <button id="kick">Kick</button>
+      </div>
+      <div class="hint">Rebuild after changing cells or L₀.</div>
+    </div>
+
+    <div class="grp"><h2>Bonds</h2>
+      <div class="chk"><input type="checkbox" id="useMorse" checked><label for="useMorse" style="margin:0">Morse (else harmonic)</label></div>
+      <label>Well depth D<sub>e</sub> <span class="val" id="DeV"></span></label>
+      <div class="row"><input type="range" id="De" min="0.5" max="20" step="0.1" value="5"></div>
+      <label>Width α <span class="val" id="alphaV"></span></label>
+      <div class="row"><input type="range" id="alpha" min="0.5" max="5" step="0.05" value="2"></div>
+      <label>Spring k (harmonic) <span class="val" id="kV"></span></label>
+      <div class="row"><input type="range" id="k" min="1" max="200" step="1" value="40"></div>
+      <div class="chk"><input type="checkbox" id="useAng" checked><label for="useAng" style="margin:0">Second-neighbour springs</label></div>
+      <label>k<sub>ang</sub> <span class="val" id="kAngV"></span></label>
+      <div class="row"><input type="range" id="kAng" min="0" max="60" step="0.5" value="8"></div>
+      <div class="hint">Without the second-neighbour springs a honeycomb of
+        central-force bonds has no shear rigidity and collapses.</div>
+    </div>
+
+    <div class="grp"><h2>Dynamics</h2>
+      <label>Damping γ <span class="val" id="gV"></span></label>
+      <div class="row"><input type="range" id="g" min="0" max="1" step="0.005" value="0.05"></div>
+      <label>Time step <span class="val" id="dtV"></span></label>
+      <div class="row"><input type="range" id="dt" min="0.001" max="0.03" step="0.001" value="0.01"></div>
+      <label>Steps per frame <span class="val" id="spfV"></span></label>
+      <div class="row"><input type="range" id="spf" min="1" max="60" step="1" value="4"></div>
+      <label>Initial disorder <span class="val" id="offV"></span></label>
+      <div class="row"><input type="range" id="off" min="0" max="0.25" step="0.005" value="0.02"></div>
+    </div>
+
+    <div class="grp"><h2>Bond kinetics</h2>
+      <div class="chk"><input type="checkbox" id="doBreak"><label for="doBreak" style="margin:0">Allow breaking</label></div>
+      <label>Break at d/L₀ <span class="val" id="fBreakV"></span></label>
+      <div class="row"><input type="range" id="fBreak" min="1.05" max="2" step="0.01" value="1.35"></div>
+      <div class="chk"><input type="checkbox" id="doReform"><label for="doReform" style="margin:0">Allow re-forming</label></div>
+      <label>Re-form under d/L₀ <span class="val" id="fReformV"></span></label>
+      <div class="row"><input type="range" id="fReform" min="1" max="1.8" step="0.01" value="1.15"></div>
+      <div class="hint">Re-forming only ever restores an original neighbour,
+        and never past a valence of three.</div>
+    </div>
+
+    <div class="grp"><h2>Display</h2>
+      <label>Strain colour</label>
+      <select id="scale">
+        <option value="classic">Classic</option>
+        <option value="fire">Fire</option>
+        <option value="magma">Magma</option>
+        <option value="viridis">Viridis</option>
+        <option value="electric">Electric</option>
+        <option value="cyan">Cyan</option>
+        <option value="gold">Gold</option>
+        <option value="whitehot">White hot</option>
+      </select>
+      <label>Strain full scale <span class="val" id="smaxV"></span></label>
+      <div class="row"><input type="range" id="smax" min="0.01" max="0.5" step="0.005" value="0.1"></div>
+      <label>Atom radius <span class="val" id="radV"></span></label>
+      <div class="row"><input type="range" id="rad" min="0" max="8" step="0.25" value="2.5"></div>
+      <label>Bond width <span class="val" id="lineWV"></span></label>
+      <div class="row"><input type="range" id="lineW" min="0.5" max="6" step="0.25" value="1.75"></div>
+      <div class="chk"><input type="checkbox" id="dark"><label for="dark" style="margin:0">Dark background</label></div>
+    </div>
+
+    <div class="grp"><h2>Run</h2>
+      <div class="btns">
+        <button id="play" class="on">Pause</button>
+        <button id="step1">Step 10</button>
+      </div>
+      <div class="hint">Drag on the lattice to grab an atom and drive it.</div>
+    </div>
+
+    <div class="grp"><h2>File</h2>
+      <div class="btns">
+        <button id="btnSave">Save parameters</button>
+        <button id="btnLoad">Load parameters</button>
+      </div>
+      <div class="hint">JSON, using the same field names the plugin accepts.</div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="view"></canvas>
+    <div id="kpi"></div>
+    <div id="status">connecting…</div>
+    <div id="siminfo-bubble" title="About this simulation (I)"></div>
+    <div id="siminfo">
+      <h2>What it shows</h2>
+      <p>A honeycomb lattice of point masses. Nearest neighbours are joined by
+         Morse bonds (or plain harmonic springs), second neighbours by springs
+         that supply the shear rigidity a central-force honeycomb completely
+         lacks &mdash; without them the lattice is a mechanism and collapses.
+         Colour shows the strain carried by each bond.</p>
+      <p>With bond kinetics switched on, a bond breaks past a set extension and
+         can re-form &mdash; but only between atoms that were neighbours to begin
+         with, and never past a valence of three. That is a distance rule, not
+         chemistry: it produces plausible tearing and healing, and it should not
+         be read as a prediction about real defects.</p>
+      <h2>How to use</h2>
+      <ul>
+        <li>Set the lattice size and press <b>Rebuild</b>. The size slider is
+            logarithmic: 5, 50 and 500 cells at left, centre and right.</li>
+        <li><b>Kick</b> adds disorder to an already-running lattice; the initial
+            disorder slider sets what a fresh build starts with.</li>
+        <li>Turn damping down to watch energy conserve, up to watch it settle.</li>
+        <li>Drag on the lattice to grab an atom and drive it.</li>
+      </ul>
+      <h2>Keyboard shortcuts</h2>
+      <ul>
+        <li><b>Space</b> run / pause &nbsp; <b>S</b> step &nbsp; <b>K</b> kick</li>
+        <li><b>R</b> reset &nbsp; <b>B</b> rebuild &nbsp; <b>D</b> dark &nbsp;
+            <b>I</b> this panel</li>
+      </ul>
+      <h2>Accuracy &amp; limitations</h2>
+      <p>The equilibrium is exact &mdash; a relaxed lattice does not move, to
+         machine precision &mdash; and energy is conserved to better than 0.01&nbsp;%
+         without damping. What this is not is a bond-order potential: coordination
+         costs nothing, edges are not reconstructed, and the bond list is fixed at
+         build time. For anything chemical, use AIREBO in the molecular-dynamics
+         plugin.</p>
+    </div>
+  </div>
+</div>
+
+<script src="/dex.js"></script>
+<script>
+(function () {
+  const $ = s => document.getElementById(s);
+  const canvas = $("view"), ctx = canvas.getContext("2d");
+
+  // ---- strain colour scales, same stops as the browser original -----------
+  function lerpStops(stops) {
+    return t => {
+      if (t <= stops[0][0]) return stops[0][1];
+      for (let s = 1; s < stops.length; s++) {
+        if (t <= stops[s][0]) {
+          const [t0, c0] = stops[s - 1], [t1, c1] = stops[s], u = (t - t0) / (t1 - t0);
+          return [c0[0] + (c1[0] - c0[0]) * u, c0[1] + (c1[1] - c0[1]) * u, c0[2] + (c1[2] - c0[2]) * u];
+        }
+      }
+      return stops[stops.length - 1][1];
+    };
+  }
+  const SCALES = {
+    classic: t => { const g = 30 * (1 - t); return [30 + 225 * t, g, g]; },
+    fire:     lerpStops([[0,[70,15,0]],  [0.35,[225,55,0]],  [0.7,[255,165,0]],  [1,[255,255,130]]]),
+    magma:    lerpStops([[0,[35,10,60]], [0.4,[180,35,120]], [0.75,[250,105,60]],[1,[255,225,130]]]),
+    viridis:  lerpStops([[0,[68,1,84]],  [0.25,[59,82,139]], [0.5,[33,145,140]], [0.75,[94,201,98]], [1,[253,231,37]]]),
+    electric: lerpStops([[0,[30,0,110]], [0.4,[125,0,255]],  [0.7,[255,0,200]],  [1,[255,210,255]]]),
+    cyan:     lerpStops([[0,[0,45,70]],  [0.5,[0,170,210]],  [1,[140,255,255]]]),
+    gold:     lerpStops([[0,[80,50,0]],  [0.5,[235,165,0]],  [1,[255,240,160]]]),
+    whitehot: lerpStops([[0,[70,70,70]], [0.5,[190,190,190]],[1,[255,255,255]]])
+  };
+
+  // ---- state fed by the packed frames -------------------------------------
+  const MAGIC = 0x31485047;             // 'GPH1'
+  let pos = null, bonds = null, strain = null, nAtoms = 0, nBonds = 0;
+  let ePot = 0, eKin = 0, frameNo = 0;
+  let view = { s: 1, ox: 0, oy: 0, fitted: false };
+
+  function parseFrame(bytes) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (dv.byteLength < 32 || dv.getUint32(0, true) !== MAGIC) return false;
+    const flags = dv.getUint32(4, true);
+    nAtoms = dv.getUint32(8, true);
+    nBonds = dv.getUint32(12, true);
+    frameNo = dv.getUint32(16, true);
+    ePot = dv.getFloat32(24, true);
+    eKin = dv.getFloat32(28, true);
+    let o = 32;
+    pos = new Float32Array(bytes.buffer, bytes.byteOffset + o, 2 * nAtoms); o += 8 * nAtoms;
+    if (flags & 1) {
+      bonds = new Int32Array(bytes.buffer, bytes.byteOffset + o, 2 * nBonds);
+      o += 8 * nBonds;
+    } else if (!bonds || bonds.length !== 2 * nBonds) {
+      return false;
+    }
+    strain = new Float32Array(bytes.buffer, bytes.byteOffset + o, nBonds);
+    return true;
+  }
+
+  function fit() {
+    if (!pos || !nAtoms) return;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < nAtoms; i++) {
+      const x = pos[2 * i], y = pos[2 * i + 1];
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    const w = canvas.width, h = canvas.height, pad = 24 * dpr();
+    const s = Math.min((w - 2 * pad) / Math.max(x1 - x0, 1e-6),
+                       (h - 2 * pad) / Math.max(y1 - y0, 1e-6));
+    view.s = s;
+    view.ox = w / 2 - s * (x0 + x1) / 2;
+    view.oy = h / 2 + s * (y0 + y1) / 2;
+    view.fitted = true;
+  }
+  const dpr = () => window.devicePixelRatio || 1;
+  const sx = x => view.ox + view.s * x;
+  const sy = y => view.oy - view.s * y;          // y up, like the original
+  const wx = px => (px - view.ox) / view.s;
+  const wy = py => (view.oy - py) / view.s;
+
+  function outside() {
+    if (!pos) return false;
+    for (let i = 0; i < nAtoms; i++) {
+      const X = sx(pos[2 * i]), Y = sy(pos[2 * i + 1]);
+      if (X < -2 || Y < -2 || X > canvas.width + 2 || Y > canvas.height + 2) return true;
+    }
+    return false;
+  }
+
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+    const dark = $("dark").checked;
+    ctx.fillStyle = dark ? "#0d0f14" : "#fbfbfd";
+    ctx.fillRect(0, 0, w, h);
+    if (!pos) return;
+    if (!view.fitted) fit();
+    else if (outside()) fit();   // keep everything in view as the lattice moves
+
+    const scale = SCALES[$("scale").value] || SCALES.classic;
+    const smax = +$("smax").value;
+    ctx.lineWidth = +$("lineW").value * dpr();
+    ctx.lineCap = "round";
+    const bondStride = Math.max(1, Math.ceil(nBonds / 120000));
+    for (let b = 0; b < nBonds; b += bondStride) {
+      const i = bonds[2 * b], j = bonds[2 * b + 1];
+      const t = Math.min(1, Math.abs(strain[b]) / smax);
+      const c = scale(t);
+      ctx.strokeStyle = "rgb(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ")";
+      ctx.beginPath();
+      ctx.moveTo(sx(pos[2 * i]), sy(pos[2 * i + 1]));
+      ctx.lineTo(sx(pos[2 * j]), sy(pos[2 * j + 1]));
+      ctx.stroke();
+    }
+    const r = +$("rad").value * dpr();
+    if (r > 0) {
+      ctx.fillStyle = dark ? "#e8ecf5" : "#1b2430";
+      const atomStride = Math.max(1, Math.ceil(nAtoms / 100000));
+      for (let i = 0; i < nAtoms; i += atomStride) {
+        ctx.beginPath();
+        ctx.arc(sx(pos[2 * i]), sy(pos[2 * i + 1]), r, 0, 6.283185);
+        ctx.fill();
+      }
+    }
+    $("kpi").innerHTML =
+      "<b>" + nAtoms.toLocaleString() + "</b> atoms &nbsp; <b>" + nBonds.toLocaleString() +
+      "</b> bonds<br>step <b>" + frameNo.toLocaleString() + "</b><br>" +
+      "E<sub>pot</sub> " + ePot.toFixed(2) + " &nbsp; E<sub>kin</sub> " + eKin.toFixed(2) +
+      "<br>E<sub>tot</sub> <b>" + (ePot + eKin).toFixed(2) + "</b>" +
+      (bondStride > 1 ? "<br>display sample 1/" + bondStride : "");
+  }
+
+  function resize() {
+    const r = canvas.getBoundingClientRect(), d = dpr();
+    canvas.width = Math.max(1, Math.round(r.width * d));
+    canvas.height = Math.max(1, Math.round(r.height * d));
+    view.fitted = false;
+    draw();
+  }
+  window.addEventListener("resize", resize);
+
+  // ---- connect ------------------------------------------------------------
+  const dex = DEX.connect({
+    onStatus(s) {
+      $("status").innerHTML = s === "open" ? '<span class="live">●</span> live'
+        : (s === "closed" ? "disconnected — reload to restart" : s);
+    },
+    onMessage(m) {
+      if (m.t === "state" && m.sps !== undefined)
+        $("status").innerHTML = '<span class="live">●</span> ' +
+          Number(m.sps).toLocaleString(undefined, { maximumFractionDigits: 0 }) + " steps/s";
+    },
+    onFrame(w, h, rgba) { if (parseFrame(rgba)) draw(); }
+  });
+
+  // ---- controls -----------------------------------------------------------
+  const SLIDERS = ["cells","L0","De","alpha","k","kAng","g","dt","spf","off",
+                   "fBreak","fReform","smax","rad","lineW"];
+  const DECIMALS = { cells:0, spf:0, k:0, kAng:1, L0:2, De:1, alpha:2, g:3, dt:3,
+                     off:3, fBreak:2, fReform:2, smax:3, rad:2, lineW:2 };
+  // Slider coordinate is log10(cells / 5): 0 -> 5, 1 -> 50, 2 -> 500.
+  const cellsValue = () => Math.max(5, Math.min(500,
+    Math.round(5 * Math.pow(10, +$("cells").value))));
+  function label(id) {
+    const el = $(id + "V");
+    if (el) el.textContent = id === "cells" ? cellsValue() :
+      (+$(id).value).toFixed(DECIMALS[id] ?? 2);
+  }
+  function paramMsg() {
+    return { t: "params",
+      L0: +$("L0").value, k: +$("k").value, De: +$("De").value, alpha: +$("alpha").value,
+      kAng: +$("kAng").value, useAng: $("useAng").checked ? 1 : 0,
+      useMorse: $("useMorse").checked ? 1 : 0,
+      g: +$("g").value, dt: +$("dt").value, stepsPerFrame: +$("spf").value,
+      off: +$("off").value,
+      doBreak: $("doBreak").checked ? 1 : 0, doReform: $("doReform").checked ? 1 : 0,
+      fBreak: +$("fBreak").value, fReform: +$("fReform").value };
+  }
+  const LOCAL = new Set(["smax","rad","lineW"]);   // display only, no round trip
+  for (const id of SLIDERS) {
+    label(id);
+    $(id).addEventListener("input", () => {
+      label(id);
+      if (LOCAL.has(id)) { draw(); return; }
+      if (id === "cells" || id === "L0") return;    // needs a rebuild
+      dex.send(paramMsg());
+    });
+  }
+  for (const id of ["useAng","useMorse","doBreak","doReform"])
+    $(id).addEventListener("change", () => dex.send(paramMsg()));
+  for (const id of ["scale","dark"]) $(id).addEventListener("change", draw);
+
+  function rebuild() {
+    const m = paramMsg();
+    m.t = "build"; m.cells = cellsValue();
+    view.fitted = false;
+    dex.send(m);
+    // The core starts stopped; the panel starts showing "Pause". Say what we
+    // mean, or a fresh instance sits at step 0 looking broken.
+    dex.send({ t: "run", on: running ? 1 : 0 });
+  }
+  $("rebuild").onclick = rebuild;
+  $("reset").onclick = () => dex.send({ t: "reset" });
+  $("kick").onclick = () => dex.send({ t: "randomize", off: +$("off").value });
+
+  let running = true;
+  $("play").onclick = () => {
+    running = !running;
+    $("play").textContent = running ? "Pause" : "Run";
+    $("play").classList.toggle("on", running);
+    dex.send({ t: "run", on: running ? 1 : 0 });
+  };
+  $("step1").onclick = () => dex.send({ t: "step", n: 10 });
+
+  // ---- mouse grab ---------------------------------------------------------
+  let grabbing = false;
+  function nearest(mx, my) {
+    if (!pos) return -1;
+    let best = -1, bd = Infinity;
+    const X = wx(mx), Y = wy(my);
+    for (let i = 0; i < nAtoms; i++) {
+      const dx = pos[2 * i] - X, dy = pos[2 * i + 1] - Y, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = i; }
+    }
+    // only grab if the click is genuinely near an atom (in world units)
+    return Math.sqrt(bd) * view.s < 26 * dpr() ? best : -1;
+  }
+  function evPos(e) {
+    const r = canvas.getBoundingClientRect(), d = dpr();
+    return [(e.clientX - r.left) * d, (e.clientY - r.top) * d];
+  }
+  canvas.addEventListener("pointerdown", e => {
+    const [mx, my] = evPos(e);
+    const i = nearest(mx, my);
+    if (i < 0) return;
+    grabbing = true;
+    canvas.setPointerCapture(e.pointerId);
+    dex.send({ t: "grab", i, x: wx(mx), y: wy(my), k: 20 });
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!grabbing) return;
+    const [mx, my] = evPos(e);
+    dex.send({ t: "grab", i: -2, x: wx(mx), y: wy(my) });   // -2 = keep current atom
+  });
+  function release(e) {
+    if (!grabbing) return;
+    grabbing = false;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    dex.send({ t: "release" });
+  }
+  canvas.addEventListener("pointerup", release);
+  canvas.addEventListener("pointercancel", release);
+
+  // ---- save / load parameters -------------------------------------------
+  $("btnSave").onclick = () => {
+    const o = {};
+    for (const id of SLIDERS) o[id] = +$(id).value;
+    for (const id of ["useMorse","useAng","doBreak","doReform","dark"])
+      if ($(id)) o[id] = $(id).checked;
+    if ($("scale")) o.scale = $("scale").value;
+    const b = new Blob([JSON.stringify(o, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "graphene-phonons-params-" +
+                 new Date().toISOString().replace(/[:.]/g, "-") + ".json";
+    a.click();
+  };
+  $("btnLoad").onclick = () => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "application/json";
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      try {
+        const o = JSON.parse(await f.text());
+        for (const k in o) {
+          const el = $(k); if (!el) continue;
+          if (el.type === "checkbox") el.checked = !!o[k]; else el.value = o[k];
+          if (SLIDERS.includes(k)) label(k);
+        }
+        rebuild();
+      } catch (e) { console.error(e); alert("Could not read that parameter file."); }
+    };
+    inp.click();
+  };
+
+  // ---- info panel + keyboard shortcuts ----------------------------------
+  const info = $("siminfo"), bub = $("siminfo-bubble");
+  const showInfo = v => info.classList.toggle("open", v);
+  bub.onclick = () => showInfo(!info.classList.contains("open"));
+  $("stage").addEventListener("mousemove", e => {
+    bub.classList.toggle("visible",
+      e.clientX - $("stage").getBoundingClientRect().left < 60);
+  });
+  document.addEventListener("keydown", e => {
+    // a focused range input still counts as typing: let it have its arrow keys
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target || {}).tagName || "")) return;
+    const k = e.key.toLowerCase();
+    if (k === " ") { e.preventDefault(); $("play").click(); }
+    else if (k === "s") $("step1").click();
+    else if (k === "k") $("kick").click();
+    else if (k === "r") $("reset").click();
+    else if (k === "b") $("rebuild").click();
+    else if (k === "d" && $("dark")) {
+      $("dark").checked = !$("dark").checked;
+      $("dark").dispatchEvent(new Event("change"));
+    }
+    else if (k === "i" || k === "?") showInfo(!info.classList.contains("open"));
+    else if (k === "escape") showInfo(false);
+  });
+
+  resize();
+  setTimeout(rebuild, 150);
+})();
+</script>
