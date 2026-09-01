@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proxima Centauri B findings — the recovered artefacts | BrokildApps</title>
+  <meta name="description" content="Two objects recovered from Proxima Centauri b: B2311.22 from a dry cistern at Kell Rille, and B2311.67 from a vault field at the Sabik Terminator. Both produce sound continuously by means that have no counterpart among our instruments. Field findings, and the questions the survey could not close." />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%230b1114'/><circle cx='50' cy='52' r='27' fill='%23b45a34'/><circle cx='50' cy='52' r='27' fill='none' stroke='%237ee2d0' stroke-width='3'/></svg>" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ink:#07090b; --panel:#0c1013; --rule:#1c2429;
+    --text:#c6d1d4; --dim:#8ba0a4; --faint:#5b6f74;
+    --acc:#7ee2d0; --warm:#e0955f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--ink);color:var(--text);
+       font:300 16.5px/1.72 Spectral,Georgia,serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:60rem;margin:0 auto;padding:0 1.6rem}
+  a{color:var(--acc)}
+  nav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5;
+      background:rgba(7,9,11,.9);backdrop-filter:blur(8px)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;
+            padding-top:.85rem;padding-bottom:.85rem;
+            font:500 12px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.16em}
+  nav a{text-decoration:none;color:var(--dim)}
+  nav .brand{color:var(--acc)}
+  header{padding:4.2rem 0 0}
+  .rec{font:500 11.5px/1 "IBM Plex Mono",ui-monospace,monospace;
+       letter-spacing:.26em;color:var(--acc);text-transform:uppercase}
+  h1{font:600 clamp(2.2rem,6vw,3.6rem)/1.05 Spectral,Georgia,serif;
+     margin:1rem 0 .6rem;letter-spacing:-.02em;text-wrap:balance;color:#e6f0f1}
+  .sub{font:300 italic clamp(1.05rem,2.4vw,1.28rem)/1.5 Spectral,Georgia,serif;
+       color:var(--dim);margin:0;max-width:38rem}
+  .plate{margin:2.6rem 0 0}
+  .plate img{width:100%;display:block;border:1px solid var(--rule)}
+  .globe{position:relative;border:1px solid var(--rule);background:#06070a;
+         aspect-ratio:16/9;overflow:visible}
+  .globe img{border:0;position:absolute;inset:0;height:100%;object-fit:cover}
+  .globe.live img{display:none}
+  .globe.live{cursor:grab;touch-action:none}
+  .globe.live.turning{cursor:grabbing}
+  .globe-cv{position:absolute;inset:0;display:block}
+  .globe-marks{position:absolute;inset:0;pointer-events:none}
+  .gm{position:absolute;transform:translate(-50%,-50%);will-change:left,top}
+  .gm .ret{display:block;width:26px;height:26px;margin:-13px 0 0 -13px;
+           border:1.5px solid var(--acc);border-radius:50%;position:absolute;left:0;top:0}
+  .gm .ret::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;
+                  margin:-2px 0 0 -2px;border-radius:50%;background:var(--acc)}
+  .gm b{position:absolute;left:22px;top:-19px;white-space:nowrap;
+        font:500 12px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.13em;
+        color:var(--acc);text-shadow:0 1px 6px #000}
+  .gm i{position:absolute;left:22px;top:-2px;white-space:nowrap;font-style:normal;
+        font:400 11px/1 "IBM Plex Mono",ui-monospace,monospace;
+        color:var(--dim);text-shadow:0 1px 6px #000}
+  @media (max-width:34rem){ .gm b,.gm i{display:none} }
+  .plate figcaption{font:400 12px/1.6 "IBM Plex Mono",ui-monospace,monospace;
+                    color:var(--faint);margin-top:.7rem}
+  .lede{font-size:1.14rem;color:#d6e0e2;max-width:40rem}
+  h2{font:600 1.6rem/1.25 Spectral,Georgia,serif;margin:3.8rem 0 .9rem;color:#e2ecee}
+  h2 .n{font:500 11px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.24em;
+        color:var(--acc);display:block;margin-bottom:.75rem;text-transform:uppercase}
+  p{max-width:40rem}
+  .objs{display:grid;gap:1.2rem;grid-template-columns:repeat(auto-fit,minmax(19rem,1fr));
+        margin:2rem 0 0}
+  .obj{border:1px solid var(--rule);background:var(--panel);padding:1.5rem 1.5rem 1.6rem}
+  .obj .cat{font:500 11px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.2em;
+            color:var(--warm)}
+  .obj h3{font:600 1.3rem/1.2 Spectral,Georgia,serif;margin:.8rem 0 .1rem;color:#e6f0f1}
+  .obj .site{font:400 12px/1.5 "IBM Plex Mono",ui-monospace,monospace;color:var(--faint);
+             margin-bottom:.9rem}
+  .obj p{font-size:15.5px;margin:.7rem 0}
+  .dl{display:inline-block;margin-top:1.1rem;padding:.62rem 1.1rem;border:1px solid var(--acc);
+      color:var(--acc);text-decoration:none;
+      font:500 12px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.14em}
+  .dl:hover{background:var(--acc);color:#06231e}
+  .dl.wait{border-color:var(--rule);color:var(--faint);pointer-events:none}
+  .obs{border-left:2px solid var(--acc);padding:.1rem 0 .1rem 1.15rem;margin:1.5rem 0;
+       max-width:40rem;font:400 13.5px/1.62 "IBM Plex Mono",ui-monospace,monospace;color:var(--dim)}
+  .obs b{color:var(--acc);font-weight:500}
+  .findings{margin:2.4rem 0;padding:1.6rem 1.8rem;border:1px solid var(--rule);
+            background:var(--panel);max-width:40rem}
+  .findings h3{margin:0 0 .4rem;font:600 1.15rem/1.3 Spectral,Georgia,serif;color:#e6f0f1}
+  .note{font:400 13px/1.7 "IBM Plex Mono",ui-monospace,monospace;color:var(--faint);
+        max-width:40rem;margin:2.4rem 0}
+  .note:last-of-type{margin-bottom:6rem}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="../../index.html">BROKILDAPPS</a>
+  <a class="back" href="../../index.html">← All instruments</a>
+</div></nav>
+
+<div class="wrap">
+<header>
+  <div class="rec">Field record B2311 · survey of Proxima Centauri b</div>
+  <h1>Proxima Centauri B findings</h1>
+  <p class="sub">Two objects were recovered. Both produce sound continuously, by means
+     that have no counterpart among our instruments, and neither has been persuaded to
+     stop.</p>
+
+  <figure class="plate">
+    <div id="globe" class="globe">
+      <img src="img/survey-plate.jpg" alt="Survey plate of Proxima Centauri b with the two recovery sites marked">
+    </div>
+    <figcaption><b>Drag to turn the world.</b> It is tidally locked: the star stands over one
+      fixed place on the ground and never moves, so the lit face is a region of the planet
+      rather than a trick of the view. Turn it and the day side travels with the terrain —
+      the far side is genuinely dark. Kell Rille lies inside the lit hemisphere; the Sabik
+      vault field sits on the boundary itself, and passes into night as you go round.</figcaption>
+  </figure>
+</header>
+
+<h2><span class="n">The collection</span>What was brought back</h2>
+
+<p class="lede">Neither object was made by us. Both are bodies of four spatial dimensions,
+of which we meet only a three-dimensional section — move the section and a different part
+of the object is simply present, entering and leaving at the boundary without damage.</p>
+
+<p>Neither has controls. There are no markings, no surfaces that invite a hand, nothing
+that moves when pushed. Every named quantity on the frames around them was chosen by us,
+for our convenience, and describes what our apparatus does rather than any faculty the
+objects possess.</p>
+
+<div class="objs">
+
+  <div class="obj">
+    <div class="cat">B2311.22</div>
+    <h3>Kell Rille</h3>
+    <div class="site">Dry cistern · day 81 · lit hemisphere · recovered as a pair</div>
+    <p>Its sound is the vibration of its own connectedness — a network ringing according to
+       how its parts are joined. Disturb it in a different place and it speaks differently,
+       because a different part of the structure is being asked to move.</p>
+    <p>Energy put into it does not decay in place. It <em>travels</em>, from one mode into
+       its neighbours, so a sustained sound is the object exploring itself.</p>
+    <p>It did not come up alone. A second body lay beside it, and on raising the first the
+       second changed pitch.</p>
+    <a class="dl" href="Artefact-B2311-22-win64.zip">Recovered material →</a>
+  </div>
+
+  <div class="obj">
+    <div class="cat">B2311.67</div>
+    <h3>Sabik Terminator</h3>
+    <div class="site">Vault field of sixty-seven · day 204 · permanent twilight</div>
+    <p>Not a body but a lattice: a regular four-dimensional array whose section is a tiling
+       of eightfold symmetry — perfectly ordered, and never repeating anywhere in its
+       extent.</p>
+    <p>Its sound belongs to a category between tone and noise that mathematics has always
+       described and no material we have made produces: a dust of frequencies with
+       self-similar gaps at every scale.</p>
+    <p>Each of the sixty-seven sat at the centre of its own void, spaced with a regularity
+       that survives measurement.</p>
+    <a class="dl" href="Artefact-B2311-67-win64.zip">Recovered material →</a>
+  </div>
+
+</div>
+
+<div class="obs">
+  <b>Established.</b> No specimen in the catalogue sits within twenty cents of any harmonic
+  series. The closest approach found anywhere lands exactly on that floor, and no nearer.
+  Neither object has an off state; both were sounding when found.
+</div>
+
+<div class="obs">
+  <b>Established.</b> Warming B2311.67 makes its own quantities begin to drive one another,
+  along connections that are fixed, one-way, and different in every specimen. At 77 K the
+  effect is not small but absent. What that mechanism is <em>for</em> is the open question
+  the survey considers most likely to matter.
+</div>
+
+<h2><span class="n">The report</span>What was established, and what was not</h2>
+
+<div class="findings">
+  <h3>Field findings</h3>
+  <p>The full account, written in three registers it never mixes — what has been established
+     and may be quoted, what is suspected and is marked as suspected, and the nine questions
+     the survey was unable to close.</p>
+  <a class="dl" href="findings.html">Read the findings →</a>
+  <a class="dl" href="Proxima-Centauri-b-Findings.pdf">PDF →</a>
+</div>
+
+<p class="note">On the frame — the apparatus around each object was built by the expedition
+so that a human being could act on them at all. It should not be mistaken for part of
+them. Where the report says an object "answers" or "explores itself", these are the
+plainest available descriptions of measured behaviour, and are not offered as claims about
+intent.</p>
+
+</div>
+
+<script src="img/globe.js" defer></script>
+
+</body>
+</html>
