@@ -284,7 +284,7 @@
       The browser stays the GUI — the heavy math runs in native C++ with OpenMP,
       streamed to your canvas over a local WebSocket.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#start">Build &amp; run</a>
+        <a class="btn btn-primary" href="#start">Download</a>
         <a class="btn btn-ghost" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/tree/main/dsw" target="_blank" rel="noopener">Source on GitHub</a>
       </div>
     </div>
@@ -333,10 +333,36 @@
 
       <div class="section-label" id="start">Get started</div>
       <div class="prose">
-        <p>DSW is a native program, so unlike the rest of DEX it is built from source
-        rather than run in the page. You need CMake ≥ 3.15 and a C++17 compiler
-        (OpenMP recommended). Start from a folder you can write to — your home or
-        projects directory, <em>not</em> a fresh admin shell's
+        <p>DSW is a native program, so unlike the rest of DEX it runs on your machine
+        rather than in the page. Download it, unzip it, run it — every experiment is
+        included and nothing needs compiling.</p>
+      </div>
+      <div class="hero-actions" style="margin-top:.4rem;margin-bottom:1.6rem">
+        <a class="btn btn-primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/dsw-v1.0/dsw-windows-x64.zip">Windows x64</a>
+        <a class="btn btn-ghost" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/dsw-v1.0/dsw-macos-arm64.zip">macOS (Apple&nbsp;Silicon)</a>
+        <a class="btn btn-ghost" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/dsw-v1.0/dsw-linux-x64.zip">Linux x64</a>
+        <a class="btn btn-ghost" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/latest">All downloads</a>
+      </div>
+      <div class="prose">
+        <p>On Windows, unzip and double-click <code>Launch DSW.cmd</code> — it starts the
+        host and opens the launcher in your browser. Elsewhere, run <code>./dsw</code> from
+        the unzipped folder and open the address it prints. The binaries are unsigned, so
+        expect one "unrecognised app" warning the first time; on macOS clear the download
+        quarantine with <code>xattr -dr com.apple.quarantine &lt;folder&gt;</code>.</p>
+        <p>Individual experiments are downloadable on their own too — drop a bundle folder
+        into your plugin library and press Refresh in the launcher. There is no installer
+        and nothing is registered system-wide: deleting the folder uninstalls it.</p>
+      </div>
+
+      <div class="section-label">Or build it yourself</div>
+      <div class="prose">
+        <p>A local build is compiled for your own CPU, so it is faster than the download —
+        worth it for the molecular dynamics. You need CMake ≥ 3.15 and a C++17 compiler
+        (OpenMP recommended); the
+        <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/blob/main/dsw/SETUP.md">setup
+        guide</a> walks through installing those on each platform, and LAMMPS alongside them
+        if you want a reference for the MD side. Start from a folder you can write to — your
+        home or projects directory, <em>not</em> a fresh admin shell's
         <code>C:\Windows\System32</code> — then on Linux or macOS:</p>
       </div>
       <pre><code>cd ~                     # anywhere writable

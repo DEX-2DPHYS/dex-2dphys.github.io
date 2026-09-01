@@ -84,6 +84,12 @@ jobs:
           cp "dsw/${{ matrix.exe }}" "$out/"
           cp -R dsw/web "$out/web"
           cp dsw/README.md "$out/README.md"
+          cp dsw/SETUP.md "$out/SETUP.md"
+          # Windows gets the double-click entry points; they are .cmd, so they
+          # would only confuse a macOS or Linux download.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp dsw/*.cmd "$out/" 2>/dev/null || true
+          fi
           mkdir -p "$out/plugins"
           for d in dsw/plugins/*/; do
             id=$(basename "$d")

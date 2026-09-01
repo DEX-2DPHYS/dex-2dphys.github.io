@@ -30,6 +30,12 @@ with seven functions.
 ## Build & run
 
 Needs CMake ≥ 3.15 and a C++17 compiler (OpenMP optional but recommended).
+[`SETUP.md`](SETUP.md) walks through installing those on Windows, macOS and
+Linux — and LAMMPS alongside them, if you want a reference implementation to
+check the molecular dynamics against. If you only want to *run* the
+experiments, skip all of this and take a
+[release build](https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases)
+instead.
 
 ```sh
 cd dsw
@@ -104,7 +110,7 @@ push a tag like `dsw-v1.0`) builds for Linux, macOS and Windows and produces:
 
 | Archive | What it is |
 |---------|------------|
-| `dsw-<platform>.zip` | The whole workstation — host, launcher and every built-in experiment. Unzip, run `dsw`, open the printed URL. Nothing to compile. |
+| `dsw-<platform>.zip` | The whole workstation — host, launcher, every built-in experiment, this README and `SETUP.md`. Unzip and run; nothing to compile. The Windows archive also carries `Launch DSW.cmd` / `Stop DSW.cmd`, which start and stop the host and open the launcher for you. |
 | `dsw-plugin-<id>-<platform>.zip` | One experiment on its own, to add to an existing install. |
 
 Grab them from the run's *Artifacts*, or from the Release if you pushed a tag.
