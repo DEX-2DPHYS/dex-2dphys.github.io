@@ -10,5 +10,5 @@
     "simulations",
     "educational"
   ],
-  "note": "Native desktop app — built from source; experiments then run in your browser."
+  "note": "Native desktop app — download a build for Windows, macOS or Linux, or compile it yourself; the experiments then run in your browser."
 }
