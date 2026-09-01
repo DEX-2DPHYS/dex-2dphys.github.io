@@ -50,6 +50,8 @@ namespace {
 constexpr double NM = 10.0;                 // Å per nm
 constexpr double PA_TO_EV_A3 = 6.2415e-12;  // Pa -> eV/Å³
 constexpr double KB = 1.380649e-23;
+// Registry order parameter: s = sum of three cosines, maximal on AA sites.
+constexpr double REG_SMIN = -1.5, REG_SMAX = 3.0;
 constexpr double A_LATT = 2.46;             // graphene, Å
 constexpr double AREA_ATOM = 2.62;          // Å² per atom
 constexpr double C_MASS = 12.011;
@@ -74,6 +76,10 @@ struct Params {
     double fillRate = 0.0015;       // fraction of N per step while filling
     // dynamics
     double dt = 0.5, gamma = 1.0, maxDX = 0.25;
+    double edgeK = 0.0;             // rim spring, eV/A^2 per atom
+    // registry (CSL) colouring
+    bool registry = false, regHeightDamp = true;
+    double regGamma = 1.0;
     int stepsPerFrame = 20;
 };
 
@@ -85,6 +91,7 @@ struct Layer {
     std::vector<int32_t> bi, bj;                     // nearest neighbours
     std::vector<int32_t> ai, aj;                     // second neighbours
     std::vector<int32_t> nbOff, nbIdx;               // CSR of NN, for bending
+    std::vector<uint8_t> isEdge;                     // undercoordinated rim
     size_t n() const { return x.size(); }
 };
 
@@ -97,6 +104,7 @@ struct Instance {
     std::vector<int32_t> ljOff12, ljIdx12;           // layer2 atom -> layer1 atoms
     std::vector<int32_t> ljOff21, ljIdx21;           // layer1 atom -> layer2 atoms
     std::vector<int32_t> ljOffS, ljIdxS;             // layer1 atom -> substrate
+    std::vector<float> reg1, reg2;                   // registry, per atom
     std::vector<double> refX2, refY2, refZ2, refX1, refY1, refZ1;
     bool ljValid = false;
     double ljSkin = 1.5;
@@ -177,6 +185,12 @@ struct Instance {
             L.nbIdx[cur[L.bi[b]]++] = L.bj[b];
             L.nbIdx[cur[L.bj[b]]++] = L.bi[b];
         }
+        // The rim is whatever the lattice left undercoordinated. Interior
+        // atoms of a honeycomb have three nearest neighbours; anything with
+        // fewer is an edge, whatever shape the flake was cut to.
+        L.isEdge.assign(N, 0);
+        for (size_t q = 0; q < N; q++)
+            if (L.nbOff[q + 1] - L.nbOff[q] < 3) L.isEdge[q] = 1;
         L.x0 = L.x; L.y0 = L.y; L.z0r = L.z;
     }
 
@@ -457,6 +471,29 @@ struct Instance {
         ePot = pe;
     }
 
+    // Hold the rim to where it was built. Without this a blister feeds
+    // itself by dragging the whole flake inward, and the radius you measure
+    // is partly the sheet walking rather than the blister growing.
+    double edgeClamp(Layer &L) {
+        const double k = P.edgeK;
+        if (k <= 0 || L.isEdge.empty()) return 0.0;   // exactly the old path
+        const int n = (int)L.n();
+        double pe = 0;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) reduction(+ : pe)
+#endif
+        for (int ii = 0; ii < n; ii++) {
+            const size_t i = (size_t)ii;
+            if (!L.isEdge[i]) continue;
+            const double dx = L.x[i] - L.x0[i];
+            const double dy = L.y[i] - L.y0[i];
+            const double dz = L.z[i] - L.z0r[i];
+            L.fx[i] -= k * dx; L.fy[i] -= k * dy; L.fz[i] -= k * dz;
+            pe += 0.5 * k * (dx * dx + dy * dy + dz * dz);
+        }
+        return pe;
+    }
+
     void integrate(Layer &L) {
         const double g = P.gamma, dt = P.dt, m = C_MASS;
         const int n = (int)L.n();
@@ -481,12 +518,82 @@ struct Instance {
     void step() {
         if (gasOn && gasFill < 1.0) gasFill = clampd(gasFill + P.fillRate, 0, 1);
         computeForces();
+        ePot += edgeClamp(L1) + edgeClamp(L2);
         eKin = 0;
         integrate(L1);
         integrate(L2);
         const size_t nt = L1.n() + L2.n();
         temperature = nt ? (2.0 * eKin) / (3.0 * (double)nt * 8.617333262e-5) : 0;
         frame++; stepsWindow++;
+    }
+
+    // ------------------------------------------------- registry
+
+    // s(r) = sum_k cos(G_k . r) over the three first-shell reciprocal vectors
+    // of the UNROTATED lattice; t = 1 - (s - s_min)/(s_max - s_min), so t = 0
+    // on an AA coincidence site and 1 in the hollow. The slow beat of those
+    // maxima across the twisted layer is the moire.
+    //
+    // Layer 2 is measured against layer 1, layer 1 against the substrate. Only
+    // layer 2 carries the twist, so one set of G vectors serves both.
+    void computeRegistry() {
+        const size_t n1 = L1.n(), n2 = L2.n();
+        reg1.assign(n1, 0.0f);
+        reg2.assign(n2, 0.0f);
+        const double g = 4 * M_PI / (std::sqrt(3.0) * A_LATT);
+        double Gx[3], Gy[3];
+        for (int k = 0; k < 3; k++) {
+            const double ang = M_PI / 2 + k * 2 * M_PI / 3;
+            Gx[k] = g * std::cos(ang); Gy[k] = g * std::sin(ang);
+        }
+        const double gam = P.regGamma > 0 ? P.regGamma : 1;
+        const bool damp = P.regHeightDamp;
+
+        // One layer's worth. `oz` is the spacing this pair sits at when flat,
+        // and the pair list gives the partner atoms to measure it against;
+        // where the local gap has opened (a blister) the colour fades out,
+        // because registry is meaningless once the layers are apart.
+        auto pass = [&](const Layer &L, std::vector<float> &out,
+                        const std::vector<double> &pz,
+                        const std::vector<double> &px,
+                        const std::vector<double> &py,
+                        const std::vector<int32_t> &off,
+                        const std::vector<int32_t> &idx,
+                        double oz, bool haveList) {
+            const int n = (int)L.n();
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+            for (int ii = 0; ii < n; ii++) {
+                const size_t i = (size_t)ii;
+                double s = 0;
+                for (int k = 0; k < 3; k++)
+                    s += std::cos(Gx[k] * L.x[i] + Gy[k] * L.y[i]);
+                double t = 1.0 - (s - REG_SMIN) / (REG_SMAX - REG_SMIN);
+                t = clampd(t, 0.0, 1.0);
+                if (gam != 1) t = std::pow(t, gam);
+                if (damp && haveList && !off.empty()) {
+                    // nearest partner in plane, then how far off `oz` it sits
+                    double best = 1e30, bz = 0;
+                    for (int k = off[i]; k < off[i + 1]; k++) {
+                        const int j = idx[k];
+                        const double dx = px[j] - L.x[i], dy = py[j] - L.y[i];
+                        const double d2 = dx * dx + dy * dy;
+                        if (d2 < best) { best = d2; bz = std::fabs(pz[j] - L.z[i]); }
+                    }
+                    if (best < 1e29) {
+                        const double dev = std::fabs(bz - oz);
+                        // fully faded once the gap is 1 A off the flat value
+                        const double w = clampd(1.0 - dev, 0.0, 1.0);
+                        t = 1.0 - (1.0 - t) * w;
+                    }
+                }
+                out[i] = (float)t;
+            }
+        };
+
+        pass(L2, reg2, L1.z, L1.x, L1.y, ljOff12, ljIdx12, P.z0, true);
+        pass(L1, reg1, sz, sx, sy, ljOffS, ljIdxS, P.zSub, P.substrateOn);
     }
 
     // ------------------------------------------------- wire protocol
@@ -498,7 +605,9 @@ struct Instance {
         const uint32_t n1 = (uint32_t)L1.n(), n2 = (uint32_t)L2.n(), ns = (uint32_t)sx.size();
         uint32_t flags = 0;
         if (subVersion != sentSubVersion) flags |= 2;
-        size_t words = 8 + 3ull * n1 + 3ull * n2 + ((flags & 2) ? 3ull * ns : 0);
+        if (P.registry) { computeRegistry(); flags |= 4; }
+        size_t words = 8 + 3ull * n1 + 3ull * n2 + ((flags & 2) ? 3ull * ns : 0)
+                     + ((flags & 4) ? (size_t)n1 + n2 : 0);
         frameBuf.resize(words * 4);
         uint8_t *p = frameBuf.data();
         auto u32 = [&](uint32_t v) { memcpy(p, &v, 4); p += 4; };
@@ -510,6 +619,12 @@ struct Instance {
         if (flags & 2) {
             for (uint32_t i = 0; i < ns; i++) { f32((float)sx[i]); f32((float)sy[i]); f32((float)sz[i]); }
             sentSubVersion = subVersion;
+        }
+        // Registry rides at the END, so a reader that did not ask for it sees
+        // exactly the frame it always saw.
+        if (flags & 4) {
+            for (uint32_t i = 0; i < n1; i++) f32(reg1[i]);
+            for (uint32_t i = 0; i < n2; i++) f32(reg2[i]);
         }
     }
 
@@ -551,7 +666,11 @@ struct Instance {
         P.fillRate = num("fillRate", P.fillRate);
         P.dt = num("dt", P.dt); P.gamma = num("gamma", P.gamma);
         P.maxDX = num("maxDX", P.maxDX);
+        P.edgeK = num("edgeK", P.edgeK);
         P.stepsPerFrame = std::max(1, (int)num("stepsPerFrame", P.stepsPerFrame));
+        P.registry = num("registry", P.registry ? 1 : 0) != 0;
+        P.regGamma = num("regGamma", P.regGamma);
+        P.regHeightDamp = num("regHeightDamp", P.regHeightDamp ? 1 : 0) != 0;
         const std::string w = dexmsg::get_str(m, "gasWhere");
         if (w == "below" || w == "between") P.gasWhere = w;
     }
