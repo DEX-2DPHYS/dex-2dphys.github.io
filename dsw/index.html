@@ -278,11 +278,11 @@
   <header class="hero">
     <div class="wrap">
       <span class="eyebrow"><span class="dot"></span> Native DEX — when the browser isn't fast enough</span>
-      <h1>A <span class="accent">DAW for science</span>,<br />not for music</h1>
-      <p>DSW is a small native host that runs digital experiments the way a DAW runs
-      VST3 instruments: each experiment is a plugin bundle you drop into a folder.
-      The browser stays the GUI — the heavy math runs in native C++ with OpenMP,
-      streamed to your canvas over a local WebSocket.</p>
+      <h1>Experiments that run at <span class="accent">native speed</span>,<br />in a browser window</h1>
+      <p>DSW is a small native host for digital experiments. Each experiment is a
+      self-contained folder you drop in, and the launcher picks it up — no installer,
+      no rebuilding the host. The browser stays the GUI, while the heavy math runs in
+      native C++ with OpenMP and is streamed to your canvas over a local WebSocket.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="#start">Download</a>
         <a class="btn btn-ghost" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/tree/main/dsw" target="_blank" rel="noopener">Source on GitHub</a>
@@ -317,7 +317,7 @@
         <div class="info-card">
           <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg></div>
           <h3>Drop-in plugins</h3>
-          <p>An experiment is a folder: a compiled C++ core, an HTML front-end, and a small metadata card. Installing it means copying the folder into <code>plugins/</code> and refreshing the launcher — the one thing VST3 gets right, kept, minus the audio-shaped API.</p>
+          <p>An experiment is a folder: a compiled C++ core, an HTML front-end, and a small metadata card. Installing it means copying the folder into <code>plugins/</code> and refreshing the launcher — no installer, no registry, no rebuild.</p>
         </div>
         <div class="info-card">
           <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2" /><path d="M3 9h18M8 21h8" /></svg></div>
@@ -388,14 +388,15 @@ cmake --build build --config Release
         protocol. The shipped experiments are meant as templates.</p>
       </div>
 
-      <div class="section-label">Why not just VST3?</div>
+      <div class="section-label">Why a plugin format?</div>
       <div class="prose">
-        <p>A DAW <em>would</em> load science plugins — VST3 places no limits on memory or
-        threads. But everything about that API is audio-shaped: audio buses, a
-        realtime <code>process()</code> callback, parameters normalized to 0–1, per-platform
-        GUI embedding, and a dual-licensed SDK. DSW keeps VST3's two genuinely good
-        ideas — a tiny stable binary ABI and folder-drop installation — and discards
-        the rest. The whole plugin contract is one C header with seven functions.</p>
+        <p>Because an experiment should be something you hand to someone, not something
+        they have to build the whole program to get. Mature plugin standards already
+        exist, but they are shaped around the field they came from — fixed data buses,
+        realtime callbacks, values squeezed into 0–1, licensed toolkits — and a
+        simulation fits none of that. DSW keeps the two ideas worth keeping, a small
+        stable binary interface and installation by dropping in a folder, and leaves the
+        rest out. The entire contract is one C header with seven functions.</p>
       </div>
     </div>
   </main>

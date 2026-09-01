@@ -1,9 +1,9 @@
 # DSW — Digital Science Workstation
 
-A "DAW for science": a small, polished host that runs **DEX** (digital
-experiment) plugins — native C++ simulation cores with HTML/JS front-ends —
-the way a DAW runs VST3 instruments. Installing an experiment is dropping a
-folder into `plugins/`; the browser is the GUI; the heavy math runs native.
+A small, polished host that runs **DEX** (digital experiment) plugins — native
+C++ simulation cores with HTML/JS front-ends. Installing an experiment is
+dropping a folder into `plugins/`; the browser is the GUI; the heavy math runs
+native.
 
 ```
         browser (GUI)                      dsw host (native)
@@ -14,18 +14,19 @@ folder into `plugins/`; the browser is the GUI; the heavy math runs native.
   └──────────────────────┘               └──────────────────────────────┘
 ```
 
-## Why not VST3?
+## Why a plugin format of its own?
 
-A DAW *would* work as a plugin loader — VST3 plugins are ordinary shared
-libraries and hosts don't limit their memory or threading. But everything
-about the API is audio-shaped: you'd implement audio buses and a realtime
-`process()` callback you don't want, squeeze state through normalized 0–1
-parameters, embed your GUI through per-platform `IPlugView` plumbing, and
-ship Steinberg's dual-licensed SDK — all to smuggle science through a music
-pipe. DSW keeps the two properties that make VST3 pleasant — **a tiny stable
-binary ABI** and **drop-in-folder installation** — and discards the rest.
-The whole plugin contract is one header, [`include/dex_plugin.h`](include/dex_plugin.h),
-with seven functions.
+Mature plugin standards already exist, and they are ordinary shared libraries
+that no host limits in memory or threading — so one of them *would* load a
+simulation. The problem is that each is shaped around the field it grew up in:
+you would implement fixed data buses and a realtime `process()` callback you do
+not want, squeeze state through parameters normalised to 0–1, embed your GUI
+through per-platform view plumbing, and ship someone else's licensed SDK.
+
+DSW keeps the two properties worth keeping — **a tiny stable binary ABI** and
+**drop-in-folder installation** — and discards the rest. The whole plugin
+contract is one header, [`include/dex_plugin.h`](include/dex_plugin.h), with
+seven functions.
 
 ## Build & run
 
@@ -69,7 +70,7 @@ Plugins come from **two roots**, both rescanned on every refresh:
 
 - **Built-in** — the `plugins/` folder beside the host, where the four
   example experiments live.
-- **Library** — your own plugin folder. Like a VST directory it has a
+- **Library** — your own plugin folder. Like any plug-in directory it has a
   standard home, **`Documents/DSW Plugins`** (created on first run), and can
   be repointed from the launcher's *Plugin folder…* pane; the choice is
   remembered per user in `%APPDATA%/DSW/settings.json`
