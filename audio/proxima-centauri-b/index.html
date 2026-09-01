@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proxima Centauri b &mdash; audio demonstrations</title>
+<meta name="description" content="Five thirty-second demonstrations for each
+of the two recovered artefacts B2311.22 and B2311.67, rendered from an open
+reconstruction of the behaviour set out in the field findings.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#07090b; --panel:#0c1013; --rule:#1c2429;
+         --text:#c6d1d4; --dim:#8ba0a4; --faint:#5b6f74;
+         --acc:#7ee2d0; --warm:#e0955f; }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--ink);color:var(--text);
+       font:300 16.5px/1.72 Spectral,Georgia,serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:62rem;margin:0 auto;padding:0 1.6rem}
+  a{color:var(--acc)}
+  nav{border-bottom:1px solid var(--rule);position:sticky;top:0;z-index:5;
+      background:rgba(7,9,11,.92);backdrop-filter:blur(8px)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;
+            padding:.85rem 1.6rem;
+            font:500 12px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.16em}
+  nav a{text-decoration:none;color:var(--dim)}
+  nav .brand{color:var(--acc)}
+  header{padding:3.6rem 0 0}
+  .rec{font:500 11.5px/1 "IBM Plex Mono",ui-monospace,monospace;
+       letter-spacing:.26em;color:var(--acc);text-transform:uppercase}
+  h1{font:600 clamp(2rem,5.4vw,3.2rem)/1.06 Spectral,Georgia,serif;
+     margin:1rem 0 .6rem;letter-spacing:-.02em;color:#e6f0f1}
+  .sub{font:300 italic clamp(1.02rem,2.3vw,1.24rem)/1.5 Spectral,Georgia,serif;
+       color:var(--dim);margin:0;max-width:40rem}
+  h2{font:600 1.5rem/1.25 Spectral,Georgia,serif;margin:3.4rem 0 .6rem;color:#e2ecee}
+  h2 .n{font:500 11px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.24em;
+        color:var(--acc);display:block;margin-bottom:.7rem;text-transform:uppercase}
+  h3{font:600 1.24rem/1.25 Spectral,Georgia,serif;margin:.75rem 0 .3rem;color:#e6f0f1}
+  p{max-width:42rem}
+  .lede{font-size:1.12rem;color:#d6e0e2;max-width:42rem}
+  .caution{border-left:2px solid var(--warm);padding:.1rem 0 .1rem 1.15rem;
+           margin:2rem 0;max-width:42rem;
+           font:400 13.5px/1.62 "IBM Plex Mono",ui-monospace,monospace;color:var(--dim)}
+  .caution b{color:var(--warm);font-weight:500}
+  .demo{border:1px solid var(--rule);background:var(--panel);
+        padding:1.4rem 1.5rem 1.5rem;margin:1.1rem 0}
+  .blurb{font-size:15.5px;color:var(--dim);margin:.4rem 0 .9rem}
+  .pre{font:400 12px/1.7 "IBM Plex Mono",ui-monospace,monospace;
+       color:var(--faint);margin:0 0 .9rem;max-width:none}
+  .pre b,.m b{color:var(--acc);font-weight:500}
+  audio{width:100%;max-width:34rem;display:block;margin:.2rem 0 1rem;
+        filter:invert(.92) hue-rotate(180deg) saturate(.6)}
+  ol.sections{list-style:none;margin:0;padding:0;
+              font:400 12.5px/1.6 "IBM Plex Mono",ui-monospace,monospace}
+  ol.sections li{display:grid;grid-template-columns:3.4rem minmax(9rem,15rem) 1fr;
+                 gap:.2rem .9rem;padding:.42rem 0;border-top:1px solid var(--rule);
+                 align-items:baseline}
+  ol.sections li:first-child{border-top:0}
+  .t{color:var(--warm);cursor:pointer;text-decoration:underline dotted}
+  .t:hover{color:#ffd4ae}
+  .lab{color:#cfdcde}
+  .m{color:var(--faint)}
+  @media (max-width:44rem){
+    ol.sections li{grid-template-columns:3.4rem 1fr}
+    .m{grid-column:1 / -1;padding-left:0}
+  }
+  table{border-collapse:collapse;margin:1.2rem 0;width:100%;max-width:42rem;
+        font:400 13px/1.5 "IBM Plex Mono",ui-monospace,monospace;
+        font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--rule);
+        vertical-align:top}
+  th{color:var(--dim);font-weight:500;letter-spacing:.12em;font-size:11px;
+     text-transform:uppercase;border-bottom-color:#2c383e}
+  td:first-child{color:var(--acc);white-space:nowrap}
+  footer{font:400 12px/1.7 "IBM Plex Mono",ui-monospace,monospace;color:var(--faint);
+         margin:3.4rem 0 5rem;max-width:42rem}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <span class="brand">FIELD RECORD B2311</span>
+  <a href="https://peterboggild.github.io/BrokildApps/vst3-apps/proxima-centauri-b/">The artefacts &rarr;</a>
+</div></nav>
+
+<div class="wrap">
+<header>
+  <div class="rec">Ten demonstrations &middot; thirty seconds each</div>
+  <h1>Proxima Centauri b &mdash; what the two objects sound like</h1>
+  <p class="sub">Five demonstrations for each recovered artefact. Every one of
+  them moves something rather than setting it, because that is the method the
+  survey recommends and the only one that found anything.</p>
+</header>
+
+<p class="lede">Neither object has controls and neither has an off state. What
+follows is not a tour of settings; it is five sounds per demonstration, six
+seconds each, with one quantity on the frame carried from one end of its travel
+to the other while the object is listened to.</p>
+
+<div class="caution">
+  <b>What these recordings are.</b> They were not captured from the Windows
+  plugins. The plugins are Windows VST3 binaries and could not be run here, so
+  the behaviour set out in the field findings was rebuilt from the physics the
+  report describes &mdash; a graph-Laplacian network for B2311.22, a
+  cut-and-project quasiperiodic chain for B2311.67 &mdash; and rendered
+  offline. The parameter names are the plugins' own, read out of the shipped
+  binaries. The figures printed beside each section are measured off the
+  rendered audio and the rendered ladders, not copied from the report. Treat
+  them as a faithful demonstration of the documented behaviour, not as a
+  recording of the objects.
+</div>
+
+<h2><span class="n">B2311.22</span>Kell Rille &mdash; a body whose sound is its own connectedness</h2>
+<p>Sites in a four-dimensional body, of which only a slab is present in the
+section; the sites that are present are joined to their neighbours; and what is
+heard is that network of joins ringing. The ladder is the square root of the
+spectrum of the graph Laplacian, which is why there is no octave in it and no
+harmonic ladder. Every specimen in the reconstruction is held at least twenty
+cents from any harmonic series, as the catalogue records.</p>
+
+<article class="demo" id="B2311-22-01">
+<div class="rec">B2311-22-01 &middot; B2311.22</div>
+<h3>Where it is touched</h3>
+<p class="blurb">The same body, five contacts. It is not struck like a bell but joined like a network, so the sound is a property of which part is being asked to move.</p>
+<p class="pre">specimen <b>037</b> &middot; modes <b>56</b> &middot; ladder hz <b>75.7-736.5</b> &middot; cents from harmonic <b>43.9</b> &middot; hub rim spectral difference <b>0.709</b></p>
+<audio controls preload="none" src="demos/B2311-22-01_where-it-is-touched.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-22-01_where-it-is-touched.mp3" data-at="0">0:00</span><span class="lab">the most connected site</span><span class="m">centroid hz <b>361.9</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-01_where-it-is-touched.mp3" data-at="6">0:06</span><span class="lab">the most remote site</span><span class="m">centroid hz <b>227.5</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-01_where-it-is-touched.mp3" data-at="12">0:12</span><span class="lab">a still press, held and deepening</span><span class="m">centroid hz <b>335.8</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-01_where-it-is-touched.mp3" data-at="18">0:18</span><span class="lab">a circling contact - it accumulates</span><span class="m">centroid hz <b>263.2</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-01_where-it-is-touched.mp3" data-at="24">0:24</span><span class="lab">a fast straight stroke, then relaxed</span><span class="m">centroid hz <b>227.7</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-22-02">
+<div class="rec">B2311-22-02 &middot; B2311.22</div>
+<h3>Energy does not stay where it is put</h3>
+<p class="blurb">METABOLISM from nothing to full. One disturbance, put into a short stretch of the ladder, and then left alone.</p>
+<audio controls preload="none" src="demos/B2311-22-02_energy-does-not-stay.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-22-02_energy-does-not-stay.mp3" data-at="0">0:00</span><span class="lab">metabolism 0.00</span><span class="m">centroid at 1s hz <b>525.6</b> &middot; centroid at 4s8 hz <b>521.8</b> &middot; travelled hz <b>3.8</b> &middot; still sounding dB <b>-12.9</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-02_energy-does-not-stay.mp3" data-at="6">0:06</span><span class="lab">metabolism 0.25</span><span class="m">centroid at 1s hz <b>505.1</b> &middot; centroid at 4s8 hz <b>443.7</b> &middot; travelled hz <b>61.4</b> &middot; still sounding dB <b>-11.5</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-02_energy-does-not-stay.mp3" data-at="12">0:12</span><span class="lab">metabolism 0.50</span><span class="m">centroid at 1s hz <b>486.4</b> &middot; centroid at 4s8 hz <b>341.4</b> &middot; travelled hz <b>145.0</b> &middot; still sounding dB <b>-10.6</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-02_energy-does-not-stay.mp3" data-at="18">0:18</span><span class="lab">metabolism 0.75</span><span class="m">centroid at 1s hz <b>468.2</b> &middot; centroid at 4s8 hz <b>258.4</b> &middot; travelled hz <b>209.8</b> &middot; still sounding dB <b>-10.3</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-02_energy-does-not-stay.mp3" data-at="24">0:24</span><span class="lab">metabolism 1.00</span><span class="m">centroid at 1s hz <b>450.1</b> &middot; centroid at 4s8 hz <b>213.3</b> &middot; travelled hz <b>236.9</b> &middot; still sounding dB <b>-11.1</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-22-03">
+<div class="rec">B2311-22-03 &middot; B2311.22</div>
+<h3>Exact recurrence</h3>
+<p class="blurb">REVIVAL. Under one configuration of the frame the output becomes periodic - not approximately.</p>
+<audio controls preload="none" src="demos/B2311-22-03_exact-recurrence.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-22-03_exact-recurrence.mp3" data-at="0">0:00</span><span class="lab">period 4.0 s</span><span class="m">reassembly correlation <b>0.998</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-03_exact-recurrence.mp3" data-at="6">0:06</span><span class="lab">period 3.0 s</span><span class="m">reassembly correlation <b>0.999</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-03_exact-recurrence.mp3" data-at="12">0:12</span><span class="lab">period 2.4 s</span><span class="m">reassembly correlation <b>0.998</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-03_exact-recurrence.mp3" data-at="18">0:18</span><span class="lab">period 1.9 s</span><span class="m">reassembly correlation <b>0.999</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-03_exact-recurrence.mp3" data-at="24">0:24</span><span class="lab">period 1.5 s</span><span class="m">reassembly correlation <b>0.998</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-22-04">
+<div class="rec">B2311-22-04 &middot; B2311.22</div>
+<h3>The second body</h3>
+<p class="blurb">CONVERSE, against five partners from the catalogue. It absorbs only at the frequencies it itself possesses.</p>
+<audio controls preload="none" src="demos/B2311-22-04_the-second-body.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-22-04_the-second-body.mp3" data-at="0">0:00</span><span class="lab">other 037</span><span class="m">kin <b>1.0</b> &middot; reply strength <b>1.275</b> &middot; third set share <b>0.166</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-04_the-second-body.mp3" data-at="6">0:06</span><span class="lab">other 112</span><span class="m">kin <b>0.441</b> &middot; reply strength <b>0.562</b> &middot; third set share <b>0.166</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-04_the-second-body.mp3" data-at="12">0:12</span><span class="lab">other 196</span><span class="m">kin <b>0.299</b> &middot; reply strength <b>0.382</b> &middot; third set share <b>0.166</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-04_the-second-body.mp3" data-at="18">0:18</span><span class="lab">other 105</span><span class="m">kin <b>0.232</b> &middot; reply strength <b>0.296</b> &middot; third set share <b>0.166</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-04_the-second-body.mp3" data-at="24">0:24</span><span class="lab">other 028</span><span class="m">kin <b>0.059</b> &middot; reply strength <b>0.075</b> &middot; third set share <b>0.166</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-22-05">
+<div class="rec">B2311-22-05 &middot; B2311.22</div>
+<h3>The permanent alteration</h3>
+<p class="blurb">PLASTICITY. The responding body before the exchange, during it, and afterwards at rest.</p>
+<audio controls preload="none" src="demos/B2311-22-05_the-permanent-alteration.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-22-05_the-permanent-alteration.mp3" data-at="0">0:00</span><span class="lab">before - body 150 as catalogued</span><span class="m">cents from catalogue <b>0.0</b> &middot; centroid hz <b>95.3</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-05_the-permanent-alteration.mp3" data-at="6">0:06</span><span class="lab">exchange 1 of 3</span><span class="m">cents displaced so far <b>17.02</b> &middot; discrete steps this section <b>7</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-05_the-permanent-alteration.mp3" data-at="12">0:12</span><span class="lab">exchange 2 of 3</span><span class="m">cents displaced so far <b>34.04</b> &middot; discrete steps this section <b>7</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-05_the-permanent-alteration.mp3" data-at="18">0:18</span><span class="lab">exchange 3 of 3</span><span class="m">cents displaced so far <b>53.9</b> &middot; discrete steps this section <b>8</b></span></li>
+<li><span class="t" data-src="demos/B2311-22-05_the-permanent-alteration.mp3" data-at="24">0:24</span><span class="lab">after - the same body, at rest</span><span class="m">cents from catalogue <b>53.9</b> &middot; discrete steps <b>19</b> &middot; kin to its own catalogue entry <b>0.471</b> &middot; centroid hz <b>92.9</b> &middot; reversible <b>no</b></span></li>
+</ol></article>
+
+<h2><span class="n">B2311.67</span>Sabik Terminator &mdash; a lattice that is ordered and never repeats</h2>
+<p>A line cut through a square lattice at the eightfold slope, with an
+acceptance window: the standard construction for an ordered aperiodic body, and
+the reason the lengths at which the structure repeats its own logic come out as
+the Pell numbers 5, 12, 29, 70, 169, 408 and nothing else. What is heard is that
+chain of sites vibrating &mdash; masses on bonds, two bond lengths in the silver
+ratio, solved exactly. Its spectrum is neither separated tones nor a continuum
+but the third thing.</p>
+
+<article class="demo" id="B2311-67-01">
+<div class="rec">B2311-67-01 &middot; B2311.67</div>
+<h3>A dust of frequencies</h3>
+<p class="blurb">EXTENT through the Pell numbers. How much of the body sounds, and what happens to the gaps as it grows.</p>
+<audio controls preload="none" src="demos/B2311-67-01_a-dust-of-frequencies.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-67-01_a-dust-of-frequencies.mp3" data-at="0">0:00</span><span class="lab">extent 5</span><span class="m">partials <b>5</b> &middot; band hz <b>1022-5200</b> &middot; largest gap over median <b>2.7</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-01_a-dust-of-frequencies.mp3" data-at="6">0:06</span><span class="lab">extent 29</span><span class="m">partials <b>29</b> &middot; band hz <b>65-5200</b> &middot; largest gap over median <b>33.9</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-01_a-dust-of-frequencies.mp3" data-at="12">0:12</span><span class="lab">extent 70</span><span class="m">partials <b>69</b> &middot; band hz <b>45-5200</b> &middot; largest gap over median <b>98.8</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-01_a-dust-of-frequencies.mp3" data-at="18">0:18</span><span class="lab">extent 169</span><span class="m">partials <b>165</b> &middot; band hz <b>39-5200</b> &middot; largest gap over median <b>221.5</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-01_a-dust-of-frequencies.mp3" data-at="24">0:24</span><span class="lab">extent 408</span><span class="m">partials <b>396</b> &middot; band hz <b>33-5200</b> &middot; largest gap over median <b>658.8</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-67-02">
+<div class="rec">B2311-67-02 &middot; B2311.67</div>
+<h3>The acceptance window</h3>
+<p class="blurb">APERTURE from a twelfth of the window to all of it. How dense the matter, and what mixture it is.</p>
+<audio controls preload="none" src="demos/B2311-67-02_the-acceptance-window.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-67-02_the-acceptance-window.mp3" data-at="0">0:00</span><span class="lab">aperture 0.12</span><span class="m">window width <b>0.272</b> &middot; sites per unit length <b>0.272</b> &middot; bond types <b>3</b> &middot; shortest type share <b>0.417</b> &middot; longest over shortest <b>2.414</b> &middot; partials <b>166</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-02_the-acceptance-window.mp3" data-at="6">0:06</span><span class="lab">aperture 0.32</span><span class="m">window width <b>0.507</b> &middot; sites per unit length <b>0.507</b> &middot; bond types <b>3</b> &middot; shortest type share <b>0.238</b> &middot; longest over shortest <b>3.414</b> &middot; partials <b>165</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-02_the-acceptance-window.mp3" data-at="12">0:12</span><span class="lab">aperture 0.52</span><span class="m">window width <b>0.742</b> &middot; sites per unit length <b>0.736</b> &middot; bond types <b>3</b> &middot; shortest type share <b>0.476</b> &middot; longest over shortest <b>2.414</b> &middot; partials <b>167</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-02_the-acceptance-window.mp3" data-at="18">0:18</span><span class="lab">aperture 0.76</span><span class="m">window width <b>1.024</b> &middot; sites per unit length <b>1.025</b> &middot; bond types <b>3</b> &middot; shortest type share <b>0.095</b> &middot; longest over shortest <b>3.414</b> &middot; partials <b>165</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-02_the-acceptance-window.mp3" data-at="24">0:24</span><span class="lab">aperture 1.00</span><span class="m">window width <b>1.307</b> &middot; sites per unit length <b>1.319</b> &middot; bond types <b>2</b> &middot; shortest type share <b>0.298</b> &middot; longest over shortest <b>2.414</b> &middot; partials <b>165</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-67-03">
+<div class="rec">B2311-67-03 &middot; B2311.67</div>
+<h3>The strain that makes a crystal</h3>
+<p class="blurb">OBLIQUITY. Tilting the section against the lattice, which is the classical route by which an ordered aperiodic body becomes an ordinary one.</p>
+<audio controls preload="none" src="demos/B2311-67-03_the-strain-that-makes-a-crystal.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-67-03_the-strain-that-makes-a-crystal.mp3" data-at="0">0:00</span><span class="lab">unstrained - the eightfold slope</span><span class="m">cents from harmonic <b>47.43</b> &middot; implied fundamental hz <b>9.8</b> &middot; bond sequence <b>LSLLLSLLSLLLSLLSLLSLLLSL</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-03_the-strain-that-makes-a-crystal.mp3" data-at="6">0:06</span><span class="lab">1 in 3 - a tilt that does not crystallise</span><span class="m">cents from harmonic <b>59.04</b> &middot; implied fundamental hz <b>8.0</b> &middot; bond sequence <b>LLLSLLLLLLSLLLSLLLSLLLSL</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-03_the-strain-that-makes-a-crystal.mp3" data-at="12">0:12</span><span class="lab">12 in 29 - a Pell tilt</span><span class="m">cents from harmonic <b>10.22</b> &middot; implied fundamental hz <b>11.3</b> &middot; bond sequence <b>LSLLLSLLSLLLSLLSLLSLLLSL</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-03_the-strain-that-makes-a-crystal.mp3" data-at="18">0:18</span><span class="lab">2 in 5</span><span class="m">cents from harmonic <b>8.16</b> &middot; implied fundamental hz <b>16.5</b> &middot; bond sequence <b>LSLLSLLLSLLSLLLSLLSLLLSL</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-03_the-strain-that-makes-a-crystal.mp3" data-at="24">0:24</span><span class="lab">1 in 2 - an ordinary crystal, in our intervals</span><span class="m">cents from harmonic <b>9.13</b> &middot; implied fundamental hz <b>25.4</b> &middot; bond sequence <b>LSLLSLLSLLSLLSLLSLLSLLSL</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-67-04">
+<div class="rec">B2311-67-04 &middot; B2311.67</div>
+<h3>What is seen is not what is heard</h3>
+<p class="blurb">ASPECT, with ORDERS, WINDOW, PRECESSION and EXTINCTION. The chain persists; the star is struck, rings and dies.</p>
+<audio controls preload="none" src="demos/B2311-67-04_what-is-seen-is-not-what-is-heard.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-67-04_what-is-seen-is-not-what-is-heard.mp3" data-at="0">0:00</span><span class="lab">the chain alone - it persists</span><span class="m">aspect <b>0.0</b> &middot; orders heard <b>24</b> &middot; star band hz <b>75-2005</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-04_what-is-seen-is-not-what-is-heard.mp3" data-at="6">0:06</span><span class="lab">the visible body admitted</span><span class="m">aspect <b>0.35</b> &middot; orders heard <b>14</b> &middot; star band hz <b>181-1930</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-04_what-is-seen-is-not-what-is-heard.mp3" data-at="12">0:12</span><span class="lab">more orders, the shadow surviving further</span><span class="m">aspect <b>0.7</b> &middot; orders heard <b>34</b> &middot; star band hz <b>75-1930</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-04_what-is-seen-is-not-what-is-heard.mp3" data-at="18">0:18</span><span class="lab">the star alone, precessing in w</span><span class="m">aspect <b>1.0</b> &middot; orders heard <b>34</b> &middot; star band hz <b>79-1977</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-04_what-is-seen-is-not-what-is-heard.mp3" data-at="24">0:24</span><span class="lab">both - and the high orders dying first</span><span class="m">aspect <b>0.55</b> &middot; orders heard <b>47</b> &middot; star band hz <b>77-2198</b></span></li>
+</ol></article>
+<article class="demo" id="B2311-67-05">
+<div class="rec">B2311-67-05 &middot; B2311.67</div>
+<h3>Warming the body</h3>
+<p class="blurb">TEMPERATURE from liquid nitrogen to 800 K on specimen 041. Held cold its quantities are independent. Warmed, they begin to drive one another.</p>
+<p class="pre">connections <b>11</b> &middot; sources <b>window,extent,habit,aperture</b> &middot; stirs the frame at 800K <b>yes</b> &middot; one way <b>yes</b> &middot; loops <b>0</b></p>
+<audio controls preload="none" src="demos/B2311-67-05_warming-the-body.mp3"></audio>
+<ol class="sections">
+<li><span class="t" data-src="demos/B2311-67-05_warming-the-body.mp3" data-at="0">0:00</span><span class="lab">77 K</span><span class="m">material depth <b>+/-0.00%</b> &middot; frame depth <b>+/-0%</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-05_warming-the-body.mp3" data-at="6">0:06</span><span class="lab">200 K</span><span class="m">material depth <b>+/-5.10%</b> &middot; frame depth <b>+/-0%</b> &middot; moved over section <b>bondlaw 0.032, extinction 0.05, incidence 0.038, loss 0.047, loss_tilt 0.012, orders 0.009, precession 0.011, station 0.042</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-05_warming-the-body.mp3" data-at="12">0:12</span><span class="lab">293 K</span><span class="m">material depth <b>+/-8.96%</b> &middot; frame depth <b>+/-0%</b> &middot; moved over section <b>bondlaw 0.091, extinction 0.056, incidence 0.092, loss 0.08, loss_tilt 0.007, orders 0.006, precession 0.026, station 0.055</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-05_warming-the-body.mp3" data-at="18">0:18</span><span class="lab">500 K</span><span class="m">material depth <b>+/-19.00%</b> &middot; frame depth <b>+/-0%</b> &middot; moved over section <b>bondlaw 0.168, extinction 0.069, incidence 0.159, loss 0.162, loss_tilt 0.055, orders 0.014, precession 0.065, station 0.157</b></span></li>
+<li><span class="t" data-src="demos/B2311-67-05_warming-the-body.mp3" data-at="24">0:24</span><span class="lab">800 K</span><span class="m">material depth <b>+/-30.00%</b> &middot; frame depth <b>+/-12%</b> &middot; moved over section <b>aperture 0.058, bondlaw 0.226, extinction 0.082, incidence 0.277, loss 0.238, loss_tilt 0.054, orders 0.052, precession 0.108, station 0.222</b></span></li>
+</ol></article>
+
+<h2><span class="n">The frame</span>Where the names come from</h2>
+<p>Every quantity named on this page is an expedition quantity, read out of the
+shipped plugin binaries: eighteen on the B2311.22 rail, and forty rings in eight
+rosettes of five on B2311.67. The names describe what the apparatus does to the
+objects, not any faculty the objects possess.</p>
+
+<footer>
+  Rendered by <code>render/render_demos.py</code>; the two reconstructions are
+  <code>render/artefact22.py</code> and <code>render/artefact67.py</code>, and
+  the shared synthesis and measurement machinery is <code>render/common.py</code>.
+  Measurements in <code>demos/measurements.json</code>. Thirty seconds each,
+  44.1 kHz, levelled to &minus;14 dBFS.
+  <br><br>
+  The objects, the field findings and the plugins are Peter B&oslash;ggild's
+  &mdash; <a href="https://peterboggild.github.io/BrokildApps/vst3-apps/proxima-centauri-b/">Proxima Centauri B findings</a>.
+</footer>
+</div>
+
+<script>
+/* the timings are clickable: they seek the demonstration's own player */
+document.addEventListener("click", function (e) {
+  var t = e.target.closest(".t");
+  if (!t) return;
+  var a = t.closest("article").querySelector("audio");
+  if (!a) return;
+  a.currentTime = parseFloat(t.dataset.at || "0");
+  a.play();
+});
+/* one at a time */
+document.addEventListener("play", function (e) {
+  document.querySelectorAll("audio").forEach(function (a) {
+    if (a !== e.target) a.pause();
+  });
+}, true);
+</script>
+</body>
+</html>
