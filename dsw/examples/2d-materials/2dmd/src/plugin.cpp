@@ -1507,7 +1507,11 @@ struct Instance {
         P.gasT = num("gasT", P.gasT); P.gasGap = num("gasGap", P.gasGap);
         P.Cxnm = num("Cxnm", P.Cxnm); P.Cynm = num("Cynm", P.Cynm);
         P.fillRate = num("fillRate", P.fillRate);
-        P.dt = num("dt", P.dt); P.gamma = num("gamma", P.gamma);
+        // The panel sends the timestep as `dtFs`; this used to read only `dt`,
+        // so the slider did nothing and every run was pinned at the default.
+        P.dt = num("dt", P.dt);
+        P.dt = num("dtFs", P.dt);
+        P.gamma = num("gamma", P.gamma);
         P.maxDX = num("maxDX", P.maxDX);
         P.edgeK = num("edgeK", P.edgeK);
         P.stepsPerFrame = std::max(1, (int)num("stepsPerFrame", P.stepsPerFrame));

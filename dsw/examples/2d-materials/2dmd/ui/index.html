@@ -619,12 +619,16 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         <label style="margin:0">Material</label>
         <select id="material">
           <option selected value="graphene">Graphene (C)</option>
-          <option value="hbn">hBN (B–N)</option>
-          <option value="mos2">MoS₂ (REBO)</option>
-          <option value="ws2">WS₂ (SW)</option>
-          <option value="mote2">MoTe₂ (SW)</option>
-          <option value="wte2">WTe₂ (SW)</option>
+          <option value="hbn" disabled>hBN — not built yet</option>
+          <option value="mos2" disabled>MoS₂ — trilayer, not supported</option>
+          <option value="ws2" disabled>WS₂ — trilayer, not supported</option>
+          <option value="mote2" disabled>MoTe₂ — trilayer, not supported</option>
+          <option value="wte2" disabled>WTe₂ — trilayer, not supported</option>
         </select>
+        <div class="legend">2DMD builds one lattice so far: a honeycomb at
+          2.46&nbsp;Å, with AIREBO under LAMMPS. The dichalcogenides are
+          X–M–X sandwiches its builder cannot express yet. Use
+          <b>2D&nbsp;Materials&nbsp;Molecular&nbsp;Dynamics</b> for those.</div>
       </div>
       <div class="row2">
         <div><label>Sheet size N (nm)</label><input id="Nnm" min="2" step="1" type="number" value="12"></div>
@@ -666,6 +670,12 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         <div class="ctl"><label>Interlayer ε (meV)</label><input id="epsInter" min="0" step="0.1" type="number" value="2.387"></div>
         <div class="ctl"><label>Substrate ε (meV)</label><input id="epsSub" min="0" step="0.1" type="number" value="2.387"></div>
       </div>
+      <div class="row2">
+        <div class="ctl"><label>2nd-neighbour k₂</label><input id="k2" min="0" step="0.25" type="number" value="6"></div>
+        <div class="ctl"><label>Bending k<sub>bend</sub> (eV)</label><input id="kbend" min="0" step="0.05" type="number" value="0.9"></div>
+      </div>
+      <div class="legend">k₂ is the shear rigidity a central-force honeycomb
+        completely lacks — without it the lattice is a mechanism and collapses.</div>
       <div class="row2">
         <div class="ctl"><label class="chk"><input id="subTab" type="checkbox" checked> Tabulate substrate</label></div>
         <div class="ctl"><label>Grid (cells/a)</label><input id="subGrid" min="12" max="128" step="4" type="number" value="48"></div>
@@ -1001,6 +1011,7 @@ function physicsMsg(){
     gasT:Number((q('gasT')||{}).value||300),
     gasGap:Number((q('gasGap')||{}).value||1.2),
     fillRate:Number((q('fillRate')||{}).value||0.0016),
+    k2:Number((q('k2')||{}).value||6),
     epsInter:Number((q('epsInter')||{}).value||2.387)/1000,
     epsSub:Number((q('epsSub')||{}).value||2.387)/1000,
     substrateOn:(!q('substrateOn')||q('substrateOn').checked)?1:0,
@@ -1119,6 +1130,21 @@ function applyCapabilities(){
     if(row) row.style.opacity = off ? 0.42 : 1;
     if(why) el.title = off ? why : '';
   };
+  // Controls inherited from graphene-md for machinery 2DMD does not have.
+  // Greying them with a reason is the honest alternative to accepting the
+  // value and ignoring it -- which is what they did until this audit.
+  const ABSENT = {
+    ktheta:   "2DMD uses a bending umbrella (k_bend), not an angle-triple term.",
+    theta0:   "2DMD uses a bending umbrella (k_bend), not an angle-triple term.",
+    breakMul: "Bonds cannot break in 2DMD: the topology is fixed at build time.",
+    reformMul:"Bonds cannot re-form in 2DMD: the topology is fixed at build time.",
+    maxV:     "2DMD caps the per-step DISPLACEMENT (max step) rather than velocity.",
+    escale:   "Superseded by the separate interlayer and substrate \u03b5 controls.",
+    eps0:     "Superseded by the separate interlayer and substrate \u03b5 controls.",
+    material: "2DMD builds a honeycomb only; see the note under the selector.",
+    edgeMode: "2DMD has one edge treatment: the edge clamp in Run.",
+    regRamp:  "Not implemented in 2DMD.",
+  };
   const MORSE = "The toy model's own bond parameters. Under LAMMPS the sheets' "
               + "chemistry is AIREBO's, so this has no effect.";
   ['De','alpha','re','ktheta','theta0','kbend','breakMul','reformMul']
@@ -1135,6 +1161,7 @@ function applyCapabilities(){
       'Only the free peel front tests height, so the threshold is unused.');
   dim('betweenBoost', prof !== 'bubble',
       'The boost is the open-loop model\u2019s fudge factor.');
+  for(const id in ABSENT) dim(id, true, ABSENT[id]);
   const note = q('engineNote');
   if(note) note.textContent = lammps
     ? 'AIREBO carries bond order, interlayer van der Waals and torsion in one '
