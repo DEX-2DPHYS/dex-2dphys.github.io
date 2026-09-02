@@ -371,15 +371,50 @@ in one clump renders as a dot, which reads as "nothing drawn at all" — the dat
 the meshes, the camera and the materials were all fine. Diagnosed by reading the
 instance matrix rather than by looking at the picture.
 
+**Phase 7 is DONE** (2026-09-02) — and it was accepted by RUNNING the deck, not
+by reading it. `{"t":"export","dir":...}` writes `system.data`, `in.2dmd` and a
+copy of `CH.airebo`, then `probe-2dmd-phase7.js` shells out to `lmp.exe`:
+
+| route | potential energy |
+|---|---|
+| plugin, substrate via `fix external` | **-5768.180 eV** |
+| stock LAMMPS deck, substrate as frozen atoms | **-5768.208 eV** |
+| difference | **0.000 %** (-0.028 eV over 800 sheet atoms) |
+
+Two different routes to the same physics agreeing to five significant figures is
+what an independent check looks like. A deck that is syntactically perfect and
+physically wrong reads identically to a correct one, so reading it would have
+proved nothing.
+
+Deck design notes:
+- **The substrate becomes real frozen atoms** of a second type with the same LJ
+  as an `lj/cut` coefficient, because a standalone deck has no callback. Its own
+  internal pairs are excluded from the neighbour list -- it is frozen, so they
+  are pure waste.
+- **Atom order is sheets first, bottom to top, then the substrate**, so every
+  layer is a contiguous id range and its group is one `a:b` argument. A group
+  written as a list of ids makes LAMMPS rescan every atom per argument.
+- **The potential table is copied into the deck folder** and referenced by bare
+  name, so the folder can be zipped and handed to someone. An absolute path
+  works here and nowhere else -- and on this machine it also contains spaces
+  ("00 VSCODE", "2D Materials"), which LAMMPS splits into extra arguments.
+
+Two things that cost time and are worth knowing:
+- **`lmp.exe` is a MinGW build and needs libgomp/libstdc++/libgcc on PATH.**
+  Without them it exits `0xC0000139` (entry point not found) with NO output at
+  all, which looks exactly like a blocked binary and is not one.
+- **The phase 5 gate is timing-sensitive** and can flake when the host is still
+  busy from an earlier run; its speed checks are wall-clock. Re-run before
+  believing a failure there.
+
 ## What is NOT done
 
-**Phase 7 (exporter)**: `src/dmexport.h` is written — a stock LAMMPS deck for N
-layers, with the substrate as real frozen atoms since a standalone deck has no
-callback — but it is NOT wired into the plugin and NOT tested. `lmp.exe` is
-present at `C:/Users/pbog/b/lammps/build/lmp.exe`, so the right acceptance is to
-RUN the exported deck and compare, not merely to read it.
-
-**Phase 8 (acceptance and retiring)**: not run. The three old plugins stay.
+**Phase 8 (retiring the three)**: not done, and it needs a decision rather than
+a run. 2dmd deliberately moved OFF moire-bubble's numbers when the substrate
+correction landed, so "reproduce the old numbers" is no longer the right gate
+for that plugin -- the old numbers were the ones missing 9.4 % of the substrate
+adhesion. graphene-md and graphene-md-gpu are still the reference for the
+monolayer path. All three stay until someone decides what the new baseline is.
 
 
 ## Order of work

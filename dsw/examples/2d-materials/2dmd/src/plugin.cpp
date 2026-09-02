@@ -28,6 +28,9 @@
 
 #include "dex_plugin.h"
 #include "dex_msg.h"
+#include "dmexport.h"
+
+#include <fstream>
 
 #include <algorithm>
 #include <chrono>
@@ -1127,6 +1130,82 @@ struct Instance {
         }
     }
 
+    // ------------------------------------------------- LAMMPS export
+    //
+    // The point is not convenience. It is that a result produced inside this
+    // plugin can be checked OUTSIDE it, by stock LAMMPS, with no plugin in the
+    // loop -- which twisted bubbles have never had.
+    //
+    // Atom ORDER matters: sheets first, bottom to top, then the substrate, so
+    // every layer is a contiguous id range and its group is one `a:b` argument.
+    // A group written as a list of ids makes LAMMPS rescan every atom per
+    // argument and hangs setup for minutes at any useful size.
+    std::string exportTo(const std::string &dir) {
+        dmexport::Deck D;
+        const size_t nMob = [&]{ size_t t = 0;
+            for (const Layer &L : layers) if (L.mobile) t += L.n(); return t; }();
+        const size_t nTot = nMob + layers[0].n();
+        D.x.reserve(nTot); D.y.reserve(nTot); D.z.reserve(nTot); D.type.reserve(nTot);
+        D.layers.assign(layers.size(), dmexport::LayerSpec());
+
+        int id = 1;
+        for (size_t k = 1; k < layers.size(); k++) {
+            const Layer &L = layers[k];
+            D.layers[k].first = id;
+            for (size_t i = 0; i < L.n(); i++, id++) {
+                D.x.push_back(L.x[i]); D.y.push_back(L.y[i]); D.z.push_back(L.z[i]);
+                D.type.push_back(1);
+                if (P.edgeK > 0 && !L.isEdge.empty() && L.isEdge[i]) D.edgeIds.push_back(id);
+            }
+            D.layers[k].last = id - 1;
+            D.layers[k].zRest = L.zRest;
+            D.layers[k].mobile = true;
+        }
+        D.layers[0].first = id;
+        for (size_t i = 0; i < layers[0].n(); i++, id++) {
+            D.x.push_back(layers[0].x[i]); D.y.push_back(layers[0].y[i]);
+            D.z.push_back(layers[0].z[i]); D.type.push_back(2);
+        }
+        D.layers[0].last = id - 1;
+        D.layers[0].zRest = layers[0].zRest;
+        D.layers[0].mobile = false;
+
+        D.sigma = P.sigma; D.epsSub = P.epsSub;
+        D.dtFs = P.dt; D.gamma = P.gamma; D.edgeK = P.edgeK;
+        D.gasOn = gasOn; D.profile = P.profile; D.gasGapIdx = P.gasGapIdx;
+        D.bubbleRnm = P.bubbleRnm; D.bubbleP = P.bubbleP;
+        D.gasT = P.gasT; D.gasGapA = P.gasGap;
+        D.Cxnm = P.Cxnm; D.Cynm = P.Cynm; D.areaAtom = AREA_ATOM;
+        D.runSteps = exportSteps; D.dumpEvery = exportDump;
+        // absolute, with forward slashes: LAMMPS takes them on Windows and the
+        // deck then runs from any working directory
+        // Ship the potential table WITH the deck and reference it by bare
+        // name. An absolute path works here and nowhere else; a folder that
+        // carries its own table can be zipped and handed to someone.
+        {
+            std::string src = bundleDir() + "/potentials/CH.airebo";
+            for (char &c : src) if (c == 92) c = 47;
+            std::ifstream in(src, std::ios::binary);
+            std::ofstream cp(dir + "/CH.airebo", std::ios::binary);
+            if (in && cp) { cp << in.rdbuf(); D.potentialPath = "CH.airebo"; }
+            else D.potentialPath = src;      // fall back rather than write a lie
+        }
+
+        const auto files = dmexport::exportDeck(D);
+        for (const auto &f : files) {
+            std::ofstream o(dir + "/" + f.name, std::ios::binary);
+            if (!o) return std::string("cannot write ") + dir + "/" + f.name;
+            o << f.text;
+        }
+        char buf[512];
+        snprintf(buf, sizeof buf,
+                 "{\"t\":\"exported\",\"dir\":\"%s\",\"atoms\":%zu,"
+                 "\"sheets\":%zu,\"substrate\":%zu,\"files\":\"system.data in.2dmd\"}",
+                 dir.c_str(), nTot, nMob, layers[0].n());
+        return buf;
+    }
+    int exportSteps = 2000, exportDump = 500;
+
     // ------------------------------------------------- wire protocol
     //
     // Format 2DM1 version 2. The spec is DSW/2DMD-FRAME-FORMAT.md and the ONE
@@ -1307,6 +1386,12 @@ struct Instance {
             }
             gasOn = false; gasFill = 0; frame = 0; ljValid = false;
             computeForces(); sayState(q);
+        } else if (t == "export") {
+            std::string dir = dexmsg::get_str(m, "dir");
+            if (dir.empty()) dir = ".";
+            exportSteps = std::max(0, (int)dexmsg::get_num(m, "steps", exportSteps));
+            exportDump = std::max(1, (int)dexmsg::get_num(m, "dumpEvery", exportDump));
+            say(exportTo(dir));
         } else if (t == "state") {
             sayState(q);
         }

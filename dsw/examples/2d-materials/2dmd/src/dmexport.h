@@ -26,7 +26,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -153,7 +155,10 @@ inline std::vector<File> exportDeck(const Deck &D) {
     addf(s, "# needs nothing extra between them; adding an interlayer LJ here would\n");
     addf(s, "# double-count it. NULL keeps the substrate out of AIREBO.\n");
     addf(s, "pair_style      hybrid airebo 3.0 lj/cut %.6f\n", cut);
-    addf(s, "pair_coeff      * * airebo %s C NULL\n", D.potentialPath.c_str());
+    // Quoted: LAMMPS splits arguments on whitespace and real paths here are
+    // full of spaces ("00 VSCODE", "2D Materials"). Unquoted, the path
+    // arrives as several arguments and the pair style rejects the line.
+    addf(s, "pair_coeff      * * airebo \"%s\" C NULL\n", D.potentialPath.c_str());
     addf(s, "pair_coeff      1 2 lj/cut %.8g %.6f\n", D.epsSub, D.sigma);
     addf(s, "pair_coeff      2 2 lj/cut 0.0 %.6f\n\n", D.sigma);
 
