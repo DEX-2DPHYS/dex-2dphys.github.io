@@ -108,6 +108,13 @@ struct Params {
     double bubbleRnm = 4, bubbleP = 600, gasT = 300, gasGap = 1.2;
     double Cxnm = 0, Cynm = 0;
     double fillRate = 0.0015;
+    // protrusion: a shape pushed up through the stack from below
+    std::string elevMode = "rhrd";  // "const" = ramp and hold; else up-hold-down
+    std::string protLoc2 = "subUp"; // "subUp" lifts the support; "between" is gas only
+    double targetDz = 10.0;         // how high, A
+    double liftRate = 0.01;         // A per step
+    double Mxnm = 6, Mynm = 6;      // mesa / Gaussian footprint, nm
+    int holdSteps = 500;
     // dynamics
     double dt = 0.5, gamma = 1.0, maxDX = 0.25;
     double edgeK = 0.0;
@@ -159,6 +166,11 @@ struct Instance {
 
     bool gasOn = false;
     double gasFill = 0;
+    // protrusion state
+    bool elevActive = false;
+    std::string elevPhase = "idle";
+    double elevz = 0;
+    int holdCount = 0;
     double gasN = 0, gasV = 0, gasP = 0, gasR = 0;
 
     double ePot = 0, eKin = 0, temperature = 0;
@@ -186,6 +198,60 @@ struct Instance {
     // gap g lies between layers[g] and layers[g+1]
     int nGaps() const { return (int)layers.size() - 1; }
     double epsForGap(int g) const { return g == 0 ? P.epsSub : P.epsInter; }
+
+    // ------------------------------------------------------ protrusion
+
+    // How far the support is pushed up at (x, y). Shapes match graphene-md's:
+    // a flat-topped mesa, a Gaussian bump, or a Hencky membrane cap.
+    double liftAt(double x, double y) const {
+        if (elevz <= 0 || P.protLoc2 == "between") return 0.0;
+        const double cx = P.Cxnm * NM, cy = P.Cynm * NM;
+        const double dx = x - cx, dy = y - cy;
+        if (P.profile == "mesa") {
+            const double hx = P.Mxnm * NM / 2, hy = P.Mynm * NM / 2;
+            return (std::fabs(dx) <= hx && std::fabs(dy) <= hy) ? elevz : 0.0;
+        }
+        if (P.profile == "bubble" || P.profile == "bubbleN" || P.profile == "bubbleFree") {
+            // Hencky cap w(rho) = h0 (1 - rho^2)^(2/3). The guard protects the
+            // ARGUMENT: a negative base to a fractional power is NaN.
+            const double R = P.bubbleRnm * NM;
+            const double r2 = (dx * dx + dy * dy) / (R * R);
+            return r2 < 1.0 ? elevz * std::pow(1.0 - r2, 2.0 / 3.0) : 0.0;
+        }
+        const double sx = P.Mxnm * NM / 3, sy = P.Mynm * NM / 3;
+        return elevz * std::exp(-((dx * dx) / (2 * sx * sx) + (dy * dy) / (2 * sy * sy)));
+    }
+
+    // Ramp the height, then move the support. Returns true if the substrate
+    // actually moved, so the caller can re-send it and rebuild the pair lists.
+    bool applyProtrusion() {
+        if (!elevActive && elevz <= 0) return false;
+        const double target = P.targetDz;
+        if (P.elevMode == "const") {
+            elevz = clampd(elevz + P.liftRate, 0, target);
+        } else {
+            if (elevPhase == "up") {
+                elevz += P.liftRate;
+                if (elevz >= target) { elevz = target; elevPhase = "hold"; holdCount = P.holdSteps; }
+            } else if (elevPhase == "hold") {
+                if (--holdCount <= 0) elevPhase = "down";
+            } else if (elevPhase == "down") {
+                elevz -= P.liftRate;
+                if (elevz <= 0) { elevz = 0; elevPhase = "idle"; elevActive = false; }
+            }
+        }
+        if (P.protLoc2 == "between") return false;   // gas only; support stays flat
+        Layer &Sb = layers[0];
+        const int n = (int)Sb.n();
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+        for (int ii = 0; ii < n; ii++) {
+            const size_t i = (size_t)ii;
+            Sb.z[i] = Sb.z0r[i] + liftAt(Sb.x0[i], Sb.y0[i]);
+        }
+        return true;
+    }
 
     // --------------------------------------------- tabulated substrate
     //
@@ -321,7 +387,11 @@ struct Instance {
         for (int ii = 0; ii < n; ii++) {
             const size_t i = (size_t)ii;
             double fx = 0, fy = 0, fz = 0;
-            pe += subLookup(L.x[i], L.y[i], L.z[i] - layers[0].zRest, fx, fy, fz);
+            // The table is built for a FLAT support. A protrusion displaces it
+            // purely vertically, so the same table read at (x, y, z - lift) is
+            // exact -- no rebuild, no loss of the speed-up.
+            const double zref = layers[0].zRest + liftAt(L.x[i], L.y[i]);
+            pe += subLookup(L.x[i], L.y[i], L.z[i] - zref, fx, fy, fz);
             L.fx[i] += fx; L.fy[i] += fy; L.fz[i] += fz;
         }
         return pe;
@@ -902,8 +972,10 @@ struct Instance {
 
     void step() {
 #ifdef DMD_LAMMPS
-        if (lmpOn()) { lmpStep(1); return; }
+        if (lmpOn()) { if (applyProtrusion()) { ljValid = false; geomVersion++; }
+                       lmpStep(1); return; }
 #endif
+        if (applyProtrusion()) { ljValid = false; geomVersion++; }
         if (gasOn && gasFill < 1.0) gasFill = clampd(gasFill + P.fillRate, 0, 1);
         computeForces();
         for (Layer &L : layers) if (L.mobile) ePot += edgeClamp(L);
@@ -1394,7 +1466,8 @@ struct Instance {
                  "\"n1\":%d,\"n2\":%d,\"nsub\":%d,"
                  "\"frame\":%lld,\"epot\":%.6g,\"ekin\":%.6g,\"temp\":%.4g,"
                  "\"gas\":%d,\"gasGapIdx\":%d,\"gasWhere\":\"%s\",\"fill\":%.3f,"
-                 "\"profile\":\"%s\","
+                 "\"profile\":\"%s\",\"elevz\":%.4f,\"elevActive\":%d,"
+                 "\"elevPhase\":\"%s\","
                  "\"gasN\":%.6g,\"gasV\":%.6g,\"gasP\":%.6g,\"gasR\":%.4g,"
                  "\"twist\":%.4g,\"running\":%d,\"ms\":%.3f,\"sps\":%.0f,\"threads\":%d,"
                  "\"engine\":\"%s\",\"lmpError\":\"%s\"}",
@@ -1402,6 +1475,7 @@ struct Instance {
                  frame, ePot, eKin, temperature,
                  gasOn ? 1 : 0, P.gasGapIdx,
                  P.gasGapIdx == 0 ? "below" : "between", gasFill, P.profile.c_str(),
+                 elevz, elevActive ? 1 : 0, elevPhase.c_str(),
                  gasN, gasV, gasP, gasR, P.twistDeg,
                  running ? 1 : 0, stepMs,
                  statsClock > 0 ? stepsWindow / statsClock : 0.0,
@@ -1444,6 +1518,14 @@ struct Instance {
         // gap by index, or by moire-bubble's two names
         P.gasGapIdx = (int)num("gasGapIdx", P.gasGapIdx);
         P.betweenBoost = num("betweenBoost", P.betweenBoost);
+        P.targetDz = num("targetDz", P.targetDz);
+        P.liftRate = num("liftRate", P.liftRate);
+        P.holdSteps = (int)num("holdSteps", P.holdSteps);
+        P.Mxnm = num("Mxnm", P.Mxnm); P.Mynm = num("Mynm", P.Mynm);
+        const std::string em = dexmsg::get_str(m, "elevMode");
+        if (!em.empty()) P.elevMode = em;
+        const std::string pl = dexmsg::get_str(m, "protLoc");
+        if (pl == "between" || pl == "subUp") P.protLoc2 = pl;
         const std::string pr = dexmsg::get_str(m, "profile");
         if (pr == "bubble" || pr == "bubbleN" || pr == "bubbleFree") P.profile = pr;
         const std::string en = dexmsg::get_str(m, "engine");
@@ -1475,6 +1557,19 @@ struct Instance {
             if (!gasOn) gasFill = 0;
             running = running || gasOn;
             sayState(q);
+        } else if (t == "elev") {
+            const bool on = dexmsg::get_num(m, "on", 0) != 0;
+            if (on) {
+                elevActive = true;
+                elevPhase = (P.elevMode == "const") ? "up" : "up";
+                holdCount = P.holdSteps;
+                running = true;          // elevating with the clock stopped does nothing
+            } else {
+                // Stop means stop HERE, not snap back: the shape it has reached
+                // is usually the thing being looked at.
+                elevActive = false; elevPhase = "idle";
+            }
+            sayState(q);
         } else if (t == "run") {
             running = dexmsg::get_num(m, "on", 0) != 0; sayState(q);
         } else if (t == "step") {
@@ -1487,6 +1582,8 @@ struct Instance {
                 std::fill(L.vz.begin(), L.vz.end(), 0.0);
             }
             gasOn = false; gasFill = 0; frame = 0; ljValid = false;
+            elevActive = false; elevPhase = "idle"; elevz = 0; holdCount = 0;
+            geomVersion++;
             computeForces(); sayState(q);
         } else if (t == "export") {
             std::string dir = dexmsg::get_str(m, "dir");
