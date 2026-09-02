@@ -336,7 +336,19 @@ struct Instance {
     // once per build, not per step.
     static void buildTopologyByDistance(Layer &L) {
         const size_t M = L.n();
-        const double R1 = 1.75, R2 = 2.85;      // NN ~1.42 A, 2nd ~2.46 A
+        // Shell radii DERIVED from the lattice constant, not typed in. A
+        // honeycomb has neighbours at a/sqrt3 = 1.420, a = 2.460 and
+        // 2a/sqrt3 = 2.841 A. The cutoffs must fall BETWEEN shells: 2.85
+        // swept the third shell into the second-neighbour springs, whose rest
+        // length is a. Every one of those started 0.38 A stretched, at 2.3
+        // eV/A each, and the sheet detonated on step one. The old index-based
+        // construction could not express that mistake because it enumerated
+        // the six true second neighbours explicitly.
+        const double d1 = A_LATT / std::sqrt(3.0);   // 1.420
+        const double d2 = A_LATT;                    // 2.460
+        const double d3 = 2.0 * d1;                  // 2.841
+        const double R1 = 0.5 * (d1 + d2);           // 1.940
+        const double R2 = 0.5 * (d2 + d3);           // 2.650
         const double cell = R2;
         L.bi.clear(); L.bj.clear(); L.ai.clear(); L.aj.clear();
         if (!M) return;
