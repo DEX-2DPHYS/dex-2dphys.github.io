@@ -1163,6 +1163,24 @@ function applyCapabilities(){
   dim('betweenBoost', prof !== 'bubble',
       'The boost is the open-loop model\u2019s fudge factor.');
   for(const id in ABSENT) dim(id, true, ABSENT[id]);
+
+  // The toy Morse model has ONE bond length, tuned for graphene. A
+  // dichalcogenide's M-X bond is 2.4-2.7 A, so every bond sits an angstrom up
+  // the exponential and the energy comes out around 1e15 eV/atom. The trilayers
+  // are LAMMPS-only, and the engine selector should say so rather than let
+  // someone pick a combination that cannot work.
+  const TRI = {mos2:1, ws2:1, mote2:1, wte2:1};
+  const matSel = q('material'), engSel = q('engine');
+  if(matSel && engSel){
+    const tri = !!TRI[matSel.value];
+    const classic = [...engSel.options].find(o => o.value === 'classic');
+    if(classic){
+      classic.disabled = tri;
+      classic.textContent = tri ? 'Morse toy model — graphene / hBN only'
+                                : 'Morse toy model (fast)';
+    }
+    if(tri && engSel.value === 'classic'){ engSel.value = 'lammps'; pushParams && pushParams(); }
+  }
   const note = q('engineNote');
   if(note) note.textContent = lammps
     ? 'AIREBO carries bond order, interlayer van der Waals and torsion in one '
@@ -1713,7 +1731,7 @@ function bind2DMD(){
   // redraw only -- the registry values are already here
   const rc = q('regCell');
   if(rc) rc.addEventListener('change', () => { S.bonds = S.bonds; requestDraw && requestDraw(); });
-  ['engine','profile'].forEach(id => {
+  ['engine','profile','material'].forEach(id => {
     const el = q(id); if(!el) return;
     el.addEventListener('change', applyCapabilities);
   });

@@ -85,6 +85,47 @@ constexpr double AMU_A2_FS2_IN_EV = 103.642;
 
 constexpr int MAX_MOBILE = 4;               // sheets above the substrate
 
+// Ported from graphene-md with its constants intact. Trilayer z0 defaults are
+// 2*zS + 2^(1/6)*sigma, so the interlayer X-X gap starts AT the LJ minimum --
+// starting inside the repulsive wall tears the sheet apart. mos2 zS 1.62 is
+// rebomos's own relaxed S-plane height, not the crystallographic 1.564.
+// ws2/mote2/wte2 use the reduced 3-type Stillinger-Weber of Jiang & Zhou
+// (arXiv:1704.03147); the Te interlayer LJ is UFF.
+struct MatSpec {
+    const char *key;
+    int nsp;                 // species: 3 = M + top X + bottom X
+    double mass[3];          // amu, in LAMMPS type order
+    double aLatt;            // in-plane lattice constant, A
+    double zS;               // trilayers: chalcogen-plane half-thickness, A
+    double z0;               // default interlayer rest height, A
+    double sigma, eps0;      // interlayer LJ defaults
+    double bondCut;          // nearest-neighbour cutoff, A
+    double areaAtom;         // footprint per atom, A^2
+    bool trilayer;
+    const char *pairStyle;
+    const char *potFile;
+    const char *coeffTail;   // element mapping after the filename
+};
+
+const MatSpec MATS[] = {
+    {"graphene", 1, {12.011, 0, 0},              2.46,  0,     3.35, 3.42, 2.387e-3, 1.85, 2.62,
+     false, "pair_style airebo 3.0", "CH.airebo",     "C"},
+    {"hbn",      2, {10.811, 14.007, 0},         2.504, 0,     3.33, 3.33, 2.6e-3,   1.95, 2.71,
+     false, "pair_style extep",      "BN.extep",      "B N"},
+    {"mos2",     2, {95.95, 32.06, 0},           3.16,  1.62,  6.75, 3.13, 6.93e-3,  2.90, 2.88,
+     true,  "pair_style rebomos",    "MoS.rebomos",   "Mo S"},
+    {"ws2",      3, {183.84, 32.06, 32.06},      3.13,  1.564, 6.64, 3.13, 6.93e-3,  3.00, 2.83,
+     true,  "pair_style sw",         "ws2.jiang3t.sw","W S1 S2"},
+    {"mote2",    3, {95.95, 127.60, 127.60},     3.55,  1.803, 8.07, 3.98, 17.3e-3,  3.30, 3.64,
+     true,  "pair_style sw",       "mote2.jiang3t.sw","Mo Te1 Te2"},
+    {"wte2",     3, {183.84, 127.60, 127.60},    3.55,  1.803, 8.07, 3.98, 17.3e-3,  3.30, 3.64,
+     true,  "pair_style sw",        "wte2.jiang3t.sw","W Te1 Te2"},
+};
+inline const MatSpec *matByKey(const std::string &k) {
+    for (const auto &m : MATS) if (k == m.key) return &m;
+    return &MATS[0];
+}
+
 struct Params {
     int nLayers = 2;                // MOBILE sheets; the substrate is extra
     double Nnm = 30, Nsubnm = 36;
@@ -140,6 +181,8 @@ struct Layer {
     std::vector<float> reg;                          // registry against the layer below
     std::vector<float> strain;                       // mean bond dilatation
     std::vector<double> b0;                          // as-built bond lengths
+    std::vector<uint8_t> spec;                       // species index, 0..nsp-1
+    double bondCut = 0, aLatt = 0;                   // this layer's material
     double twistRad = 0;
     double zRest = 0;                                // where this layer sits when flat
     bool mobile = true;
@@ -158,6 +201,7 @@ struct LJList {
 
 struct Instance {
     Params P;
+    const MatSpec *mat = &MATS[0];
     std::vector<Layer> layers;      // [0] is the substrate
     std::vector<LJList> ljs;
     std::vector<std::vector<double>> ljRefX, ljRefY, ljRefZ;   // per layer
@@ -404,6 +448,44 @@ struct Instance {
     // Nearest and second neighbours from POSITIONS, for a flake whose index
     // structure no longer describes it. A uniform grid keeps it O(N); this runs
     // once per build, not per step.
+    // Positions and species for a square patch of one material.
+    //
+    // A honeycomb puts sublattice A and B at species 0 and 1 (B and N for hBN,
+    // both C for graphene). A trilayer puts the metal at the cell origin and an
+    // ECLIPSED pair of chalcogens on the (a1+a2)/3 hollow at z +- zS.
+    //
+    // THAT HOLLOW IS THE THING TO GET RIGHT: it is a/sqrt3 from M in plane, so
+    // the M-X bond length comes out correct. On (a1+2*a2)/3 the column lands
+    // 2.8 A away, no potential sees a bond, and the sheet is silently far too
+    // soft -- it reads as a physics problem and is a geometry one.
+    static void genLattice(const MatSpec *M, double half, double z, Layer &L) {
+        const double a = M->aLatt;
+        const double a1x = a, a1y = 0.0;
+        const double a2x = a * 0.5, a2y = a * std::sqrt(3.0) / 2;
+        const int nx = (int)std::ceil(2 * half / a) + 2;
+        const int ny = (int)std::ceil(2 * half / (std::sqrt(3.0) * a / 2)) + 2;
+        L.x.clear(); L.y.clear(); L.z.clear(); L.spec.clear();
+        auto put = [&](double X, double Y, double Z, int sp) {
+            if (std::fabs(X) > half || std::fabs(Y) > half) return;
+            L.x.push_back(X); L.y.push_back(Y); L.z.push_back(Z);
+            L.spec.push_back((uint8_t)sp);
+        };
+        const double hx = (a1x + a2x) / 3, hy = (a1y + a2y) / 3;   // the hollow
+        for (int i = -nx; i <= nx; i++)
+            for (int j = -ny; j <= ny; j++) {
+                const double px = i * a1x + j * a2x;
+                const double py = i * a1y + j * a2y;
+                if (M->trilayer) {
+                    put(px, py, z, 0);                                  // metal
+                    put(px + hx, py + hy, z + M->zS, 1);                // X above
+                    put(px + hx, py + hy, z - M->zS, M->nsp > 2 ? 2 : 1);
+                } else {
+                    put(px, py, z, 0);
+                    put(px + hx, py + hy, z, M->nsp > 1 ? 1 : 0);
+                }
+            }
+    }
+
     static void buildTopologyByDistance(Layer &L) {
         const size_t M = L.n();
         // Shell radii DERIVED from the lattice constant, not typed in. A
@@ -414,11 +496,14 @@ struct Instance {
         // eV/A each, and the sheet detonated on step one. The old index-based
         // construction could not express that mistake because it enumerated
         // the six true second neighbours explicitly.
-        const double d1 = A_LATT / std::sqrt(3.0);   // 1.420
-        const double d2 = A_LATT;                    // 2.460
-        const double d3 = 2.0 * d1;                  // 2.841
-        const double R1 = 0.5 * (d1 + d2);           // 1.940
-        const double R2 = 0.5 * (d2 + d3);           // 2.650
+        // FROM THE MATERIAL, not from graphene's lattice constant -- MoS2 must
+        // not inherit graphene's bond lengths. Bonds inside bondCut; shear
+        // springs out to 1.08*a, which for a honeycomb falls between the second
+        // shell (a) and the third (2a/sqrt3 = 1.155a). Getting that gap wrong
+        // is what detonated the bilayer once already.
+        const double aL = L.aLatt > 0 ? L.aLatt : A_LATT;
+        const double R1 = L.bondCut > 0 ? L.bondCut : 0.5 * (aL / std::sqrt(3.0) + aL);
+        const double R2 = 1.08 * aL;
         const double cell = R2;
         L.bi.clear(); L.bj.clear(); L.ai.clear(); L.aj.clear();
         if (!M) return;
@@ -445,7 +530,8 @@ struct Instance {
                         if ((size_t)j <= i) continue;   // each pair once
                         const double ddx = L.x[(size_t)j] - L.x[i];
                         const double ddy = L.y[(size_t)j] - L.y[i];
-                        const double d = std::sqrt(ddx * ddx + ddy * ddy);
+                        const double ddz = L.z[(size_t)j] - L.z[i];
+                        const double d = std::sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
                         if (d < R1) { L.bi.push_back((int32_t)i); L.bj.push_back(j); }
                         else if (d < R2) { L.ai.push_back((int32_t)i); L.aj.push_back(j); }
                     }
@@ -470,7 +556,7 @@ struct Instance {
     // over a superset and then cropped, so the flake is square in the LAB
     // frame whatever the twist -- every layer has the same outline.
     static void buildSheet(Layer &L, int ncell, double twistRad, double zval,
-                           double side = 0.0) {
+                           double side = 0.0, const MatSpec *M = &MATS[0]) {
         const double a = A_LATT;
         const double a1x = a, a1y = 0.0;
         const double a2x = a * 0.5, a2y = a * std::sqrt(3.0) / 2;
@@ -502,23 +588,32 @@ struct Instance {
         if (side > 0) {
             const double h = 0.5 * side;
             std::vector<double> nx, ny;
-            nx.reserve(N); ny.reserve(N);
-            for (size_t q = 0; q < N; q++)
-                if (std::fabs(L.x[q]) <= h && std::fabs(L.y[q]) <= h) {
-                    nx.push_back(L.x[q]); ny.push_back(L.y[q]);
+            (void)h; (void)nx; (void)ny;
+            // Positions and species straight from the material, generated
+            // symmetric about the origin and cropped to the square.
+            L.bondCut = M->bondCut; L.aLatt = M->aLatt;
+            genLattice(M, 0.5 * side, zval, L);
+            if (twistRad != 0.0) {
+                const double cc = std::cos(twistRad), ss = std::sin(twistRad);
+                for (size_t q = 0; q < L.x.size(); q++) {
+                    const double X = L.x[q], Y = L.y[q];
+                    L.x[q] = cc * X - ss * Y;
+                    L.y[q] = ss * X + cc * Y;
                 }
-            const size_t M = nx.size();
-            L.x = nx; L.y = ny;
-            L.z.assign(M, zval);
-            L.vx.assign(M, 0.0); L.vy.assign(M, 0.0); L.vz.assign(M, 0.0);
-            L.fx.assign(M, 0.0); L.fy.assign(M, 0.0); L.fz.assign(M, 0.0);
+            }
+            const size_t Na = L.x.size();
+            L.vx.assign(Na, 0.0); L.vy.assign(Na, 0.0); L.vz.assign(Na, 0.0);
+            L.fx.assign(Na, 0.0); L.fy.assign(Na, 0.0); L.fz.assign(Na, 0.0);
             buildTopologyByDistance(L);
             L.x0 = L.x; L.y0 = L.y; L.z0r = L.z;
             L.b0.assign(L.bi.size(), 0.0);
             for (size_t b = 0; b < L.bi.size(); b++) {
                 const int i = L.bi[b], j = L.bj[b];
                 const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i];
-                L.b0[b] = std::sqrt(dx * dx + dy * dy);
+                // 3-D: a trilayer's M-X bond has a z component, and a rest
+                // length taken in plane only would be wrong by zS.
+                const double dz = L.z[j] - L.z[i];
+                L.b0[b] = std::sqrt(dx * dx + dy * dy + dz * dz);
             }
             L.twistRad = twistRad;
             L.zRest = zval;
@@ -572,24 +667,36 @@ struct Instance {
     }
 
     void build() {
+        mat = matByKey(P.material);
+        // A trilayer is a SANDWICH, not a plane: MoTe2 is 3.61 A thick, so a
+        // graphene-sized 3.35 A gap makes the layers interpenetrate and the
+        // energy comes out positive. The table's z0 is 2*zS + 2^(1/6)*sigma --
+        // the X-X gap starting at the LJ minimum -- and it is a FLOOR here, not
+        // a default, because nothing good is below it. Honeycombs keep theirs.
+        if (mat->trilayer) {
+            if (P.z0 < mat->z0) P.z0 = mat->z0;
+            if (P.zSub < mat->z0) P.zSub = mat->z0;
+        }
         const int nm = std::max(1, std::min(MAX_MOBILE, P.nLayers));
 
         layers.assign((size_t)nm + 1, Layer());
         // Generate over a superset and crop to a square: the diagonal of the
         // rhombic cell is 1.5x its edge, so 2x the requested side is ample.
         const double sideSheet = P.Nnm * NM, sideSub = P.Nsubnm * NM;
-        const int gen  = std::max(4, (int)std::lround(2.0 * sideSheet / A_LATT));
-        const int genS = std::max(4, (int)std::lround(2.0 * sideSub / A_LATT));
+        const int gen  = std::max(4, (int)std::lround(2.0 * sideSheet / mat->aLatt));
+        const int genS = std::max(4, (int)std::lround(2.0 * sideSub / mat->aLatt));
         // [0] rigid substrate at z = 0, untwisted
-        buildSheet(layers[0], genS, 0.0, 0.0, sideSub);
-        subHalf = 0.5 * (genS - 1);        // how far its lattice is off the origin
+        buildSheet(layers[0], genS, 0.0, 0.0, sideSub, mat);
+        // genLattice generates symmetric about the origin, so there IS a
+        // lattice site at (0,0) and the registry needs no centring offset.
+        subHalf = 0.0;
         layers[0].mobile = false;
         // the live sheets, bottom to top; twist accumulates so a three-sheet
         // stack is a genuine twist series rather than two coincident angles
         for (int k = 1; k <= nm; k++) {
             const double z = P.zSub + P.z0 * (k - 1);
             buildSheet(layers[(size_t)k], gen,
-                       (k - 1) * P.twistDeg * M_PI / 180.0, z, sideSheet);
+                       (k - 1) * P.twistDeg * M_PI / 180.0, z, sideSheet, mat);
             layers[(size_t)k].mobile = true;
         }
         clampGasGap();
@@ -1150,8 +1257,9 @@ struct Instance {
         if (!lmpCmd("region simbox block %.6g %.6g %.6g %.6g %.6g %.6g units box",
                     lo[0] - pad, hi[0] + pad, lo[1] - pad, hi[1] + pad,
                     lo[2] - pad, hi[2] + pad)) return false;
-        if (!lmpCmd("create_box 1 simbox")) return false;
-        if (!lmpCmd("mass 1 12.011")) return false;
+        if (!lmpCmd("create_box %d simbox", mat->nsp)) return false;
+        for (int t = 0; t < mat->nsp; t++)
+            if (!lmpCmd("mass %d %.6g", t + 1, mat->mass[t])) return false;
 
         std::vector<int32_t> id(n);
         std::vector<int> type(n, 1);
@@ -1160,6 +1268,7 @@ struct Instance {
             const Layer &L = layers[(size_t)gLayer[g]];
             const int i = gLocal[g];
             id[g] = (int32_t)g + 1;
+            type[g] = (i < (int)L.spec.size() ? (int)L.spec[i] : 0) + 1;
             xyz[3 * g] = L.x[i]; xyz[3 * g + 1] = L.y[i]; xyz[3 * g + 2] = L.z[i];
         }
         lammps_create_atoms(lmp, (int)n, id.data(), type.data(), xyz.data(),
@@ -1170,9 +1279,9 @@ struct Instance {
 
         // AIREBO carries REBO bonds, the interlayer LJ and torsion in one
         // style, so a stack of graphene sheets needs nothing else between them.
-        const std::string pot = bundleDir() + "/potentials/CH.airebo";
-        if (!lmpCmd("pair_style airebo 3.0")) return false;
-        if (!lmpCmd("pair_coeff * * \"%s\" C", pot.c_str())) return false;
+        const std::string pot = bundleDir() + "/potentials/" + mat->potFile;
+        if (!lmpCmd("%s", mat->pairStyle)) return false;
+        if (!lmpCmd("pair_coeff * * \"%s\" %s", pot.c_str(), mat->coeffTail)) return false;
 
         if (!lmpCmd("neighbor 2.0 bin")) return false;
         if (!lmpCmd("neigh_modify every 1 delay 0 check yes")) return false;
@@ -1357,11 +1466,11 @@ struct Instance {
         // name. An absolute path works here and nowhere else; a folder that
         // carries its own table can be zipped and handed to someone.
         {
-            std::string src = bundleDir() + "/potentials/CH.airebo";
+            std::string src = bundleDir() + "/potentials/" + mat->potFile;
             for (char &c : src) if (c == 92) c = 47;
             std::ifstream in(src, std::ios::binary);
-            std::ofstream cp(dir + "/CH.airebo", std::ios::binary);
-            if (in && cp) { cp << in.rdbuf(); D.potentialPath = "CH.airebo"; }
+            std::ofstream cp(dir + "/" + mat->potFile, std::ios::binary);
+            if (in && cp) { cp << in.rdbuf(); D.potentialPath = mat->potFile; }
             else D.potentialPath = src;      // fall back rather than write a lie
         }
 
@@ -1532,6 +1641,8 @@ struct Instance {
         if (pl == "between" || pl == "subUp") P.protLoc2 = pl;
         const std::string pr = dexmsg::get_str(m, "profile");
         if (pr == "bubble" || pr == "bubbleN" || pr == "bubbleFree") P.profile = pr;
+        const std::string mk = dexmsg::get_str(m, "material");
+        if (!mk.empty() && matByKey(mk)->key == mk) P.material = mk;
         const std::string en = dexmsg::get_str(m, "engine");
         if (en == "classic" || en == "lammps") P.engine = en;
         const std::string w = dexmsg::get_str(m, "gasWhere");
