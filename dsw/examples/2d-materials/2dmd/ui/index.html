@@ -1582,20 +1582,31 @@ function updateBigHud(){
   }
   hud.innerHTML = `t = ${fmtTime(tFs)}${ctx}`;
 }
+// A readout must never cost a frame: a field the core did not send formats
+// as a dash rather than throwing.
+function num(v, dp){ return (typeof v === 'number' && isFinite(v))
+  ? v.toFixed(dp === undefined ? 3 : dp) : '–'; }
 function updateStatus(){
   updateBigHud();
   const el = document.getElementById('status'); if(!el) return;
   if(!document.getElementById('panel').classList.contains('visible')) return;
   const tFs = S.frame * S.dtFs;
-  const dzLine = S.profile==='bubble'
-    ? `Δz = ${S.elevz.toFixed(2)} / h₀ ${henckyH0().toFixed(2)} Å`
-    : `Δz = ${S.elevz.toFixed(2)} Å`;
+  // 2DMD has no protrusion elevator -- that was graphene-md's. Reading
+  // S.elevz here threw on every frame while the panel was visible, and since
+  // the loop's reschedule sat after the body, it killed the render loop during
+  // the 2.6 s the panel is shown at boot. The scene never drew once.
+  const g = coreStats.gas ? ('gas ' + (coreStats.gasP/1e6).toFixed(0) + ' MPa'
+                             + '  r ' + Number(coreStats.gasR||0).toFixed(0) + ' Å'
+                             + '  fill ' + Math.round(100*(coreStats.fill||0)) + ' %')
+                          : 'no gas';
+  const dzLine = (coreStats.nLayers||1) + ' sheet' + ((coreStats.nLayers||1)===1?'':'s')
+                 + '   ' + g;
   el.textContent =
     `t = ${fmtTime(tFs)}   (${S.frame} steps @ ${S.dtFs} fs)\n`+
     `${dzLine}   ${S.running?'▶ running':'⏸ paused'}${S.elevActive?'  ⬆ elevating':''}\n`+
     `atoms ${S.top.length} + ${S.sub.length}   bonds ${S.bonds.length}\n`+
     `E = ${(coreStats.epot+coreStats.ekin).toFixed(3)} eV  (KE ${coreStats.ekin.toFixed(3)}, T ${coreStats.temp.toFixed(0)} K)\n`+
-    `core: ${Math.round(coreStats.sps)} steps/s, ${coreStats.ms.toFixed(2)} ms/step, ${coreStats.threads} thread${coreStats.threads==1?'':'s'}`+
+    `core: ${Math.round(coreStats.sps||0)} steps/s, ${num(coreStats.ms,2)} ms/step, ${coreStats.threads||1} thread${coreStats.threads==1?'':'s'}`+
     (coreStats.pot?`\npotential: ${coreStats.pot}${coreStats.engine==='lammps'?' (LAMMPS)':''}`:'')+
     (S.twistDeg?`\ntwist θ = ${S.twistDeg}°`:'');
 }
@@ -1911,6 +1922,9 @@ function exposeDebug(){
     cam: () => camera ? {x:camera.position.x, y:camera.position.y, z:camera.position.z,
                          aspect: camera.aspect, near: camera.near, far: camera.far} : null,
     theme: () => THEME.key,
+    loopErrors: () => ({update: loop.errors||0, first: loop.first||null,
+                       stack: loop.stack||null,
+                       render: loop.rerrors||0, rfirst: loop.rfirst||null}),
     fit: () => { fitCamera(); syncCameraSliders(); },
     render: () => renderer.render(scene, camera),
     look: () => { const d = new THREE.Vector3();
@@ -1932,8 +1946,29 @@ function exposeDebug(){
 }
 
 function loop(){
-  if(coreReady){ updateMeshes(); updateStatus(); maybeUpdateHistogram(); }
-  renderer.render(scene,camera);
+  // The reschedule MUST be unconditional. requestAnimationFrame(loop) used to
+  // sit after the body, so a single exception -- a frame arriving mid-rebuild,
+  // say -- killed the render loop permanently and the panel went black for the
+  // rest of the session while everything else carried on working. The state
+  // was fine, the meshes were fine, the camera was fine; nothing was drawing
+  // them. One bad frame must not cost the display.
+  // The UPDATE and the RENDER get separate guards on purpose: a readout that
+  // cannot format a number must not also stop the scene being drawn.
+  try {
+    if(coreReady){ updateMeshes(); updateStatus(); maybeUpdateHistogram(); }
+  } catch(e) {
+    loop.errors = (loop.errors||0) + 1;
+    if(!loop.reported){ loop.reported = true;
+      loop.first = String(e && e.message || e);
+      loop.stack = String(e && e.stack || "").split(/[\r\n]+/).slice(0,4).join(" | ");
+      console.error("2dmd: loop update threw (continuing)", e); }
+  }
+  try { renderer.render(scene,camera); }
+  catch(e) {
+    loop.rerrors = (loop.rerrors||0) + 1;
+    if(!loop.rreported){ loop.rreported = true; loop.rfirst = String(e && e.message || e);
+      console.error("2dmd: render threw", e); }
+  }
   requestAnimationFrame(loop);
 }
 
