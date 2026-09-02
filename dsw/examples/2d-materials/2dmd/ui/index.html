@@ -1269,9 +1269,20 @@ function onCoreFrame(w, h, rgba){
   // so until something writes them every atom sits at the origin -- 6724
   // spheres in one clump, which renders as a dot and reads as "nothing drawn".
   updateMeshes();
-  if(!fittedOnce){ fittedOnce = true; fitCamera(); syncCameraSliders(); }
+  // Fit the camera once the canvas has a REAL size, and again if that size
+  // changes. Latching on the first frame looked fine on a directly-loaded page
+  // and was wrong in the launcher: there the plugin lives in an iframe that is
+  // still 0x0 when the first frame lands, so the fit happened against a zero
+  // viewport and, being latched, never recovered. The panel then rendered
+  // black for ever.
+  const cw = renderer ? renderer.domElement.width : 0;
+  const chh = renderer ? renderer.domElement.height : 0;
+  if(cw > 8 && chh > 8 && (cw !== fittedW || chh !== fittedH)){
+    fittedW = cw; fittedH = chh;
+    fitCamera(); syncCameraSliders();
+  }
 }
-let fittedOnce = false;
+let fittedW = 0, fittedH = 0;
 
 const dex = DEX.connect({
   onStatus(s){
@@ -1884,6 +1895,42 @@ function startElevate(){
 // ======= Main Loop =======
 // No physics here any more: the core advances the simulation on its own
 // thread and dex.js keeps exactly one frame in flight per display refresh.
+// Reachable from outside: the module's `let` bindings are not window
+// properties, so without this there is no way to inspect a plugin running in
+// the launcher's iframe -- which is exactly where it failed and a directly
+// loaded page did not.
+function exposeDebug(){
+  window.__DBG = {
+    canvas: () => { const c = renderer ? renderer.domElement : null;
+      return c ? {w:c.width, h:c.height, cw:c.clientWidth, ch:c.clientHeight} : null; },
+    counts: () => ({ top: S.top.length, sub: S.sub.length, bonds: S.bonds.length,
+                     frame: S.frame, ready: coreReady, open: coreOpen }),
+    inst: () => { if(!instTop) return null;
+      const a = instTop.instanceMatrix.array;
+      return {count: instTop.count, x: a[12], y: a[13], z: a[14]}; },
+    cam: () => camera ? {x:camera.position.x, y:camera.position.y, z:camera.position.z,
+                         aspect: camera.aspect, near: camera.near, far: camera.far} : null,
+    theme: () => THEME.key,
+    fit: () => { fitCamera(); syncCameraSliders(); },
+    render: () => renderer.render(scene, camera),
+    look: () => { const d = new THREE.Vector3();
+      camera.getWorldDirection(d);
+      return {dir:[d.x,d.y,d.z], up:[camera.up.x,camera.up.y,camera.up.z]}; },
+    pixels: () => { renderer.render(scene, camera);
+      const cv = renderer.domElement, gl = renderer.getContext();
+      const px = new Uint8Array(4*80*80);
+      gl.readPixels((cv.width>>1)-40,(cv.height>>1)-40,80,80,gl.RGBA,gl.UNSIGNED_BYTE,px);
+      const h={}; for(let i=0;i<px.length;i+=4){const k=px[i]+','+px[i+1]+','+px[i+2];h[k]=(h[k]||0)+1;}
+      return {distinct:Object.keys(h).length,
+              top:Object.entries(h).sort((a,b)=>b[1]-a[1]).slice(0,3)}; },
+    onScreen: () => { let n=0,on=0;
+      for(let i=0;i<S.top.length;i+=101){
+        const v=new THREE.Vector3(S.top[i].x,S.top[i].y,S.top[i].z).project(camera);
+        n++; if(Math.abs(v.x)<1&&Math.abs(v.y)<1&&v.z>-1&&v.z<1) on++; }
+      return on+' of '+n; }
+  };
+}
+
 function loop(){
   if(coreReady){ updateMeshes(); updateStatus(); maybeUpdateHistogram(); }
   renderer.render(scene,camera);
@@ -1908,6 +1955,7 @@ function storedTheme(){
   await waitThree();
   applyTheme(storedTheme());
   initThree();
+  exposeDebug();
   bindUI();
   bind2DMD();
   initMouseOrbit();

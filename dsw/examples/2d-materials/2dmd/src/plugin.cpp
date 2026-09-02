@@ -331,7 +331,64 @@ struct Instance {
 
     // ------------------------------------------------------------- build
 
-    static void buildSheet(Layer &L, int ncell, double twistRad, double zval) {
+    // Nearest and second neighbours from POSITIONS, for a flake whose index
+    // structure no longer describes it. A uniform grid keeps it O(N); this runs
+    // once per build, not per step.
+    static void buildTopologyByDistance(Layer &L) {
+        const size_t M = L.n();
+        const double R1 = 1.75, R2 = 2.85;      // NN ~1.42 A, 2nd ~2.46 A
+        const double cell = R2;
+        L.bi.clear(); L.bj.clear(); L.ai.clear(); L.aj.clear();
+        if (!M) return;
+        double x0 = L.x[0], x1 = L.x[0], y0 = L.y[0], y1 = L.y[0];
+        for (size_t i = 1; i < M; i++) {
+            x0 = std::min(x0, L.x[i]); x1 = std::max(x1, L.x[i]);
+            y0 = std::min(y0, L.y[i]); y1 = std::max(y1, L.y[i]);
+        }
+        const int nx = (int)((x1 - x0) / cell) + 3, ny = (int)((y1 - y0) / cell) + 3;
+        std::vector<int32_t> head((size_t)nx * ny, -1), next(M, -1);
+        auto cx = [&](double X) { return std::min(std::max((int)((X - x0) / cell) + 1, 0), nx - 1); };
+        auto cy = [&](double Y) { return std::min(std::max((int)((Y - y0) / cell) + 1, 0), ny - 1); };
+        for (size_t i = 0; i < M; i++) {
+            const int cidx = cy(L.y[i]) * nx + cx(L.x[i]);
+            next[i] = head[(size_t)cidx]; head[(size_t)cidx] = (int32_t)i;
+        }
+        for (size_t i = 0; i < M; i++) {
+            const int gx = cx(L.x[i]), gy = cy(L.y[i]);
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    const int X = gx + dx, Y = gy + dy;
+                    if (X < 0 || X >= nx || Y < 0 || Y >= ny) continue;
+                    for (int j = head[(size_t)(Y * nx + X)]; j >= 0; j = next[(size_t)j]) {
+                        if ((size_t)j <= i) continue;   // each pair once
+                        const double ddx = L.x[(size_t)j] - L.x[i];
+                        const double ddy = L.y[(size_t)j] - L.y[i];
+                        const double d = std::sqrt(ddx * ddx + ddy * ddy);
+                        if (d < R1) { L.bi.push_back((int32_t)i); L.bj.push_back(j); }
+                        else if (d < R2) { L.ai.push_back((int32_t)i); L.aj.push_back(j); }
+                    }
+                }
+        }
+        std::vector<int32_t> cnt(M + 1, 0);
+        for (size_t b = 0; b < L.bi.size(); b++) { cnt[L.bi[b] + 1]++; cnt[L.bj[b] + 1]++; }
+        for (size_t q = 0; q < M; q++) cnt[q + 1] += cnt[q];
+        L.nbOff = cnt;
+        L.nbIdx.assign(L.nbOff[M], 0);
+        std::vector<int32_t> cur(L.nbOff.begin(), L.nbOff.end() - 1);
+        for (size_t b = 0; b < L.bi.size(); b++) {
+            L.nbIdx[cur[L.bi[b]]++] = L.bj[b];
+            L.nbIdx[cur[L.bj[b]]++] = L.bi[b];
+        }
+        L.isEdge.assign(M, 0);
+        for (size_t q = 0; q < M; q++)
+            if (L.nbOff[q + 1] - L.nbOff[q] < 3) L.isEdge[q] = 1;
+    }
+
+    // `side` is the square edge length in Angstrom. The lattice is generated
+    // over a superset and then cropped, so the flake is square in the LAB
+    // frame whatever the twist -- every layer has the same outline.
+    static void buildSheet(Layer &L, int ncell, double twistRad, double zval,
+                           double side = 0.0) {
         const double a = A_LATT;
         const double a1x = a, a1y = 0.0;
         const double a2x = a * 0.5, a2y = a * std::sqrt(3.0) / 2;
@@ -356,6 +413,35 @@ struct Instance {
                     L.y[q] = s * px[k] + c * py[k];
                 }
             }
+
+        // Crop to a square, then rebuild the topology from DISTANCES. The
+        // index-based bond construction below only describes an uncropped
+        // rhombus; once atoms are removed it is simply wrong.
+        if (side > 0) {
+            const double h = 0.5 * side;
+            std::vector<double> nx, ny;
+            nx.reserve(N); ny.reserve(N);
+            for (size_t q = 0; q < N; q++)
+                if (std::fabs(L.x[q]) <= h && std::fabs(L.y[q]) <= h) {
+                    nx.push_back(L.x[q]); ny.push_back(L.y[q]);
+                }
+            const size_t M = nx.size();
+            L.x = nx; L.y = ny;
+            L.z.assign(M, zval);
+            L.vx.assign(M, 0.0); L.vy.assign(M, 0.0); L.vz.assign(M, 0.0);
+            L.fx.assign(M, 0.0); L.fy.assign(M, 0.0); L.fz.assign(M, 0.0);
+            buildTopologyByDistance(L);
+            L.x0 = L.x; L.y0 = L.y; L.z0r = L.z;
+            L.b0.assign(L.bi.size(), 0.0);
+            for (size_t b = 0; b < L.bi.size(); b++) {
+                const int i = L.bi[b], j = L.bj[b];
+                const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i];
+                L.b0[b] = std::sqrt(dx * dx + dy * dy);
+            }
+            L.twistRad = twistRad;
+            L.zRest = zval;
+            return;
+        }
         L.bi.clear(); L.bj.clear();
         for (int j = 0; j < n; j++)
             for (int i = 0; i < n; i++) {
@@ -405,19 +491,23 @@ struct Instance {
 
     void build() {
         const int nm = std::max(1, std::min(MAX_MOBILE, P.nLayers));
-        const int nc = std::max(4, (int)std::lround(P.Nnm * NM / A_LATT));
-        const int ns = std::max(4, (int)std::lround(P.Nsubnm * NM / A_LATT));
 
         layers.assign((size_t)nm + 1, Layer());
+        // Generate over a superset and crop to a square: the diagonal of the
+        // rhombic cell is 1.5x its edge, so 2x the requested side is ample.
+        const double sideSheet = P.Nnm * NM, sideSub = P.Nsubnm * NM;
+        const int gen  = std::max(4, (int)std::lround(2.0 * sideSheet / A_LATT));
+        const int genS = std::max(4, (int)std::lround(2.0 * sideSub / A_LATT));
         // [0] rigid substrate at z = 0, untwisted
-        buildSheet(layers[0], ns, 0.0, 0.0);
-        subHalf = 0.5 * (ns - 1);          // how far its lattice is off the origin
+        buildSheet(layers[0], genS, 0.0, 0.0, sideSub);
+        subHalf = 0.5 * (genS - 1);        // how far its lattice is off the origin
         layers[0].mobile = false;
         // the live sheets, bottom to top; twist accumulates so a three-sheet
         // stack is a genuine twist series rather than two coincident angles
         for (int k = 1; k <= nm; k++) {
             const double z = P.zSub + P.z0 * (k - 1);
-            buildSheet(layers[(size_t)k], nc, (k - 1) * P.twistDeg * M_PI / 180.0, z);
+            buildSheet(layers[(size_t)k], gen,
+                       (k - 1) * P.twistDeg * M_PI / 180.0, z, sideSheet);
             layers[(size_t)k].mobile = true;
         }
         clampGasGap();
