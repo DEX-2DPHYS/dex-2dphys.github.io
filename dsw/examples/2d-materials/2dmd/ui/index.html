@@ -619,16 +619,17 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         <label style="margin:0">Material</label>
         <select id="material">
           <option selected value="graphene">Graphene (C)</option>
-          <option value="hbn" disabled>hBN — not built yet</option>
-          <option value="mos2" disabled>MoS₂ — trilayer, not supported</option>
-          <option value="ws2" disabled>WS₂ — trilayer, not supported</option>
-          <option value="mote2" disabled>MoTe₂ — trilayer, not supported</option>
-          <option value="wte2" disabled>WTe₂ — trilayer, not supported</option>
+          <option value="hbn">hBN (B–N)</option>
+          <option value="mos2">MoS₂ (REBO)</option>
+          <option value="ws2">WS₂ (SW)</option>
+          <option value="mote2">MoTe₂ (SW)</option>
+          <option value="wte2">WTe₂ (SW)</option>
         </select>
-        <div class="legend">2DMD builds one lattice so far: a honeycomb at
-          2.46&nbsp;Å, with AIREBO under LAMMPS. The dichalcogenides are
-          X–M–X sandwiches its builder cannot express yet. Use
-          <b>2D&nbsp;Materials&nbsp;Molecular&nbsp;Dynamics</b> for those.</div>
+        <div class="legend">Graphene and hBN are honeycombs; the four
+          dichalcogenides are X–M–X sandwiches, with the chalcogen
+          columns on the (a₁+a₂)/3 hollow. Those four need a real
+          potential and switch the engine to LAMMPS on their own — the
+          Morse model has one bond length, tuned for graphene.</div>
       </div>
       <div class="row2">
         <div><label>Sheet size N (nm)</label><input id="Nnm" min="2" step="1" type="number" value="12"></div>
@@ -697,10 +698,10 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
           <option value="ml">ML potential (fairchem sidecar)</option>
         </select>
       </div>
-      <div class="legend">Graphene runs on either engine — the classic Morse
-        model or AIREBO via the embedded LAMMPS. hBN (ExTeP), MoS₂
-        (REBO-MoS₂) and the SW materials always use their LAMMPS potential;
-        the Morse, angle and bending controls below then have no effect.</div>
+      <div class="legend">Graphene and hBN run on either engine — the classic
+        Morse model, or AIREBO / ExTeP via the embedded LAMMPS. The four
+        dichalcogenides are LAMMPS-only and select that engine themselves; the
+        Morse, angle and bending controls below then have no effect.</div>
       <div class="row2">
         <div><label>dt (fs)</label><input id="dt" min="0.05" max="1" step="0.05" type="number" value="0.5"></div>
         <div><label>γ damping</label><input id="gamma" step="0.00001" type="number" value="0.00001"></div>
@@ -1142,7 +1143,6 @@ function applyCapabilities(){
     maxV:     "2DMD caps the per-step DISPLACEMENT (max step) rather than velocity.",
     escale:   "Superseded by the separate interlayer and substrate \u03b5 controls.",
     eps0:     "Superseded by the separate interlayer and substrate \u03b5 controls.",
-    material: "2DMD builds a honeycomb only; see the note under the selector.",
     edgeMode: "2DMD has one edge treatment: the edge clamp in Run.",
     regRamp:  "Not implemented in 2DMD.",
   };
@@ -1183,9 +1183,10 @@ function applyCapabilities(){
   }
   const note = q('engineNote');
   if(note) note.textContent = lammps
-    ? 'AIREBO carries bond order, interlayer van der Waals and torsion in one '
-      + 'potential, so no interlayer term is added on top. Graphene only for now. '
-      + 'The substrate stays the plugin\u2019s own Lennard-Jones, which is why its '
+    ? 'Each material brings its own potential: AIREBO for graphene, ExTeP for '
+      + 'hBN, REBO-MoS\u2082, and Stillinger-Weber for the other three. AIREBO and '
+      + 'ExTeP carry interlayer van der Waals themselves, so no interlayer term is '
+      + 'added on top. The substrate stays the plugin\u2019s own Lennard-Jones, which is why its '
       + '\u03b5 is still live.'
     : 'Morse bonds, second-neighbour springs and a bending umbrella. Fast and '
       + 'fully adjustable, but not chemistry: coordination costs nothing and '
