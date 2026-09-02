@@ -659,6 +659,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         <button class="btn" id="lmpExportBtn" title="Export the current state as a runnable LAMMPS input deck (run.in + system.data + README): continue-from-now snapshot with the protrusion driver translated to native fixes.">⇩ LAMMPS deck</button>
         <button class="btn" id="quickBtn">Quick (6 nm)</button>
       </div>
+      <div class="legend">The Morse model goes unstable above about 0.5 fs — measured: a 12 nm bilayer reaches 10<sup>7</sup> K at 1 fs and stays at 0 K at 0.5. Under LAMMPS the potential sets its own tolerance.</div>
       <div class="legend">Rebuild regenerates both lattices and resets the run. Twist rotates the top sheet (rebuilds automatically).</div>
     </div>
   </details>
@@ -701,7 +702,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         (REBO-MoS₂) and the SW materials always use their LAMMPS potential;
         the Morse, angle and bending controls below then have no effect.</div>
       <div class="row2">
-        <div><label>dt (fs)</label><input id="dt" step="0.1" type="number" value="1"></div>
+        <div><label>dt (fs)</label><input id="dt" min="0.05" max="1" step="0.05" type="number" value="0.5"></div>
         <div><label>γ damping</label><input id="gamma" step="0.00001" type="number" value="0.00001"></div>
       </div>
       <div class="row2">
@@ -1040,8 +1041,8 @@ function readGeometryInputs(quick){
 // Trilayer z0 = 2·zS + 2^(1/6)·σ: the X–X vdW gap starts at the LJ minimum.
 // dt 0.5 fs for the reactive/stiff sandwiches.
 const MAT_DEFAULTS = {
-  graphene: {z0:3.35, sigma:3.42, eps0:2.387, dt:1},
-  hbn:      {z0:3.33, sigma:3.33, eps0:2.6,   dt:1},
+  graphene: {z0:3.35, sigma:3.42, eps0:2.387, dt:0.5},
+  hbn:      {z0:3.33, sigma:3.33, eps0:2.6,   dt:0.5},
   mos2:     {z0:6.75, sigma:3.13, eps0:6.93,  dt:0.5},
   ws2:      {z0:6.64, sigma:3.13, eps0:6.93,  dt:0.5},
   mote2:    {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5},
