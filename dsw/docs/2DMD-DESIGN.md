@@ -455,3 +455,73 @@ rewritten.
 And not a fourth plugin alongside the three. If this is built it replaces them;
 if it is not built, the three stay as they are. The failure mode to avoid is
 four trees with four copies of the same force loop.
+
+## 2026-09-02 late — the TMD/elevate bug round (post-phase-6 fixes)
+
+Peter played the plugin and reported: MoTe2 "does not update the display",
+elevate lifts the substrate but the sheets do not respond, "quite a few things
+not working". The audit found ~20 real defects; all fixed in one pass.
+
+**Core (`src/plugin.cpp`)**
+- The LAMMPS callback's substrate-table read forgot `liftAt` — THE elevate
+  bug. The classic path carried the comment explaining the trick; the LAMMPS
+  copy of the same read dropped the term. Every TMD runs on LAMMPS, so every
+  TMD was hit.
+- `buildSubTable` hard-coded the graphene lattice whatever the substrate was.
+  Now built from the substrate's own MatSpec (period, basis, a trilayer's two
+  chalcogen planes, z range shifted by zS); `fracOf` uses the table's own
+  lattice constant.
+- The per-step pair-list invalidation during elevation is gone (lists are
+  x,y-based; a pure z lift never changes membership) — that was the
+  order-of-magnitude slowdown while elevating. The "out of reach when flat"
+  skip in `buildLJ` went with it: a lifted substrate can come INTO reach.
+- `t:"params"` now applies dt/gamma to a running LAMMPS (`timestep`,
+  re-`fix viscous`) and starts/stops LAMMPS on an engine change — both were
+  dead outside a rebuild. `t:"reset"` scatters positions back into LAMMPS;
+  it restored only the plugin's copy and the next step pulled the old state
+  straight back over it.
+- Protrusion SHAPE (`shape`: mesa/gauss/bubble) split from the GAS MODEL
+  (`profile`: bubble/bubbleN/bubbleFree). They shared one key and readParams
+  accepted only the gas-model names, so Mesa/Gauss never reached the core.
+- `computeRegistry` uses the lower layer's own lattice constant and twist
+  (was: graphene's, unrotated, for every pair).
+- A protLoc change zeroes the elevation state core-side (the stale-elevz
+  teleport); `sayState` gained `mat`/`subMat`/`pot`/`nbonds`.
+- **Independent substrate material** (`subMaterial`, default "same"): the
+  substrate is rigid LJ in both engines, so its material never forces LAMMPS —
+  a MoTe2 substrate under a graphene sheet runs on the Morse model too. zSub
+  floor for a mixed pair = the mean of the two homo-material z0's (reduces to
+  the old rule when they match).
+- New frame block kind 3: species, all layers including the substrate, sent on
+  geometry frames only. Spec (`2DMD-FRAME-FORMAT.md`) + reader updated.
+
+**Panel (`ui/index.html`)**
+- NOTHING ever sent `t:"gas"` — the entire gas system, all three models, was
+  unreachable from the panel. Elevate in "at interface" mode now drives the
+  gas, and a gas-model select was added (the capability dims key on it, not on
+  the shape select they were wrongly keyed to).
+- Species colouring could never activate (`S.specNsp = 1` hard-coded); now
+  ingested from the frame's species block, counts derived from the data so a
+  mid-switch stale material key cannot lie.
+- `deriveBonds` used graphene's 1.75 A cutoff — a TMD rendered with NO bonds.
+  Now the material's bondCut, and each bond records its b0 so strain colouring
+  stops dividing by the Morse re (which painted every TMD bond fully red).
+- State-message field mismatches (UI read `elev`/`phase`/`mat`, core sends
+  `elevActive`/`elevPhase`; gas/gasP/gasR/fill/nLayers never stored) — the
+  status line always said "no gas" and the E key restarted the elevator
+  instead of stopping it.
+- The protLoc handler indexed `S.v` — an empty graphene-md leftover — and
+  threw on the first atom; space toggled a local running flag without telling
+  the core.
+- Substrate-material select added; the ML engine option is marked
+  not-available instead of silently doing nothing.
+
+Offline acceptance harness at `2dmd/test/probe2dmd.cpp` — drives the plugin
+through its own C API, no host needed: table-vs-pair-sum agreement for graphene
+AND MoTe2 substrates, classic + LAMMPS elevate actually lifting the sheet,
+MoTe2 building bound/finite with a 3-species block, reset under LAMMPS,
+protLoc reset, mesa shape landing.
+
+NOTE: this machine (a second pbog box — same Dropbox, same username, no
+toolchain) got WinLibs gcc + CMake + Ninja via winget and LAMMPS
+stable_22Jul2025_update5 built at `C:\Users\pbog\b\` to link against.

@@ -66,14 +66,15 @@ Each block is a 16-byte header followed by its data:
 
 | offset | type | field |
 |---|---|---|
-| +0 | u32 | `kind` — 1 registry, 2 strain; others reserved |
+| +0 | u32 | `kind` — 1 registry, 2 strain, 3 species; others reserved |
 | +4 | u32 | `layerMask` — bit *k* set if layer *k* contributes |
 | +8 | u32 | `nValues` — total f32 that follow |
 | +12 | u32 | reserved, 0 |
 | +16 | f32 × `nValues` | values, concatenated in layer order |
 
 Values run over the layers named in `layerMask`, in table order, `n` values per
-layer. Blocks currently cover the mobile layers only.
+layer. Registry and strain cover the mobile layers only; species covers every
+layer, substrate included.
 
 **An unknown `kind` is skipped by advancing `nValues × 4` bytes.** That is the
 whole forward-compatibility story, and it is why `nValues` is mandatory even
@@ -99,6 +100,14 @@ assumed to be `re`: the lattice is built at `A_LATT`, so a strain taken against
 `re` would report a uniform offset everywhere.
 
 Requested with `{"t":"params","strain":1}`.
+
+### kind 3 — species
+
+The species index of every atom (0 = first LAMMPS type: C, B, Mo/W; 1, 2 = the
+others), as f32, over **all** layers including the substrate. Sent only on
+frames that carry static geometry (`flags & 1`) — species never change between
+builds — so a consumer caches it the way the reader caches static positions.
+Not requested: it rides along automatically.
 
 ## Reading one
 

@@ -128,7 +128,10 @@ inline const MatSpec *matByKey(const std::string &k) {
 
 struct Params {
     int nLayers = 2;                // MOBILE sheets; the substrate is extra
-    double Nnm = 30, Nsubnm = 36;
+    // 12 nm matches the panel's default, so the build every instance does at
+    // connect time is the one the page immediately asks for anyway -- the old
+    // 30 nm default built ~70k atoms only to throw them away one message later.
+    double Nnm = 12, Nsubnm = 12;
     double twistDeg = 2.0;          // cumulative: sheet i is twisted i*twistDeg
     double zSub = 3.35;             // substrate -> sheet 1
     double z0 = 3.35;               // sheet -> sheet
@@ -141,10 +144,19 @@ struct Params {
     bool substrateOn = true;
     bool subTab = true;             // tabulate the rigid substrate field
     int subGrid = 48;               // cells per lattice vector; the accuracy knob
+    // "" = same as `material`. The substrate is rigid and lives entirely in the
+    // plugin's own LJ (LAMMPS never sees it), so its material is free to differ
+    // from the sheets': it only sets the lattice the field is built from.
+    std::string subMaterial;
     // gas
     int gasGapIdx = 1;              // gap g is between layers[g] and layers[g+1]
     // "bubbleFree" (default) | "bubbleN" | "bubble"; see gasState()
     std::string profile = "bubbleFree";
+    // The protrusion SHAPE is a separate thing from the gas model, and they
+    // shared one variable for a while: selecting "mesa" or "gauss" in the panel
+    // never reached the core at all, because readParams only accepted the three
+    // gas-model names into `profile`.
+    std::string shape = "gauss";    // "mesa" | "gauss" | "bubble" (Hencky cap)
     double betweenBoost = 1.0;      // the open-loop model's fudge, off by default
     double bubbleRnm = 4, bubbleP = 600, gasT = 300, gasGap = 1.2;
     double Cxnm = 0, Cynm = 0;
@@ -202,6 +214,7 @@ struct LJList {
 struct Instance {
     Params P;
     const MatSpec *mat = &MATS[0];
+    const MatSpec *matSub = &MATS[0];   // the substrate's own material
     std::vector<Layer> layers;      // [0] is the substrate
     std::vector<LJList> ljs;
     std::vector<std::vector<double>> ljRefX, ljRefY, ljRefZ;   // per layer
@@ -251,11 +264,11 @@ struct Instance {
         if (elevz <= 0 || P.protLoc2 == "between") return 0.0;
         const double cx = P.Cxnm * NM, cy = P.Cynm * NM;
         const double dx = x - cx, dy = y - cy;
-        if (P.profile == "mesa") {
+        if (P.shape == "mesa") {
             const double hx = P.Mxnm * NM / 2, hy = P.Mynm * NM / 2;
             return (std::fabs(dx) <= hx && std::fabs(dy) <= hy) ? elevz : 0.0;
         }
-        if (P.profile == "bubble" || P.profile == "bubbleN" || P.profile == "bubbleFree") {
+        if (P.shape == "bubble") {
             // Hencky cap w(rho) = h0 (1 - rho^2)^(2/3). The guard protects the
             // ARGUMENT: a negative base to a fractional power is NaN.
             const double R = P.bubbleRnm * NM;
@@ -306,6 +319,7 @@ struct Instance {
     struct SubTable {
         int nu = 0, nv = 0, nz = 0;
         double z0 = 0, z1 = 0, dz = 0;
+        double aLatt = A_LATT;      // the lattice the field was built from
         std::vector<float> U, Fx, Fy, Fz;
         bool ready() const { return nz > 0; }
         size_t at(int iu, int iv, int iz) const {
@@ -322,43 +336,62 @@ struct Instance {
     double subHalf = 0;              // the substrate's centring offset
     void fracOf(double x, double y, double &u, double &v) const {
         const double s3 = std::sqrt(3.0);
-        v = 2.0 * y / (s3 * A_LATT) + subHalf;
-        u = (x - y / s3) / A_LATT + subHalf;
+        const double a = subTab.aLatt;
+        v = 2.0 * y / (s3 * a) + subHalf;
+        u = (x - y / s3) / a + subHalf;
         u -= std::floor(u);
         v -= std::floor(v);
     }
 
+    // Built from the SUBSTRATE'S OWN material. This used to hard-code the
+    // graphene lattice, so a hBN substrate's field had the wrong period and a
+    // trilayer substrate's field missed its two chalcogen planes entirely --
+    // the sheet then felt a fictitious support that no pair sum would produce.
     void buildSubTable() {
         subTab = SubTable();
         if (!P.substrateOn || !P.subTab) return;
+        const MatSpec *MS = matSub;
         const int N = std::max(8, std::min(256, P.subGrid));
         const double cut = 3 * P.sigma;
+        const double zS = MS->trilayer ? MS->zS : 0.0;
         subTab.nu = N; subTab.nv = N;
-        subTab.z0 = 1.6; subTab.z1 = cut + 0.2;
+        subTab.aLatt = MS->aLatt;
+        // z is measured from the layer's zRest (the metal plane for a
+        // trilayer); the top chalcogen plane sits at +zS, so the whole usable
+        // range shifts up by it.
+        subTab.z0 = zS + 1.6; subTab.z1 = zS + cut + 0.2;
         // z must refine with the knob too. It did not, and the accuracy test
         // correctly refused to improve however fine the in-plane grid got:
         // the z direction was pinned at 0.12 A and was the dominant error.
         // Match the in-plane cell size so subGrid means one thing.
-        const double dzWant = A_LATT / N;
+        const double dzWant = MS->aLatt / N;
         subTab.nz = std::max(16, (int)std::lround((subTab.z1 - subTab.z0) / dzWant) + 1);
         subTab.dz = (subTab.z1 - subTab.z0) / (subTab.nz - 1);
         const size_t n = (size_t)subTab.nu * subTab.nv * subTab.nz;
         subTab.U.assign(n, 0.f); subTab.Fx.assign(n, 0.f);
         subTab.Fy.assign(n, 0.f); subTab.Fz.assign(n, 0.f);
 
-        // Lattice points of the periodic substrate within the cutoff. Built
+        // Lattice sites of the periodic substrate within the cutoff. Built
         // from the lattice rather than from the finite substrate array so the
-        // table does not inherit that array's edges.
-        const double a = A_LATT, s3 = std::sqrt(3.0);
-        const double bx = a * 0.5, by = a / (2 * s3);
-        std::vector<double> px, py;
+        // table does not inherit that array's edges. Basis matches genLattice:
+        // honeycomb = two sites in one plane; trilayer = metal at the origin
+        // plane plus an eclipsed chalcogen pair on the hollow at z = +-zS.
+        const double a = MS->aLatt, s3 = std::sqrt(3.0);
+        const double hx = a * 0.5, hy = a / (2 * s3);   // (a1+a2)/3, the hollow
+        std::vector<double> px, py, pz;
         const int R = (int)std::ceil(cut / a) + 2;
         for (int j = -R; j <= R; j++)
             for (int i = -R; i <= R; i++) {
-                const double Rx = a * i + bx * j * 0 + a * 0.5 * j;
+                const double Rx = a * i + a * 0.5 * j;
                 const double Ry = a * s3 / 2 * j;
-                px.push_back(Rx);      py.push_back(Ry);
-                px.push_back(Rx + bx); py.push_back(Ry + by);
+                if (MS->trilayer) {
+                    px.push_back(Rx);      py.push_back(Ry);      pz.push_back(0.0);
+                    px.push_back(Rx + hx); py.push_back(Ry + hy); pz.push_back(+zS);
+                    px.push_back(Rx + hx); py.push_back(Ry + hy); pz.push_back(-zS);
+                } else {
+                    px.push_back(Rx);      py.push_back(Ry);      pz.push_back(0.0);
+                    px.push_back(Rx + hx); py.push_back(Ry + hy); pz.push_back(0.0);
+                }
             }
 
         const double sig2 = P.sigma * P.sigma, cut2 = cut * cut;
@@ -377,7 +410,7 @@ struct Instance {
                     const double Y = a * s3 / 2 * fv;
                     double U = 0, Fx = 0, Fy = 0, Fz = 0;
                     for (size_t k = 0; k < px.size(); k++) {
-                        const double dx = px[k] - X, dy = py[k] - Y, dz = -z;
+                        const double dx = px[k] - X, dy = py[k] - Y, dz = pz[k] - z;
                         const double r2 = dx * dx + dy * dy + dz * dz;
                         if (r2 > cut2 || r2 < 1e-8) continue;
                         const double t2 = sig2 / r2, t6 = t2 * t2 * t2, t12 = t6 * t6;
@@ -668,15 +701,20 @@ struct Instance {
 
     void build() {
         mat = matByKey(P.material);
+        matSub = P.subMaterial.empty() ? mat : matByKey(P.subMaterial);
         // A trilayer is a SANDWICH, not a plane: MoTe2 is 3.61 A thick, so a
         // graphene-sized 3.35 A gap makes the layers interpenetrate and the
         // energy comes out positive. The table's z0 is 2*zS + 2^(1/6)*sigma --
         // the X-X gap starting at the LJ minimum -- and it is a FLOOR here, not
         // a default, because nothing good is below it. Honeycombs keep theirs.
-        if (mat->trilayer) {
-            if (P.z0 < mat->z0) P.z0 = mat->z0;
-            if (P.zSub < mat->z0) P.zSub = mat->z0;
-        }
+        // For a mixed substrate/sheet pair the floor is the MEAN of the two
+        // homo-material rest heights, which reduces exactly to the old rule
+        // when they match (each z0 is zS + half the vdW gap, so the mean is
+        // zS_sub + zS_sheet + the gap).
+        if (mat->trilayer && P.z0 < mat->z0) P.z0 = mat->z0;
+        const double zSubFloor = 0.5 * (mat->z0 + matSub->z0);
+        if ((mat->trilayer || matSub->trilayer) && P.zSub < zSubFloor)
+            P.zSub = zSubFloor;
         const int nm = std::max(1, std::min(MAX_MOBILE, P.nLayers));
 
         layers.assign((size_t)nm + 1, Layer());
@@ -684,9 +722,9 @@ struct Instance {
         // rhombic cell is 1.5x its edge, so 2x the requested side is ample.
         const double sideSheet = P.Nnm * NM, sideSub = P.Nsubnm * NM;
         const int gen  = std::max(4, (int)std::lround(2.0 * sideSheet / mat->aLatt));
-        const int genS = std::max(4, (int)std::lround(2.0 * sideSub / mat->aLatt));
-        // [0] rigid substrate at z = 0, untwisted
-        buildSheet(layers[0], genS, 0.0, 0.0, sideSub, mat);
+        const int genS = std::max(4, (int)std::lround(2.0 * sideSub / matSub->aLatt));
+        // [0] rigid substrate at z = 0, untwisted, in its own material
+        buildSheet(layers[0], genS, 0.0, 0.0, sideSub, matSub);
         // genLattice generates symmetric about the origin, so there IS a
         // lattice site at (0,0) and the registry needs no centring offset.
         subHalf = 0.0;
@@ -799,10 +837,13 @@ struct Instance {
         // bilayer peel too easily, which is exactly the case this plugin is for.
         // Only the mobile side needs a list; nothing accumulates on the substrate.
         if (P.substrateOn && !subTabActive()) {
-            const double zsub = layers[0].zRest;
+            // Every mobile layer gets a list unconditionally. There used to be
+            // a "zRest out of reach when flat" skip here, but a lifted
+            // protrusion brings the substrate INTO reach of a layer that was
+            // out of it at build, and with the skip that layer could never
+            // feel it. The lists are cheap; the honesty is not.
             for (size_t k = 1; k < layers.size(); k++) {
                 if (!layers[k].mobile) continue;
-                if (layers[k].zRest - zsub > cut) continue;   // out of reach when flat
                 LJList L; L.from = (int)k; L.to = 0; L.countEnergy = true; L.eps = P.epsSub;
                 pairList(layers[k].x, layers[k].y, layers[0].x, layers[0].y,
                          cut, L.off, L.idx);
@@ -1078,11 +1119,18 @@ struct Instance {
     }
 
     void step() {
+        // The lift moves the substrate in z ONLY, and pair lists are built on
+        // (x, y) with the z test done per pair at evaluation time -- so a lift
+        // never changes list membership and invalidating them here rebuilt
+        // every list every step for the whole elevation. That, not the
+        // physics, was why elevating ran an order of magnitude slower.
+        // geomVersion still ticks so the frame keeps re-sending the moving
+        // substrate.
 #ifdef DMD_LAMMPS
-        if (lmpOn()) { if (applyProtrusion()) { ljValid = false; geomVersion++; }
+        if (lmpOn()) { if (applyProtrusion()) geomVersion++;
                        lmpStep(1); return; }
 #endif
-        if (applyProtrusion()) { ljValid = false; geomVersion++; }
+        if (applyProtrusion()) geomVersion++;
         if (gasOn && gasFill < 1.0) gasFill = clampd(gasFill + P.fillRate, 0, 1);
         computeForces();
         for (Layer &L : layers) if (L.mobile) ePot += edgeClamp(L);
@@ -1173,7 +1221,15 @@ struct Instance {
             const double xi = x[li][0], yi = x[li][1], zi = x[li][2];
 
             if (subTabActive()) {
-                e += subLookup(xi, yi, zi - layers[0].zRest, Fx, Fy, Fz);
+                // Same rule as subTabLayer: the table is built for a FLAT
+                // support, and a protrusion displaces it purely vertically, so
+                // the read at (x, y, z - lift) is exact. This path FORGOT the
+                // lift, so under LAMMPS the sheets felt a permanently flat
+                // substrate while the panel drew the protrusion rising --
+                // "the substrate lifts but the sheet does not move".
+                e += subLookup(xi, yi,
+                               zi - (layers[0].zRest + liftAt(xi, yi)),
+                               Fx, Fy, Fz);
             }
             const LJList *SL = subTabActive() ? nullptr : sub[(size_t)k];
             if (SL && !SL->off.empty()) {
@@ -1340,18 +1396,23 @@ struct Instance {
     // carry twist and the reference lattice is unrotated, so one set of
     // reciprocal vectors serves every layer.
     void computeRegistry() {
-        const double g = 4 * M_PI / (std::sqrt(3.0) * A_LATT);
-        double Gx[3], Gy[3];
-        for (int k = 0; k < 3; k++) {
-            const double ang = M_PI / 2 + k * 2 * M_PI / 3;
-            Gx[k] = g * std::cos(ang); Gy[k] = g * std::sin(ang);
-        }
         const double gam = P.regGamma > 0 ? P.regGamma : 1;
         const bool damp = P.regHeightDamp;
 
         for (size_t k = 1; k < layers.size(); k++) {
             Layer &L = layers[k];
             const Layer &B = layers[k - 1];
+            // Registry is measured against the layer BELOW, so the reciprocal
+            // vectors must be that layer's: its own lattice constant (a TMD is
+            // not graphene) and its own twist (sheet 3 sits over an already
+            // twisted sheet 2 -- one unrotated set of G's was wrong for it).
+            const double aB = B.aLatt > 0 ? B.aLatt : A_LATT;
+            const double g = 4 * M_PI / (std::sqrt(3.0) * aB);
+            double Gx[3], Gy[3];
+            for (int q = 0; q < 3; q++) {
+                const double ang = M_PI / 2 + q * 2 * M_PI / 3 + B.twistRad;
+                Gx[q] = g * std::cos(ang); Gy[q] = g * std::sin(ang);
+            }
             L.reg.assign(L.n(), 0.0f);
             // the (k -> k-1) list, if it was built
             const LJList *J = nullptr;
@@ -1502,6 +1563,11 @@ struct Instance {
     static const uint32_t FMT_VERSION = 2;
     static const uint32_t BLOCK_REGISTRY = 1;
     static const uint32_t BLOCK_STRAIN   = 2;
+    // Species index per atom, EVERY layer including the substrate, sent only
+    // on geometry frames (species never change between builds). This is what
+    // lets the panel colour B/N and M/X by element -- without it a TMD renders
+    // in the single sheet colour and reads as "still graphene".
+    static const uint32_t BLOCK_SPECIES  = 3;
 
     void packFrame() {
         const bool sendStatic = (geomVersion != sentGeomVersion);
@@ -1509,19 +1575,23 @@ struct Instance {
         if (P.strain) computeStrain();
 
         const uint32_t nL = (uint32_t)layers.size();
-        uint32_t mobileMask = 0;
-        uint32_t nMobileAtoms = 0;
-        for (uint32_t k = 0; k < nL; k++)
+        uint32_t mobileMask = 0, allMask = 0;
+        uint32_t nMobileAtoms = 0, nAllAtoms = 0;
+        for (uint32_t k = 0; k < nL; k++) {
+            allMask |= (1u << k); nAllAtoms += (uint32_t)layers[k].n();
             if (layers[k].mobile) { mobileMask |= (1u << k); nMobileAtoms += (uint32_t)layers[k].n(); }
+        }
 
         uint32_t nBlocks = 0;
         if (P.registry) nBlocks++;
         if (P.strain) nBlocks++;
+        if (sendStatic) nBlocks++;          // species
 
         size_t words = 8 + 2ull * nL;
         for (const Layer &L : layers)
             if (L.mobile || sendStatic) words += 3ull * L.n();
-        words += (size_t)nBlocks * (4ull + nMobileAtoms);
+        words += (size_t)(nBlocks - (sendStatic ? 1 : 0)) * (4ull + nMobileAtoms);
+        if (sendStatic) words += 4ull + nAllAtoms;
 
         frameBuf.resize(words * 4);
         uint8_t *p = frameBuf.data();
@@ -1556,6 +1626,12 @@ struct Instance {
         };
         if (P.registry) block(BLOCK_REGISTRY, &Layer::reg);
         if (P.strain) block(BLOCK_STRAIN, &Layer::strain);
+        if (sendStatic) {
+            u32(BLOCK_SPECIES); u32(allMask); u32(nAllAtoms); u32(0);
+            for (const Layer &L : layers)
+                for (size_t i = 0; i < L.n(); i++)
+                    f32(i < L.spec.size() ? (float)L.spec[i] : 0.0f);
+        }
 
         if (sendStatic) sentGeomVersion = geomVersion;
     }
@@ -1563,16 +1639,19 @@ struct Instance {
     void say(const std::string &s) { outbox = s; haveOut = true; }
 
     void sayState(long q) {
-        char buf[1100];
+        char buf[1400];
         // n1/n2/nsub are kept so the existing probes and the moire-bubble panel
         // keep working while phase 6 consolidates the UI.
         const int n1 = layers.size() > 1 ? (int)layers[1].n() : 0;
         const int n2 = layers.size() > 2 ? (int)layers[2].n() : 0;
-        int nAtoms = 0;
-        for (const Layer &L : layers) if (L.mobile) nAtoms += (int)L.n();
+        int nAtoms = 0, nBonds = 0;
+        for (const Layer &L : layers)
+            if (L.mobile) { nAtoms += (int)L.n(); nBonds += (int)L.bi.size(); }
+        const bool onLmp = P.engine == "lammps";
         snprintf(buf, sizeof buf,
                  "{\"t\":\"state\",\"q\":%ld,\"nLayers\":%d,\"n\":%d,"
                  "\"n1\":%d,\"n2\":%d,\"nsub\":%d,"
+                 "\"mat\":\"%s\",\"subMat\":\"%s\",\"pot\":\"%s\",\"nbonds\":%d,"
                  "\"frame\":%lld,\"epot\":%.6g,\"ekin\":%.6g,\"temp\":%.4g,"
                  "\"gas\":%d,\"gasGapIdx\":%d,\"gasWhere\":\"%s\",\"fill\":%.3f,"
                  "\"profile\":\"%s\",\"elevz\":%.4f,\"elevActive\":%d,"
@@ -1581,6 +1660,8 @@ struct Instance {
                  "\"twist\":%.4g,\"running\":%d,\"ms\":%.3f,\"sps\":%.0f,\"threads\":%d,"
                  "\"engine\":\"%s\",\"lmpError\":\"%s\"}",
                  q, nMobile(), nAtoms, n1, n2, (int)layers[0].n(),
+                 mat->key, matSub->key,
+                 onLmp ? mat->potFile : "Morse toy model", nBonds,
                  frame, ePot, eKin, temperature,
                  gasOn ? 1 : 0, P.gasGapIdx,
                  P.gasGapIdx == 0 ? "below" : "between", gasFill, P.profile.c_str(),
@@ -1638,11 +1719,32 @@ struct Instance {
         const std::string em = dexmsg::get_str(m, "elevMode");
         if (!em.empty()) P.elevMode = em;
         const std::string pl = dexmsg::get_str(m, "protLoc");
-        if (pl == "between" || pl == "subUp") P.protLoc2 = pl;
+        if ((pl == "between" || pl == "subUp") && pl != P.protLoc2) {
+            P.protLoc2 = pl;
+            // A stale elevz from the other mode would otherwise lift the
+            // substrate by its full accumulated height the instant the mode
+            // switches back -- the "teleport" the panel used to patch over
+            // locally (and crash doing it). Each mode starts from scratch.
+            elevActive = false; elevPhase = "idle"; elevz = 0; holdCount = 0;
+            if (!layers.empty()) {
+                Layer &Sb = layers[0];
+                Sb.z = Sb.z0r;
+                geomVersion++;
+            }
+        }
+        // `profile` is the GAS MODEL; `shape` is the protrusion shape. They
+        // shared the one key for a while, so mesa/gauss arriving in `profile`
+        // is still routed to the shape rather than dropped.
         const std::string pr = dexmsg::get_str(m, "profile");
         if (pr == "bubble" || pr == "bubbleN" || pr == "bubbleFree") P.profile = pr;
+        else if (pr == "mesa" || pr == "gauss") P.shape = pr;
+        const std::string sh = dexmsg::get_str(m, "shape");
+        if (sh == "mesa" || sh == "gauss" || sh == "bubble") P.shape = sh;
         const std::string mk = dexmsg::get_str(m, "material");
         if (!mk.empty() && matByKey(mk)->key == mk) P.material = mk;
+        const std::string sm = dexmsg::get_str(m, "subMaterial");
+        if (sm == "same") P.subMaterial.clear();
+        else if (!sm.empty() && matByKey(sm)->key == sm) P.subMaterial = sm;
         const std::string en = dexmsg::get_str(m, "engine");
         if (en == "classic" || en == "lammps") P.engine = en;
         const std::string w = dexmsg::get_str(m, "gasWhere");
@@ -1665,8 +1767,37 @@ struct Instance {
             build();
             sayState(q);
         } else if (t == "params") {
+#ifdef DMD_LAMMPS
+            const std::string engBefore = P.engine;
+            const double dtBefore = P.dt, gamBefore = P.gamma;
+#endif
             readParams(m); buildSubTable(); ljValid = false;
-            computeForces(); sayState(q);
+#ifdef DMD_LAMMPS
+            // The panel can switch the engine through a plain params message
+            // (the capability code does exactly that when a trilayer material
+            // forces LAMMPS), and a running LAMMPS holds its timestep and
+            // viscous fix from lmpStart -- so both must be applied live, or
+            // the dt/damping sliders are dead under LAMMPS and an engine
+            // switch without a rebuild changes nothing at all.
+            if (P.engine != engBefore) {
+                lmpStop();
+                if (P.engine == "lammps" && !lmpStart()) {
+                    lmpStop();
+                    P.engine = "classic";
+                }
+            } else if (lmpOn()) {
+                if (P.dt != dtBefore) lmpCmd("timestep %.10g", P.dt * 1e-3);
+                if (P.gamma != gamBefore) {
+                    lmpCmd("unfix visc");
+                    lmpError.clear();       // unfix fails harmlessly if absent
+                    if (P.gamma > 0) lmpCmd("fix visc all viscous %.10g", P.gamma);
+                }
+            }
+            if (!lmpOn()) computeForces();
+#else
+            computeForces();
+#endif
+            sayState(q);
         } else if (t == "gas") {
             gasOn = dexmsg::get_num(m, "on", 0) != 0;
             if (!gasOn) gasFill = 0;
@@ -1699,7 +1830,29 @@ struct Instance {
             gasOn = false; gasFill = 0; frame = 0; ljValid = false;
             elevActive = false; elevPhase = "idle"; elevz = 0; holdCount = 0;
             geomVersion++;
-            computeForces(); sayState(q);
+#ifdef DMD_LAMMPS
+            // LAMMPS owns its own copy of the atoms; restoring the layer
+            // arrays alone did nothing visible because the very next step
+            // pulled LAMMPS' unchanged positions straight back over them.
+            if (lmpOn()) {
+                const size_t n = gLayer.size();
+                std::vector<double> xyz(3 * n);
+                for (size_t g = 0; g < n; g++) {
+                    const Layer &L = layers[(size_t)gLayer[g]];
+                    const int i = gLocal[g];
+                    xyz[3 * g] = L.x[i]; xyz[3 * g + 1] = L.y[i];
+                    xyz[3 * g + 2] = L.z[i];
+                }
+                lammps_scatter_atoms(lmp, (char *)"x", 1, 3, xyz.data());
+                lmpCmd("velocity all set 0.0 0.0 0.0");
+                lmpCmd("reset_timestep 0");
+                lmpLastTs = -1;
+                lmpCmd("run 0 post no");
+                ePot = lammps_get_thermo(lmp, "pe");
+            } else
+#endif
+            computeForces();
+            sayState(q);
         } else if (t == "export") {
             std::string dir = dexmsg::get_str(m, "dir");
             if (dir.empty()) dir = ".";

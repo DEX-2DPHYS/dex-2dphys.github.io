@@ -631,6 +631,22 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
           potential and switch the engine to LAMMPS on their own — the
           Morse model has one bond length, tuned for graphene.</div>
       </div>
+      <div class="row">
+        <label style="margin:0">Substrate material</label>
+        <select id="subMaterial">
+          <option selected value="same">Same as sheets</option>
+          <option value="graphene">Graphene (C)</option>
+          <option value="hbn">hBN (B–N)</option>
+          <option value="mos2">MoS₂</option>
+          <option value="ws2">WS₂</option>
+          <option value="mote2">MoTe₂</option>
+          <option value="wte2">WTe₂</option>
+        </select>
+        <div class="legend">The support is rigid: a fixed lattice of
+          Lennard-Jones centres in either engine, so its material only sets
+          the lattice the sheets feel — it never forces LAMMPS and works
+          with the Morse model too.</div>
+      </div>
       <div class="row2">
         <div><label>Sheet size N (nm)</label><input id="Nnm" min="2" step="1" type="number" value="12"></div>
         <div><label>Substrate (nm)</label><input id="Nsubnm" min="1" step="1" type="number" value="12"></div>
@@ -647,6 +663,17 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       <div class="legend">Layer 0 is the rigid substrate; sheets stack above it,
         each twisted a further step. One sheet is a monolayer, two a twisted
         bilayer — the same object with a different count.</div>
+      <div class="row">
+        <label style="margin:0">Gas model</label>
+        <select id="gasModel">
+          <option selected value="bubbleFree">Fixed N — free peel front (radius is an output)</option>
+          <option value="bubbleN">Fixed N — pinned footprint</option>
+          <option value="bubble">Asserted pressure (open loop)</option>
+        </select>
+        <div class="legend">How the gas pocket behaves. The two fixed-N models
+          obey p = NkT/V against the measured blister volume; the open-loop
+          model simply asserts the pressure (and carries the boost fudge).</div>
+      </div>
       <div class="row2">
         <div class="ctl"><label>Gas T (K)</label><input id="gasT" min="4" step="1" type="number" value="300"></div>
         <div class="ctl"><label>Peel gap (Å)</label><input id="gasGap" min="0.2" step="0.1" type="number" value="1.2"></div>
@@ -695,7 +722,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         <select id="engine">
           <option selected value="classic">Morse toy model (fast)</option>
           <option value="lammps">LAMMPS potential (accurate)</option>
-          <option value="ml">ML potential (fairchem sidecar)</option>
+          <option value="ml" disabled title="Not built yet — the fairchem sidecar does not exist in this build.">ML potential (not yet available)</option>
         </select>
       </div>
       <div class="legend">Graphene and hBN run on either engine — the classic
@@ -1000,7 +1027,11 @@ function physicsMsg(){
     De:S.De, alpha:S.alpha, re:S.re, breakMul:S.breakMul, reformMul:S.reformMul,
     ktheta:S.ktheta, theta0:S.theta0, kbend:S.kbend,
     sigma:S.sigma, escale:S.escale, edgeK:(S.edgeK[S.edgeMode]||0),
-    profile:S.profile, protLoc:S.protLoc, elevMode:S.elevMode,
+    // The protrusion SHAPE (mesa/gauss/bubble) and the GAS MODEL used to share
+    // the one `profile` key, and the core only accepted the gas-model names —
+    // so picking Mesa or Gaussian silently never reached it.
+    shape:S.profile, profile:((q('gasModel')||{}).value)||'bubbleFree',
+    protLoc:S.protLoc, elevMode:S.elevMode,
     Mxnm:S.Mxnm, Mynm:S.Mynm, Cxnm:S.Cxnm, Cynm:S.Cynm,
     bubbleRnm:S.bubbleRnm, bubbleP:S.bubbleP, betweenBoost:S.betweenBoost,
     liftRate:S.liftRate, targetDz:S.targetDz, holdSteps:S.holdSteps,
@@ -1042,13 +1073,22 @@ function readGeometryInputs(quick){
 // Trilayer z0 = 2·zS + 2^(1/6)·σ: the X–X vdW gap starts at the LJ minimum.
 // dt 0.5 fs for the reactive/stiff sandwiches.
 const MAT_DEFAULTS = {
-  graphene: {z0:3.35, sigma:3.42, eps0:2.387, dt:0.5},
-  hbn:      {z0:3.33, sigma:3.33, eps0:2.6,   dt:0.5},
-  mos2:     {z0:6.75, sigma:3.13, eps0:6.93,  dt:0.5},
-  ws2:      {z0:6.64, sigma:3.13, eps0:6.93,  dt:0.5},
-  mote2:    {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5},
-  wte2:     {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5},
+  graphene: {z0:3.35, sigma:3.42, eps0:2.387, dt:0.5, bondCut:1.85},
+  hbn:      {z0:3.33, sigma:3.33, eps0:2.6,   dt:0.5, bondCut:1.95},
+  mos2:     {z0:6.75, sigma:3.13, eps0:6.93,  dt:0.5, bondCut:2.90},
+  ws2:      {z0:6.64, sigma:3.13, eps0:6.93,  dt:0.5, bondCut:3.00},
+  mote2:    {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30},
+  wte2:     {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30},
 };
+// Sheet-above-substrate rest height for any material pair: the mean of the two
+// homo-material z0's, which reduces exactly to the plain z0 when they match.
+// Mirrors the floor the core applies, so the panel shows the height that will
+// actually be built.
+function zSubDefault(sheetKey, subKey){
+  const a = MAT_DEFAULTS[sheetKey] || MAT_DEFAULTS.graphene;
+  const b = MAT_DEFAULTS[subKey === 'same' || !subKey ? sheetKey : subKey] || a;
+  return Math.round(50*(a.z0 + b.z0))/100;
+}
 // Species colours: [sheet[s0,s1,s2], substrate[s0,s1,s2]] (s2 = bottom
 // chalcogen plane for the 3-species SW materials, same hue as the top).
 const SPECIES_COLORS = {
@@ -1064,8 +1104,14 @@ const dmReader = new DM.DMReader();
 
 // Nearest neighbours inside each layer, by a uniform grid. Once per build, so
 // a plain O(N) sweep is fine; doing it per frame would not be.
+// The cutoff is the MATERIAL'S, mirroring bondCut in the core's MatSpec table:
+// the old hard-coded 1.75 A was graphene's, and a TMD's M–X bond is 2.4–3.3 A,
+// so a dichalcogenide sheet rendered with no bonds at all. Each bond records
+// its as-derived length b0 so the strain colouring has an honest reference —
+// dividing by the Morse re (1.42 A) painted every TMD bond maximally red.
 function deriveBonds(top, layerOf){
-  const CUT = 1.75, CUT2 = CUT*CUT, cell = CUT;
+  const CUT = (MAT_DEFAULTS[S.material || S.matKey] || MAT_DEFAULTS.graphene).bondCut || 1.85;
+  const CUT2 = CUT*CUT, cell = CUT;
   const n = top.length;
   if(!n) return [];
   let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
@@ -1088,7 +1134,8 @@ function deriveBonds(top, layerOf){
         if(layerOf && layerOf[j]!==li) continue;
         const a=top[i], b=top[j];
         const ddx=b.x-a.x, ddy=b.y-a.y, ddz=b.z-a.z;
-        if(ddx*ddx+ddy*ddy+ddz*ddz <= CUT2) out.push({i:i, j:j});
+        const d2=ddx*ddx+ddy*ddy+ddz*ddz;
+        if(d2 <= CUT2) out.push({i:i, j:j, b0:Math.sqrt(d2)});
       }
     }
   }
@@ -1120,7 +1167,9 @@ function cellAverage(top, val){
 // ignoring the value: a control that lies is worse than a control that is absent.
 function applyCapabilities(){
   const eng = (q('engine') && q('engine').value) || 'classic';
-  const prof = (q('profile') && q('profile').value) || 'bubbleFree';
+  // the GAS MODEL select, not the protrusion-shape one — keying these dims on
+  // the shape select meant the gas-model rows were greyed by the wrong control
+  const prof = (q('gasModel') && q('gasModel').value) || 'bubbleFree';
   const nL = Number((q('nLayers')||{}).value || 1);
   const subOn = !q('substrateOn') || q('substrateOn').checked;
   const lammps = eng === 'lammps';
@@ -1200,7 +1249,9 @@ async function rebuild({quick=false}={}){
                              z0:S.z0, zSub:Number((q('zSub')||{}).value||3.35),
                              nLayers:Number((q('nLayers')||{}).value||2),
                              twistDeg:S.twistDeg,
-                             material:S.material, engine:S.engine}, physicsMsg());
+                             material:S.material,
+                             subMaterial:((q('subMaterial')||{}).value)||'same',
+                             engine:S.engine}, physicsMsg());
   dmReader.reset();
   S.bonds = [];
   S.elevz=0; S.elevActive=false; S.elevPhase='idle'; S.frame=0;
@@ -1299,7 +1350,28 @@ function onCoreFrame(w, h, rgba){
   // present, instanced, positioned, and invisible.
   if(!S.spec || S.spec.length !== n) S.spec = new Uint8Array(n);
   if(!S.subSpec || S.subSpec.length !== m) S.subSpec = new Uint8Array(m);
-  S.specNsp = 1;
+  // Species ride in the frame's own block (kind 3), sent on geometry frames
+  // and cached here. This used to pin S.specNsp = 1 unconditionally, so the
+  // element-colour path below it could never run and a TMD rendered in the
+  // plain sheet colour — "the display does not update".
+  const spBlk = F.blocks.species;
+  if(spBlk){
+    let w = 0, mxT = 0, mxS = 0;
+    for(let k=0;k<F.layers.length;k++){
+      if(!F.layers[k].mobile) continue;
+      const v = spBlk[k];
+      for(let i=0;i<F.layers[k].n;i++,w++){
+        const s = v ? v[i] : 0; S.spec[w] = s; if(s>mxT) mxT = s;
+      }
+    }
+    if(spBlk[0]) for(let i=0;i<m;i++){
+      const s = spBlk[0][i]; S.subSpec[i] = s; if(s>mxS) mxS = s;
+    }
+    // species counts come from the DATA, not a material table — the frame is
+    // what the core actually built, and it cannot be stale mid-switch
+    S.specNsp = mxT + 1;
+    S.subSpecNsp = mxS + 1;
+  }
   if(firstBuild){
     for(let i=0;i<n;i++){ const a=S.topInit[i],p=S.top[i]; a.x=p.x; a.y=p.y; a.z=p.z; }
   }
@@ -1350,9 +1422,17 @@ const dex = DEX.connect({
     if(m.t === 'state'){
       coreStats.sps = m.sps; coreStats.ms = m.ms; coreStats.temp = m.temp;
       coreStats.threads = m.threads; coreStats.nbonds = m.nbonds;
+      coreStats.gas = !!m.gas; coreStats.gasP = m.gasP; coreStats.gasR = m.gasR;
+      coreStats.fill = m.fill; coreStats.nLayers = m.nLayers;
       if(m.mat){ S.matKey = m.mat; coreStats.engine = m.engine; coreStats.pot = m.pot; }
-      S.running = !!m.running; S.elevActive = !!m.elev;
-      S.elevz = m.elevz; S.elevPhase = m.phase;
+      if(m.subMat) S.subMatKey = m.subMat;
+      // These names must match sayState in the core exactly. They did not
+      // (elev/phase vs elevActive/elevPhase), so the panel never learned the
+      // elevator was running and the E key kept restarting it instead of
+      // stopping it.
+      S.running = !!m.running;
+      S.elevActive = !!m.elevActive;
+      S.elevz = m.elevz; S.elevPhase = m.elevPhase;
       const r = (m.q>=0) ? corePending.get(m.q) : undefined;
       if(r){ corePending.delete(m.q); r(m); }
     }
@@ -1434,13 +1514,19 @@ function setupMeshes(){
     instSub.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(instTop); if(S.showSub) scene.add(instSub);
   }else{
+    // species colouring needs vertex colours in points mode too — the very
+    // sheets big enough to fall back to points (TMDs at size) are the ones
+    // that need per-element colour
+    const vcTop = registry || (S.specNsp>1 && !!SPECIES_COLORS[S.matKey]);
+    const vcSub = S.subSpecNsp>1 && !!SPECIES_COLORS[S.subMatKey||S.matKey];
     const gTop = new THREE.BufferGeometry();
     gTop.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(S.top.length*3),3));
-    if(registry) gTop.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(S.top.length*3),3));
+    if(vcTop) gTop.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(S.top.length*3),3));
     const gSub = new THREE.BufferGeometry();
     gSub.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(S.sub.length*3),3));
-    ptsTop = new THREE.Points(gTop, new THREE.PointsMaterial({size:S.atomSize, sizeAttenuation:true, vertexColors:registry, color:registry?0xffffff:currentSheetHex()}));
-    ptsSub = new THREE.Points(gSub, new THREE.PointsMaterial({size:S.atomSize, sizeAttenuation:true, color:THEME.sub}));
+    if(vcSub) gSub.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(S.sub.length*3),3));
+    ptsTop = new THREE.Points(gTop, new THREE.PointsMaterial({size:S.atomSize, sizeAttenuation:true, vertexColors:vcTop, color:vcTop?0xffffff:currentSheetHex()}));
+    ptsSub = new THREE.Points(gSub, new THREE.PointsMaterial({size:S.atomSize, sizeAttenuation:true, vertexColors:vcSub, color:vcSub?0xffffff:THEME.sub}));
     scene.add(ptsTop); if(S.showSub) scene.add(ptsSub);
   }
   const gLines = new THREE.BufferGeometry();
@@ -1494,28 +1580,45 @@ function updateMeshes(){
       }
       ptsTop.geometry.attributes.color.needsUpdate = true;
     }
-  }else if(S.spec && S.specNsp>1 && SPECIES_COLORS[S.matKey]){
-    // Two-species materials: colour atoms by element (B/N, Mo/S). The base
-    // material must stay white or it would tint the per-instance colours.
-    const pal = SPECIES_COLORS[S.matKey][0], sub = SPECIES_COLORS[S.matKey][1];
-    if(instTop && instTop.material.color){ instTop.material.color.setHex(0xffffff); }
-    if(instTop){
-      const tmp = new THREE.Color();
-      for(let i=0;i<S.top.length;i++){ tmp.setHex(pal[S.spec[i]]||pal[0]); instTop.setColorAt(i,tmp); }
-      if(instTop.instanceColor) instTop.instanceColor.needsUpdate = true;
-    }else if(ptsTop && ptsTop.geometry.attributes.color){
-      const ca = ptsTop.geometry.attributes.color.array;
-      for(let i=0;i<S.top.length;i++){
-        const c = pal[S.spec[i]]||pal[0];
-        ca[3*i]=((c>>16)&255)/255; ca[3*i+1]=((c>>8)&255)/255; ca[3*i+2]=(c&255)/255;
+  }else{
+    // Multi-species materials: colour atoms by element (B/N, M/X). Sheet and
+    // substrate decide independently — they can be different materials now.
+    // The base material must stay white or it would tint per-instance colours.
+    const palT = (S.spec && S.specNsp>1 && SPECIES_COLORS[S.matKey])
+                 ? SPECIES_COLORS[S.matKey][0] : null;
+    if(palT){
+      if(instTop && instTop.material.color){ instTop.material.color.setHex(0xffffff); }
+      if(instTop){
+        const tmp = new THREE.Color();
+        for(let i=0;i<S.top.length;i++){ tmp.setHex(palT[S.spec[i]]||palT[0]); instTop.setColorAt(i,tmp); }
+        if(instTop.instanceColor) instTop.instanceColor.needsUpdate = true;
+      }else if(ptsTop && ptsTop.geometry.attributes.color){
+        if(ptsTop.material.color) ptsTop.material.color.setHex(0xffffff);
+        const ca = ptsTop.geometry.attributes.color.array;
+        for(let i=0;i<S.top.length;i++){
+          const c = palT[S.spec[i]]||palT[0];
+          ca[3*i]=((c>>16)&255)/255; ca[3*i+1]=((c>>8)&255)/255; ca[3*i+2]=(c&255)/255;
+        }
+        ptsTop.geometry.attributes.color.needsUpdate = true;
       }
-      ptsTop.geometry.attributes.color.needsUpdate = true;
     }
-    if(S.subSpec && instSub){
-      if(instSub.material.color) instSub.material.color.setHex(0xffffff);
-      const tmp = new THREE.Color();
-      for(let i=0;i<S.sub.length;i++){ tmp.setHex(sub[S.subSpec[i]]||sub[0]); instSub.setColorAt(i,tmp); }
-      if(instSub.instanceColor) instSub.instanceColor.needsUpdate = true;
+    const palS = (S.subSpec && S.subSpecNsp>1 && SPECIES_COLORS[S.subMatKey||S.matKey])
+                 ? SPECIES_COLORS[S.subMatKey||S.matKey][1] : null;
+    if(palS){
+      if(instSub){
+        if(instSub.material.color) instSub.material.color.setHex(0xffffff);
+        const tmp = new THREE.Color();
+        for(let i=0;i<S.sub.length;i++){ tmp.setHex(palS[S.subSpec[i]]||palS[0]); instSub.setColorAt(i,tmp); }
+        if(instSub.instanceColor) instSub.instanceColor.needsUpdate = true;
+      }else if(ptsSub && ptsSub.geometry.attributes.color){
+        if(ptsSub.material.color) ptsSub.material.color.setHex(0xffffff);
+        const ca = ptsSub.geometry.attributes.color.array;
+        for(let i=0;i<S.sub.length;i++){
+          const c = palS[S.subSpec[i]]||palS[0];
+          ca[3*i]=((c>>16)&255)/255; ca[3*i+1]=((c>>8)&255)/255; ca[3*i+2]=(c&255)/255;
+        }
+        ptsSub.geometry.attributes.color.needsUpdate = true;
+      }
     }
   }
   // bonds — geometry buffers are sized at setupMeshes time; bond count may grow via reformation
@@ -1526,7 +1629,7 @@ function updateMeshes(){
   const pos = posAttr.array, col = colAttr.array;
   const re=S.re, sRed=S.strainRed;
   for(let b=0;b<nBonds;b++){
-    const {i,j} = S.bonds[b]; const pi=S.top[i], pj=S.top[j];
+    const bd = S.bonds[b]; const {i,j} = bd; const pi=S.top[i], pj=S.top[j];
     pos[6*b]=pi.x; pos[6*b+1]=pi.y; pos[6*b+2]=pi.z;
     pos[6*b+3]=pj.x; pos[6*b+4]=pj.y; pos[6*b+5]=pj.z;
     let c;
@@ -1534,7 +1637,8 @@ function updateMeshes(){
       c = registryColorW(0.5*(reg[i]+reg[j]), 0.5*(registryDampW[i]+registryDampW[j]));
     }else{
       const r = Math.hypot(pj.x-pi.x, pj.y-pi.y, pj.z-pi.z);
-      const strain = Math.max(0, r/re - 1);
+      const r0 = bd.b0 || re;    // the bond's own rest length, not graphene's
+      const strain = Math.max(0, r/r0 - 1);
       c = strainColor(strain, sRed);
     }
     const r8=((c>>16)&255)/255, g8=((c>>8)&255)/255, b8=(c&255)/255;
@@ -1589,9 +1693,10 @@ function applyTheme(key){
   // update materials (sheet stays white in registry mode so per-atom colours show true)
   const sheetHex = currentSheetHex();
   const setC = (obj,hex)=>{ if(obj&&obj.material&&obj.material.color){obj.material.color.setHex(hex); obj.material.needsUpdate=true;} };
-  const speciesMode = !!(S.spec && S.specNsp>1 && SPECIES_COLORS[S.matKey]);
-  if(S.colorMode!=='registry' && !speciesMode){ setC(instTop, sheetHex); setC(ptsTop, sheetHex); }
-  if(!speciesMode){ setC(instSub, THEME.sub); setC(ptsSub, THEME.sub); }
+  const topSpecies = !!(S.spec && S.specNsp>1 && SPECIES_COLORS[S.matKey]);
+  const subSpecies = !!(S.subSpec && S.subSpecNsp>1 && SPECIES_COLORS[S.subMatKey||S.matKey]);
+  if(S.colorMode!=='registry' && !topSpecies){ setC(instTop, sheetHex); setC(ptsTop, sheetHex); }
+  if(!subSpecies){ setC(instSub, THEME.sub); setC(ptsSub, THEME.sub); }
   const colEl = document.getElementById('sheetColor');
   if(colEl && S.sheetUserColor==null) colEl.value = '#'+sheetHex.toString(16).padStart(6,'0');
   maybeUpdateHistogram(true);
@@ -1615,13 +1720,13 @@ function updateBigHud(){
   if(!on) return;
   const tFs = S.frame * S.dtFs;
   let ctx = '';
-  if(S.elevActive || S.elevz>0){
+  if(S.elevActive || S.elevz>0 || coreStats.gas){
     if(S.protLoc==='between'){
-      // gas pocket: show the ramped pressure actually being applied
-      const target = S.profile==='bubble' ? henckyH0() : S.targetDz;
-      const frac = target>0 ? Math.min(1, Math.max(0, S.elevz/target)) : 0;
-      ctx = `\np = ${(S.bubbleP*frac).toFixed(0)} MPa`+
-            `<span class="sub">  (${Math.round(frac*100)}% of ${S.bubbleP} MPa)</span>`;
+      // gas pocket: show the pressure the core actually reports, not a local
+      // reconstruction from a ramp variable the gas never read
+      ctx = `\np = ${((coreStats.gasP||0)/1e6).toFixed(0)} MPa`+
+            `<span class="sub">  (fill ${Math.round(100*(coreStats.fill||0))} %`+
+            `, r ${Number(coreStats.gasR||0).toFixed(0)} Å)</span>`;
     }else{
       ctx = `\nΔz = ${S.elevz.toFixed(2)} Å`+
             (S.elevPhase && S.elevPhase!=='idle' ? `<span class="sub">  ${S.elevPhase}</span>` : '');
@@ -1732,7 +1837,7 @@ function bind2DMD(){
   // redraw only -- the registry values are already here
   const rc = q('regCell');
   if(rc) rc.addEventListener('change', () => { S.bonds = S.bonds; requestDraw && requestDraw(); });
-  ['engine','profile','material'].forEach(id => {
+  ['engine','profile','material','gasModel'].forEach(id => {
     const el = q(id); if(!el) return;
     el.addEventListener('change', applyCapabilities);
   });
@@ -1771,10 +1876,11 @@ function bindUI(){
   q('rebuildBtn').onclick=()=>rebuild({quick:false});
   // Material / engine: re-base the interlayer defaults, lock the engine
   // select for materials that only run on LAMMPS, then rebuild.
-  const matSel=q('material'), engSel=q('engine');
+  const matSel=q('material'), engSel=q('engine'), subSel=q('subMaterial');
   if(matSel) matSel.onchange=()=>{
     const d=MAT_DEFAULTS[matSel.value]||MAT_DEFAULTS.graphene;
     if(q('z0')) q('z0').value=d.z0;
+    if(q('zSub')) q('zSub').value=zSubDefault(matSel.value, subSel && subSel.value);
     if(q('sigma')) q('sigma').value=d.sigma;
     if(q('eps0')) q('eps0').value=d.eps0;
     if(q('dt')){ q('dt').value=d.dt; S.dtFs=d.dt; }
@@ -1782,6 +1888,12 @@ function bindUI(){
       if(matSel.value!=='graphene'){ engSel.value='lammps'; engSel.disabled=true; }
       else engSel.disabled=false;
     }
+    rebuild({quick:false});
+  };
+  // The substrate is rigid — pure LJ in either engine — so its material never
+  // touches the engine choice; it only re-bases the rest height above it.
+  if(subSel) subSel.onchange=()=>{
+    if(q('zSub')) q('zSub').value=zSubDefault(matSel ? matSel.value : 'graphene', subSel.value);
     rebuild({quick:false});
   };
   if(engSel) engSel.onchange=()=>rebuild({quick:false});
@@ -1818,7 +1930,8 @@ function bindUI(){
   });
   updateBubbleUI();
   q('elevStart').onclick=()=>startElevate();
-  q('elevStop').onclick=()=>{ coreSend({t:'elev', on:0}); S.elevActive=false; S.elevPhase='idle'; };
+  q('elevStop').onclick=()=>{ coreSend({t:'elev', on:0}); coreSend({t:'gas', on:0});
+                              S.elevActive=false; S.elevPhase='idle'; };
 
   // twist: rebuild automatically when committed
   q('twistDeg').addEventListener('change',()=>{ S.twistDeg=Number(q('twistDeg').value)||0; rebuild(); });
@@ -1837,28 +1950,16 @@ function bindUI(){
     q('betweenInfo').style.display = between ? '' : 'none';
     // Boost slider is only meaningful in "between" mode — hide it otherwise.
     const boostRow = q('rowBetweenBoost'); if(boostRow) boostRow.style.display = between ? '' : 'none';
-    // Switching between "subUp" and "between" mid-elevation used to teleport
-    // atoms: elevz keeps ramping while in "between" (barely visible motion —
-    // pressure only), then a switch to "subUp" instantly lifted the substrate
-    // by the full accumulated elevz, punching the top sheet violently. Reset
-    // the whole elevation state on any mode change so each mode starts from
-    // scratch.
+    // Switching modes mid-elevation used to teleport atoms (a stale elevz
+    // instantly lifted the substrate). The CORE resets its elevation state
+    // when protLoc changes now, and it owns the positions — the loop that
+    // used to snap them back here also indexed S.v, an empty leftover from
+    // graphene-md, and threw on the first atom.
     S.elevActive = false;
     S.elevPhase = 'idle';
     S.elevz = 0;
-    S.holdCount = 0;
-    // Snap positions back to their as-built lattice so the sub is flat again
-    // (matches the reset that Reset does, without touching the bond list —
-    // atom positions haven't drifted far in between-mode idle).
-    for(let i=0;i<S.top.length;i++){
-      const p=S.top[i], p0=S.topInit[i];
-      p.x=p0.x; p.y=p0.y; p.z=p0.z;
-      S.v[i].x=0; S.v[i].y=0; S.v[i].z=0;
-    }
-    for(let i=0;i<S.sub.length;i++){
-      const p=S.sub[i], p0=S.subInit[i];
-      p.x=p0.x; p.y=p0.y; p.z=p0.z;
-    }
+    coreSend({t:'elev', on:0});
+    coreSend({t:'gas', on:0});
     if(wasElevating){
       // If the user was mid-ramp, hint that they need to click Elevate again.
       const hint = document.getElementById('modeHint');
@@ -1930,9 +2031,15 @@ function bindUI(){
   }
   window.addEventListener('keydown',(e)=>{
     if(isTyping(e.target)) return;
-    if(e.key===' '){ S.running=!S.running; updateStatus(); e.preventDefault(); }
+    // The core owns the clock: a toggle that only flips the local flag reads
+    // as paused while the simulation keeps running underneath.
+    if(e.key===' '){ S.running=!S.running; coreSend({t:'run', on:S.running?1:0}); updateStatus(); e.preventDefault(); }
     else if(e.key==='s'||e.key==='S'){ coreSend({t:'step', n:1}); }
-    else if(e.key==='e'||e.key==='E'){ if(S.elevActive){ coreSend({t:'elev', on:0}); } else startElevate(); }
+    else if(e.key==='e'||e.key==='E'){
+      const active = S.protLoc==='between' ? coreStats.gas : S.elevActive;
+      if(active){ coreSend({t:'elev', on:0}); coreSend({t:'gas', on:0}); S.elevActive=false; }
+      else startElevate();
+    }
     else if(e.key==='r'||e.key==='R'){ resetPositions(); updateStatus(); }
     else if(e.key==='c'||e.key==='C'){ fitCamera(); syncCameraSliders(); }
     else if(e.key==='d'||e.key==='D'){ toggleTheme(); }
@@ -1940,11 +2047,15 @@ function bindUI(){
 }
 
 function startElevate(){
-  // The core owns the velocities and the ramp state. Its 'elev' handler
-  // zeroes velocities and restarts the ramp from zero, so a fresh Elevate
-  // never inherits a previous partial run, and it starts the simulation —
-  // Elevate without Run used to look like nothing happening.
-  coreSend({t:'elev', on:1});
+  if(S.protLoc==='between'){
+    // "At interface" IS the gas pocket — the elevator machinery only lifts
+    // the substrate. This used to send t:'elev' here too, which ramped a
+    // number nothing consumed: NOTHING in the panel ever sent t:'gas', so
+    // the whole gas system (all three models) was unreachable.
+    coreSend({t:'gas', on:1});
+  }else{
+    coreSend({t:'elev', on:1});
+  }
   S.running = true;
   S.elevActive = true;
 }

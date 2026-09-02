@@ -16,7 +16,7 @@
   "use strict";
 
   var MAGIC = 0x314D4432;          // '2DM1'
-  var KIND = { 1: "registry", 2: "strain" };
+  var KIND = { 1: "registry", 2: "strain", 3: "species" };
 
   // DSW wraps plugin payloads, so the magic sits at 0 or at 12 depending on the
   // path a frame took. Sniffing both is not paranoia -- it is the documented
