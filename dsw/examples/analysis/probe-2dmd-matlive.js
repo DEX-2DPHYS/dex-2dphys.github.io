@@ -151,9 +151,17 @@ const SNAP = `(() => { const q = id => document.getElementById(id); return {
       q('material').value='mos2';
       q('material').dispatchEvent(new Event('change',{bubbles:true})); })()`);
     await wait(2500);
-    const busy = await cdp.eval("(document.getElementById('status')||{}).textContent");
-    ck(nm + " nm: the panel says it is rebuilding", /rebuild/i.test(String(busy)),
+    const busy = await cdp.eval(`(() => { const b=document.getElementById('buildBar');
+      return { shown: b && !b.hidden,
+               what: (document.getElementById('buildWhat')||{}).textContent,
+               time: (document.getElementById('buildTime')||{}).textContent,
+               fill: (document.getElementById('buildFill')||{}).style.width }; })()`);
+    ck(nm + " nm: the Setting up bar is showing",
+       !!(busy && busy.shown && /setting up/i.test(String(busy.what))),
        JSON.stringify(busy));
+    ck(nm + " nm: the bar has started filling",
+       !!(busy && parseFloat(busy.fill) > 0 && parseFloat(busy.fill) <= 96),
+       "fill=" + (busy ? busy.fill : "?") + "  " + (busy ? busy.time : ""));
     await wait(nm >= 20 ? 220000 : 90000);
     const after = await cdp.eval(SNAP);
 
@@ -177,8 +185,11 @@ const SNAP = `(() => { const q = id => document.getElementById(id); return {
        after.specNsp >= 2, "specNsp=" + after.specNsp);
     ck(nm + " nm: bonds were re-derived", after.nBonds > 0,
        "bonds=" + after.nBonds);
-    ck(nm + " nm: the busy note cleared once it landed",
-       !/rebuild/i.test(String(after.status || "")), JSON.stringify(after.status));
+    const done = await cdp.eval(`(() => ({
+      what: (document.getElementById('buildWhat')||{}).textContent,
+      time: (document.getElementById('buildTime')||{}).textContent }))()`);
+    ck(nm + " nm: the bar finished and reported the real time",
+       /built in/i.test(String(done && done.time)), JSON.stringify(done));
     console.log("");
   }
 

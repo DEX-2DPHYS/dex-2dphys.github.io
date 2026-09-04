@@ -87,6 +87,19 @@
   }
   #speedVal{font:600 11px Consolas,ui-monospace,monospace;color:var(--accent);min-width:60px;text-align:right;}
   #histCanvas{width:100%;border:1px solid var(--line);border-radius:8px;margin-top:6px;background:var(--input-bg);}
+/* Rebuild progress. The fill runs against a measured estimate because the
+   core cannot report progress -- its worker is inside the LAMMPS startup for
+   the whole time -- so the honest design caps the fill short of the end and
+   keeps the elapsed seconds visible beside it. */
+.buildbar{margin-top:8px}
+.buildbar-label{display:flex;justify-content:space-between;gap:8px;
+  font-size:10.5px;color:var(--muted);margin-bottom:4px}
+.buildbar-track{height:6px;border-radius:6px;overflow:hidden;
+  background:var(--line)}
+.buildbar-track > i{display:block;height:100%;width:0%;border-radius:6px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2,var(--accent)));
+  transition:width .35s linear}
+.buildbar.over .buildbar-track > i{opacity:.7}
 </style>
 <script id="threejs-inline">
 
@@ -547,6 +560,11 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         <span id="speedVal">4 st/fr</span>
       </div>
       <div id="status">—</div>
+      <div class="buildbar" id="buildBar" hidden>
+        <div class="buildbar-label"><span id="buildWhat">Setting up</span>
+          <span id="buildTime"></span></div>
+        <div class="buildbar-track"><i id="buildFill"></i></div>
+      </div>
     </div>
   </details>
 
@@ -1747,29 +1765,74 @@ function updateBigHud(){
 // as a dash rather than throwing.
 function num(v, dp){ return (typeof v === 'number' && isFinite(v))
   ? v.toFixed(dp === undefined ? 3 : dp) : '–'; }
-// Busy indicator for a rebuild. Page-only on purpose: the core cannot report
-// progress because the LAMMPS startup blocks its worker, so the honest signal
-// is the one the page already has -- it knows when it asked.
-function setBusy(on){
-  const e = document.getElementById('status'); if(!e) return;
-  if(on){
-    const n = Number((document.getElementById('Nnm')||{}).value||0);
-    const slow = (document.getElementById('engine')||{}).value === 'lammps';
-    e.dataset.busy = '1';
-    e.textContent = 'rebuilding' + (S.pendingMat ? ' as ' + S.pendingMat : '') +
-      (slow ? ' - LAMMPS startup, ' + (n >= 20 ? 'a couple of minutes' :
-              'up to a minute') + ' at this size' : '') + ' ...';
-  } else if(e.dataset.busy){ delete e.dataset.busy; }
+// Rebuild progress, driven from the page: the core is inside the LAMMPS
+// startup for the whole wait and cannot report anything until it is done.
+//
+// Atoms per mobile layer from the lattice, then the measured cost law
+// t = 1.465e-3 * N^1.095 s, fitted on 9826 -> 34.4 s and 39714 -> 158.8 s and
+// checked against a point outside the fit (27814 predicts 108 s, measured 114).
+const EST_LATT = { graphene:{a:2.46,per:2}, hbn:{a:2.50,per:2},
+                   mos2:{a:3.16,per:3}, ws2:{a:3.18,per:3},
+                   mote2:{a:3.52,per:3}, wte2:{a:3.55,per:3} };
+function estimateBuildSeconds(){
+  const g = id => document.getElementById(id);
+  const mat = (g("material")||{}).value || "graphene";
+  const L = EST_LATT[mat] || EST_LATT.graphene;
+  const nm = Number((g("Nnm")||{}).value || 12);
+  // nLayers IS the number of mobile layers -- layers[0] is the rigid substrate
+  // and never enters LAMMPS. Subtracting one here halved N and, through the
+  // 1.095 exponent, made every estimate about half the measured time.
+  const layers = Math.max(1, Number((g("nLayers")||{}).value || 2));
+  const cellNm2 = 0.8660254 * (L.a / 10) * (L.a / 10);
+  const N = Math.max(1, (nm * nm / cellNm2) * L.per * layers);
+  if (((g("engine")||{}).value) !== "lammps") return 1;
+  return Math.max(2, 1.465e-3 * Math.pow(N, 1.095));
 }
-// Called from the state handler: the core naming the requested material is the
-// only reliable signal that the rebuild landed.
+let buildTimer = null;
+function setBusy(on){
+  const bar = document.getElementById("buildBar");
+  const what = document.getElementById("buildWhat");
+  const tEl = document.getElementById("buildTime");
+  const fill = document.getElementById("buildFill");
+  if (buildTimer) { clearInterval(buildTimer); buildTimer = null; }
+  if (!bar) return;
+  if (!on) { bar.hidden = true; bar.classList.remove("over"); return; }
+  const est = estimateBuildSeconds();
+  S.buildEst = est;
+  bar.hidden = false; bar.classList.remove("over");
+  if (what) what.textContent = "Setting up" + (S.pendingMat ? " \u2014 " + S.pendingMat : "");
+  if (fill) fill.style.width = "2%";
+  const tick = () => {
+    const el = (Date.now() - (S.buildingSince || Date.now())) / 1000;
+    // Capped short of the end: a bar sitting at 100 % while the work goes on
+    // is the thing that makes people think it has hung.
+    const frac = Math.min(0.96, el / est);
+    if (fill) fill.style.width = (100 * frac).toFixed(1) + "%";
+    if (tEl) tEl.textContent = el < est
+      ? el.toFixed(0) + " s of about " + est.toFixed(0)
+      : el.toFixed(0) + " s, longer than the " + est.toFixed(0) + " s expected";
+    if (el >= est) bar.classList.add("over");
+  };
+  tick(); buildTimer = setInterval(tick, 400);
+}
+// The core naming the requested material is the only reliable signal that the
+// rebuild landed, so that is what finishes the bar.
 function clearBusyIfArrived(mat){
-  if(!S.pendingMat) return;
-  if(mat && mat === S.pendingMat){
-    const secs = ((Date.now() - (S.buildingSince||Date.now()))/1000).toFixed(0);
-    S.pendingMat = null; setBusy(false);
-    const e = document.getElementById('status');
-    if(e) e.textContent = 'built in ' + secs + ' s';
+  if (!S.pendingMat) return;
+  if (mat && mat === S.pendingMat){
+    const secs = ((Date.now() - (S.buildingSince || Date.now())) / 1000).toFixed(0);
+    S.pendingMat = null;
+    if (buildTimer) { clearInterval(buildTimer); buildTimer = null; }
+    const fill = document.getElementById("buildFill");
+    const tEl = document.getElementById("buildTime");
+    const what = document.getElementById("buildWhat");
+    if (fill) fill.style.width = "100%";
+    if (what) what.textContent = "Ready";
+    if (tEl) tEl.textContent = "built in " + secs + " s";
+    setTimeout(() => { const b = document.getElementById("buildBar");
+      if (b && !S.pendingMat) b.hidden = true; }, 2500);
+    const e = document.getElementById("status");
+    if (e) e.textContent = "built in " + secs + " s";
   }
 }
 function updateStatus(){
