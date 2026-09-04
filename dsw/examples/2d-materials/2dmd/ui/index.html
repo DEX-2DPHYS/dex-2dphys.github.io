@@ -701,7 +701,6 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       </div>
       <div class="row2">
         <div class="ctl"><label>2nd-neighbour k₂</label><input id="k2" min="0" step="0.25" type="number" value="6"></div>
-        <div class="ctl"><label>Bending k<sub>bend</sub> (eV)</label><input id="kbend" min="0" step="0.05" type="number" value="0.9"></div>
       </div>
       <div class="legend">k₂ is the shear rigidity a central-force honeycomb
         completely lacks — without it the lattice is a mechanism and collapses.</div>
@@ -943,7 +942,10 @@ const S = {
   bubbleRnm:4, bubbleP:1000,   // Hencky bubble: radius (nm), gas pressure (MPa)
   betweenBoost:25,             // At-interface gas-pressure visualisation boost (×); 1 = literal physics
   // physics (dtFs in femtoseconds; gamma legacy units: gam_ps = gamma*1000)
-  dtFs: 1, gamma: 0.00001, maxV: 5, maxDX: 0.3,
+  // 0.5 fs, and it MUST match the dt input's own value attribute --
+  // physicsMsg sends S, so a disagreement means the panel displays a
+  // number that never runs. probe-2dmd-panel.js asserts they agree.
+  dtFs: 0.5, gamma: 0.00001, maxV: 5, maxDX: 0.3,
   De:1.67, alpha:3.0, re:1.42, breakMul:1.2, reformMul:1.1,
   ktheta:8.0, theta0:120, kbend:1.0,
   sigma:3.42, eps0:2.387/1000, escale:1,

@@ -1098,7 +1098,14 @@ struct Instance {
     }
 
     void integrate(Layer &L) {
-        const double g = P.gamma, dt = P.dt, m = C_MASS;
+        // F is in eV/A and the mass in amu, which do NOT divide to an
+        // acceleration in A/fs^2 -- they are 103.642 of one. Leaving the
+        // factor out (inherited from moire-bubble; graphene-md and its GPU
+        // twin both carry it as ACC_K) multiplied every acceleration by
+        // 103.642, so the timestep behaved as 10.2x its value and the panel's
+        // 1 fs default ran as ~10 fs against graphene's ~6.7 fs limit.
+        const double g = P.gamma, dt = P.dt;
+        const double m = C_MASS * AMU_A2_FS2_IN_EV;
         const int n = (int)L.n();
         double ke = 0;
 #ifdef _OPENMP

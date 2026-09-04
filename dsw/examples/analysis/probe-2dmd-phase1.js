@@ -9,6 +9,29 @@
 // bits of the energy differ. Everything measured here is far above that.
 //
 //   node probe-2dmd-phase1.js
+// 
+// ===================================================================
+// THIS GATE IS EXPECTED TO FAIL AS OF 2026-09-03, AND MUST NOT BE
+// 'FIXED' BY MOVING ITS NUMBERS.
+//
+// It asks whether 2dmd reproduces moire-bubble. It did, to 0.09 % --
+// and the reason turned out to be that BOTH omitted the eV/A -> A/fs^2
+// conversion in the integrator, so both ran every acceleration 103.642
+// times too large. 2dmd's is fixed; moire-bubble's is not.
+//
+// So the four checks that now differ are the DYNAMICS ones -- blister
+// centre height, rim radius, and the registry pair that depends on
+// them. Over the same number of steps a correctly integrated 2dmd has
+// advanced about a tenth as much simulated time, so its blister has
+// inflated less. The static checks (far-field z, blister radius, gas
+// fill, layer counts) still agree exactly, which is the evidence that
+// only the time axis moved.
+//
+// This gate becomes meaningful again only when someone decides what
+// moire-bubble should be: corrected the same way (one line, and its
+// published blister timings shift), or kept as the historical record.
+// That is the same decision phase 8 is waiting on.
+// ===================================================================
 
 const crypto = require("crypto"), net = require("net");
 

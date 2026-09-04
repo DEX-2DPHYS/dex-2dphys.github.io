@@ -87,6 +87,42 @@ else {
   }
 }
 
+// ---- the page state must agree with the markup it displays ---------------
+// physicsMsg sends S, not the DOM, so a value that differs between them is a
+// value the panel displays and never runs. That is what made Run detonate:
+// the dt input said 0.5 fs and S.dtFs said 1, and with the integrator units
+// bug that difference was the whole explosion.
+const Sblk = ui.match(/const S = \{[\s\S]*?\n\};/);
+const domVal = {};
+for (const m of ui.matchAll(/<input([^>]*)id="([A-Za-z0-9_]+)"([^>]*)>/g)) {
+  const v = (m[1] + m[3]).match(/value="([^"]*)"/);
+  if (v && v[1] !== "" && isFinite(Number(v[1]))) domVal[m[2]] = Number(v[1]);
+}
+// S names the timestep dtFs while its control is dt; everything else matches
+const ALIAS = { dtFs: "dt" };
+let compared = 0;
+if (Sblk) {
+  const re = /(?:^|[\s,{])([A-Za-z0-9_]+)\s*:\s*(-?[0-9.]+)\s*[,}]/gm;
+  for (const m of Sblk[0].matchAll(re)) {
+    const key = m[1], id = ALIAS[key] || key;
+    if (!(id in domVal)) continue;
+    compared++;
+    ck("S." + key + " matches its " + id + " control",
+       Number(m[2]) === domVal[id],
+       Number(m[2]) === domVal[id] ? ""
+         : "S says " + m[2] + ", the panel shows " + domVal[id] +
+           " -- physicsMsg sends S, so the panel is lying");
+  }
+}
+ck("the two default sets were actually compared", compared > 0,
+   compared + " shared value(s)");
+
+// a duplicate id means q(id) answers for one control and the other is furniture
+const seenId = {}, dup = [];
+for (const m of ui.matchAll(/<(?:input|select)[^>]*\bid="([A-Za-z0-9_]+)"/g))
+  { if (seenId[m[1]]) dup.push(m[1]); seenId[m[1]] = 1; }
+ck("no duplicate control ids", dup.length === 0, dup.join(", "));
+
 console.log("\n  " + (bad ? bad + " CHECK(S) FAILED"
   : "ALL CLEAR — the panel offers exactly what the core builds"));
 process.exit(bad ? 1 : 0);
