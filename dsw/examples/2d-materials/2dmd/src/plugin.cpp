@@ -93,8 +93,12 @@ constexpr int MAX_MOBILE = 4;               // sheets above the substrate
 // (arXiv:1704.03147); the Te interlayer LJ is UFF.
 struct MatSpec {
     const char *key;
-    int nsp;                 // species: 3 = M + top X + bottom X
-    double mass[3];          // amu, in LAMMPS type order
+    int nsp;                 // species: 3 = M + top X + bottom X,
+                             // 4 = alloy (substituent metal is species 3)
+    // Four slots so an alloy can name its substituent. Existing rows
+    // initialise three and C++ zero-fills the fourth, so the table
+    // below needed no edit.
+    double mass[4];          // amu, in LAMMPS type order
     double aLatt;            // in-plane lattice constant, A
     double zS;               // trilayers: chalcogen-plane half-thickness, A
     double z0;               // default interlayer rest height, A
@@ -105,9 +109,20 @@ struct MatSpec {
     const char *pairStyle;
     const char *potFile;
     const char *coeffTail;   // element mapping after the filename
+    // TRAILING on purpose: a field added anywhere else shifts every row's
+    // initialisers. A substitutional alloy on the metal site; there is no
+    // published Mo-W-Te SW set and mixing two by rule would be inventing
+    // the cross terms, so an alloy runs on the classic engine only.
+    bool alloy;
 };
 
 const MatSpec MATS[] = {
+    // Mo(1-x)W(x)Te2. One Te lattice; the metal site is Mo (species 0)
+    // or W (species 3). Geometry interpolated between the end members
+    // (MoTe2 3.52 A / WTe2 3.55 A, which differ by under a percent).
+    {"mowte2", 4, {95.95, 127.60, 127.60, 183.84}, 3.535, 1.817,
+     8.07, 3.98, 17.3e-3, 3.30, 8.82, true,
+     "", "", "", true},
     {"graphene", 1, {12.011, 0, 0},              2.46,  0,     3.35, 3.42, 2.387e-3, 1.85, 2.62,
      false, "pair_style airebo 3.0", "CH.airebo",     "C"},
     {"hbn",      2, {10.811, 14.007, 0},         2.504, 0,     3.33, 3.33, 2.6e-3,   1.95, 2.71,
@@ -121,6 +136,14 @@ const MatSpec MATS[] = {
     {"wte2",     3, {183.84, 127.60, 127.60},    3.55,  1.803, 8.07, 3.98, 17.3e-3,  3.30, 3.64,
      true,  "pair_style sw",        "wte2.jiang3t.sw","W Te1 Te2"},
 };
+// The nearest-neighbour distance the lattice is built with: in-plane a/sqrt3
+// for a honeycomb, and for a trilayer the M-X bond, which has a z component.
+inline double natNN(const MatSpec *M) {
+    const double inPlaneNN = M->aLatt / std::sqrt(3.0);
+    return M->trilayer ? std::sqrt(inPlaneNN * inPlaneNN + M->zS * M->zS)
+                       : inPlaneNN;
+}
+
 inline const MatSpec *matByKey(const std::string &k) {
     for (const auto &m : MATS) if (k == m.key) return &m;
     return &MATS[0];
@@ -179,6 +202,8 @@ struct Params {
     // "classic" = the Morse toy model in this file; "lammps" = real potentials.
     std::string engine = "classic";
     std::string material = "graphene";
+    // Substituent fraction x for an alloy: Mo(1-x)W(x)Te2.
+    double alloyX = 0.5;
 };
 
 inline double clampd(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -193,6 +218,9 @@ struct Layer {
     std::vector<float> reg;                          // registry against the layer below
     std::vector<float> strain;                       // mean bond dilatation
     std::vector<double> b0;                          // as-built bond lengths
+    std::vector<double> a0;                          // as-built second-neighbour lengths
+    std::vector<double> mass;                        // amu, per atom
+    double nn0 = 0;                                  // shortest as-built bond
     std::vector<uint8_t> spec;                       // species index, 0..nsp-1
     double bondCut = 0, aLatt = 0;                   // this layer's material
     double twistRad = 0;
@@ -245,6 +273,8 @@ struct Instance {
 #ifdef DMD_LAMMPS
     void *lmp = nullptr;
     std::string lmpError;
+    // Which material the Morse bond length was last re-based for.
+    std::string reBasedFor;
     int64_t lmpLastTs = -1;
     // global LAMMPS atom index -> (layer, index within layer)
     std::vector<int32_t> gLayer, gLocal;
@@ -491,7 +521,42 @@ struct Instance {
     // the M-X bond length comes out correct. On (a1+2*a2)/3 the column lands
     // 2.8 A away, no potential sees a bond, and the sheet is silently far too
     // soft -- it reads as a physics problem and is a geometry one.
-    static void genLattice(const MatSpec *M, double half, double z, Layer &L) {
+    // Every rest length comes from the lattice as it was built. The Morse used
+    // one global `re` and the second-neighbour spring sqrt(3)*re, which is the
+    // honeycomb relation and nothing else -- a dichalcogenide's second
+    // neighbours sit at 3.16 and 3.24 A against a 2.44 A bond, so the sheet was
+    // born under enormous strain. nn0 is kept so `re` can stay a live control:
+    // rest = b0 * (re / nn0) is exactly `re` for a honeycomb, whose bonds are
+    // all nn0, and exactly sqrt(3)*re for its second neighbours.
+    static void measureRest(Layer &L) {
+        L.b0.assign(L.bi.size(), 0.0);
+        L.nn0 = 0;
+        for (size_t b = 0; b < L.bi.size(); b++) {
+            const int i = L.bi[b], j = L.bj[b];
+            const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i], dz = L.z[j] - L.z[i];
+            const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
+            L.b0[b] = d;
+            if (d > 1e-9 && (L.nn0 <= 0 || d < L.nn0)) L.nn0 = d;
+        }
+        L.a0.assign(L.ai.size(), 0.0);
+        for (size_t b = 0; b < L.ai.size(); b++) {
+            const int i = L.ai[b], j = L.aj[b];
+            const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i], dz = L.z[j] - L.z[i];
+            L.a0[b] = std::sqrt(dx * dx + dy * dy + dz * dz);
+        }
+    }
+
+    // A uniform random draw CLUSTERS -- at x = 0.5 it leaves obvious
+    // patches of one metal. The R2 low-discrepancy sequence (plastic
+    // number) spreads the substituents about as evenly as a lattice
+    // allows, and being a formula rather than a draw it is the same
+    // crystal every time the same x is asked for.
+    static inline bool alloySite(int i, int j, double x) {
+        const double t = i * 0.7548776662 + j * 0.5698402910;
+        return (t - std::floor(t)) < x;
+    }
+    static void genLattice(const MatSpec *M, double half, double z, Layer &L,
+                           double alloyX) {
         const double a = M->aLatt;
         const double a1x = a, a1y = 0.0;
         const double a2x = a * 0.5, a2y = a * std::sqrt(3.0) / 2;
@@ -509,7 +574,8 @@ struct Instance {
                 const double px = i * a1x + j * a2x;
                 const double py = i * a1y + j * a2y;
                 if (M->trilayer) {
-                    put(px, py, z, 0);                                  // metal
+                    const int mSp = (M->alloy && alloySite(i, j, alloyX)) ? 3 : 0;
+                    put(px, py, z, mSp);                                // metal
                     put(px + hx, py + hy, z + M->zS, 1);                // X above
                     put(px + hx, py + hy, z - M->zS, M->nsp > 2 ? 2 : 1);
                 } else {
@@ -589,7 +655,8 @@ struct Instance {
     // over a superset and then cropped, so the flake is square in the LAB
     // frame whatever the twist -- every layer has the same outline.
     static void buildSheet(Layer &L, int ncell, double twistRad, double zval,
-                           double side = 0.0, const MatSpec *M = &MATS[0]) {
+                           double side = 0.0, const MatSpec *M = &MATS[0],
+                           double alloyX = 0.5) {
         const double a = A_LATT;
         const double a1x = a, a1y = 0.0;
         const double a2x = a * 0.5, a2y = a * std::sqrt(3.0) / 2;
@@ -625,7 +692,16 @@ struct Instance {
             // Positions and species straight from the material, generated
             // symmetric about the origin and cropped to the square.
             L.bondCut = M->bondCut; L.aLatt = M->aLatt;
-            genLattice(M, 0.5 * side, zval, L);
+            genLattice(M, 0.5 * side, zval, L, alloyX);
+            // Masses per species. They were hardcoded to carbon, which is
+            // wrong by up to 8x for a dichalcogenide and moves the stable
+            // timestep with it -- and an alloy of two metals means nothing
+            // at all without them.
+            L.mass.assign(L.n(), C_MASS);
+            for (size_t q = 0; q < L.n(); q++) {
+                const double mm = M->mass[L.spec[q] & 3];
+                L.mass[q] = mm > 0 ? mm : C_MASS;
+            }
             if (twistRad != 0.0) {
                 const double cc = std::cos(twistRad), ss = std::sin(twistRad);
                 for (size_t q = 0; q < L.x.size(); q++) {
@@ -639,15 +715,7 @@ struct Instance {
             L.fx.assign(Na, 0.0); L.fy.assign(Na, 0.0); L.fz.assign(Na, 0.0);
             buildTopologyByDistance(L);
             L.x0 = L.x; L.y0 = L.y; L.z0r = L.z;
-            L.b0.assign(L.bi.size(), 0.0);
-            for (size_t b = 0; b < L.bi.size(); b++) {
-                const int i = L.bi[b], j = L.bj[b];
-                const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i];
-                // 3-D: a trilayer's M-X bond has a z component, and a rest
-                // length taken in plane only would be wrong by zS.
-                const double dz = L.z[j] - L.z[i];
-                L.b0[b] = std::sqrt(dx * dx + dy * dy + dz * dz);
-            }
+            measureRest(L);
             L.twistRad = twistRad;
             L.zRest = zval;
             return;
@@ -689,18 +757,21 @@ struct Instance {
         // Reference bond lengths, measured rather than assumed: the lattice is
         // built at A_LATT, not at P.re, so a bond is not re long at t = 0 and a
         // strain taken against re would report a uniform offset everywhere.
-        L.b0.assign(L.bi.size(), 0.0);
-        for (size_t b = 0; b < L.bi.size(); b++) {
-            const int i = L.bi[b], j = L.bj[b];
-            const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i], dz = L.z[j] - L.z[i];
-            L.b0[b] = std::sqrt(dx * dx + dy * dy + dz * dz);
-        }
+        measureRest(L);
         L.twistRad = twistRad;
         L.zRest = zval;
     }
 
     void build() {
         mat = matByKey(P.material);
+        // `re` is per-material, exactly as z0/sigma/eps0/dt already are.
+        // Without this a build that does not carry `re` keeps graphene's
+        // 1.42 A, which for MoTe2 compresses every rest length to 52 % and
+        // the second-neighbour springs alone reach +26 eV/atom.
+        if (P.material != reBasedFor) {
+            P.re = natNN(mat);
+            reBasedFor = P.material;
+        }
         matSub = P.subMaterial.empty() ? mat : matByKey(P.subMaterial);
         // A trilayer is a SANDWICH, not a plane: MoTe2 is 3.61 A thick, so a
         // graphene-sized 3.35 A gap makes the layers interpenetrate and the
@@ -724,7 +795,7 @@ struct Instance {
         const int gen  = std::max(4, (int)std::lround(2.0 * sideSheet / mat->aLatt));
         const int genS = std::max(4, (int)std::lround(2.0 * sideSub / matSub->aLatt));
         // [0] rigid substrate at z = 0, untwisted, in its own material
-        buildSheet(layers[0], genS, 0.0, 0.0, sideSub, matSub);
+        buildSheet(layers[0], genS, 0.0, 0.0, sideSub, matSub, P.alloyX);
         // genLattice generates symmetric about the origin, so there IS a
         // lattice site at (0,0) and the registry needs no centring offset.
         subHalf = 0.0;
@@ -734,7 +805,7 @@ struct Instance {
         for (int k = 1; k <= nm; k++) {
             const double z = P.zSub + P.z0 * (k - 1);
             buildSheet(layers[(size_t)k], gen,
-                       (k - 1) * P.twistDeg * M_PI / 180.0, z, sideSheet, mat);
+                       (k - 1) * P.twistDeg * M_PI / 180.0, z, sideSheet, mat, P.alloyX);
             layers[(size_t)k].mobile = true;
         }
         clampGasGap();
@@ -745,6 +816,13 @@ struct Instance {
         ljValid = false;
         computeForces();
 #ifdef DMD_LAMMPS
+        // No published Mo-W-Te SW set exists, and mixing two by rule would
+        // be inventing the cross terms. Refuse rather than pretend.
+        if (P.engine == "lammps" && mat->alloy) {
+            lmpError = "no published potential for a Mo-W-Te alloy; "
+                       "the fast model runs it";
+            P.engine = "classic";
+        }
         lmpStop();
         if (P.engine == "lammps" && !lmpStart()) {
             // Say so and fall back rather than pretending to run: a silent
@@ -883,20 +961,26 @@ struct Instance {
     static double inPlane(Layer &L, const Params &P) {
         const size_t n = L.n();
         double pe = 0;
+        // `re` stays a live control by scaling every measured rest length.
+        const double sc = (L.nn0 > 1e-9 && P.re > 0) ? P.re / L.nn0 : 1.0;
         for (size_t b = 0; b < L.bi.size(); b++) {
             const int i = L.bi[b], j = L.bj[b];
             const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i], dz = L.z[j] - L.z[i];
             double d = std::sqrt(dx * dx + dy * dy + dz * dz);
             if (d < 1e-9) d = 1e-9;
-            const double ex = std::exp(-P.alpha * (d - P.re));
+            const double rest = (b < L.b0.size() && L.nn0 > 1e-9)
+                              ? L.b0[b] * sc : P.re;
+            const double ex = std::exp(-P.alpha * (d - rest));
             const double fm = 2 * P.De * P.alpha * ex * (1 - ex);
             pe += P.De * ((1 - ex) * (1 - ex) - 1);
             const double ux = dx / d, uy = dy / d, uz = dz / d;
             L.fx[i] += fm * ux; L.fy[i] += fm * uy; L.fz[i] += fm * uz;
             L.fx[j] -= fm * ux; L.fy[j] -= fm * uy; L.fz[j] -= fm * uz;
         }
-        const double r2nd = std::sqrt(3.0) * P.re;
+        const double r2ndFallback = std::sqrt(3.0) * P.re;
         for (size_t b = 0; b < L.ai.size(); b++) {
+            const double r2nd = (b < L.a0.size() && L.nn0 > 1e-9)
+                              ? L.a0[b] * sc : r2ndFallback;
             const int i = L.ai[b], j = L.aj[b];
             const double dx = L.x[j] - L.x[i], dy = L.y[j] - L.y[i], dz = L.z[j] - L.z[i];
             double d = std::sqrt(dx * dx + dy * dy + dz * dz);
@@ -1105,7 +1189,7 @@ struct Instance {
         // 103.642, so the timestep behaved as 10.2x its value and the panel's
         // 1 fs default ran as ~10 fs against graphene's ~6.7 fs limit.
         const double g = P.gamma, dt = P.dt;
-        const double m = C_MASS * AMU_A2_FS2_IN_EV;
+        const bool haveM = L.mass.size() == L.n();
         const int n = (int)L.n();
         double ke = 0;
 #ifdef _OPENMP
@@ -1113,16 +1197,18 @@ struct Instance {
 #endif
         for (int ii = 0; ii < n; ii++) {
             const size_t i = (size_t)ii;
-            L.vx[i] += ((L.fx[i] - g * L.vx[i]) / m) * dt;
-            L.vy[i] += ((L.fy[i] - g * L.vy[i]) / m) * dt;
-            L.vz[i] += ((L.fz[i] - g * L.vz[i]) / m) * dt;
+            const double mi = (haveM ? L.mass[i] : C_MASS) * AMU_A2_FS2_IN_EV;
+            L.vx[i] += ((L.fx[i] - g * L.vx[i]) / mi) * dt;
+            L.vy[i] += ((L.fy[i] - g * L.vy[i]) / mi) * dt;
+            L.vz[i] += ((L.fz[i] - g * L.vz[i]) / mi) * dt;
             double dx = L.vx[i] * dt, dy = L.vy[i] * dt, dz = L.vz[i] * dt;
             const double s = std::sqrt(dx * dx + dy * dy + dz * dz);
             if (s > P.maxDX) { const double k = P.maxDX / s; dx *= k; dy *= k; dz *= k; }
             L.x[i] += dx; L.y[i] += dy; L.z[i] += dz;
-            ke += L.vx[i] * L.vx[i] + L.vy[i] * L.vy[i] + L.vz[i] * L.vz[i];
+            ke += (haveM ? L.mass[i] : C_MASS) *
+                  (L.vx[i] * L.vx[i] + L.vy[i] * L.vy[i] + L.vz[i] * L.vz[i]);
         }
-        eKin += 0.5 * C_MASS * AMU_A2_FS2_IN_EV * ke;
+        eKin += 0.5 * AMU_A2_FS2_IN_EV * ke;   // ke already carries the masses
     }
 
     void step() {
@@ -1749,6 +1835,7 @@ struct Instance {
         if (sh == "mesa" || sh == "gauss" || sh == "bubble") P.shape = sh;
         const std::string mk = dexmsg::get_str(m, "material");
         if (!mk.empty() && matByKey(mk)->key == mk) P.material = mk;
+        P.alloyX = clampd(num("alloyX", P.alloyX), 0.0, 1.0);
         const std::string sm = dexmsg::get_str(m, "subMaterial");
         if (sm == "same") P.subMaterial.clear();
         else if (!sm.empty() && matByKey(sm)->key == sm) P.subMaterial = sm;

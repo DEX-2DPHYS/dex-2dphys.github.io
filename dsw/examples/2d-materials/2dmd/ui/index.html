@@ -642,6 +642,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
           <option value="ws2">WS₂ (SW)</option>
           <option value="mote2">MoTe₂ (SW)</option>
           <option value="wte2">WTe₂ (SW)</option>
+          <option value="mowte2">Mo₁₋ₓWₓTe₂ alloy (fast only)</option>
         </select>
         <div class="legend">Graphene and hBN are honeycombs; the four
           dichalcogenides are X–M–X sandwiches, with the chalcogen
@@ -664,6 +665,10 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
           Lennard-Jones centres in either engine, so its material only sets
           the lattice the sheets feel — it never forces LAMMPS and works
           with the Morse model too.</div>
+      </div>
+      <div class="row2" id="alloyRow" hidden>
+        <div><label>W fraction x</label><input id="alloyX" type="number" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="legend">Mo₁₋ₓWₓTe₂. The metal site is Mo or W, placed by a low-discrepancy sequence so the substitution is spread evenly rather than clustered, and the same x always gives the same crystal.</div>
       </div>
       <div class="row2">
         <div><label>Sheet size N (nm)</label><input id="Nnm" min="2" step="1" type="number" value="12"></div>
@@ -1092,13 +1097,20 @@ function readGeometryInputs(quick){
 // Per-material rest geometry; mirrors the MatSpec table in the core.
 // Trilayer z0 = 2·zS + 2^(1/6)·σ: the X–X vdW gap starts at the LJ minimum.
 // dt 0.5 fs for the reactive/stiff sandwiches.
+// `re` is the natural nearest-neighbour distance of each lattice -- a/sqrt3
+// for a honeycomb, the M-X bond (which has a z component) for a trilayer. The
+// core re-bases it on a material change, so the panel has to carry the same
+// numbers or the field would show graphene's 1.42 A while the engine used
+// 2.73. Every rest length is measured from the built lattice and scaled by
+// re/nn0, so re at its default means "as built".
 const MAT_DEFAULTS = {
-  graphene: {z0:3.35, sigma:3.42, eps0:2.387, dt:0.5, bondCut:1.85},
-  hbn:      {z0:3.33, sigma:3.33, eps0:2.6,   dt:0.5, bondCut:1.95},
-  mos2:     {z0:6.75, sigma:3.13, eps0:6.93,  dt:0.5, bondCut:2.90},
-  ws2:      {z0:6.64, sigma:3.13, eps0:6.93,  dt:0.5, bondCut:3.00},
-  mote2:    {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30},
-  wte2:     {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30},
+  graphene: {z0:3.35, sigma:3.42, eps0:2.387, dt:0.5, bondCut:1.85, re:1.4203},
+  hbn:      {z0:3.33, sigma:3.33, eps0:2.6,   dt:0.5, bondCut:1.95, re:1.4457},
+  mos2:     {z0:6.75, sigma:3.13, eps0:6.93,  dt:0.5, bondCut:2.90, re:2.4399},
+  ws2:      {z0:6.64, sigma:3.13, eps0:6.93,  dt:0.5, bondCut:3.00, re:2.3899},
+  mote2:    {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30, re:2.7298},
+  wte2:     {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30, re:2.7298},
+  mowte2:   {z0:8.07, sigma:3.98, eps0:17.3,  dt:0.5, bondCut:3.30, re:2.7326},
 };
 // Sheet-above-substrate rest height for any material pair: the mean of the two
 // homo-material z0's, which reduces exactly to the plain z0 when they match.
@@ -1238,17 +1250,29 @@ function applyCapabilities(){
   // the exponential and the energy comes out around 1e15 eV/atom. The trilayers
   // are LAMMPS-only, and the engine selector should say so rather than let
   // someone pick a combination that cannot work.
-  const TRI = {mos2:1, ws2:1, mote2:1, wte2:1};
+  // The fast model is material-general now: rest lengths come from the
+  // lattice as built rather than from the honeycomb relation, so a
+  // dichalcogenide is no longer born under strain. Only the alloy is
+  // restricted, and to the FAST engine, for want of a potential.
+  const TRI = {};
+  const FASTONLY = {mowte2:1};
   const matSel = q('material'), engSel = q('engine');
   if(matSel && engSel){
-    const tri = !!TRI[matSel.value];
+    const tri = !!TRI[matSel.value], fastOnly = !!FASTONLY[matSel.value];
     const classic = [...engSel.options].find(o => o.value === 'classic');
+    const lam = [...engSel.options].find(o => o.value === 'lammps');
     if(classic){
       classic.disabled = tri;
-      classic.textContent = tri ? 'Morse toy model — graphene / hBN only'
-                                : 'Morse toy model (fast)';
+      classic.textContent = 'Morse toy model (fast)';
+    }
+    if(lam){
+      lam.disabled = fastOnly;
+      lam.textContent = fastOnly ? 'LAMMPS — no Mo-W-Te potential exists'
+                                 : 'LAMMPS potential (accurate)';
     }
     if(tri && engSel.value === 'classic'){ engSel.value = 'lammps'; pushParams && pushParams(); }
+    if(fastOnly && engSel.value === 'lammps'){ engSel.value = 'classic'; pushParams && pushParams(); }
+    const arow = q('alloyRow'); if(arow) arow.hidden = matSel.value !== 'mowte2';
   }
   const note = q('engineNote');
   if(note) note.textContent = lammps
@@ -1277,6 +1301,7 @@ async function rebuild({quick=false}={}){
                              nLayers:Number((q('nLayers')||{}).value||2),
                              twistDeg:S.twistDeg,
                              material:S.material,
+                             alloyX:Number((q('alloyX')||{}).value||0.5),
                              subMaterial:((q('subMaterial')||{}).value)||'same',
                              engine:S.engine}, physicsMsg());
   dmReader.reset();
@@ -1927,7 +1952,7 @@ function bind2DMD(){
   const gg = q('gasGapIdx');
   if(gg) gg.addEventListener('change', () => pushParams());
   // geometry: these need a rebuild, like the rest of the Geometry group
-  ['nLayers','zSub'].forEach(id => {
+  ['nLayers','zSub','alloyX'].forEach(id => {
     const el = q(id); if(!el) return;
     el.addEventListener('change', () => { applyCapabilities(); rebuild({}); });
   });
@@ -1981,9 +2006,14 @@ function bindUI(){
     if(q('sigma')) q('sigma').value=d.sigma;
     if(q('eps0')) q('eps0').value=d.eps0;
     if(q('dt')){ q('dt').value=d.dt; S.dtFs=d.dt; }
+    // Every material runs on the fast engine now. Only the alloy is
+    // constrained, and the other way round: there is no published
+    // Mo-W-Te potential, so LAMMPS cannot take it.
+    if(q('re')) q('re').value=d.re;
+    const ar=q('alloyRow'); if(ar) ar.hidden = matSel.value!=='mowte2';
     if(engSel){
-      if(matSel.value!=='graphene'){ engSel.value='lammps'; engSel.disabled=true; }
-      else engSel.disabled=false;
+      engSel.disabled=false;
+      if(matSel.value==='mowte2') engSel.value='classic';
     }
     rebuild({quick:false});
   };

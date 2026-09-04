@@ -64,26 +64,39 @@ ck("the selector is live", !!absent && !/\bmaterial:/.test(absent[0]),
    "`material` in ABSENT greys the whole control");
 
 // ---- picking a trilayer must move the engine -------------------------------
-const blk = ui.match(/const TRI = \{[\s\S]*?pushParams\(\); \}\n  \}/);
+// Anchored on the block's own last statement rather than on a call inside
+// it: the forcing logic changed shape when the fast engine became general,
+// and a regex tied to its innards reported "the TRI block is gone" for a
+// block that was right there.
+const blk = ui.match(/const TRI = \{[\s\S]*?alloyRow'\)[^\n]*\n  \}/);
 if (!blk) { ck("engine forcing present", false, "the TRI block is gone"); }
 else {
   const run = mat => {
     const options = [{ value: "classic", textContent: "", disabled: false },
-                     { value: "lammps" }, { value: "ml" }];
+                     { value: "lammps", textContent: "", disabled: false },
+                     { value: "ml" }];
     const eng = { value: "classic", options };
     const q = id => id === "material" ? { value: mat }
                   : id === "engine" ? eng : null;
     let pushed = 0; const pushParams = () => pushed++;
     eval(blk[0]);
-    return { engine: eng.value, classicDisabled: options[0].disabled };
+    return { engine: eng.value, classicDisabled: options[0].disabled,
+             lammpsDisabled: !!options[1].disabled };
   };
+  // The contract INVERTED once the fast model became material-general: rest
+  // lengths now come from the lattice as built, so a dichalcogenide is no
+  // longer born under strain and runs on the Morse engine. The only constraint
+  // left is the alloy, and it points the other way -- no published Mo-W-Te
+  // potential exists, so LAMMPS cannot take it.
+  const alloyCore = [...core.matchAll(/\{"(\w+)"[\s\S]*?true\},/g)]
+    .map(m => m[1]).filter(k => /mowte2/.test(k));
   for (const k of coreMats) {
-    const tri = triCore.includes(k), r = run(k);
-    ck((tri ? "trilayer " : "honeycomb ") + k,
-       tri ? (r.engine === "lammps" && r.classicDisabled)
-           : (r.engine === "classic" && !r.classicDisabled),
-       tri ? "must select LAMMPS itself and close off the Morse model"
-           : "must keep both engines available");
+    const r = run(k), fastOnly = alloyCore.includes(k);
+    ck((fastOnly ? "alloy " : "") + k,
+       fastOnly ? (r.engine === "classic" && r.lammpsDisabled)
+                : (!r.classicDisabled && !r.lammpsDisabled),
+       fastOnly ? "must fall back to the fast engine: no Mo-W-Te potential exists"
+                : "must offer both engines now that the fast model is general");
   }
 }
 
