@@ -1247,6 +1247,13 @@ function applyCapabilities(){
 // ======= Build / Reset (delegated to the core) =======
 async function rebuild({quick=false}={}){
   readGeometryInputs(quick);
+  // A LAMMPS rebuild takes 35 s at 12 nm and over two minutes at 24 nm, and
+  // the view keeps showing the PREVIOUS geometry while it runs. Unannounced,
+  // that reads as the material having reverted. Mark it, and let the state
+  // echo clear it when the core reports the material actually asked for.
+  S.pendingMat = q('material') ? q('material').value : null;
+  S.buildingSince = Date.now();
+  setBusy(true);
   const msg = Object.assign({t:'build', Nnm:S.Nnm, Nsubnm:S.Nsubnm,
                              z0:S.z0, zSub:Number((q('zSub')||{}).value||3.35),
                              nLayers:Number((q('nLayers')||{}).value||2),
@@ -1426,7 +1433,7 @@ const dex = DEX.connect({
       coreStats.threads = m.threads; coreStats.nbonds = m.nbonds;
       coreStats.gas = !!m.gas; coreStats.gasP = m.gasP; coreStats.gasR = m.gasR;
       coreStats.fill = m.fill; coreStats.nLayers = m.nLayers;
-      if(m.mat){ S.matKey = m.mat; coreStats.engine = m.engine; coreStats.pot = m.pot; }
+      if(m.mat){ S.matKey = m.mat; clearBusyIfArrived(m.mat); coreStats.engine = m.engine; coreStats.pot = m.pot; }
       if(m.subMat) S.subMatKey = m.subMat;
       // These names must match sayState in the core exactly. They did not
       // (elev/phase vs elevActive/elevPhase), so the panel never learned the
@@ -1740,6 +1747,31 @@ function updateBigHud(){
 // as a dash rather than throwing.
 function num(v, dp){ return (typeof v === 'number' && isFinite(v))
   ? v.toFixed(dp === undefined ? 3 : dp) : '–'; }
+// Busy indicator for a rebuild. Page-only on purpose: the core cannot report
+// progress because the LAMMPS startup blocks its worker, so the honest signal
+// is the one the page already has -- it knows when it asked.
+function setBusy(on){
+  const e = document.getElementById('status'); if(!e) return;
+  if(on){
+    const n = Number((document.getElementById('Nnm')||{}).value||0);
+    const slow = (document.getElementById('engine')||{}).value === 'lammps';
+    e.dataset.busy = '1';
+    e.textContent = 'rebuilding' + (S.pendingMat ? ' as ' + S.pendingMat : '') +
+      (slow ? ' - LAMMPS startup, ' + (n >= 20 ? 'a couple of minutes' :
+              'up to a minute') + ' at this size' : '') + ' ...';
+  } else if(e.dataset.busy){ delete e.dataset.busy; }
+}
+// Called from the state handler: the core naming the requested material is the
+// only reliable signal that the rebuild landed.
+function clearBusyIfArrived(mat){
+  if(!S.pendingMat) return;
+  if(mat && mat === S.pendingMat){
+    const secs = ((Date.now() - (S.buildingSince||Date.now()))/1000).toFixed(0);
+    S.pendingMat = null; setBusy(false);
+    const e = document.getElementById('status');
+    if(e) e.textContent = 'built in ' + secs + ' s';
+  }
+}
 function updateStatus(){
   updateBigHud();
   const el = document.getElementById('status'); if(!el) return;
