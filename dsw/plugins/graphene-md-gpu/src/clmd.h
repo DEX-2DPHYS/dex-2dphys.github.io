@@ -40,6 +40,14 @@
 #include <vector>
 
 #if defined(_WIN32)
+// windows.h defines min/max as macros, which turns any later std::max( into
+// "illegal token on right side of ::" under MSVC. Suppress them.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #endif
 

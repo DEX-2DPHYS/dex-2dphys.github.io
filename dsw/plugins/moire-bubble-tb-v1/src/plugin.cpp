@@ -393,17 +393,30 @@ struct Instance {
         const double href = gasRefZ();
         double V = 0, r2max = 0;
         const int n = (int)D.n();
+        // reduction(max:) is OpenMP 3.1; MSVC implements 2.0, so the radius is
+        // reduced per thread and combined in a critical section. The sum still
+        // uses a reduction clause, which 2.0 does support.
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) reduction(+ : V) reduction(max : r2max)
+#pragma omp parallel reduction(+ : V)
 #endif
-        for (int ii = 0; ii < n; ii++) {
-            const size_t i = (size_t)ii;
-            if (!gasWets(D, i, R2, cx, cy, href)) continue;
-            const double h = D.z[i] - href;
-            if (h > 0) V += h * AREA_ATOM;
-            const double dx = D.x[i] - cx, dy = D.y[i] - cy;
-            const double d2 = dx * dx + dy * dy;
-            if (d2 > r2max) r2max = d2;
+        {
+            double r2local = 0;
+#ifdef _OPENMP
+#pragma omp for schedule(static) nowait
+#endif
+            for (int ii = 0; ii < n; ii++) {
+                const size_t i = (size_t)ii;
+                if (!gasWets(D, i, R2, cx, cy, href)) continue;
+                const double h = D.z[i] - href;
+                if (h > 0) V += h * AREA_ATOM;
+                const double dx = D.x[i] - cx, dy = D.y[i] - cy;
+                const double d2 = dx * dx + dy * dy;
+                if (d2 > r2local) r2local = d2;
+            }
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+            if (r2local > r2max) r2max = r2local;
         }
         const double Vmin = M_PI * R2 * 0.5;
         gasV = V > Vmin ? V : Vmin;
