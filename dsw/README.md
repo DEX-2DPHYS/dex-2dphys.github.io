@@ -68,8 +68,8 @@ blue), and a settings pane for the plugin folder.
 
 Plugins come from **two roots**, both rescanned on every refresh:
 
-- **Built-in** — the `plugins/` folder beside the host, where the four
-  example experiments live.
+- **Built-in** — the `plugins/` folder beside the host, where the shipped
+  experiments live.
 - **Library** — your own plugin folder. Like any plug-in directory it has a
   standard home, **`Documents/DSW Plugins`** (created on first run), and can
   be repointed from the launcher's *Plugin folder…* pane; the choice is
@@ -85,14 +85,25 @@ else is a category and is scanned deeper. Bundle folder names are the
 routing key, so they must be unique across both roots — a duplicate name is
 dropped from the listing (built-ins win).
 
-Ships with four example experiments:
+Ships with nine experiments — four demonstrations of the plug-in idea, and a
+2D-materials set that is the reason the workstation exists:
 
 | Plugin | What it shows |
 |--------|---------------|
 | `gray-scott` | Gray–Scott reaction–diffusion on a 512×512 torus: presets, F/k sliders, paint-to-seed brush, steps/s telemetry. |
 | `wave-tank` | Damped 2D wave equation with absorbing shores and single/double-slit barriers: poke the water, drive an oscillator, watch interference fringes form. |
 | `pattern-transfer` | Nanofabrication process-flow simulator on a 3D voxel cross-section: spin resist, EBL/UV exposure, contrast-curve development, deposition, RIE/wet/SF6 etch, lift-off — with undo-by-replay and a native painter-sorted isometric renderer. |
-| `graphene-md` | Bilayer-graphene molecular dynamics: Morse C–C bonds that break and re-form, sp² angle stiffness, a bending umbrella and Lennard-Jones adhesion to a rigid substrate. Push a mesa, Gaussian bump or Hencky gas blister up and watch the sheet drape, wrinkle and tear. The core streams atom positions and bond topology; the browser keeps the WebGL scene. |
+| `graphene-md` | Bilayer molecular dynamics: Morse C–C bonds that break and re-form, sp² angle stiffness, a bending umbrella and Lennard-Jones adhesion to a rigid substrate. Push a mesa, bump or gas blister up and watch the sheet drape, wrinkle and tear. |
+| `graphene-md-gpu` | The same model with an OpenCL engine, and an exporter that writes a runnable LAMMPS deck from the current state. The GPU library is loaded at runtime, so the CPU path works everywhere. |
+| `graphene-phonons` | Lattice vibrations of a graphene sheet — the modes, not the drape. |
+| `moire-bubble` | Moiré bubbles in bilayers: registry, and what a trapped pocket does to it. |
+| `moire-bubble-tb-v1` | The twisted-bubble variant, kept as its own bundle so its results stay reproducible. |
+| `superlubricity` | Structural superlubricity — sliding two lattices past each other out of registry. |
+
+Two further bundles live in `examples/2d-materials/` rather than here, because
+they link `liblammps` and call Win32 APIs directly, so CI cannot build them:
+`graphene-md` (the AIREBO/ExTeP/REBO-MoS2 engine, **GPL-2.0** — see its
+`NOTICE.md`) and `2dmd`, the layered-stack plugin. Build those locally.
 
 <p>
   <img src="docs/wave-tank.png" alt="Wave Tank: double-slit interference" width="49%">

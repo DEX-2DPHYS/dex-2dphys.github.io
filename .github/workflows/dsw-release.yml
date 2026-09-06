@@ -97,6 +97,8 @@ jobs:
             mkdir -p "$out/plugins/$id"
             cp "$d/dex.json" "$out/plugins/$id/"
             cp -R "$d/ui" "$out/plugins/$id/ui"
+            # some cores read parameter files from their own bundle at runtime
+            [ -d "$d/potentials" ] && cp -R "$d/potentials" "$out/plugins/$id/potentials"
             found=
             for ext in so dll dylib; do
               if [ -f "$d/$id.$ext" ]; then cp "$d/$id.$ext" "$out/plugins/$id/"; found=1; fi

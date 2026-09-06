@@ -67,3 +67,14 @@ dsw_add_plugin(gray-scott)
 dsw_add_plugin(wave-tank)
 dsw_add_plugin(pattern-transfer)
 dsw_add_plugin(graphene-md)
+
+# The 2D-materials set. Their optional GPU engine is loaded at RUNTIME
+# (LoadLibrary on OpenCL.dll), so no OpenCL SDK is needed to build them; where
+# it is absent the core says so and falls back to its CPU path.
+# NOT here: examples/2d-materials/{2dmd,graphene-md} link liblammps.a and call
+# Win32 APIs directly, so they are built locally rather than by CI.
+dsw_add_plugin(graphene-md-gpu)
+dsw_add_plugin(graphene-phonons)
+dsw_add_plugin(moire-bubble)
+dsw_add_plugin(moire-bubble-tb-v1)
+dsw_add_plugin(superlubricity)

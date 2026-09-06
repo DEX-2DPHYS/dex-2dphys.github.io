@@ -1,7 +1,7 @@
 {
   "slug": "dsw",
   "name": "DSW — Digital Science Workstation",
-  "description": "A native host that runs C++/HTML experiment plugins: drop a bundle in a folder and it appears in the launcher. The browser is the GUI, the heavy math runs native. Ships with Gray–Scott, a double-slit wave tank, an EBL pattern-transfer process simulator and a graphene molecular-dynamics sandbox.",
+  "description": "A native host that runs C++/HTML experiment plugins: drop a bundle in a folder and it appears in the launcher. The browser is the GUI, the heavy math runs native. Ships with nine experiments — reaction–diffusion, a wave tank, an EBL pattern-transfer simulator, and a 2D-materials set covering molecular dynamics on CPU and GPU, lattice vibrations, moiré bubbles and superlubricity.",
   "status": "live",
   "url": "dsw/",
   "icon": "device",
