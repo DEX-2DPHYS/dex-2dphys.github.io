@@ -101,6 +101,16 @@
   }
   #stats b{color:var(--ink);font-variant-numeric:tabular-nums}
 
+  /* ---------- send to the presentation (only with ?send=<app>) ---------- */
+  [hidden]{display:none!important}
+  #sendBox{border:2px solid var(--green);border-radius:12px;padding:12px;margin:0 0 14px}
+  #sendBox .sendHead{font-weight:700;font-size:15px;margin-bottom:8px}
+  #sendNick{width:100%;font:16px inherit;padding:12px 10px;border:2px solid var(--line);border-radius:10px;margin-bottom:10px}
+  #btnSend{width:100%}
+  #sendMsg{font-size:14px;margin-top:8px;min-height:18px;color:var(--muted)}
+  #sendMsg.ok{color:var(--green);font-weight:600}
+  #sendMsg.warn{color:var(--accent);font-weight:600}
+
   details{border-top:1px solid var(--line);padding-top:10px;font-size:14px}
   summary{font-weight:600;cursor:pointer;padding:6px 0}
   details ul{margin:6px 0 0;padding-left:20px;color:var(--muted);line-height:1.5}
@@ -176,6 +186,13 @@
   <div>Amplitude<br><b id="sAmp">–</b></div>
   <div>Tracking quality<br><b id="sQual">–</b></div>
   <div>Frames lost<br><b id="sDrop">–</b></div>
+</div>
+
+<div id="sendBox" hidden>
+  <div class="sendHead">Send your result to the presentation</div>
+  <input id="sendNick" maxlength="40" autocomplete="off" placeholder="Nickname (optional – shown on the screen)">
+  <button id="btnSend" class="go" disabled>Send result</button>
+  <div id="sendMsg">Make a measurement first.</div>
 </div>
 
 <details>
@@ -1057,6 +1074,7 @@ function startMeasurement(){
   if (!MARK.active){ status("Tap the marker first", "warn"); return; }
   S.t = []; S.px = []; S.py = []; S.p0 = null; S.res = null;
   S.dropped = 0; S.qual = 0;
+  S.result = null; S.resultId = newId();
   S.t0 = performance.now();
   S.measuring = true;
   S.lastPlot = 0; S.lastStat = 0;
@@ -1094,6 +1112,7 @@ function finish(dur, note){
     $("freq").textContent = "–";
     $("freqNote").textContent = note || "Not enough data – let it swing longer";
     $("sAmp").textContent = "–";
+    setResult(null);
     status("Stopped", "info");
     return;
   }
@@ -1103,12 +1122,118 @@ function finish(dur, note){
   if (f.hz === null){
     $("freq").textContent = "–";
     $("freqNote").textContent = f.reason || "Not enough oscillations to measure frequency";
+    setResult(null);
   } else {
     $("freq").textContent = fmt(f.hz, 2) + " Hz";
     $("freqNote").textContent = "from " + f.periods + " periods · period " + fmt(1/f.hz, 2) +
                                " s · " + f.method;
+    setResult(f, dur, win);
   }
   status(note || "Measurement finished", "info");
+}
+
+/* =========================================================================
+   Send the result to the presentation  (Teaching Hub on Supabase)
+   -------------------------------------------------------------------------
+   Only switched on when the page is opened as  ...?send=<app>  (the QR code
+   on the presentation slide does that), so the public tool is unchanged for
+   everyone else. Sends numbers and a thinned x(t) trace – never video, never
+   a name. The publishable key can only ADD a result; it cannot read anything.
+   Backend: EDU - COURSES/Teaching Hub (Supabase)/teaching-hub-setup.sql
+   ========================================================================= */
+const HUB = {
+  url: "https://waktaohjndbhswareqzk.supabase.co",
+  key: "sb_publishable_w3U495HfA5hOYZrMUETBpA_uyX7EIgg"
+};
+const SEND_APP = (function(){
+  try {
+    const a = new URLSearchParams(location.search).get("send");
+    return (a && /^[a-z0-9][a-z0-9-]{1,47}$/.test(a)) ? a : null;
+  } catch(e){ return null; }
+})();
+
+function newId(){
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c === "x" ? r : (r&3|8)).toString(16);
+  });
+}
+const r3 = v => fin(v) ? Math.round(v*1000)/1000 : null;
+
+// Called by finish(): the latest analysed measurement, or null.
+function setResult(f, dur, win){
+  if (!f){ S.result = null; updateSend(); return; }
+  const n = S.res.t.length, step = Math.max(1, Math.ceil(n / 200));
+  const tt = [], xx = [];
+  for (let i = 0; i < n; i += step){ tt.push(r3(S.res.t[i])); xx.push(Math.round(S.res.x[i]*10)/10); }
+  S.result = {
+    frequency_hz: r3(f.hz),
+    period_s:     r3(1/f.hz),
+    periods:      f.periods,
+    method:       f.method,
+    amplitude_px: fin(f.amp) ? Math.round(f.amp) : null,
+    duration_s:   r3(dur),
+    frames:       S.t.length,
+    fps:          dur > 0.2 ? Math.round(10*S.t.length/dur)/10 : null,
+    quality_pct:  S.demo ? null : Math.round(clamp(S.qual,0,1)*100),
+    frames_lost:  S.demo ? null : S.dropped,
+    axis:         S.usedAxis,
+    smoothing:    win,
+    anti_shake:   !!(S.refBase && REF.active),
+    demo:         !!S.demo,
+    trace:        { t: tt, x: xx }
+  };
+  updateSend();
+}
+
+function sendMsg(text, kind){ const el = $("sendMsg"); el.textContent = text; el.className = kind || ""; }
+
+function updateSend(){
+  if (!SEND_APP) return;
+  const b = $("btnSend");
+  b.disabled = !S.result || S.measuring || S.sending;
+  if (S.measuring){ sendMsg("Measuring…"); return; }
+  if (!S.result){ sendMsg("Make a measurement first – you can send once a frequency appears."); b.textContent = "Send result"; return; }
+  if (S.sentId === S.resultId){ b.textContent = "Send again (replaces your result)"; }
+  else { b.textContent = "Send result (" + fmt(S.result.frequency_hz, 2) + " Hz)"; sendMsg(S.result.demo ? "This is demo data – it will be marked DEMO on the screen." : ""); }
+}
+
+function sendResult(){
+  if (!SEND_APP || !S.result || S.sending) return;
+  const nick = ($("sendNick").value || "").trim().slice(0, 40);
+  try { localStorage.setItem("cma.nick", nick); } catch(e){}
+  if (!S.resultId) S.resultId = newId();
+  S.sending = true; updateSend(); sendMsg("Sending…");
+  const row = {
+    app: SEND_APP, submission_id: S.resultId, kind: "measurement",
+    version: "camera-motion-2026-09", title: nick || null,
+    payload: S.result, user_agent: (navigator.userAgent || "").slice(0, 500)
+  };
+  fetch(HUB.url + "/rest/v1/teach_submissions", {
+    method: "POST",
+    headers: { "apikey": HUB.key, "Content-Type": "application/json", "Prefer": "return=minimal" },
+    body: JSON.stringify(row)
+  }).then(res => {
+    if (res.ok) return;
+    return res.text().then(t => {
+      let m = t; try { m = JSON.parse(t).message || t; } catch(e){}
+      throw new Error(m || ("HTTP " + res.status));
+    });
+  }).then(() => {
+    S.sentId = S.resultId;
+    sendMsg("✓ Sent " + fmt(S.result.frequency_hz, 2) + " Hz – look at the screen!", "ok");
+  }).catch(err => {
+    const m = String(err.message || err);
+    sendMsg(/not accepting/.test(m) ? "The presentation is not collecting results right now."
+          : /Failed to fetch|NetworkError|Load failed/i.test(m) ? "No internet connection – try again."
+          : "Could not send: " + m, "warn");
+  }).then(() => { S.sending = false; updateSend(); if (S.sentId === S.resultId) $("sendMsg").className = "ok"; });
+}
+
+if (SEND_APP){
+  $("sendBox").hidden = false;
+  try { $("sendNick").value = localStorage.getItem("cma.nick") || ""; } catch(e){}
+  $("btnSend").addEventListener("click", sendResult);
 }
 
 function resetAll(quiet){
@@ -1116,6 +1241,7 @@ function resetAll(quiet){
   S.demo = false;
   S.t = []; S.px = []; S.py = []; S.p0 = null; S.res = null;
   S.refBase = null; S.dropped = 0; S.qual = 0;
+  S.result = null;
   MARK.trail.length = 0; REF.trail.length = 0;   // keep the selected colours, drop the data
   S.tapMode = "marker";
   $("freq").textContent = "–";
@@ -1134,6 +1260,7 @@ function updateButtons(){
   $("btnStart").disabled = S.measuring || !S.cameraOn || !MARK.active;
   $("btnStop").disabled  = !S.measuring;
   $("btnDemo").disabled  = S.measuring;
+  updateSend();
   const rb = $("btnRef");
   rb.disabled = !S.cameraOn;
   if (REF.active){
@@ -1152,6 +1279,7 @@ function runDemo(){
   if (S.measuring) return;
   S.demo = true;
   S.t = []; S.px = []; S.py = []; S.p0 = null;
+  S.resultId = newId();
   const F = 0.74, DUR = 10, FPS = 30;
   let t = 0, i = 0;
   // deterministic pseudo-noise (no reliance on Math.random for reproducibility)
