@@ -4,776 +4,324 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#ffffff">
-<title>Camera Motion Analyzer</title>
+<title>Pendulum Camera</title>
+<!--
+  Film the projected pendulum (a BLUE sphere on a white projector screen) and
+  measure its frequency. Finds the blue sphere by itself, at whatever size it
+  appears from wherever you sit; tap the screen to point it at something else.
+  SUBMIT sends the result to the Teaching Hub (Supabase, app "camera-motion",
+  or ?send=<app>). All video stays on the phone.
+  Backup of the previous (general-purpose) version: backups - dont use these unless told to/
+-->
 <style>
-  :root{
-    --ink:#111;
-    --muted:#5a5a5a;
-    --line:#d8d8d8;
-    --accent:#c8102e;
-    --blue:#0b5fff;
-    --green:#0a7a3d;
-    --bg:#fff;
-    --pad:14px;
-  }
+  :root{--ink:#111;--mut:#666;--acc:#c8102e;--green:#0a7a3d;--blue:#0b5fff}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
-  body{
-    font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    padding:10px var(--pad) 40px;
-    max-width:560px;margin:0 auto;
-    -webkit-text-size-adjust:100%;
-    touch-action:manipulation;
-  }
-  h1{font-size:20px;margin:6px 0 10px;letter-spacing:-.2px}
-  h1 small{display:block;font-weight:400;font-size:13px;color:var(--muted);margin-top:2px}
-
-  /* ---------- video ---------- */
-  #stage{
-    position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;
-    min-height:180px;display:flex;align-items:center;justify-content:center;
-  }
-  #video{width:100%;height:auto;max-height:52vh;object-fit:contain;display:block;background:#000}
+  html,body{margin:0;background:#fff;color:var(--ink)}
+  body{font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:10px 12px 24px;max-width:640px;margin:0 auto;touch-action:manipulation;-webkit-text-size-adjust:100%}
+  #stage{position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;
+    min-height:200px;display:flex;align-items:center;justify-content:center;touch-action:none}
+  #video{width:100%;height:auto;max-height:68vh;object-fit:contain;display:block;background:#000}
   #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-  #placeholder{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    color:#fff;font-size:15px;text-align:center;padding:20px;line-height:1.5;
-  }
-  #status{
-    margin:8px 0 4px;font-size:15px;font-weight:600;min-height:22px;
-  }
-  #status.ok{color:var(--green)}
-  #status.warn{color:var(--accent)}
-  #status.info{color:var(--muted);font-weight:500}
-  .privacy{font-size:12.5px;color:var(--muted);margin:2px 0 12px}
-
-  /* ---------- buttons ---------- */
-  .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  button,select{
-    font:600 17px/1 inherit;padding:16px 8px;border-radius:12px;border:2px solid var(--ink);
-    background:#fff;color:var(--ink);min-height:54px;cursor:pointer;
-  }
-  button.primary{background:var(--ink);color:#fff}
-  button.go{background:var(--green);border-color:var(--green);color:#fff}
-  button.stop{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.alt{background:#fff;border-color:var(--blue);color:var(--blue)}
-  button.alt.on{background:var(--blue);color:#fff}
-  button:disabled{opacity:.35}
+  #placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:17px;text-align:center;padding:20px;line-height:1.5}
+  .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 8px}
+  button{font:700 15px/1 inherit;letter-spacing:.04em;padding:0 4px;min-height:58px;border-radius:12px;
+    border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+  #bCam{background:var(--ink);color:#fff}
+  #bStart{background:var(--green);border-color:var(--green);color:#fff}
+  #bStop{background:var(--acc);border-color:var(--acc);color:#fff}
+  #bSubmit{background:var(--blue);border-color:var(--blue);color:#fff}
+  button:disabled{opacity:.28}
   button:active:not(:disabled){transform:translateY(1px)}
-  .btns .wide{grid-column:1 / -1}
-  .btns .wide.small{font-size:15px;min-height:48px;padding:12px 8px}
-
-  /* ---------- sliders ---------- */
-  .ctrl{margin:0 0 12px}
-  .ctrl label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:4px}
-  .ctrl label span{color:var(--muted);font-weight:500}
-  input[type=range]{width:100%;height:40px;accent-color:var(--ink)}
-  select{width:100%;font-size:16px;font-weight:600;min-height:48px;padding:12px 10px}
-  .hint{font-size:12.5px;color:var(--muted);margin:-6px 0 12px}
-
-  /* ---------- result ---------- */
-  #result{
-    border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center;margin:6px 0 14px;
-  }
-  #freqLabel{font-size:13px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
-  #freq{font-size:44px;font-weight:700;line-height:1.1;margin:2px 0;font-variant-numeric:tabular-nums}
-  #freqNote{font-size:13px;color:var(--muted);min-height:18px}
-  #demoBadge{
-    display:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;
-    letter-spacing:.1em;padding:4px 10px;border-radius:99px;margin-bottom:8px;
-  }
-  #demoBadge.on{display:inline-block}
-
-  /* ---------- tabs + chart ---------- */
-  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
-  .tabs button{padding:12px 4px;font-size:15px;min-height:46px;border-radius:10px;border-width:2px}
-  .tabs button[aria-selected="true"]{background:var(--ink);color:#fff}
-  #chartWrap{position:relative;height:230px;border:1px solid var(--line);border-radius:10px;padding:4px}
-  #chart{width:100%;height:100%;display:block}
-  #chartEmpty{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    color:var(--muted);font-size:14px;text-align:center;padding:16px
-  }
-
-  /* ---------- stats ---------- */
-  #stats{
-    display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:12px 0 14px;font-size:13.5px;color:var(--muted)
-  }
-  #stats b{color:var(--ink);font-variant-numeric:tabular-nums}
-
-  /* ---------- send to the presentation (only with ?send=<app>) ---------- */
-  [hidden]{display:none!important}
-  #sendBox{border:2px solid var(--green);border-radius:12px;padding:12px;margin:0 0 14px}
-  #sendBox .sendHead{font-weight:700;font-size:15px;margin-bottom:8px}
-  #sendNick{width:100%;font:16px inherit;padding:12px 10px;border:2px solid var(--line);border-radius:10px;margin-bottom:10px}
-  #btnSend{width:100%}
-  #sendMsg{font-size:14px;margin-top:8px;min-height:18px;color:var(--muted)}
-  #sendMsg.ok{color:var(--green);font-weight:600}
-  #sendMsg.warn{color:var(--accent);font-weight:600}
-
-  details{border-top:1px solid var(--line);padding-top:10px;font-size:14px}
-  summary{font-weight:600;cursor:pointer;padding:6px 0}
-  details ul{margin:6px 0 0;padding-left:20px;color:var(--muted);line-height:1.5}
-  details li{margin-bottom:5px}
+  #status{font-size:15px;font-weight:600;min-height:22px;text-align:center}
+  #status.ok{color:var(--green)} #status.warn{color:var(--acc)} #status.info{color:var(--mut);font-weight:500}
+  .privacy{font-size:12px;color:#999;text-align:center;margin-top:6px}
 </style>
 </head>
 <body>
 
-<h1>Camera Motion Analyzer
-  <small>Track a coloured marker on a pendulum and measure x(t), v(t), a(t) and frequency.</small>
-</h1>
-
 <div id="stage">
   <video id="video" playsinline autoplay muted></video>
   <canvas id="overlay"></canvas>
-  <div id="placeholder">Press <b>Start Camera</b><br>then tap the coloured marker</div>
+  <div id="placeholder">Press&nbsp;<b>CAMERA</b>&nbsp;and point the phone at the swinging blue ball</div>
 </div>
-
-<div id="status" class="info">Camera off</div>
-<p class="privacy">All video analysis happens locally on your phone. No video is uploaded or stored.</p>
 
 <div class="btns">
-  <button id="btnCam" class="primary wide">Start Camera</button>
-  <button id="btnStart" class="go" disabled>Start Measurement</button>
-  <button id="btnStop" class="stop" disabled>Stop</button>
-  <button id="btnReset">Reset</button>
-  <button id="btnDemo">Demo</button>
-  <button id="btnRef" class="alt wide small" disabled>Set anti-shake reference</button>
+  <button id="bCam">CAMERA</button>
+  <button id="bStart" disabled>START</button>
+  <button id="bStop" disabled>STOP</button>
+  <button id="bSubmit" disabled>SUBMIT</button>
 </div>
+<div id="status" class="info">Camera off</div>
+<div class="privacy">The ball is found automatically – tap the image to point at something else. Video never leaves your phone.</div>
 
-<div class="ctrl">
-  <label for="tol">Colour tolerance <span id="tolVal">45</span></label>
-  <input type="range" id="tol" min="10" max="120" step="5" value="45">
-</div>
-<p class="hint">Starting value only – the tracker widens or tightens it by itself while following the marker.</p>
-
-<div class="ctrl">
-  <label for="smooth">Smoothing (frames) <span id="smoothVal">5</span></label>
-  <input type="range" id="smooth" min="1" max="21" step="2" value="5">
-</div>
-
-<div class="ctrl">
-  <label for="axis">Motion axis <span id="axisVal">auto</span></label>
-  <select id="axis">
-    <option value="auto">Auto (dominant direction)</option>
-    <option value="x">Horizontal</option>
-    <option value="y">Vertical</option>
-  </select>
-</div>
-
-<div id="result">
-  <span id="demoBadge">DEMO DATA</span>
-  <div id="freqLabel">Measured frequency</div>
-  <div id="freq">–</div>
-  <div id="freqNote">No measurement yet</div>
-</div>
-
-<div class="tabs" role="tablist">
-  <button role="tab" data-tab="pos" aria-selected="true">Position</button>
-  <button role="tab" data-tab="vel" aria-selected="false">Velocity</button>
-  <button role="tab" data-tab="acc" aria-selected="false">Acceleration</button>
-</div>
-
-<div id="chartWrap">
-  <canvas id="chart"></canvas>
-  <div id="chartEmpty">No data yet</div>
-</div>
-
-<div id="stats">
-  <div>Measurement time<br><b id="sTime">–</b></div>
-  <div>Tracked frames<br><b id="sFrames">–</b></div>
-  <div>Average frame rate<br><b id="sFps">–</b></div>
-  <div>Amplitude<br><b id="sAmp">–</b></div>
-  <div>Tracking quality<br><b id="sQual">–</b></div>
-  <div>Frames lost<br><b id="sDrop">–</b></div>
-</div>
-
-<div id="sendBox" hidden>
-  <div class="sendHead">Send your result to the presentation</div>
-  <input id="sendNick" maxlength="40" autocomplete="off" placeholder="Nickname (optional – shown on the screen)">
-  <button id="btnSend" class="go" disabled>Send result</button>
-  <div id="sendMsg">Make a measurement first.</div>
-</div>
-
-<details>
-  <summary>How the tracker works</summary>
-  <ul>
-    <li>Tapping the marker builds a <b>colour model</b> from the surrounding patch: the hue-like ratios r:g:b, which barely change when the light does, plus how much the patch colour varies.</li>
-    <li>Each frame the tracker predicts where the marker went from its last velocity, and searches only a small window around that prediction.</li>
-    <li>Matching pixels are grouped into <b>connected blobs</b>. The blob closest to the prediction and closest in size to the marker wins, so a second red object elsewhere in the frame cannot drag the measurement away.</li>
-    <li>If nothing is found the window grows, the colour tolerance is relaxed step by step, and finally the whole frame is searched – so a briefly hidden marker is picked up again automatically.</li>
-    <li>The colour model and the expected blob size drift slowly with the light, but are held near the colour you originally tapped so the tracker cannot creep onto the background.</li>
-    <li>The analysis resolution is tuned to the speed of your phone, and frames are sampled as the camera delivers them, which keeps the time axis honest.</li>
-    <li><b>Anti-shake reference:</b> tap a second, stationary coloured point and its motion is subtracted, removing most of the effect of a hand-held phone.</li>
-  </ul>
-</details>
-
-<details>
-  <summary>Limitations</summary>
-  <ul>
-    <li>Position is measured in pixels, not meters.</li>
-    <li>Camera motion looks like pendulum motion – hold the phone still, use a support, or set an anti-shake reference.</li>
-    <li>Strong lighting changes or a marker colour close to the background will still confuse colour tracking.</li>
-    <li>Velocity and especially acceleration amplify camera noise.</li>
-    <li>Camera frame rate limits temporal resolution.</li>
-    <li>This is a simple educational measurement tool, not a calibrated laboratory instrument.</li>
-  </ul>
-</details>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
-        onerror="window.__chartFailed=true"></script>
 <script>
 "use strict";
 (function(){
 
-/* =========================================================================
-   Small helpers
-   ========================================================================= */
 const $ = id => document.getElementById(id);
 const clamp = (v,a,b) => v<a?a:(v>b?b:v);
-const fin = v => (typeof v === "number" && isFinite(v));
-function fmt(v, d){ return fin(v) ? v.toFixed(d) : "–"; }
-
-function median(a){
-  if (!a.length) return 0;
-  const s = a.slice().sort((p,q)=>p-q);
-  const m = s.length >> 1;
-  return (s.length % 2) ? s[m] : 0.5*(s[m-1]+s[m]);
-}
+const fin = v => typeof v === "number" && isFinite(v);
+const video = $("video"), overlay = $("overlay"), octx = overlay.getContext("2d"), stage = $("stage");
 
 /* =========================================================================
-   ANALYSIS PIPELINE  (shared by live measurement and demo mode)
+   Teaching Hub (Supabase). The publishable key can only ADD a result.
    ========================================================================= */
-
-// Centred moving average. win is forced odd and >= 1; window shrinks at edges.
-function movingAverage(arr, win){
-  const n = arr.length;
-  const out = new Array(n);
-  let w = Math.max(1, Math.round(win));
-  if (w % 2 === 0) w += 1;
-  if (w === 1 || n === 0) return arr.slice();
-  const h = (w - 1) / 2;
-  for (let i = 0; i < n; i++){
-    const a = Math.max(0, i - h), b = Math.min(n - 1, i + h);
-    let s = 0, c = 0;
-    for (let k = a; k <= b; k++){ const v = arr[k]; if (fin(v)){ s += v; c++; } }
-    out[i] = c ? s / c : 0;
-  }
-  return out;
-}
-
-// Numerical derivative: central difference inside, one-sided at the ends.
-function derivative(y, t){
-  const n = y.length;
-  const out = new Array(n).fill(0);
-  if (n < 2) return out;
-  for (let i = 0; i < n; i++){
-    let dt, dy;
-    if (i === 0){ dt = t[1] - t[0]; dy = y[1] - y[0]; }
-    else if (i === n - 1){ dt = t[n-1] - t[n-2]; dy = y[n-1] - y[n-2]; }
-    else { dt = t[i+1] - t[i-1]; dy = y[i+1] - y[i-1]; }
-    out[i] = (fin(dt) && Math.abs(dt) > 1e-6 && fin(dy)) ? dy / dt : 0;
-  }
-  return out;
-}
-
-// Full pipeline: raw x(t) -> smoothed position, velocity, acceleration.
-function analyse(t, xRaw, smoothWin){
-  const x = movingAverage(xRaw, smoothWin);
-  const v = derivative(x, t);
-  // mild extra smoothing of velocity before differentiating again
-  const vs = movingAverage(v, Math.max(3, smoothWin));
-  const a = movingAverage(derivative(vs, t), Math.max(3, smoothWin));
-  return { t, x, v, a };
-}
-
-// Frequency from positive-going zero crossings of the mean-subtracted signal.
-function crossingFrequency(t, x){
-  const n = x.length;
-  let mean = 0;
-  for (let i = 0; i < n; i++) mean += x[i];
-  mean /= n;
-
-  const y = new Array(n);
-  let mx = 0;
-  for (let i = 0; i < n; i++){
-    y[i] = x[i] - mean;
-    if (Math.abs(y[i]) > mx) mx = Math.abs(y[i]);
-  }
-
-  // Hysteresis band suppresses noise crossings near zero.
-  const band = 0.25 * mx;
-  const cross = [];
-  let armed = false;                       // true once the signal has gone below -band
-  for (let i = 0; i < n; i++){
-    if (y[i] < -band){ armed = true; continue; }
-    if (armed && y[i] > band){
-      let j = i;
-      while (j > 0 && y[j-1] > 0) j--;
-      if (j > 0){
-        const y0 = y[j-1], y1 = y[j], t0 = t[j-1], t1 = t[j];
-        const dy = y1 - y0;
-        const tc = (Math.abs(dy) > 1e-9) ? t0 + (-y0) * (t1 - t0) / dy : t0;
-        if (fin(tc) && (cross.length === 0 || tc > cross[cross.length-1] + 1e-3)) cross.push(tc);
-      }
-      armed = false;
-    }
-  }
-  if (cross.length < 4) return null;
-
-  // Reject obviously wrong periods (half/double detections) using the median.
-  const per = [];
-  for (let i = 1; i < cross.length; i++) per.push(cross[i] - cross[i-1]);
-  const med = median(per);
-  const good = per.filter(p => fin(p) && p > 0.4*med && p < 1.6*med);
-  if (good.length < 3) return null;
-
-  let sum = 0;
-  for (const p of good) sum += p;
-  const avg = sum / good.length;
-  const hz = 1 / avg;
-  if (!fin(hz) || hz <= 0.02 || hz > 30) return null;
-  return { hz:hz, periods:good.length };
-}
-
-// Autocorrelation fallback: works on noisy or partly clipped signals where the
-// zero-crossing detector gives up. Uniformly resampled and decimated first.
-function acfFrequency(t, x){
-  const n = x.length;
-  if (n < 32) return null;
-  const span = t[n-1] - t[0];
-  if (!(span > 0.5)) return null;
-
-  const N  = Math.min(2048, n);
-  const dt = span / (N - 1);
-  const y  = new Float64Array(N);
-  let j = 0;
-  for (let i = 0; i < N; i++){
-    const tt = t[0] + i*dt;
-    while (j < n-2 && t[j+1] < tt) j++;
-    const t0 = t[j], t1 = t[j+1];
-    const f = (t1 > t0) ? clamp((tt - t0)/(t1 - t0), 0, 1) : 0;
-    y[i] = x[j] + (x[j+1] - x[j]) * f;
-  }
-  let mean = 0;
-  for (let i = 0; i < N; i++) mean += y[i];
-  mean /= N;
-  let r0 = 0;
-  for (let i = 0; i < N; i++){ y[i] -= mean; r0 += y[i]*y[i]; }
-  if (!(r0 > 0)) return null;
-
-  const maxLag = Math.floor(N/2);
-  const ac = new Float64Array(maxLag+1);
-  for (let L = 0; L <= maxLag; L++){
-    let s = 0;
-    for (let i = 0; i + L < N; i++) s += y[i]*y[i+L];
-    ac[L] = s / r0;
-  }
-  let L = 1;
-  while (L < maxLag && ac[L] > 0) L++;      // skip the central lobe
-  let bi = -1, bv = 0.2;
-  for (let k = L+1; k < maxLag; k++){
-    if (ac[k] > bv && ac[k] >= ac[k-1] && ac[k] >= ac[k+1]){ bv = ac[k]; bi = k; break; }
-  }
-  if (bi < 2) return null;
-  // parabolic refinement of the peak position
-  const a0 = ac[bi-1], a1 = ac[bi], a2 = ac[bi+1];
-  const den = (a0 - 2*a1 + a2);
-  const shift = Math.abs(den) > 1e-12 ? clamp(0.5*(a0 - a2)/den, -1, 1) : 0;
-  const period = (bi + shift) * dt;
-  const hz = 1/period;
-  if (!fin(hz) || hz <= 0.02 || hz > 30) return null;
-  return { hz:hz, periods:Math.max(1, Math.round(span/period)) };
-}
-
-// Returns { hz, periods, amp, method, reason }.  hz is null when not measurable.
-function estimateFrequency(t, x){
-  const n = x.length;
-  if (n < 20) return { hz:null, periods:0, amp:0, method:"", reason:"Not enough data" };
-
-  let mean = 0;
-  for (let i = 0; i < n; i++) mean += x[i];
-  mean /= n;
-  let rms = 0, mx = 0;
-  for (let i = 0; i < n; i++){
-    const d = x[i] - mean;
-    rms += d*d;
-    if (Math.abs(d) > mx) mx = Math.abs(d);
-  }
-  rms = Math.sqrt(rms/n);
-  const amp = rms * Math.SQRT2;           // amplitude of an equivalent sine
-  if (!fin(amp) || mx < 3) return { hz:null, periods:0, amp:amp, method:"", reason:"Movement too small" };
-
-  const zc = crossingFrequency(t, x);
-  if (zc) return { hz:zc.hz, periods:zc.periods, amp:amp, method:"zero crossings", reason:"" };
-
-  const ac = acfFrequency(t, x);
-  if (ac) return { hz:ac.hz, periods:ac.periods, amp:amp, method:"autocorrelation", reason:"" };
-
-  return { hz:null, periods:0, amp:amp, method:"", reason:"Not enough clean oscillations to measure frequency" };
-}
+const HUB = { url:"https://waktaohjndbhswareqzk.supabase.co", key:"sb_publishable_w3U495HfA5hOYZrMUETBpA_uyX7EIgg" };
+const SEND_APP = (function(){
+  try { const a = new URLSearchParams(location.search).get("send");
+        return (a && /^[a-z0-9][a-z0-9-]{1,47}$/.test(a)) ? a : "camera-motion"; } catch(e){ return "camera-motion"; }
+})();
 
 /* =========================================================================
    State
    ========================================================================= */
-const MAX_SAMPLES = 12000;      // ~6.5 min at 30 fps – hard safety cap
-const PROC_MIN = 176, PROC_MAX = 384;
-
 const S = {
-  stream:null,
-  cameraOn:false,
-  measuring:false,
-  demo:false,
-  tapMode:"marker",             // "marker" | "ref"
-  procW:288,                    // adaptive analysis width
-  scanMs:0,                     // EMA of per-frame tracking cost
-  lastTune:0,
-  frameCount:0,
-  t0:0,
-  t:[], px:[], py:[],           // raw samples (t in s, position in video px, zeroed)
-  p0:null,                      // {x,y} first recorded marker position
-  refBase:null,                 // {x,y} reference position at measurement start
-  dropped:0,
-  qual:0,                       // EMA of tracking quality 0..1
-  res:null,                     // analysed data for plotting
-  usedAxis:"x",
-  tab:"pos",
-  lastPlot:0,
-  lastStat:0,
-  frame:null                    // ImageData of the current processing frame
+  stream:null, cameraOn:false, measuring:false,
+  model:{ kind:"blue" },         // what we look for: the blue ball, or a tapped colour
+  lock:null,                     // {x,y,r} in VIDEO pixels, or null = searching
+  vel:{x:0,y:0}, lastT:0, missing:0,
+  trail:[],
+  t:[], x:[], y:[], t0:null, frames:0, lost:0,
+  live:null, lastLive:0,
+  result:null, resultId:null, sentId:null, sending:false,
+  lastMedia:-1
 };
 
-const video   = $("video");
-const overlay = $("overlay");
-const octx    = overlay.getContext("2d");
-const stage   = $("stage");
-
-const proc = document.createElement("canvas");
-let pctx = null;
-try { pctx = proc.getContext("2d", { willReadFrequently:true }); }
-catch(e){ pctx = proc.getContext("2d"); }
+function status(msg, kind){ const el = $("status"); el.textContent = msg; el.className = kind || "info"; }
 
 /* =========================================================================
-   Status line
-   ========================================================================= */
-function status(msg, kind){
-  const el = $("status");
-  el.textContent = msg;
-  el.className = kind || "info";
-}
-
-/* =========================================================================
-   Colour model
+   DETECTION
    -------------------------------------------------------------------------
-   The model lives in normalised chromaticity (r,g,b divided by r+g+b), which
-   is largely insensitive to how brightly the marker happens to be lit.  The
-   spread measured in the tapped patch gives a lower bound on the tolerance,
-   so a speckled marker is not held to an impossibly tight match.
+   Nothing here assumes how big the ball is: people film the projector from
+   anywhere in the room, so it may be 6 pixels or 200 across. The search
+   finds the bluest compact blob at whatever size it is, and afterwards the
+   tracker sizes its search window from the ball's own measured radius.
+
+   Blueness = B - max(R,G): about zero on the white screen (even a bluish
+   projector white), large on the ball, and still positive on its shaded
+   side. The threshold is set from the ball itself (a fraction of its own
+   peak), so a washed-out or dim projection works too.
+
+   Centre = row-span centroid: each row of the blob is filled from its left
+   to its right edge (edges located to a fraction of a pixel by
+   interpolating the threshold crossing), so a white highlight or a dark
+   shadow inside the ball does not pull the centre sideways.
    ========================================================================= */
-function buildModel(data, w, h, px, py, rad){
-  const crs = [], cgs = [], sums = [];
-  const x0 = clamp(px-rad,0,w-1), x1 = clamp(px+rad,0,w-1);
-  const y0 = clamp(py-rad,0,h-1), y1 = clamp(py+rad,0,h-1);
-  for (let y = y0; y <= y1; y++){
-    let i = (y*w + x0)*4;
-    for (let x = x0; x <= x1; x++, i += 4){
-      const r = data[i], g = data[i+1], b = data[i+2];
-      const s = r + g + b;
-      if (s < 36) continue;                    // near-black: chromaticity is meaningless
-      crs.push(r/s); cgs.push(g/s); sums.push(s);
-    }
-  }
-  if (crs.length < 5) return null;
-  const cr = median(crs), cg = median(cgs), sum = median(sums);
-  const dev = [];
-  for (let i = 0; i < crs.length; i++){
-    const a = crs[i]-cr, b = cgs[i]-cg;
-    dev.push(Math.sqrt(a*a + b*b));
-  }
-  const spread = 1.4826 * median(dev);
-  const cb = 1 - cr - cg;
-  // how far the colour is from neutral grey – used to allow/deny blown-out pixels
-  const gr = 1/3;
-  const chroma = Math.sqrt((cr-gr)*(cr-gr) + (cg-gr)*(cg-gr) + (cb-gr)*(cb-gr));
-  return {
-    cr, cg, cb, sum, chroma,
-    spread: clamp(spread, 0.004, 0.08),
-    dark:   clamp(0.30*sum, 30, 110)
+function scoreFn(m){
+  if (m.kind === "blue") return (r,g,b) => b - (r > g ? r : g);
+  const tol = m.tol;
+  return (r,g,b) => {
+    const s = r + g + b;
+    if (s < 60) return -100;
+    const k = 1/s, dr = r*k - m.cr, dg = g*k - m.cg, db = b*k - m.cb;
+    return 100 * (1 - Math.sqrt(dr*dr + dg*dg + db*db) / tol);
   };
 }
+const minThr = m => m.kind === "blue" ? 28 : 25;
 
-// Chromatic tolerance actually used: the slider value expressed in chromaticity
-// units, but never tighter than the natural spread of the tapped patch.
-function tolFor(model, sliderTol, mul){
-  const base = sliderTol / Math.max(120, model.sum);
-  return clamp(Math.max(base, 2.2*model.spread) * mul, 0.02, 0.34);
-}
+let SC = null, LAB = null, STK = null, CAP = 0;
+function bufs(n){ if (n > CAP){ CAP = n; SC = new Float32Array(n); LAB = new Int32Array(n); STK = new Int32Array(n); } }
 
-function scoreOf(r, g, b, m, tol2){
-  const s = r + g + b;
-  if (s < m.dark) return 0;
-  if (m.chroma > 0.03 && r > 246 && g > 246 && b > 246) return 0;   // blown-out highlight
-  const k = 1/s;
-  const dr = r*k - m.cr, dg = g*k - m.cg, db = b*k - m.cb;
-  const d2 = dr*dr + dg*dg + db*db;
-  if (d2 >= tol2) return 0;
-  return 1 - d2/tol2;
-}
-
-/* =========================================================================
-   Connected-blob detection inside a window of the processing frame
-   ========================================================================= */
-let _sc = null, _lab = null, _stk = null, _cap = 0;
-function ensureBuf(n){
-  if (n > _cap){
-    _cap = n;
-    _sc  = new Float32Array(n);
-    _lab = new Uint8Array(n);
-    _stk = new Int32Array(n);
+// Score every pixel, choose a threshold from the image itself, label blobs.
+function blobs(img, w, h, model, maxBlobs){
+  const n = w*h; bufs(n);
+  const d = img.data, f = scoreFn(model);
+  const hist = new Uint32Array(512);
+  for (let i = 0, p = 0; i < n; i++, p += 4){
+    const s = f(d[p], d[p+1], d[p+2]); SC[i] = s;
+    hist[clamp(Math.round(s) + 256, 0, 511)]++;
   }
-}
+  // peak = the 8th-highest score: robust to a few hot pixels, independent of ball size
+  let cum = 0, peak = -256;
+  for (let k = 511; k >= 0; k--){ cum += hist[k]; if (cum >= 8){ peak = k - 256; break; } }
+  const thr = Math.max(minThr(model), 0.42 * peak);
+  if (peak < minThr(model) * 1.4) return { list:[], thr };
 
-const MEMBER = 0.18;            // minimum score for a pixel to join a blob
-
-function findBlobs(data, w, h, x0, y0, x1, y1, m, tol2, maxBlobs){
-  const rw = x1 - x0 + 1, rh = y1 - y0 + 1;
-  if (rw < 1 || rh < 1) return [];
-  const n = rw*rh;
-  ensureBuf(n);
-  const sc = _sc, lab = _lab, stk = _stk;
-  lab.fill(0, 0, n);
-
-  let any = false;
-  for (let y = 0; y < rh; y++){
-    let i = ((y+y0)*w + x0)*4;
-    let o = y*rw;
-    for (let x = 0; x < rw; x++, i += 4, o++){
-      const v = scoreOf(data[i], data[i+1], data[i+2], m, tol2);
-      sc[o] = v >= MEMBER ? v : 0;
-      if (v >= MEMBER) any = true;
-    }
-  }
-  if (!any) return [];
-
-  const blobs = [];
+  LAB.fill(0, 0, n);
+  const list = [];
   for (let seed = 0; seed < n; seed++){
-    if (!sc[seed] || lab[seed]) continue;
-    let sp = 0;
-    stk[sp++] = seed; lab[seed] = 1;
-    let sw = 0, sx = 0, sy = 0, area = 0, sr = 0, sg = 0, sb = 0;
-    let bx0 = rw, bx1 = 0, by0 = rh, by1 = 0;
-    while (sp > 0){
-      const p  = stk[--sp];
-      const py = (p / rw) | 0, pxx = p - py*rw;
-      const wgt = sc[p];
-      sw += wgt; sx += wgt*(pxx+0.5); sy += wgt*(py+0.5); area++;
-      const di = ((py+y0)*w + (pxx+x0))*4;
-      sr += data[di]; sg += data[di+1]; sb += data[di+2];
-      if (pxx < bx0) bx0 = pxx; if (pxx > bx1) bx1 = pxx;
-      if (py  < by0) by0 = py;  if (py  > by1) by1 = py;
-      for (let dy = -1; dy <= 1; dy++){
-        const ny = py + dy;
-        if (ny < 0 || ny >= rh) continue;
-        for (let dx = -1; dx <= 1; dx++){
-          const nx = pxx + dx;
-          if (nx < 0 || nx >= rw) continue;
-          const q = ny*rw + nx;
-          if (sc[q] && !lab[q]){ lab[q] = 1; stk[sp++] = q; }
-        }
-      }
+    if (SC[seed] < thr || LAB[seed]) continue;
+    const id = list.length + 1;
+    let sp = 0; STK[sp++] = seed; LAB[seed] = id;
+    let area = 0, sx = 0, sy = 0, ss = 0, x0 = w, x1 = 0, y0 = h, y1 = 0;
+    while (sp){
+      const p = STK[--sp], py = (p / w) | 0, px = p - py*w;
+      area++; sx += px; sy += py; ss += SC[p];
+      if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      if (px > 0     && SC[p-1] >= thr && !LAB[p-1]){ LAB[p-1] = id; STK[sp++] = p-1; }
+      if (px < w - 1 && SC[p+1] >= thr && !LAB[p+1]){ LAB[p+1] = id; STK[sp++] = p+1; }
+      if (py > 0     && SC[p-w] >= thr && !LAB[p-w]){ LAB[p-w] = id; STK[sp++] = p-w; }
+      if (py < h - 1 && SC[p+w] >= thr && !LAB[p+w]){ LAB[p+w] = id; STK[sp++] = p+w; }
     }
-    if (area < 3 || sw <= 0) continue;
-    blobs.push({
-      cx: x0 + sx/sw, cy: y0 + sy/sw,
-      area: area, q: sw/area,
-      r: sr/area, g: sg/area, b: sb/area,
-      rw: bx1-bx0+1, rh: by1-by0+1
-    });
-    if (blobs.length >= (maxBlobs || 64)) break;
+    list.push({ id, area, cx:sx/area + .5, cy:sy/area + .5, mean:ss/area, x0, x1, y0, y1 });
+    if (list.length >= (maxBlobs || 200)) break;
   }
-  return blobs;
+  return { list, thr };
 }
 
-/* =========================================================================
-   Tracker
-   ========================================================================= */
-function makeTracker(name, colour){
-  return {
-    name, colour,
-    model:null, anchor:null,
-    pos:null, vel:{x:0,y:0},
-    lastT:0, misses:0, lost:false,
-    ok:false, quality:0, area:0, areaExp:0,
-    trail:[], active:false, recovering:false
+// How much a blob looks like a ball: solid, round, and strongly coloured.
+function ballness(b){
+  const bw = b.x1 - b.x0 + 1, bh = b.y1 - b.y0 + 1;
+  const fill = b.area / (bw * bh);                      // 0.785 for a disc
+  const aspect = Math.min(bw, bh) / Math.max(bw, bh);
+  const round = clamp(1 - Math.abs(fill - 0.785) / 0.45, 0, 1) * aspect;
+  return b.mean * round * round * round;   // cubed: shapes that are not round lose hard. NO size term - the ball may be any size
+}
+
+// Sub-pixel centre of a blob by row spans (see the note above).
+function spanCentre(w, b, thr){
+  let A = 0, Ax = 0, Ay = 0;
+  for (let y = b.y0; y <= b.y1; y++){
+    let l = -1, r = -1;
+    const row = y*w;
+    for (let x = b.x0; x <= b.x1; x++) if (LAB[row + x] === b.id){ if (l < 0) l = x; r = x; }
+    if (l < 0) continue;
+    let le = l, re = r + 1;
+    if (l > 0){ const s0 = SC[row+l-1], s1 = SC[row+l]; if (s1 > s0) le = (l - .5) + clamp((thr - s0)/(s1 - s0), 0, 1); }
+    if (r < w-1){ const s0 = SC[row+r], s1 = SC[row+r+1]; if (s0 > s1) re = (r + .5) + clamp((s0 - thr)/(s0 - s1), 0, 1); }
+    const len = Math.max(0, re - le);
+    A += len; Ax += len * (le + re) / 2; Ay += len * (y + .5);
+  }
+  if (A <= 0) return null;
+  return { x: Ax/A, y: Ay/A, r: Math.sqrt(A / Math.PI) };
+}
+
+// Canvases: a small one for the whole-frame search, one for the close-up.
+const low = document.createElement("canvas"), roi = document.createElement("canvas");
+const lctx = low.getContext("2d", { willReadFrequently:true });
+const rctx = roi.getContext("2d", { willReadFrequently:true });
+const LOW_W = 480, ROI_MAX = 180;   // 480 wide: a ball only a few pixels across in a far-back seat is still resolved
+
+// Whole frame, two steps: the coarse image proposes the strongest blue blobs, then each
+// one is looked at in a full-resolution close-up and judged there — a ball only a few
+// pixels across is round up close, while letters and logos in the same blue are not.
+// near = a preferred point (a tap, or where the ball was last seen).
+function searchFrame(vw, vh, near){
+  const w = LOW_W, h = Math.max(2, Math.round(LOW_W * vh / vw));
+  if (low.width !== w || low.height !== h){ low.width = w; low.height = h; }
+  lctx.drawImage(video, 0, 0, w, h);
+  const img = lctx.getImageData(0, 0, w, h);
+  const { list } = blobs(img, w, h, S.model, 400);
+  const k = vw / w;
+  const cands = list.filter(b => b.area >= 2 && b.area <= 0.3*w*h);
+  // shortlist: the strongest by colour and the most ball-like at coarse scale
+  const byColour = cands.slice().sort((a,b) => b.mean*Math.sqrt(b.area) - a.mean*Math.sqrt(a.area)).slice(0, 8);
+  const byShape  = cands.slice().sort((a,b) => ballness(b) - ballness(a)).slice(0, 6);
+  const short = [...new Set(byColour.concat(byShape))];
+  // Text comes in rows of similar blobs; the ball hangs on its own. Count look-alike neighbours.
+  const crowd = b => {
+    const R = 2.5 * Math.max(b.x1 - b.x0 + 1, b.y1 - b.y0 + 1);
+    let n = 0;
+    for (const o of cands) if (o !== b && o.area > 0.2*b.area && o.area < 5*b.area && Math.hypot(o.cx - b.cx, o.cy - b.cy) < R) n++;
+    return n;
   };
-}
-const MARK = makeTracker("marker", "#00ff66");
-const REF  = makeTracker("reference", "#3aa0ff");
-
-function resetTracker(tr){
-  tr.model = tr.anchor = null;
-  tr.pos = null; tr.vel.x = tr.vel.y = 0;
-  tr.lastT = 0; tr.misses = 0; tr.lost = false;
-  tr.ok = false; tr.quality = 0; tr.area = tr.areaExp = 0;
-  tr.trail.length = 0; tr.active = false; tr.recovering = false;
-}
-
-// Rescale tracker geometry when the processing resolution changes.
-function rescaleTracker(tr, f){
-  if (!tr.active) return;
-  if (tr.pos){ tr.pos.x *= f; tr.pos.y *= f; }
-  tr.vel.x *= f; tr.vel.y *= f;
-  tr.areaExp *= f*f;
-  for (const p of tr.trail){ p.x *= f; p.y *= f; }
-}
-
-function acquire(tr, px, py, data, w, h){
-  const m = buildModel(data, w, h, px, py, 4);
-  if (!m) return false;
-  tr.model  = m;
-  tr.anchor = { cr:m.cr, cg:m.cg, cb:m.cb };
-  tr.active = true;
-  tr.pos = { x:px, y:py };
-  tr.vel.x = tr.vel.y = 0;
-  tr.lastT = 0; tr.misses = 0; tr.lost = false; tr.recovering = false;
-  tr.areaExp = 0; tr.trail.length = 0;
-
-  // immediately locate the blob so size and centre start out right
-  const R = Math.max(18, Math.round(w*0.12));
-  const tol = tolFor(m, sliderTol(), 1);
-  const blobs = findBlobs(data, w, h,
-    clamp(px-R,0,w-1), clamp(py-R,0,h-1), clamp(px+R,0,w-1), clamp(py+R,0,h-1),
-    m, tol*tol, 40);
-  const best = pickBlob(blobs, {x:px,y:py}, tr, R);
-  if (best){
-    tr.pos = { x:best.cx, y:best.cy };
-    tr.area = best.area;
-    tr.areaExp = best.area;
-    tr.quality = best.q;
-    tr.ok = true;
-  } else {
-    tr.ok = false;
-  }
-  return true;
-}
-
-function pickBlob(blobs, pred, tr, R){
   let best = null, bestS = 0;
-  for (const b of blobs){
-    let s = b.q;                                     // mean colour match
-    if (tr.areaExp > 0){
-      const rr = b.area / tr.areaExp;
-      s *= Math.sqrt(clamp(rr > 1 ? 1/rr : rr, 0.04, 1));
-    }
-    if (pred){
-      const dx = b.cx - pred.x, dy = b.cy - pred.y;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      s *= 1 / (1 + d / Math.max(6, R*0.6));
-    }
-    s *= Math.min(1, b.area/6);                      // ignore single-pixel speckle
-    if (s > bestS){ bestS = s; best = b; }
+  for (const b of short){
+    const c = refine(vw, vh, b.cx*k, b.cy*k, Math.max(2, Math.sqrt(b.area/Math.PI) * k), true);
+    if (!c) continue;
+    let s = c.ball / (1 + crowd(b));
+    if (near){ const dx = c.x - near.x, dy = c.y - near.y; s /= 1 + Math.sqrt(dx*dx + dy*dy) / (0.08 * vw); }
+    if (s > bestS){ bestS = s; best = c; }
   }
   return best;
 }
 
-function sliderTol(){ return Number($("tol").value) || 45; }
-
-// One tracking step on the current frame. Returns true if the marker was found.
-function trackerStep(tr, data, w, h, tNow, allowGlobal){
-  if (!tr.active || !tr.model) return false;
-
-  const dt = tr.lastT ? clamp((tNow - tr.lastT)/1000, 0.004, 0.25) : 0;
-  tr.lastT = tNow;
-
-  const step = { x: tr.vel.x*dt, y: tr.vel.y*dt };
-  const speed = Math.sqrt(step.x*step.x + step.y*step.y);
-  const rBase = Math.max(12, Math.round(w*0.09));
-  let pred = null;
-  if (tr.pos){
-    const cap = Math.max(rBase, 3*rBase);
-    const sx = clamp(step.x, -cap, cap), sy = clamp(step.y, -cap, cap);
-    pred = { x: clamp(tr.pos.x + sx, 0, w-1), y: clamp(tr.pos.y + sy, 0, h-1) };
-  }
-
-  // progressive search: tight window first, then wider and looser, then the
-  // whole frame once the marker has been missing for a couple of frames
-  const R1 = clamp(rBase + 2.5*speed + rBase*Math.min(tr.misses,3), rBase, Math.max(w,h));
-  const passes = [ {R:R1, mul:1.0, strict:true} ];
-  if (tr.misses >= 1) passes.push({ R:Math.min(R1*2.2, Math.max(w,h)), mul:1.25, strict:false });
-  if ((tr.misses >= 3 || !tr.pos) && allowGlobal) passes.push({ R:1e9, mul:1.55, strict:false });
-
-  let best = null, usedPass = null;
-  for (const p of passes){
-    const c  = pred || tr.pos || { x:w/2, y:h/2 };
-    const x0 = clamp(Math.round(c.x - p.R), 0, w-1), x1 = clamp(Math.round(c.x + p.R), 0, w-1);
-    const y0 = clamp(Math.round(c.y - p.R), 0, h-1), y1 = clamp(Math.round(c.y + p.R), 0, h-1);
-    const tol = tolFor(tr.model, sliderTol(), p.mul);
-    const blobs = findBlobs(data, w, h, x0, y0, x1, y1, tr.model, tol*tol, 64);
-    const cand = pickBlob(blobs, pred, tr, Math.min(p.R, Math.max(w,h)));
-    if (!cand) continue;
-    // a relaxed pass must produce a blob of believable size before it is trusted
-    if (!p.strict && tr.areaExp > 0){
-      const rr = cand.area / tr.areaExp;
-      if (rr < 0.25 || rr > 4.5) continue;
+// Close-up at full camera resolution around a predicted point: the accurate centre.
+// probe = true when we do not know the size yet (a candidate from searchFrame).
+function refine(vw, vh, cx, cy, r, probe){
+  const hs = clamp(3.2 * r + 6, 14, Math.min(vw, vh) * 0.45);
+  const sx = clamp(cx - hs, 0, vw - 2*hs), sy = clamp(cy - hs, 0, vh - 2*hs), side = 2*hs;
+  const n = Math.max(24, Math.min(ROI_MAX, Math.round(side)));
+  const f = n / side;
+  if (roi.width !== n){ roi.width = n; roi.height = n; }
+  rctx.drawImage(video, sx, sy, side, side, 0, 0, n, n);
+  const img = rctx.getImageData(0, 0, n, n);
+  const { list, thr } = blobs(img, n, n, S.model, 60);
+  const pcx = (cx - sx) * f, pcy = (cy - sy) * f, expA = Math.PI * (r*f) * (r*f);
+  let best = null, bestS = 0;
+  for (const b of list){
+    if (b.area < 3) continue;
+    if (!probe){
+      const ratio = b.area / expA;
+      if (ratio < 0.2 || ratio > 5) continue;         // relative to the ball's OWN size, never a fixed size
     }
-    best = cand; usedPass = p;
-    break;
+    const dx = b.cx - pcx, dy = b.cy - pcy;
+    const s = b.mean * b.area / (1 + Math.sqrt(dx*dx + dy*dy) / Math.max(3, r*f));
+    if (s > bestS){ bestS = s; best = b; }
   }
+  if (!best) return null;
+  const c = spanCentre(n, best, thr);
+  if (!c) return null;
+  // ball = how ball-like this is, judged at full resolution (scaled back to camera pixels)
+  // (a blob only a pixel or two across cannot show its shape, so it gets less trust)
+  return { x: sx + c.x / f, y: sy + c.y / f, r: c.r / f, ball: ballness(best) * Math.min(1, Math.sqrt(best.area) / f / 5) };
+}
 
-  if (!best){
-    tr.misses++;
-    tr.ok = false;
-    if (tr.pos && tr.misses <= 6){                  // coast along the last velocity
-      tr.pos.x = clamp(tr.pos.x + step.x*0.6, 0, w-1);
-      tr.pos.y = clamp(tr.pos.y + step.y*0.6, 0, h-1);
-      tr.vel.x *= 0.8; tr.vel.y *= 0.8;
-    } else {
-      tr.vel.x = tr.vel.y = 0;
+/* =========================================================================
+   ANALYSIS
+   ========================================================================= */
+function median(a){ if (!a.length) return 0; const s = a.slice().sort((p,q)=>p-q), m = s.length>>1; return s.length%2 ? s[m] : .5*(s[m-1]+s[m]); }
+function movingAverage(a, w){
+  const n = a.length, h = (w-1)>>1, o = new Array(n);
+  for (let i = 0; i < n; i++){ let s = 0, c = 0; for (let k = Math.max(0,i-h); k <= Math.min(n-1,i+h); k++){ s += a[k]; c++; } o[i] = s/c; }
+  return o;
+}
+
+// The swing is along an arc: project onto its main direction (largest variance).
+function principal(x, y){
+  const n = x.length; let mx = 0, my = 0;
+  for (let i = 0; i < n; i++){ mx += x[i]; my += y[i]; } mx /= n; my /= n;
+  let sxx = 0, syy = 0, sxy = 0;
+  for (let i = 0; i < n; i++){ const a = x[i]-mx, b = y[i]-my; sxx += a*a; syy += b*b; sxy += a*b; }
+  const th = 0.5 * Math.atan2(2*sxy, sxx - syy), ex = Math.cos(th), ey = Math.sin(th);
+  const u = new Array(n);
+  for (let i = 0; i < n; i++) u[i] = (x[i]-mx)*ex + (y[i]-my)*ey;
+  return u;
+}
+
+// Upward zero crossings (with hysteresis); the period is the slope of a
+// straight-line fit of crossing time against crossing number, so every crossing counts.
+function crossingFrequency(t, x){
+  const n = x.length; let mean = 0, mx = 0;
+  for (const v of x) mean += v; mean /= n;
+  const y = x.map(v => v - mean); for (const v of y) mx = Math.max(mx, Math.abs(v));
+  const band = 0.2 * mx, cross = [];
+  let armed = false;
+  for (let i = 1; i < n; i++){
+    if (y[i] < -band){ armed = true; continue; }
+    if (armed && y[i] > band){
+      let j = i; while (j > 0 && y[j-1] > 0) j--;
+      if (j > 0){ const y0 = y[j-1], y1 = y[j]; cross.push(t[j-1] + (-y0) * (t[j]-t[j-1]) / (y1 - y0)); }
+      armed = false;
     }
-    if (tr.misses > 8) tr.lost = true;
-    tr.recovering = tr.misses > 0;
-    return false;
   }
-
-  // accepted
-  const prev = tr.pos;
-  if (prev && dt > 0){
-    const vx = (best.cx - prev.x)/dt, vy = (best.cy - prev.y)/dt;
-    const k = tr.misses ? 0.5 : 0.65;               // trust a fresh re-acquisition less
-    tr.vel.x = k*vx + (1-k)*tr.vel.x;
-    tr.vel.y = k*vy + (1-k)*tr.vel.y;
+  if (cross.length < 3) return null;
+  const per = []; for (let i = 1; i < cross.length; i++) per.push(cross[i] - cross[i-1]);
+  const med = median(per);
+  if (per.some(p => p < 0.6*med || p > 1.4*med)){       // a missed or doubled crossing: use the clean periods only
+    const good = per.filter(p => p > 0.6*med && p < 1.4*med);
+    if (good.length < 2) return null;
+    const T = good.reduce((a,b)=>a+b,0) / good.length;
+    return { hz:1/T, periods:good.length };
   }
-  tr.pos = { x:best.cx, y:best.cy };
-  tr.area = best.area;
-  tr.quality = best.q;
-  tr.ok = true;
-  tr.misses = 0;
-  tr.lost = false;
-  tr.recovering = (usedPass && !usedPass.strict);
+  const m = cross.length; let si = 0, st = 0, sii = 0, sit = 0;
+  for (let i = 0; i < m; i++){ si += i; st += cross[i]; sii += i*i; sit += i*cross[i]; }
+  const T = (m*sit - si*st) / (m*sii - si*si);
+  return (T > 0) ? { hz:1/T, periods:m-1 } : null;
+}
 
-  // slow, bounded adaptation of the colour model and the expected blob size
-  if (!tr.recovering && best.q > 0.45){
-    const s = best.r + best.g + best.b;
-    if (s > tr.model.dark){
-      const cr = best.r/s, cg = best.g/s;
-      const rate = 0.04;
-      let ncr = tr.model.cr + rate*(cr - tr.model.cr);
-      let ncg = tr.model.cg + rate*(cg - tr.model.cg);
-      // never drift further than half a tolerance away from the tapped colour
-      const lim = 0.5 * tolFor(tr.model, sliderTol(), 1);
-      const dx = ncr - tr.anchor.cr, dy = ncg - tr.anchor.cg;
-      const d  = Math.sqrt(dx*dx + dy*dy);
-      if (d > lim){ const f = lim/d; ncr = tr.anchor.cr + dx*f; ncg = tr.anchor.cg + dy*f; }
-      tr.model.cr = ncr; tr.model.cg = ncg; tr.model.cb = 1 - ncr - ncg;
-      tr.model.sum += 0.04*(s - tr.model.sum);
-      tr.model.dark = clamp(0.30*tr.model.sum, 30, 110);
-    }
-    tr.areaExp = tr.areaExp ? tr.areaExp + 0.06*(best.area - tr.areaExp) : best.area;
-  }
-
-  tr.trail.push({ x:tr.pos.x, y:tr.pos.y });
-  if (tr.trail.length > 45) tr.trail.shift();
-  return true;
+function estimate(){
+  const n = S.t.length;
+  if (n < 20) return null;
+  const u = movingAverage(principal(S.x, S.y), 3);
+  let mean = 0; for (const v of u) mean += v; mean /= n;
+  let rms = 0; for (const v of u) rms += (v-mean)*(v-mean); rms = Math.sqrt(rms/n);
+  if (rms < 0.5) return null;
+  const f = crossingFrequency(S.t, u);
+  if (!f || !(f.hz > 0.02 && f.hz < 30)) return null;
+  return { hz:f.hz, periods:f.periods, amp:rms*Math.SQRT2, u };
 }
 
 /* =========================================================================
@@ -781,690 +329,297 @@ function trackerStep(tr, data, w, h, tNow, allowGlobal){
    ========================================================================= */
 async function startCamera(){
   if (S.cameraOn) return;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    status("Camera not available in this browser. Use the Demo button.", "warn");
-    return;
-  }
-  $("btnCam").disabled = true;
-  status("Starting camera…", "info");
-  try{
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ status("No camera in this browser", "warn"); return; }
+  $("bCam").disabled = true; status("Starting camera…");
+  try {
     S.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:{ ideal:"environment" }, width:{ ideal:1280 }, height:{ ideal:720 } },
-      audio: false
-    });
-  }catch(err){
-    $("btnCam").disabled = false;
-    const name = (err && err.name) || "";
-    if (name === "NotAllowedError" || name === "SecurityError")
-      status("Camera permission denied. Allow camera access, or use Demo.", "warn");
-    else if (name === "NotFoundError" || name === "OverconstrainedError")
-      status("No usable camera found. Use the Demo button.", "warn");
-    else
-      status("Could not start the camera. Use the Demo button.", "warn");
+      video:{ facingMode:{ ideal:"environment" }, width:{ ideal:1280 }, height:{ ideal:720 }, frameRate:{ ideal:60 } }, audio:false });
+  } catch(err){
+    $("bCam").disabled = false;
+    status((err && err.name === "NotAllowedError") ? "Camera permission denied – allow it and press CAMERA" : "Could not start the camera", "warn");
     return;
   }
   video.srcObject = S.stream;
-  try { await video.play(); } catch(e){ /* iOS sometimes resolves late; loop handles it */ }
+  try { await video.play(); } catch(e){}
+  // A bright projector makes phones over-expose; darken a little where the phone allows it.
+  try {
+    const tr = S.stream.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {};
+    if (cap.exposureCompensation) await tr.applyConstraints({ advanced:[{ exposureCompensation: Math.max(cap.exposureCompensation.min, -1) }] });
+  } catch(e){}
+  try { if (navigator.wakeLock) S.wake = await navigator.wakeLock.request("screen"); } catch(e){}
   S.cameraOn = true;
-  S.demo = false;
-  $("demoBadge").classList.remove("on");
   $("placeholder").style.display = "none";
-  $("btnCam").textContent = "Camera On";
-  $("btnCam").disabled = true;
-  S.tapMode = "marker";
-  status("Tap the coloured marker in the image", "info");
-  updateButtons();
+  status("Looking for the blue ball…");
+  buttons();
   scheduleFrame();
 }
-
 function stopCamera(){
-  if (S.stream){ S.stream.getTracks().forEach(tr => { try{ tr.stop(); }catch(e){} }); }
+  if (S.stream) S.stream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
   S.stream = null; S.cameraOn = false;
-  try{ video.srcObject = null; }catch(e){}
 }
 
 /* =========================================================================
-   Geometry: element <-> video-frame <-> processing-canvas
-   ========================================================================= */
-function geom(){
-  const vw = video.videoWidth || 0, vh = video.videoHeight || 0;
-  const r  = video.getBoundingClientRect();
-  if (!vw || !vh || !r.width || !r.height) return null;
-  const scale = Math.min(r.width / vw, r.height / vh);   // object-fit: contain
-  return {
-    vw, vh, rect:r, scale,
-    offX: (r.width  - vw*scale) / 2,
-    offY: (r.height - vh*scale) / 2
-  };
-}
-const toVideoX = (g,x) => x * g.vw / proc.width;
-const toVideoY = (g,y) => y * g.vh / proc.height;
-
-/* =========================================================================
-   Tapping
-   ========================================================================= */
-stage.addEventListener("click", onTap, false);
-
-function onTap(ev){
-  if (!S.cameraOn || !pctx || !S.frame) return;
-  const g = geom();
-  if (!g) return;
-  const cx = ev.clientX - g.rect.left - g.offX;
-  const cy = ev.clientY - g.rect.top  - g.offY;
-  const fx = cx / g.scale, fy = cy / g.scale;                  // video-frame px
-  if (fx < 0 || fy < 0 || fx >= g.vw || fy >= g.vh) return;
-  const px = Math.round(fx * proc.width  / g.vw);
-  const py = Math.round(fy * proc.height / g.vh);
-
-  const tr = (S.tapMode === "ref") ? REF : MARK;
-  const okAcq = acquire(tr, px, py, S.frame.data, proc.width, proc.height);
-  if (!okAcq){
-    status("That patch is too dark to track – pick a brighter, more colourful point", "warn");
-    return;
-  }
-  if (S.tapMode === "ref"){
-    S.tapMode = "marker";
-    if (S.measuring) S.refBase = { x:toVideoX(g,REF.pos.x), y:toVideoY(g,REF.pos.y) };
-    status("Reference set – camera shake will be subtracted", "ok");
-  } else {
-    status(S.measuring ? "Measuring…" : "Marker selected – press Start Measurement", "ok");
-  }
-  updateButtons();
-}
-
-/* =========================================================================
-   Main frame loop – driven by real video frames where the browser allows it
+   Frame loop
    ========================================================================= */
 const hasRVFC = typeof video.requestVideoFrameCallback === "function";
-let framePending = false;
-
+let pending = false;
 function scheduleFrame(){
-  if (framePending || !S.cameraOn) return;
-  framePending = true;
-  if (hasRVFC) video.requestVideoFrameCallback((now)=>{ framePending = false; onFrame(now); });
-  else requestAnimationFrame((now)=>{ framePending = false; onFrame(now); });
+  if (pending || !S.cameraOn) return;
+  pending = true;
+  if (hasRVFC) video.requestVideoFrameCallback((now, meta) => { pending = false; onFrame(now, meta); });
+  else requestAnimationFrame(now => { pending = false; onFrame(now, null); });
 }
 
-let lastProc = 0;
-
-function onFrame(now){
-  if (!S.cameraOn){ octx.clearRect(0,0,overlay.width,overlay.height); return; }
+function onFrame(now, meta){
+  if (!S.cameraOn) return;
   scheduleFrame();
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return;
 
-  if (!hasRVFC){
-    if (now - lastProc < 22) return;               // cap the rAF path at ~45 Hz
-    lastProc = now;
+  // the frame's own timestamp where the browser gives it; otherwise the callback time
+  let tms = now;
+  if (meta && fin(meta.mediaTime) && meta.mediaTime > 0){
+    if (meta.mediaTime === S.lastMedia) return;        // same frame delivered twice
+    S.lastMedia = meta.mediaTime; tms = meta.mediaTime * 1000;
   }
 
-  const g = geom();
-  if (!g) return;
-
-  // keep the analysis canvas matched to the stream aspect ratio
-  const pw = S.procW, ph = Math.max(1, Math.round(S.procW * g.vh / g.vw));
-  if (proc.width !== pw || proc.height !== ph){
-    const f = proc.width ? pw / proc.width : 1;
-    proc.width = pw; proc.height = ph;
-    if (f !== 1){ rescaleTracker(MARK, f); rescaleTracker(REF, f); }
-  }
-
-  // keep the overlay canvas matched to the displayed element
-  const dw = Math.round(g.rect.width), dh = Math.round(g.rect.height);
-  if (overlay.width !== dw || overlay.height !== dh){ overlay.width = dw; overlay.height = dh; }
-
-  try { pctx.drawImage(video, 0, 0, pw, ph); }
-  catch(e){ return; }
-  try { S.frame = pctx.getImageData(0, 0, pw, ph); }
-  catch(e){ return; }
-
-  S.frameCount++;
-  const allowGlobal = (S.frameCount % 3) === 0;    // full-frame rescans are expensive
-
-  const t0 = performance.now();
-  const wasLost = MARK.lost;
-  const hadMark = MARK.active;
-  if (REF.active)  trackerStep(REF,  S.frame.data, pw, ph, now, allowGlobal);
-  if (MARK.active) trackerStep(MARK, S.frame.data, pw, ph, now, allowGlobal);
-  const scanMs = performance.now() - t0;
-  S.scanMs = S.scanMs ? S.scanMs*0.9 + scanMs*0.1 : scanMs;
-  tuneResolution(now);
-
-  octx.clearRect(0, 0, overlay.width, overlay.height);
-  if (REF.active)  drawTracker(g, REF, false);
-  if (MARK.active) drawTracker(g, MARK, true);
-
-  if (hadMark){
-    if (MARK.ok && wasLost){
-      status(S.measuring ? "Measuring…" : "Tracking", S.measuring ? "ok" : "info");
-    } else if (MARK.lost && !wasLost){
-      status("Marker lost – tap it again, or hold it in view", "warn");
+  let found = null;
+  try {
+    if (S.lock){
+      const dt = S.lastT ? clamp((tms - S.lastT)/1000, 0, 0.2) : 0;
+      const px = S.lock.x + S.vel.x*dt, py = S.lock.y + S.vel.y*dt;
+      found = refine(vw, vh, px, py, S.lock.r);
+      if (!found && S.missing >= 3){                    // lost it: look over the whole frame, preferring where it was
+        const g = searchFrame(vw, vh, S.lock);
+        if (g) found = refine(vw, vh, g.x, g.y, g.r) || g;
+      }
+    } else {
+      const g = searchFrame(vw, vh, null);
+      if (g) found = refine(vw, vh, g.x, g.y, g.r) || g;
     }
+  } catch(e){ return; }
+
+  if (found){
+    if (S.lock && S.lastT){
+      const dt = (tms - S.lastT)/1000;
+      if (dt > 0 && dt < 0.2){
+        const k = 0.6;
+        S.vel.x = k*(found.x - S.lock.x)/dt + (1-k)*S.vel.x;
+        S.vel.y = k*(found.y - S.lock.y)/dt + (1-k)*S.vel.y;
+      }
+    }
+    const firstLock = !S.lock;
+    S.lock = { x:found.x, y:found.y, r: S.lock ? 0.8*S.lock.r + 0.2*found.r : found.r };
+    S.missing = 0;
+    S.trail.push({ x:found.x, y:found.y }); if (S.trail.length > 50) S.trail.shift();
+    if (firstLock && !S.measuring){ status("Ball found – press START", "ok"); buttons(); }
+  } else {
+    S.missing++; S.vel.x *= 0.7; S.vel.y *= 0.7;
+    if (S.missing > 20 && S.lock){ S.lock = null; S.trail.length = 0; if (!S.measuring) status("Looking for the blue ball…"); buttons(); }
   }
+  S.lastT = tms;
 
   if (S.measuring){
-    if (MARK.ok) record(now, g);
-    else S.dropped++;
+    if (S.t0 === null) S.t0 = tms;
+    S.frames++;
+    if (found){ S.t.push((tms - S.t0)/1000); S.x.push(found.x); S.y.push(found.y); }
+    else S.lost++;
+    if (now - S.lastLive > 400){ S.lastLive = now; S.live = estimate(); }
+    if (S.t.length > 30000) stop();
   }
+  draw(vw, vh, found);
 }
 
-// Keep the analysis resolution as high as this phone can actually sustain.
-function tuneResolution(now){
-  if (now - S.lastTune < 1200) return;
-  S.lastTune = now;
-  if (S.scanMs > 13 && S.procW > PROC_MIN)      S.procW = Math.max(PROC_MIN, Math.round(S.procW*0.85/2)*2);
-  else if (S.scanMs < 5 && S.procW < PROC_MAX)  S.procW = Math.min(PROC_MAX, Math.round(S.procW*1.12/2)*2);
+/* =========================================================================
+   Overlay: the ring on the ball and the frequency, top left
+   ========================================================================= */
+function geom(vw, vh){
+  const r = video.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  const sc = Math.min(r.width/vw, r.height/vh);
+  return { sc, ox: (r.left - sr.left) + (r.width - vw*sc)/2, oy: (r.top - sr.top) + (r.height - vh*sc)/2, sr };
 }
 
-function drawTracker(g, tr, main){
-  if (!tr.pos) return;
-  const map = p => ({
-    x: g.offX + toVideoX(g, p.x) * g.scale,
-    y: g.offY + toVideoY(g, p.y) * g.scale
-  });
-  const c = map(tr.pos);
+function draw(vw, vh, found){
+  const g = geom(vw, vh), dpr = Math.min(2, devicePixelRatio || 1);
+  const W = Math.round(g.sr.width*dpr), H = Math.round(g.sr.height*dpr);
+  if (overlay.width !== W || overlay.height !== H){ overlay.width = W; overlay.height = H; }
+  octx.setTransform(dpr,0,0,dpr,0,0);
+  octx.clearRect(0, 0, g.sr.width, g.sr.height);
+  const P = p => ({ x: g.ox + p.x*g.sc, y: g.oy + p.y*g.sc });
 
-  if (main && tr.trail.length > 2){
-    octx.strokeStyle = "rgba(0,255,102,.45)";
-    octx.lineWidth = 2;
-    octx.beginPath();
-    for (let i = 0; i < tr.trail.length; i++){
-      const p = map(tr.trail[i]);
-      if (i === 0) octx.moveTo(p.x, p.y); else octx.lineTo(p.x, p.y);
-    }
+  if (S.trail.length > 2){
+    octx.strokeStyle = "rgba(255,210,0,.7)"; octx.lineWidth = 2; octx.beginPath();
+    S.trail.forEach((p,i) => { const q = P(p); i ? octx.lineTo(q.x, q.y) : octx.moveTo(q.x, q.y); });
     octx.stroke();
   }
-
-  const col = tr.ok ? (tr.recovering ? "#ffb000" : tr.colour) : "#ff3b30";
-  const R = main ? 18 : 13;
-  octx.setLineDash(tr.ok ? [] : [5,4]);
-  octx.lineWidth = main ? 3 : 2;
-  octx.strokeStyle = col;
-  octx.beginPath(); octx.arc(c.x, c.y, R, 0, Math.PI*2); octx.stroke();
-  octx.beginPath();
-  octx.moveTo(c.x - R - 8, c.y); octx.lineTo(c.x - 4, c.y);
-  octx.moveTo(c.x + 4, c.y);     octx.lineTo(c.x + R + 8, c.y);
-  octx.moveTo(c.x, c.y - R - 8); octx.lineTo(c.x, c.y - 4);
-  octx.moveTo(c.x, c.y + 4);     octx.lineTo(c.x, c.y + R + 8);
-  octx.stroke();
-  octx.setLineDash([]);
-  if (!main){
-    octx.fillStyle = col;
-    octx.font = "bold 11px -apple-system,sans-serif";
-    octx.fillText("REF", c.x + R + 6, c.y - R - 2);
-  }
-}
-
-function record(now, g){
-  let vx = toVideoX(g, MARK.pos.x);
-  let vy = toVideoY(g, MARK.pos.y);
-  if (!fin(vx) || !fin(vy)) return;
-
-  // subtract camera shake measured on the stationary reference marker
-  if (S.refBase && REF.active && REF.pos && !REF.lost){
-    vx -= toVideoX(g, REF.pos.x) - S.refBase.x;
-    vy -= toVideoY(g, REF.pos.y) - S.refBase.y;
+  if (S.lock){
+    const c = P(S.lock), R = Math.max(10, S.lock.r * g.sc + 6);
+    octx.strokeStyle = found ? "#00e676" : "#ff3b30"; octx.lineWidth = 3;
+    octx.setLineDash(found ? [] : [6,5]);
+    octx.beginPath(); octx.arc(c.x, c.y, R, 0, 2*Math.PI); octx.stroke(); octx.setLineDash([]);
+    octx.beginPath(); octx.moveTo(c.x-4, c.y); octx.lineTo(c.x+4, c.y); octx.moveTo(c.x, c.y-4); octx.lineTo(c.x, c.y+4); octx.stroke();
   }
 
-  if (S.p0 === null) S.p0 = { x:vx, y:vy };
-  const t = (now - S.t0) / 1000;
-  if (!fin(t) || t < 0) return;
-  if (S.t.length >= MAX_SAMPLES){ stopMeasurement("Measurement limit reached"); return; }
-  S.t.push(t);
-  S.px.push(vx - S.p0.x);
-  S.py.push(vy - S.p0.y);
-  S.qual = S.qual ? S.qual*0.95 + MARK.quality*0.05 : MARK.quality;
-
-  if (now - S.lastPlot > 250){
-    S.lastPlot = now;
-    S.res = analyse(S.t, chooseAxis(), Number($("smooth").value) || 5);
-    drawChart();
+  // frequency box, top left
+  let big, small;
+  if (S.measuring){
+    const secs = S.t.length ? S.t[S.t.length-1] : 0;
+    big = S.live ? S.live.hz.toFixed(2) + " Hz" : "– Hz";
+    small = "measuring " + secs.toFixed(0) + " s" + (S.live ? " · " + S.live.periods + " swings" : "");
+  } else if (S.result){
+    big = S.result.frequency_hz.toFixed(2) + " Hz";
+    small = "period " + S.result.period_s.toFixed(2) + " s · " + S.result.periods + " swings";
+  } else {
+    big = "– Hz"; small = S.lock ? "ball found" : "looking for the blue ball";
   }
-  if (now - S.lastStat > 250){
-    S.lastStat = now;
-    liveStats(t);
-  }
+  const fs = clamp(g.sr.width / 11, 22, 46);
+  const F1 = "700 " + fs + "px -apple-system,Segoe UI,Roboto,sans-serif", F2 = "500 " + (fs*0.36) + "px -apple-system,Segoe UI,Roboto,sans-serif";
+  octx.font = F1; const w1 = octx.measureText(big).width;
+  octx.font = F2; const w2 = octx.measureText(small).width;
+  const bw = Math.max(w1, w2) + fs*0.6, bh = fs*1.65;
+  octx.fillStyle = "rgba(0,0,0,.62)"; roundRect(8, 8, bw, bh, 10); octx.fill();
+  octx.textBaseline = "top";
+  octx.font = F1; octx.fillStyle = "#fff"; octx.fillText(big, 8 + fs*0.3, 8 + fs*0.12);
+  octx.font = F2; octx.fillStyle = "#ddd"; octx.fillText(small, 8 + fs*0.3, 8 + fs*1.15);
 }
-
-// Which recorded direction carries the oscillation.
-function chooseAxis(){
-  const mode = $("axis").value;
-  let use = mode;
-  if (mode === "auto"){
-    use = (variance(S.py) > variance(S.px)) ? "y" : "x";
-  }
-  S.usedAxis = use;
-  $("axisVal").textContent = (mode === "auto")
-    ? "auto → " + (use === "y" ? "vertical" : "horizontal")
-    : (use === "y" ? "vertical" : "horizontal");
-  return use === "y" ? S.py : S.px;
-}
-
-function variance(a){
-  const n = a.length;
-  if (n < 2) return 0;
-  let m = 0;
-  for (let i = 0; i < n; i++) m += a[i];
-  m /= n;
-  let s = 0;
-  for (let i = 0; i < n; i++){ const d = a[i]-m; s += d*d; }
-  return s/n;
-}
-
-function liveStats(t){
-  $("sTime").textContent   = fmt(t, 1) + " s";
-  $("sFrames").textContent = String(S.t.length);
-  $("sFps").textContent    = (t > 0.5) ? fmt(S.t.length / t, 1) + " fps" : "–";
-  $("sAmp").textContent    = "–";
-  $("sQual").textContent   = qualText();
-  $("sDrop").textContent   = String(S.dropped);
-}
-
-function qualText(){
-  if (!S.qual) return "–";
-  const pct = Math.round(clamp(S.qual, 0, 1) * 100);
-  const word = pct > 65 ? "good" : (pct > 40 ? "fair" : "weak");
-  return pct + "% · " + word;
-}
+function roundRect(x, y, w, h, r){ octx.beginPath(); octx.moveTo(x+r,y); octx.arcTo(x+w,y,x+w,y+h,r); octx.arcTo(x+w,y+h,x,y+h,r); octx.arcTo(x,y+h,x,y,r); octx.arcTo(x,y,x+w,y,r); octx.closePath(); }
 
 /* =========================================================================
-   Measurement control
+   Tap: point the tracker at what you touched
    ========================================================================= */
-function startMeasurement(){
-  if (S.demo) resetAll(true);
-  if (!S.cameraOn){ status("Start the camera first", "warn"); return; }
-  if (!MARK.active){ status("Tap the marker first", "warn"); return; }
-  S.t = []; S.px = []; S.py = []; S.p0 = null; S.res = null;
-  S.dropped = 0; S.qual = 0;
-  S.result = null; S.resultId = newId();
-  S.t0 = performance.now();
-  S.measuring = true;
-  S.lastPlot = 0; S.lastStat = 0;
-  const g = geom();
-  S.refBase = (g && REF.active && REF.pos && !REF.lost)
-    ? { x:toVideoX(g,REF.pos.x), y:toVideoY(g,REF.pos.y) } : null;
-  $("freq").textContent = "–";
-  $("freqNote").textContent = "Measuring…";
-  $("demoBadge").classList.remove("on");
-  status("Measuring…", "ok");
-  updateButtons();
-  drawChart();
+stage.addEventListener("pointerdown", ev => {
+  if (!S.cameraOn) return;
+  const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
+  const g = geom(vw, vh);
+  const x = (ev.clientX - g.sr.left - g.ox) / g.sc, y = (ev.clientY - g.sr.top - g.oy) / g.sc;
+  if (x < 0 || y < 0 || x >= vw || y >= vh) return;
+
+  // What is under the finger? A fingertip covers far more than a small ball, so do not
+  // average the patch (that would be the white screen): look for the most colourful pixels in it.
+  const side = Math.max(10, Math.round(Math.min(vw, vh) * 0.04));
+  const N = 40;
+  roi.width = roi.height = N;
+  rctx.drawImage(video, clamp(x - side, 0, vw - 2*side), clamp(y - side, 0, vh - 2*side), 2*side, 2*side, 0, 0, N, N);
+  const d = rctx.getImageData(0, 0, N, N).data, px = [];
+  let blueMax = -999;
+  for (let i = 0; i < d.length; i += 4){
+    const r = d[i], g = d[i+1], b = d[i+2];
+    blueMax = Math.max(blueMax, b - Math.max(r, g));
+    px.push({ r, g, b, sat: Math.max(r, g, b) - Math.min(r, g, b) });
+  }
+  if (blueMax >= 30){
+    S.model = { kind:"blue" };                                  // there is blue under the finger: it is the ball
+  } else {
+    px.sort((a, b) => b.sat - a.sat);
+    const top = px.slice(0, Math.max(6, px.length >> 4));        // the most colourful 1/16 of the patch
+    if (top[0].sat < 30){ status("Nothing to track there – tap right on the ball", "warn"); return; }
+    const r = median(top.map(p => p.r)), gg = median(top.map(p => p.g)), b = median(top.map(p => p.b)), s = r + gg + b;
+    S.model = { kind:"colour", cr:r/s, cg:gg/s, cb:b/s, tol:0.06 };
+  }
+
+  // A tap means "this one": take the blob under the finger; only if there is none, the nearest good one.
+  let hit = refine(vw, vh, x, y, side / 2, true);
+  if (hit && Math.hypot(hit.x - x, hit.y - y) > side * 1.5) hit = null;
+  if (!hit){
+    hit = searchFrame(vw, vh, { x, y });
+    if (hit && Math.hypot(hit.x - x, hit.y - y) > Math.min(vw, vh) * 0.25) hit = null;   // too far from the finger
+  }
+  if (hit){
+    S.lock = hit; S.vel.x = S.vel.y = 0; S.missing = 0; S.trail.length = 0;
+    if (!S.measuring) status("Locked on what you tapped – press START", "ok");
+  } else {
+    status("Nothing to track there – tap right on the ball", "warn");
+  }
+  buttons();
+});
+
+/* =========================================================================
+   START / STOP / SUBMIT
+   ========================================================================= */
+function newId(){
+  try { if (crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === "x" ? r : (r&3|8)).toString(16); });
 }
 
-function stopMeasurement(note){
+function start(){
+  if (!S.cameraOn || !S.lock) return;
+  S.t = []; S.x = []; S.y = []; S.t0 = null; S.frames = 0; S.lost = 0;
+  S.live = null; S.result = null; S.resultId = newId();
+  S.measuring = true;
+  status("Measuring – let it swing a few times, then STOP", "ok");
+  buttons();
+}
+
+function stop(){
   if (!S.measuring) return;
   S.measuring = false;
-  const dur = S.t.length ? S.t[S.t.length-1] : 0;
-  finish(dur, note);
-  updateButtons();
-}
-
-function finish(dur, note){
-  const win = Number($("smooth").value) || 5;
-  S.res = analyse(S.t, chooseAxis(), win);
-  drawChart();
-
-  $("sTime").textContent   = fmt(dur, 1) + " s";
-  $("sFrames").textContent = String(S.t.length);
-  $("sFps").textContent    = (dur > 0.2) ? fmt(S.t.length / dur, 1) + " fps" : "–";
-  $("sQual").textContent   = S.demo ? "–" : qualText();
-  $("sDrop").textContent   = S.demo ? "–" : String(S.dropped);
-
-  if (S.t.length < 20){
-    $("freq").textContent = "–";
-    $("freqNote").textContent = note || "Not enough data – let it swing longer";
-    $("sAmp").textContent = "–";
-    setResult(null);
-    status("Stopped", "info");
-    return;
-  }
-
-  const f = estimateFrequency(S.res.t, S.res.x);
-  $("sAmp").textContent = fin(f.amp) ? fmt(f.amp, 0) + " px" : "–";
-  if (f.hz === null){
-    $("freq").textContent = "–";
-    $("freqNote").textContent = f.reason || "Not enough oscillations to measure frequency";
-    setResult(null);
+  const e = estimate(), dur = S.t.length ? S.t[S.t.length-1] : 0;
+  if (!e){
+    S.result = null;
+    status(S.t.length < 20 ? "Too short – measure a few swings" : "No clear swinging found – try again", "warn");
   } else {
-    $("freq").textContent = fmt(f.hz, 2) + " Hz";
-    $("freqNote").textContent = "from " + f.periods + " periods · period " + fmt(1/f.hz, 2) +
-                               " s · " + f.method;
-    setResult(f, dur, win);
+    const step = Math.max(1, Math.ceil(S.t.length / 200)), tt = [], xx = [];
+    for (let i = 0; i < S.t.length; i += step){ tt.push(Math.round(S.t[i]*1000)/1000); xx.push(Math.round(e.u[i]*10)/10); }
+    S.result = {
+      frequency_hz:   Math.round(e.hz*1000)/1000,
+      period_s:       Math.round(1000/e.hz)/1000,
+      periods:        e.periods,
+      method:         "zero crossings, line fit",
+      amplitude_px:   Math.round(e.amp),
+      ball_radius_px: S.lock ? Math.round(S.lock.r*10)/10 : null,
+      duration_s:     Math.round(dur*100)/100,
+      frames:         S.frames,
+      fps:            dur > 0.2 ? Math.round(10*S.t.length/dur)/10 : null,
+      quality_pct:    S.frames ? Math.round(100*S.t.length/S.frames) : null,
+      frames_lost:    S.lost,
+      axis:           "principal",
+      target:         S.model.kind,
+      demo:           false,
+      trace:          { t:tt, x:xx }
+    };
+    status("Measured " + e.hz.toFixed(2) + " Hz – press SUBMIT", "ok");
   }
-  status(note || "Measurement finished", "info");
+  buttons();
 }
 
-/* =========================================================================
-   Send the result to the presentation  (Teaching Hub on Supabase)
-   -------------------------------------------------------------------------
-   Only switched on when the page is opened as  ...?send=<app>  (the QR code
-   on the presentation slide does that), so the public tool is unchanged for
-   everyone else. Sends numbers and a thinned x(t) trace – never video, never
-   a name. The publishable key can only ADD a result; it cannot read anything.
-   Backend: EDU - COURSES/Teaching Hub (Supabase)/teaching-hub-setup.sql
-   ========================================================================= */
-const HUB = {
-  url: "https://waktaohjndbhswareqzk.supabase.co",
-  key: "sb_publishable_w3U495HfA5hOYZrMUETBpA_uyX7EIgg"
-};
-const SEND_APP = (function(){
-  try {
-    const a = new URLSearchParams(location.search).get("send");
-    return (a && /^[a-z0-9][a-z0-9-]{1,47}$/.test(a)) ? a : null;
-  } catch(e){ return null; }
-})();
-
-function newId(){
-  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
-    const r = Math.random()*16|0; return (c === "x" ? r : (r&3|8)).toString(16);
-  });
-}
-const r3 = v => fin(v) ? Math.round(v*1000)/1000 : null;
-
-// Called by finish(): the latest analysed measurement, or null.
-function setResult(f, dur, win){
-  if (!f){ S.result = null; updateSend(); return; }
-  const n = S.res.t.length, step = Math.max(1, Math.ceil(n / 200));
-  const tt = [], xx = [];
-  for (let i = 0; i < n; i += step){ tt.push(r3(S.res.t[i])); xx.push(Math.round(S.res.x[i]*10)/10); }
-  S.result = {
-    frequency_hz: r3(f.hz),
-    period_s:     r3(1/f.hz),
-    periods:      f.periods,
-    method:       f.method,
-    amplitude_px: fin(f.amp) ? Math.round(f.amp) : null,
-    duration_s:   r3(dur),
-    frames:       S.t.length,
-    fps:          dur > 0.2 ? Math.round(10*S.t.length/dur)/10 : null,
-    quality_pct:  S.demo ? null : Math.round(clamp(S.qual,0,1)*100),
-    frames_lost:  S.demo ? null : S.dropped,
-    axis:         S.usedAxis,
-    smoothing:    win,
-    anti_shake:   !!(S.refBase && REF.active),
-    demo:         !!S.demo,
-    trace:        { t: tt, x: xx }
-  };
-  updateSend();
-}
-
-function sendMsg(text, kind){ const el = $("sendMsg"); el.textContent = text; el.className = kind || ""; }
-
-function updateSend(){
-  if (!SEND_APP) return;
-  const b = $("btnSend");
-  b.disabled = !S.result || S.measuring || S.sending;
-  if (S.measuring){ sendMsg("Measuring…"); return; }
-  if (!S.result){ sendMsg("Make a measurement first – you can send once a frequency appears."); b.textContent = "Send result"; return; }
-  if (S.sentId === S.resultId){ b.textContent = "Send again (replaces your result)"; }
-  else { b.textContent = "Send result (" + fmt(S.result.frequency_hz, 2) + " Hz)"; sendMsg(S.result.demo ? "This is demo data – it will be marked DEMO on the screen." : ""); }
-}
-
-function sendResult(){
-  if (!SEND_APP || !S.result || S.sending) return;
-  const nick = ($("sendNick").value || "").trim().slice(0, 40);
-  try { localStorage.setItem("cma.nick", nick); } catch(e){}
-  if (!S.resultId) S.resultId = newId();
-  S.sending = true; updateSend(); sendMsg("Sending…");
-  const row = {
-    app: SEND_APP, submission_id: S.resultId, kind: "measurement",
-    version: "camera-motion-2026-09", title: nick || null,
-    payload: S.result, user_agent: (navigator.userAgent || "").slice(0, 500)
-  };
+function submit(){
+  if (!S.result || S.sending) return;
+  S.sending = true; buttons(); status("Sending…");
   fetch(HUB.url + "/rest/v1/teach_submissions", {
-    method: "POST",
-    headers: { "apikey": HUB.key, "Content-Type": "application/json", "Prefer": "return=minimal" },
-    body: JSON.stringify(row)
-  }).then(res => {
-    if (res.ok) return;
-    return res.text().then(t => {
-      let m = t; try { m = JSON.parse(t).message || t; } catch(e){}
-      throw new Error(m || ("HTTP " + res.status));
-    });
-  }).then(() => {
-    S.sentId = S.resultId;
-    sendMsg("✓ Sent " + fmt(S.result.frequency_hz, 2) + " Hz – look at the screen!", "ok");
-  }).catch(err => {
-    const m = String(err.message || err);
-    sendMsg(/not accepting/.test(m) ? "The presentation is not collecting results right now."
-          : /Failed to fetch|NetworkError|Load failed/i.test(m) ? "No internet connection – try again."
-          : "Could not send: " + m, "warn");
-  }).then(() => { S.sending = false; updateSend(); if (S.sentId === S.resultId) $("sendMsg").className = "ok"; });
+    method:"POST",
+    headers:{ "apikey":HUB.key, "Content-Type":"application/json", "Prefer":"return=minimal" },
+    body: JSON.stringify({ app:SEND_APP, submission_id:S.resultId, kind:"measurement", version:"pendulum-camera-2026-09",
+                           payload:S.result, user_agent:(navigator.userAgent||"").slice(0,500) })
+  }).then(r => r.ok ? null : r.text().then(t => { let m = t; try { m = JSON.parse(t).message || t; } catch(e){} throw new Error(m); }))
+    .then(() => { S.sentId = S.resultId; status("✓ Submitted " + S.result.frequency_hz.toFixed(2) + " Hz – look at the screen!", "ok"); })
+    .catch(err => {
+      const m = String(err.message || err);
+      status(/not accepting/.test(m) ? "The presentation is not collecting results right now"
+           : /fetch|network|load failed/i.test(m) ? "No internet – press SUBMIT again" : "Could not submit: " + m, "warn");
+    })
+    .then(() => { S.sending = false; buttons(); });
 }
 
-if (SEND_APP){
-  $("sendBox").hidden = false;
-  try { $("sendNick").value = localStorage.getItem("cma.nick") || ""; } catch(e){}
-  $("btnSend").addEventListener("click", sendResult);
+function buttons(){
+  $("bCam").disabled    = S.cameraOn;
+  $("bStart").disabled  = !S.cameraOn || !S.lock || S.measuring;
+  $("bStop").disabled   = !S.measuring;
+  $("bSubmit").disabled = !S.result || S.measuring || S.sending;
+  $("bSubmit").textContent = (S.result && S.sentId === S.resultId) ? "AGAIN" : "SUBMIT";
 }
 
-function resetAll(quiet){
-  S.measuring = false;
-  S.demo = false;
-  S.t = []; S.px = []; S.py = []; S.p0 = null; S.res = null;
-  S.refBase = null; S.dropped = 0; S.qual = 0;
-  S.result = null;
-  MARK.trail.length = 0; REF.trail.length = 0;   // keep the selected colours, drop the data
-  S.tapMode = "marker";
-  $("freq").textContent = "–";
-  $("freqNote").textContent = "No measurement yet";
-  $("demoBadge").classList.remove("on");
-  $("sTime").textContent = $("sFrames").textContent = $("sFps").textContent =
-  $("sAmp").textContent  = $("sQual").textContent   = $("sDrop").textContent = "–";
-  drawChart();
-  if (!quiet) status(S.cameraOn
-    ? (MARK.active ? "Ready – press Start Measurement" : "Tap the coloured marker in the image")
-    : "Camera off", "info");
-  updateButtons();
-}
-
-function updateButtons(){
-  $("btnStart").disabled = S.measuring || !S.cameraOn || !MARK.active;
-  $("btnStop").disabled  = !S.measuring;
-  $("btnDemo").disabled  = S.measuring;
-  updateSend();
-  const rb = $("btnRef");
-  rb.disabled = !S.cameraOn;
-  if (REF.active){
-    rb.textContent = "Clear anti-shake reference";
-    rb.classList.add("on");
-  } else {
-    rb.textContent = (S.tapMode === "ref") ? "Now tap a stationary point…" : "Set anti-shake reference";
-    rb.classList.toggle("on", S.tapMode === "ref");
-  }
-}
-
-/* =========================================================================
-   Demo mode
-   ========================================================================= */
-function runDemo(){
-  if (S.measuring) return;
-  S.demo = true;
-  S.t = []; S.px = []; S.py = []; S.p0 = null;
-  S.resultId = newId();
-  const F = 0.74, DUR = 10, FPS = 30;
-  let t = 0, i = 0;
-  // deterministic pseudo-noise (no reliance on Math.random for reproducibility)
-  const noise = k => 3 * (Math.sin(k*12.9898)*43758.5453 % 1 - 0.5) * 2;
-  while (t < DUR){
-    S.t.push(t);
-    S.px.push(100 * Math.sin(2*Math.PI*F*t) + noise(i));
-    S.py.push(0.4 * noise(i+500));
-    t += (1/FPS) * (0.85 + 0.3 * ((Math.sin(i*7.13)+1)/2));   // jittered frame times
-    i++;
-  }
-  $("demoBadge").classList.add("on");
-  finish(S.t[S.t.length-1], "Demo data (synthetic 0.74 Hz pendulum)");
-  updateButtons();
-}
-
-/* =========================================================================
-   Charts – Chart.js if available, otherwise a small built-in plotter
-   ========================================================================= */
-const TABS = {
-  pos: { key:"x", label:"Position x(t)",     unit:"pixels",   color:"#0b5fff" },
-  vel: { key:"v", label:"Velocity v(t)",     unit:"pixels/s", color:"#0a7a3d" },
-  acc: { key:"a", label:"Acceleration a(t)", unit:"pixels/s²",color:"#c8102e" }
-};
-
-const chartCanvas = $("chart");
-let chart = null;
-const haveChartJs = () => (typeof window.Chart !== "undefined" && !window.__chartFailed);
-
-function series(){
-  if (!S.res || !S.res.t.length) return null;
-  const cfg = TABS[S.tab];
-  const t = S.res.t, y = S.res[cfg.key];
-  const n = t.length;
-  const stride = Math.max(1, Math.ceil(n / 600));
-  const pts = [];
-  for (let i = 0; i < n; i += stride){
-    const yy = y[i];
-    if (fin(t[i]) && fin(yy)) pts.push({ x:t[i], y:yy });
-  }
-  return pts.length ? { pts, cfg } : null;
-}
-
-function drawChart(){
-  const s = series();
-  $("chartEmpty").style.display = s ? "none" : "flex";
-  if (!s){
-    if (chart){ chart.destroy(); chart = null; }
-    const c = chartCanvas.getContext("2d");
-    c.clearRect(0,0,chartCanvas.width,chartCanvas.height);
-    return;
-  }
-  if (haveChartJs()) drawChartJs(s); else drawFallback(s);
-}
-
-function drawChartJs(s){
-  if (!chart){
-    chart = new window.Chart(chartCanvas.getContext("2d"), {
-      type:"line",
-      data:{ datasets:[{ data:s.pts, borderColor:s.cfg.color, borderWidth:2,
-                         pointRadius:0, tension:0, fill:false }] },
-      options:{
-        responsive:true, maintainAspectRatio:false, animation:false, parsing:false,
-        interaction:{ enabled:false },
-        plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },
-        scales:{
-          x:{ type:"linear", title:{ display:true, text:"time [s]" },
-              ticks:{ maxTicksLimit:6, font:{ size:11 } }, grid:{ color:"#eee" } },
-          y:{ title:{ display:true, text:s.cfg.unit },
-              ticks:{ maxTicksLimit:6, font:{ size:11 } }, grid:{ color:"#eee" } }
-        }
-      }
-    });
-  } else {
-    chart.data.datasets[0].data = s.pts;
-    chart.data.datasets[0].borderColor = s.cfg.color;
-    chart.options.scales.y.title.text = s.cfg.unit;
-    chart.update("none");
-  }
-}
-
-function drawFallback(s){
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = chartCanvas.clientWidth || 300, h = chartCanvas.clientHeight || 200;
-  chartCanvas.width = Math.round(w*dpr); chartCanvas.height = Math.round(h*dpr);
-  const c = chartCanvas.getContext("2d");
-  c.setTransform(dpr,0,0,dpr,0,0);
-  c.clearRect(0,0,w,h);
-
-  const L = 44, R = 8, T = 10, B = 26;
-  let x0 = s.pts[0].x, x1 = s.pts[s.pts.length-1].x;
-  if (!(x1 > x0)) x1 = x0 + 1;
-  let y0 = Infinity, y1 = -Infinity;
-  for (const p of s.pts){ if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
-  if (!fin(y0) || !fin(y1) || y1 - y0 < 1e-9){ y0 -= 1; y1 += 1; }
-  const pad = (y1-y0)*0.1; y0 -= pad; y1 += pad;
-
-  const X = v => L + (v - x0)/(x1 - x0) * (w - L - R);
-  const Y = v => T + (1 - (v - y0)/(y1 - y0)) * (h - T - B);
-
-  c.strokeStyle = "#ddd"; c.lineWidth = 1;
-  c.beginPath(); c.moveTo(L, T); c.lineTo(L, h-B); c.lineTo(w-R, h-B); c.stroke();
-  if (y0 < 0 && y1 > 0){
-    c.strokeStyle = "#eee";
-    c.beginPath(); c.moveTo(L, Y(0)); c.lineTo(w-R, Y(0)); c.stroke();
-  }
-  c.fillStyle = "#666"; c.font = "10px -apple-system,sans-serif";
-  c.textAlign = "right";
-  c.fillText(String(Math.round(y1)), L-5, T+9);
-  c.fillText(String(Math.round(y0)), L-5, h-B);
-  c.textAlign = "center";
-  c.fillText(fmt(x0,1)+" s", L+12, h-8);
-  c.fillText(fmt(x1,1)+" s", w-R-14, h-8);
-  c.textAlign = "left";
-  c.fillText(s.cfg.unit, L+4, T+9);
-
-  c.strokeStyle = s.cfg.color; c.lineWidth = 2; c.beginPath();
-  for (let i = 0; i < s.pts.length; i++){
-    const px = X(s.pts[i].x), py = Y(s.pts[i].y);
-    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
-  }
-  c.stroke();
-}
-
-/* =========================================================================
-   Wiring
-   ========================================================================= */
-$("btnCam").addEventListener("click", () => { startCamera().catch(()=>{}); });
-$("btnStart").addEventListener("click", startMeasurement);
-$("btnStop").addEventListener("click", () => stopMeasurement());
-$("btnReset").addEventListener("click", () => resetAll(false));
-$("btnDemo").addEventListener("click", runDemo);
-$("btnRef").addEventListener("click", () => {
-  if (REF.active){
-    resetTracker(REF);
-    S.refBase = null;
-    status("Anti-shake reference cleared", "info");
-  } else {
-    S.tapMode = (S.tapMode === "ref") ? "marker" : "ref";
-    status(S.tapMode === "ref"
-      ? "Tap a stationary coloured point (a clamp, a sticker on the stand…)"
-      : "Tap the coloured marker in the image", "info");
-  }
-  updateButtons();
-});
-
-$("tol").addEventListener("input", e => { $("tolVal").textContent = e.target.value; });
-$("smooth").addEventListener("input", e => {
-  $("smoothVal").textContent = e.target.value;
-  reanalyse();
-});
-$("axis").addEventListener("change", reanalyse);
-
-function reanalyse(){
-  if (S.t.length < 2) return;
-  if (S.measuring){
-    S.res = analyse(S.t, chooseAxis(), Number($("smooth").value) || 5);
-    drawChart();
-  } else {
-    finish(S.t[S.t.length-1], $("status").textContent);
-  }
-}
-
-document.querySelectorAll('.tabs button').forEach(b => {
-  b.addEventListener("click", () => {
-    document.querySelectorAll('.tabs button').forEach(o => o.setAttribute("aria-selected","false"));
-    b.setAttribute("aria-selected","true");
-    S.tab = b.dataset.tab;
-    if (chart){ chart.destroy(); chart = null; }
-    drawChart();
-  });
-});
-
-window.addEventListener("orientationchange", () => { setTimeout(drawChart, 300); });
-window.addEventListener("resize", () => { if (!haveChartJs()) drawChart(); });
+$("bCam").addEventListener("click", () => { startCamera().catch(()=>{}); });
+$("bStart").addEventListener("click", start);
+$("bStop").addEventListener("click", stop);
+$("bSubmit").addEventListener("click", submit);
 window.addEventListener("pagehide", stopCamera);
-window.addEventListener("error", () => { /* never let a stray error freeze the UI */ });
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && S.cameraOn && navigator.wakeLock){ try { S.wake = await navigator.wakeLock.request("screen"); } catch(e){} }
+});
+buttons();
 
-updateButtons();
-
-// small hook so the tracker can be exercised head-less during development
-window.__cma = { S, MARK, REF, makeTracker, buildModel, findBlobs, pickBlob,
-                 trackerStep, acquire, tolFor, analyse, estimateFrequency,
-                 crossingFrequency, acfFrequency, proc };
-
+// for testing
+window.__cma = { S, blobs, spanCentre, refine, searchFrame, estimate, crossingFrequency, principal, start, stop, submit };
 })();
 </script>
 </body>

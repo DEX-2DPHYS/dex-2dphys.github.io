@@ -1,7 +1,7 @@
 {
   "slug": "camera-motion",
-  "name": "Camera Motion Analyzer (for phone)",
-  "description": "Measure a swinging pendulum with a phone camera — tap a coloured marker and an adaptive tracker follows it through changing light, brief occlusions and camera shake, giving position, velocity, acceleration and oscillation frequency. All video analysis runs locally in the browser.",
+  "name": "Pendulum Camera (for phone)",
+  "description": "Point a phone at a swinging blue ball on a projector screen and measure its frequency: the ball is found automatically at any distance, tracked to a fraction of a pixel, and the result can be submitted live to a class results panel. Four buttons: CAMERA, START, STOP, SUBMIT. All video analysis runs locally in the browser.",
   "status": "live",
   "url": "tools/camera-motion/index.html",
   "icon": "device",
