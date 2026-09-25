@@ -43,6 +43,7 @@
     "double-pendulum",
     "camera-fft",
     "camera-motion",
+    "puzzle",
     "lidar-ruler",
     "graph-digitizer",
     "transim",

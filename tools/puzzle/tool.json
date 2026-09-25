@@ -1,0 +1,9 @@
+{
+  "slug": "puzzle",
+  "name": "DTU Puzzle (for phone)",
+  "description": "A shared nine-piece jigsaw for a lecture hall. Open it on the big screen with ?screen, and up to four people scan the QR code and move pieces from their phones in real time. Grab a piece someone else is holding and it turns red, beeps and locks until one of you lets go; drop a piece near its place and it snaps in. Runs over Supabase Realtime; nothing is stored.",
+  "status": "live",
+  "url": "tools/puzzle/index.html",
+  "icon": "device",
+  "tags": ["phone", "educational", "applications"]
+}
