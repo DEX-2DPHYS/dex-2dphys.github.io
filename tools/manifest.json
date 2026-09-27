@@ -39,6 +39,7 @@
   "tools": [
     "dsw",
     "heterostructure-builder",
+    "salmonella",
     "biomicroscope",
     "double-pendulum",
     "camera-fft",

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salmonella</title>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#e9edf1;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;}
+  html.dark,html.dark body{background:#0d141c}
+  #stage{position:fixed;inset:0}
+  #stage canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;outline:none;cursor:grab}
+  #stage canvas:active{cursor:grabbing}
+  /* hidden control panel on the right: revealed by hovering the right edge or pressing P */
+  #edge{position:fixed;top:0;right:0;width:16px;height:100%;z-index:9}
+  #edge::after{content:"";position:absolute;right:5px;top:50%;width:4px;height:56px;margin-top:-28px;border-radius:2px;background:rgba(40,52,64,.18);transition:background .2s}
+  #edge:hover::after{background:rgba(40,52,64,.45)}
+  html.dark #edge::after{background:rgba(220,230,240,.18)}
+  #panel{position:fixed;top:0;right:0;height:100%;width:300px;box-sizing:border-box;padding:18px 18px 24px;overflow-y:auto;z-index:10;
+    background:rgba(18,24,32,.86);color:#e7edf3;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-left:1px solid rgba(255,255,255,.08);box-shadow:-12px 0 40px rgba(0,0,0,.25);
+    transform:translateX(102%);transition:transform .32s cubic-bezier(.4,0,.2,1);font-size:13px;line-height:1.35}
+  #panel.open{transform:none}
+  #panel h1{font-size:17px;font-weight:600;margin:4px 0 2px;letter-spacing:.01em}
+  #panel .sub{margin:0 0 14px;color:#9fb0c0;font-size:12px}
+  #panel h2{font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#8fa2b4;margin:16px 0 8px}
+  #panel section{border-top:1px solid rgba(255,255,255,.08);padding-top:2px}
+  .views{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .views button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#e7edf3;border-radius:7px;padding:7px 8px;font:inherit;cursor:pointer;text-align:left}
+  .views button:hover{background:rgba(255,255,255,.14)}
+  .views button.on{background:rgba(94,164,214,.28);border-color:rgba(94,164,214,.6)}
+  .views button small{display:block;color:#9fb0c0;font-size:11px}
+  label.row{display:flex;flex-direction:column;gap:3px;margin:8px 0}
+  label.row span{color:#c7d2dc}
+  input[type=range]{width:100%;accent-color:#5ea4d6;margin:0}
+  label.sw{display:flex;align-items:center;gap:8px;margin:7px 0;cursor:pointer;color:#c7d2dc}
+  label.sw input{accent-color:#5ea4d6;width:15px;height:15px;margin:0}
+  .btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#e7edf3;border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer;margin:4px 6px 4px 0}
+  .btn:hover{background:rgba(255,255,255,.14)}
+  .help ul{margin:0;padding-left:16px;color:#aebbc8;font-size:12px}
+  .help li{margin:3px 0}
+  .help kbd{font-family:inherit;color:#e7edf3;background:rgba(255,255,255,.1);border-radius:4px;padding:0 5px}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="edge" title=""></div>
+<aside id="panel">
+  <h1>Salmonella enterica</h1>
+  <p class="sub">Nanoscale model · every unit is 1 nm · presenter panel</p>
+
+  <section>
+    <h2>Views</h2>
+    <div class="views">
+      <button data-view="overview">Overview<small>whole cell, swimming</small></button>
+      <button data-view="motor">Flagellar motor<small>basal body, cut open</small></button>
+      <button data-view="filament">Flagellum<small>rotating helical filament</small></button>
+      <button data-view="porin">Porin<small>outer membrane, β-barrels</small></button>
+      <button data-view="kchannel">K⁺ channel<small>inner membrane, from the periplasm</small></button>
+      <button data-view="atp">ATP synthase<small>inner membrane, from the cytoplasm</small></button>
+      <button data-view="inside">Inside the cell<small>ribosomes and nucleoid</small></button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Motion</h2>
+    <label class="row"><span>Motor speed</span><input type="range" id="speed" min="0" max="3" step="0.05" value="1"></label>
+    <label class="sw"><input type="checkbox" id="tumble"> Tumble (flagella unbundle)</label>
+    <label class="sw"><input type="checkbox" id="pause"> Pause</label>
+  </section>
+
+  <section>
+    <h2>Optics</h2>
+    <label class="row"><span>Depth of field</span><input type="range" id="dof" min="0" max="1" step="0.01" value="0.55"></label>
+    <label class="row"><span>Exposure</span><input type="range" id="exposure" min="0.5" max="1.8" step="0.02" value="1"></label>
+    <label class="sw"><input type="checkbox" id="dark"> Dark-field medium</label>
+    <button class="btn" id="focusReset">Focus on pivot</button>
+    <button class="btn" id="fullscreen">Fullscreen</button>
+  </section>
+
+  <section>
+    <h2>Specimen</h2>
+    <label class="row"><span>Membrane opacity</span><input type="range" id="opacity" min="0.15" max="1" step="0.01" value="1"></label>
+    <label class="sw"><input type="checkbox" id="cutaway"> Cross-section</label>
+    <label class="sw"><input type="checkbox" id="debris" checked> Floating debris</label>
+    <label class="sw"><input type="checkbox" id="fimbriae" checked> Fimbriae</label>
+  </section>
+
+  <section class="help">
+    <h2>Controls</h2>
+    <ul>
+      <li><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan</li>
+      <li><kbd>wheel</kbd> zoom · <kbd>shift + wheel</kbd> focal plane</li>
+      <li><kbd>arrows</kbd> / <kbd>WASD</kbd> fly like a submarine · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> rise / dive</li>
+      <li><kbd>double-click</kbd> put the pivot on an object</li>
+      <li><kbd>1</kbd>–<kbd>7</kbd> views · <kbd>C</kbd> cross-section · <kbd>T</kbd> tumble · <kbd>space</kbd> pause</li>
+      <li><kbd>F</kbd> fullscreen · <kbd>P</kbd> this panel · <kbd>R</kbd> overview</li>
+    </ul>
+  </section>
+</aside>
+<!--BUNDLE-->
+</body>
+</html>

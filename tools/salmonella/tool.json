@@ -1,0 +1,9 @@
+{
+  "slug": "salmonella",
+  "name": "Salmonella at Nanometre Resolution",
+  "description": "A living Salmonella cell in 3D at true scale (1 unit = 1 nm), swimming in a liquid medium with drifting debris and a microscope-like focal plane. Orbit, zoom and fly like a submarine down to the flagellar motor with its rotating C-ring, stators and helical filament, a porin's β-barrels, a K⁺ channel passing ions, and a rotating ATP synthase. Hidden control panel at the right edge; runs offline in the browser.",
+  "status": "live",
+  "url": "tools/salmonella/index.html",
+  "icon": "cube",
+  "tags": ["visualisations", "simulations", "educational"]
+}
