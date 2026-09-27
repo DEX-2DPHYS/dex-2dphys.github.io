@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#ffffff">
-<title>Pendulum Camera</title>
+<title>Camera Motion Analyzer</title>
 <!--
   Film the projected pendulum (a BLUE sphere on a white projector screen) and
   measure its frequency. Finds the blue sphere by itself, at whatever size it
@@ -17,16 +17,16 @@
   :root{--ink:#111;--mut:#666;--acc:#c8102e;--green:#0a7a3d;--blue:#0b5fff}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:#fff;color:var(--ink)}
-  body{font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  body{font:18px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     padding:10px 12px 24px;max-width:640px;margin:0 auto;touch-action:manipulation;-webkit-text-size-adjust:100%}
   #stage{position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;
     min-height:200px;display:flex;align-items:center;justify-content:center;touch-action:none}
   #video{width:100%;height:auto;max-height:68vh;object-fit:contain;display:block;background:#000}
   #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   #placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    color:#fff;font-size:17px;text-align:center;padding:20px;line-height:1.5}
+    color:#fff;font-size:20px;text-align:center;padding:20px;line-height:1.5}
   .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 8px}
-  button{font:700 15px/1 inherit;letter-spacing:.04em;padding:0 4px;min-height:58px;border-radius:12px;
+  button{font:700 17px/1 inherit;letter-spacing:.03em;padding:0 4px;min-height:64px;border-radius:12px;
     border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
   #bCam{background:var(--ink);color:#fff}
   #bStart{background:var(--green);border-color:var(--green);color:#fff}
@@ -34,17 +34,19 @@
   #bSubmit{background:var(--blue);border-color:var(--blue);color:#fff}
   button:disabled{opacity:.28}
   button:active:not(:disabled){transform:translateY(1px)}
-  #status{font-size:15px;font-weight:600;min-height:22px;text-align:center}
+  #status{font-size:19px;font-weight:600;min-height:26px;text-align:center}
   #status.ok{color:var(--green)} #status.warn{color:var(--acc)} #status.info{color:var(--mut);font-weight:500}
-  .privacy{font-size:12px;color:#999;text-align:center;margin-top:6px}
+  .privacy{font-size:15px;color:#888;text-align:center;margin-top:8px}
+  h1{font-size:26px;font-weight:700;letter-spacing:.01em;margin:4px 0 10px;text-align:center}
 </style>
 </head>
 <body>
 
+<h1>Camera Motion Analyzer</h1>
 <div id="stage">
   <video id="video" playsinline autoplay muted></video>
   <canvas id="overlay"></canvas>
-  <div id="placeholder">Press&nbsp;<b>CAMERA</b>&nbsp;and point the phone at the swinging blue ball</div>
+  <div id="placeholder"><span>Press <b>CAMERA</b> and point the phone at the swinging blue ball</span></div>
 </div>
 
 <div class="btns">
@@ -312,16 +314,54 @@ function crossingFrequency(t, x){
   return (T > 0) ? { hz:1/T, periods:m-1 } : null;
 }
 
+// Early estimate from turning points: successive extrema are half a period apart, and
+// need no knowledge of the swing's midpoint, so a number appears after the first half
+// swing and then settles as more turning points arrive. Extrema are accepted only when
+// the motion has reversed by a good fraction of the range seen so far (hysteresis).
+function extremaFrequency(t, u){
+  const n = u.length; if (n < 5) return null;
+  let lo = Infinity, hi = -Infinity; for (const v of u){ if (v < lo) lo = v; if (v > hi) hi = v; }
+  const prom = 0.15 * (hi - lo);
+  if (!(prom > 0.3)) return null;
+  const ext = [];
+  let dir = 0, cand = u[0], candT = t[0];
+  let mx = u[0], mxT = t[0], mn = u[0], mnT = t[0];   // running extremes before the first reversal
+  for (let i = 1; i < n; i++){
+    const v = u[i];
+    if (dir === 0){
+      if (v > mx){ mx = v; mxT = t[i]; }
+      if (v < mn){ mn = v; mnT = t[i]; }
+      // first reversal: the running max (or min) was a turning point if the motion first went that way
+      if (v < mx - prom){ if (mx - u[0] > 0.3*prom) ext.push(mxT); dir = -1; cand = v; candT = t[i]; }
+      else if (v > mn + prom){ if (u[0] - mn > 0.3*prom) ext.push(mnT); dir = 1; cand = v; candT = t[i]; }
+    } else if (dir === 1){
+      if (v > cand){ cand = v; candT = t[i]; }
+      else if (v < cand - prom){ ext.push(candT); dir = -1; cand = v; candT = t[i]; }
+    } else {
+      if (v < cand){ cand = v; candT = t[i]; }
+      else if (v > cand + prom){ ext.push(candT); dir = 1; cand = v; candT = t[i]; }
+    }
+  }
+  if (ext.length < 2) return null;
+  const half = []; for (let i = 1; i < ext.length; i++) half.push(ext[i] - ext[i-1]);
+  const T = 2 * median(half);
+  return (T > 0) ? { hz:1/T, periods:(ext.length - 1) / 2 } : null;
+}
+
+// Live and final estimate. The zero-crossing line fit is used as soon as it can be
+// (three crossings); before that the extrema estimate stands in, flagged provisional,
+// so the display shows a frequency immediately and the user can watch it settle.
 function estimate(){
   const n = S.t.length;
-  if (n < 20) return null;
+  if (n < 6) return null;
   const u = movingAverage(principal(S.x, S.y), 3);
   let mean = 0; for (const v of u) mean += v; mean /= n;
   let rms = 0; for (const v of u) rms += (v-mean)*(v-mean); rms = Math.sqrt(rms/n);
   if (rms < 0.5) return null;
-  const f = crossingFrequency(S.t, u);
+  let f = (n >= 20) ? crossingFrequency(S.t, u) : null, provisional = false;
+  if (!f){ f = extremaFrequency(S.t, u); provisional = true; }
   if (!f || !(f.hz > 0.02 && f.hz < 30)) return null;
-  return { hz:f.hz, periods:f.periods, amp:rms*Math.SQRT2, u };
+  return { hz:f.hz, periods:f.periods, provisional, amp:rms*Math.SQRT2, u };
 }
 
 /* =========================================================================
@@ -424,7 +464,7 @@ function onFrame(now, meta){
     S.frames++;
     if (found){ S.t.push((tms - S.t0)/1000); S.x.push(found.x); S.y.push(found.y); }
     else S.lost++;
-    if (now - S.lastLive > 400){ S.lastLive = now; S.live = estimate(); }
+    if (now - S.lastLive > 150){ S.lastLive = now; S.live = estimate(); }
     if (S.t.length > 30000) stop();
   }
   draw(vw, vh, found);
@@ -460,28 +500,31 @@ function draw(vw, vh, found){
     octx.beginPath(); octx.moveTo(c.x-4, c.y); octx.lineTo(c.x+4, c.y); octx.moveTo(c.x, c.y-4); octx.lineTo(c.x, c.y+4); octx.stroke();
   }
 
-  // frequency box, top left
-  let big, small;
+  // frequency box, top left. While the estimate is still provisional (fewer than three
+  // zero crossings) the number is shown in amber so the user can watch it settle.
+  let big, small, bigColour = "#fff";
   if (S.measuring){
     const secs = S.t.length ? S.t[S.t.length-1] : 0;
     big = S.live ? S.live.hz.toFixed(2) + " Hz" : "– Hz";
-    small = "measuring " + secs.toFixed(0) + " s" + (S.live ? " · " + S.live.periods + " swings" : "");
+    if (S.live && S.live.provisional){ bigColour = "#ffd200"; small = "settling · " + swings(S.live.periods) + " · " + secs.toFixed(0) + " s"; }
+    else small = "measuring " + secs.toFixed(0) + " s" + (S.live ? " · " + swings(S.live.periods) : "");
   } else if (S.result){
     big = S.result.frequency_hz.toFixed(2) + " Hz";
     small = "period " + S.result.period_s.toFixed(2) + " s · " + S.result.periods + " swings";
   } else {
     big = "– Hz"; small = S.lock ? "ball found" : "looking for the blue ball";
   }
-  const fs = clamp(g.sr.width / 11, 22, 46);
-  const F1 = "700 " + fs + "px -apple-system,Segoe UI,Roboto,sans-serif", F2 = "500 " + (fs*0.36) + "px -apple-system,Segoe UI,Roboto,sans-serif";
+  const fs = clamp(g.sr.width / 9, 26, 56);
+  const F1 = "700 " + fs + "px -apple-system,Segoe UI,Roboto,sans-serif", F2 = "500 " + (fs*0.4) + "px -apple-system,Segoe UI,Roboto,sans-serif";
   octx.font = F1; const w1 = octx.measureText(big).width;
   octx.font = F2; const w2 = octx.measureText(small).width;
   const bw = Math.max(w1, w2) + fs*0.6, bh = fs*1.65;
   octx.fillStyle = "rgba(0,0,0,.62)"; roundRect(8, 8, bw, bh, 10); octx.fill();
   octx.textBaseline = "top";
-  octx.font = F1; octx.fillStyle = "#fff"; octx.fillText(big, 8 + fs*0.3, 8 + fs*0.12);
+  octx.font = F1; octx.fillStyle = bigColour; octx.fillText(big, 8 + fs*0.3, 8 + fs*0.12);
   octx.font = F2; octx.fillStyle = "#ddd"; octx.fillText(small, 8 + fs*0.3, 8 + fs*1.15);
 }
+function swings(p){ return (Number.isInteger(p) ? p : p.toFixed(1)) + (p === 1 ? " swing" : " swings"); }
 function roundRect(x, y, w, h, r){ octx.beginPath(); octx.moveTo(x+r,y); octx.arcTo(x+w,y,x+w,y+h,r); octx.arcTo(x+w,y+h,x,y+h,r); octx.arcTo(x,y+h,x,y,r); octx.arcTo(x,y,x+w,y,r); octx.closePath(); }
 
 /* =========================================================================
@@ -554,9 +597,9 @@ function stop(){
   if (!S.measuring) return;
   S.measuring = false;
   const e = estimate(), dur = S.t.length ? S.t[S.t.length-1] : 0;
-  if (!e){
+  if (!e || (e.provisional && e.periods < 1)){
     S.result = null;
-    status(S.t.length < 20 ? "Too short – measure a few swings" : "No clear swinging found – try again", "warn");
+    status((!e && S.t.length >= 20) ? "No clear swinging found – try again" : "Too short – measure a few swings", "warn");
   } else {
     const step = Math.max(1, Math.ceil(S.t.length / 200)), tt = [], xx = [];
     for (let i = 0; i < S.t.length; i += step){ tt.push(Math.round(S.t[i]*1000)/1000); xx.push(Math.round(e.u[i]*10)/10); }
@@ -564,7 +607,7 @@ function stop(){
       frequency_hz:   Math.round(e.hz*1000)/1000,
       period_s:       Math.round(1000/e.hz)/1000,
       periods:        e.periods,
-      method:         "zero crossings, line fit",
+      method:         e.provisional ? "extrema, half-periods" : "zero crossings, line fit",
       amplitude_px:   Math.round(e.amp),
       ball_radius_px: S.lock ? Math.round(S.lock.r*10)/10 : null,
       duration_s:     Math.round(dur*100)/100,
