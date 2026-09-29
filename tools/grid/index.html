@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#990000">
+<title>Grid Control · your power plant</title>
+<!--
+  DTU Grid Control - the PHONE.
+  You run one power plant on a shared grid shown on the big screen. Drag the
+  bar (or use More / Less) to set how much your plant should produce; it gets
+  there at its own speed. Keep the frequency on 50 Hz together.
+  Open with ?room=XXXX (the QR code on the big screen does this).
+-->
+<style>
+  :root { --red:#990000; --ink:#18181b; --muted:#6b7280; --line:#e5e7eb; --role:#475569; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:#f4f4f5; color:var(--ink); font:16px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow:hidden; }
+  body { -webkit-user-select:none; user-select:none; touch-action:manipulation; }
+  #app { display:flex; flex-direction:column; height:100%; height:100dvh; }
+  #bar { display:flex; align-items:center; gap:.6em; padding:.6em .9em; padding-top:max(.6em, env(safe-area-inset-top)); background:var(--red); color:#fff; flex:none; }
+  #bar b { letter-spacing:.05em; }
+  #bar span { opacity:.85; font-size:.9em; }
+  #dot { margin-left:auto; width:.7em; height:.7em; border-radius:50%; background:#fca5a5; }
+  #dot.live { background:#86efac; }
+  #body { flex:1; min-height:0; display:flex; flex-direction:column; gap:.6em; padding:.7em; }
+  .card { background:#fff; border-radius:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  #role { display:flex; align-items:center; gap:.8em; padding:.7em .9em; border-left:8px solid var(--role); flex:none; }
+  #role svg { width:2.6em; height:2.6em; flex:none; }
+  #role .t b { display:block; font-size:1.2em; }
+  #role .t span { color:var(--muted); font-size:.9em; }
+  #freq { display:flex; align-items:center; gap:.7em; padding:.5em .9em; flex:none; }
+  #mini { width:7.5em; height:4.2em; flex:none; }
+  #freq .fv { font-size:1.9em; font-weight:800; font-variant-numeric:tabular-nums; line-height:1; }
+  #freq .fv small { font-size:.45em; color:var(--muted); font-weight:700; }
+  #advice { font-weight:700; margin-top:.2em; font-size:.95em; }
+  #advice.ok { color:#15803d; } #advice.warn { color:#b45309; } #advice.bad { color:#b91c1c; }
+  #ctl { flex:1; min-height:0; display:flex; gap:.7em; padding:.7em; }
+  #track { flex:1; position:relative; border-radius:14px; background:#f1f5f9; overflow:hidden; touch-action:none; cursor:ns-resize; min-height:8em; }
+  #fill { position:absolute; left:0; right:0; bottom:0; background:var(--role); opacity:.85; }
+  #avail { position:absolute; left:0; right:0; border-top:3px dashed #0f766e; display:none; }
+  #zero { position:absolute; left:0; right:0; top:50%; border-top:2px solid #94a3b8; display:none; }
+  #handle { position:absolute; left:-4px; right:-4px; height:0; border-top:4px solid var(--ink); }
+  #handle::after { content:""; position:absolute; right:10px; top:-15px; width:26px; height:26px; border-radius:50%; background:#fff; border:4px solid var(--ink); }
+  #tlabel { position:absolute; left:.6em; top:.5em; font-size:.8em; color:var(--muted); font-weight:600; }
+  #blabel { position:absolute; left:.6em; bottom:.5em; font-size:.8em; color:#fff; font-weight:600; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+  #side { width:8.2em; display:flex; flex-direction:column; gap:.5em; }
+  .num { background:#f8fafc; border-radius:12px; padding:.45em .6em; }
+  .num span { display:block; font-size:.75em; color:var(--muted); }
+  .num b { font-size:1.35em; font-variant-numeric:tabular-nums; }
+  #soc { display:none; }
+  #soc .gauge { height:.6em; border-radius:4px; background:#e5e7eb; overflow:hidden; margin-top:.3em; }
+  #soc .gauge i { display:block; height:100%; background:#7c3aed; }
+  #side button { flex:1; border:none; border-radius:14px; font-size:1.25em; font-weight:800; color:#fff; min-height:2.6em; }
+  #more { background:#16a34a; } #less { background:#475569; }
+  #side button:active { filter:brightness(.85); }
+  #foot { display:flex; justify-content:space-between; color:var(--muted); font-size:.85em; padding:0 .3em calc(.2em + env(safe-area-inset-bottom)); flex:none; }
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:1.5em; z-index:10; }
+  .overlay[hidden] { display:none; }
+  .msg { background:rgba(244,244,245,.96); }
+  .msg .box { background:#fff; border-radius:18px; padding:1.4em; text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.12); max-width:22em; }
+  .msg h2 { margin:.1em 0 .3em; color:var(--red); }
+  .msg input { font:inherit; font-size:1.6em; letter-spacing:.2em; text-transform:uppercase; width:6em; text-align:center; padding:.2em; border:2px solid #d4d4d8; border-radius:10px; margin:.5em 0; }
+  .msg button { font:inherit; font-weight:700; background:var(--red); color:#fff; border:none; border-radius:12px; padding:.6em 1.6em; }
+  #black { background:#050505; color:#fff; flex-direction:column; text-align:center; }
+  #black b { font-size:2.6em; letter-spacing:.06em; }
+  #trip { position:fixed; left:.7em; right:.7em; top:4.2em; background:#b91c1c; color:#fff; border-radius:14px; padding:.8em 1em; font-weight:700; text-align:center; z-index:9; }
+  #trip[hidden] { display:none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar"><b>GRID CONTROL</b><span id="roomTag"></span><i id="dot"></i></div>
+  <div id="body">
+    <div class="card" id="role">
+      <svg id="icon" viewBox="0 0 48 48"></svg>
+      <div class="t"><b id="roleName">Joining…</b><span id="roleTip">waiting for the big screen</span></div>
+    </div>
+    <div class="card" id="freq">
+      <canvas id="mini"></canvas>
+      <div><div class="fv" id="fv">50.00<small> Hz</small></div><div id="advice" class="ok">Balanced – hold steady</div></div>
+    </div>
+    <div class="card" id="ctl">
+      <div id="track"><div id="fill"></div><div id="zero"></div><div id="avail"></div><div id="handle"></div>
+        <span id="tlabel">MAX</span><span id="blabel">OFF</span></div>
+      <div id="side">
+        <div class="num"><span>Producing now</span><b id="now">0 MW</b></div>
+        <div class="num"><span>Your target</span><b id="tgt">0 %</b></div>
+        <div class="num" id="soc"><span>Battery charge</span><b id="socv">60 %</b><div class="gauge"><i id="socbar"></i></div></div>
+        <button id="more">▲ More</button>
+        <button id="less">▼ Less</button>
+      </div>
+    </div>
+    <div id="foot"><span id="clock">--:--</span><span id="scn"></span></div>
+  </div>
+</div>
+<div class="overlay msg" id="wait" hidden><div class="box" id="waitBox"></div></div>
+<div class="overlay" id="black" hidden><b>BLACKOUT</b><div style="opacity:.7;margin-top:.5em">The grid collapsed. Restoring…</div></div>
+<div id="trip" hidden></div>
+
+<script>
+(function () {
+"use strict";
+const SUPA_REF = "waktaohjndbhswareqzk";
+const SUPA_KEY = "sb_publishable_w3U495HfA5hOYZrMUETBpA_uyX7EIgg";
+const ROLES = ["coal", "gas", "wind", "battery"];
+const RI = {
+  coal:    { name:"Coal plant",  color:"#475569", tip:"Cheap and steady, but SLOW to change" },
+  gas:     { name:"Gas turbine", color:"#ea8a00", tip:"Reacts fast, but costs a lot" },
+  wind:    { name:"Wind farm",   color:"#0d9488", tip:"Free power – but only what the wind gives. You can only hold back." },
+  battery: { name:"Battery",     color:"#7c3aed", tip:"Lightning fast. Up = supply, down = charge. Don't run empty!" }
+};
+const ICONS = {
+  coal: '<rect x="6" y="22" width="36" height="20" rx="2" fill="#475569"/><rect x="10" y="8" width="7" height="16" fill="#334155"/><rect x="21" y="12" width="7" height="12" fill="#334155"/><circle cx="14" cy="5" r="3" fill="#cbd5e1"/><rect x="12" y="30" width="6" height="6" fill="#fde68a"/><rect x="24" y="30" width="6" height="6" fill="#fde68a"/>',
+  gas: '<rect x="8" y="16" width="32" height="26" rx="3" fill="#ea8a00"/><path d="M24 4c5 6 8 9 8 14a8 8 0 0 1-16 0c0-5 3-8 8-14z" fill="#f97316"/><path d="M24 12c2 3 4 5 4 7a4 4 0 0 1-8 0c0-2 2-4 4-7z" fill="#fde68a"/>',
+  wind: '<rect x="23" y="18" width="2.5" height="26" fill="#0d9488"/><g transform="translate(24,17)"><path d="M0 0L-2 -15L2 -15Z" fill="#14b8a6"/><path d="M0 0L-2 -15L2 -15Z" fill="#14b8a6" transform="rotate(120)"/><path d="M0 0L-2 -15L2 -15Z" fill="#14b8a6" transform="rotate(240)"/><circle r="2.5" fill="#0f766e"/></g>',
+  battery: '<rect x="8" y="12" width="30" height="26" rx="4" fill="none" stroke="#7c3aed" stroke-width="3"/><rect x="38" y="20" width="4" height="10" rx="1" fill="#7c3aed"/><path d="M25 16l-7 11h6l-2 8 8-12h-6z" fill="#7c3aed"/>'
+};
+const qs = new URLSearchParams(location.search);
+const ROOM = (qs.get("room") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+let ID = qs.get("id"); try { ID = ID || sessionStorage.getItem("grid.id"); } catch (e) {}
+if (!ID) { ID = Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem("grid.id", ID); } catch (e) {} }
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const P = { role:null, cap:0, o:0, sp:0, soc:60, trip:0, f:50, df:0, h:0, run:0, bo:0, done:0, scn:"", w:0, touchAt:0, lastSt:0, fShown:50 };
+
+// ------------------------------------------------------------- network
+function Realtime(topic, onMsg, onStatus) {
+  const url = `wss://${SUPA_REF}.supabase.co/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`;
+  let ws = null, ref = 0, joinRef = null, live = false, hb = 0, backoff = 500, queue = [];
+  const T = "realtime:" + topic;
+  function connect() {
+    onStatus(false);
+    try { ws = new WebSocket(url); } catch (e) { return retry(); }
+    ws.onopen = () => { joinRef = String(++ref); ws.send(JSON.stringify({ topic:T, event:"phx_join", ref:joinRef, join_ref:joinRef,
+      payload:{ config:{ broadcast:{ self:false, ack:false }, presence:{ key:"" }, private:false } } })); };
+    ws.onmessage = (e) => {
+      let m; try { m = JSON.parse(e.data); } catch (_) { return; }
+      if (m.event === "phx_reply" && m.ref === joinRef) {
+        if (m.payload && m.payload.status === "ok") {
+          live = true; backoff = 500; onStatus(true); const q = queue; queue = []; q.forEach(send);
+          clearInterval(hb); hb = setInterval(() => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ topic:"phoenix", event:"heartbeat", payload:{}, ref:String(++ref) })); }, 25000);
+        } else ws.close();
+      } else if (m.event === "broadcast" && m.payload) onMsg(m.payload.payload);
+      else if (m.event === "phx_error" || m.event === "phx_close") { try { ws.close(); } catch (_) {} }
+    };
+    ws.onclose = () => { live = false; clearInterval(hb); retry(); };
+    ws.onerror = () => {};
+  }
+  function retry() { onStatus(false); setTimeout(connect, backoff); backoff = Math.min(8000, backoff * 1.7); }
+  function send(obj) {
+    if (!live || !ws || ws.readyState !== 1) { if (obj.t === "sp") queue = queue.filter(q => q.t !== "sp"); queue.push(obj); if (queue.length > 10) queue.shift(); return; }
+    ws.send(JSON.stringify({ topic:T, event:"broadcast", ref:String(++ref), join_ref:joinRef, payload:{ type:"broadcast", event:"m", payload:obj } }));
+  }
+  connect();
+  return { send };
+}
+let rt = null, lastSpSend = 0, spTimer = 0;
+function sendSp(force) {
+  const now = performance.now();
+  clearTimeout(spTimer);
+  if (force || now - lastSpSend > 120) { lastSpSend = now; rt.send({ t:"sp", id:ID, v:+P.sp.toFixed(3) }); }
+  else spTimer = setTimeout(() => sendSp(true), 130);
+}
+let followSid = null, followStarted = 0;
+function onMsg(m) {
+  if (!m || m.t !== "st") return;
+  if (m.sid && m.sid !== followSid) {                       // follow only the newest big screen
+    if (followSid && (m.started || 0) < followStarted) return;
+    followSid = m.sid; followStarted = m.started || 0;
+  }
+  P.lastSt = Date.now();
+  P.f = m.f; P.df = m.df; P.h = m.h; P.run = m.run; P.done = m.done; P.scn = m.scn; P.w = m.w / 100;
+  if (m.bo && !P.bo) buzz([300, 100, 300]);
+  P.bo = m.bo;
+  const me = (m.u || []).find(x => x[0] === ID);
+  if (!me) { P.role = null; P.full = (m.u || []).length >= 40; render(); return; }
+  const role = ROLES[me[1]];
+  if (role !== P.role) { P.role = role; P.sp = me[4] / 1000; buzz(60); }
+  P.cap = me[2]; P.o = me[3] / 1000; P.soc = me[5]; P.trip = me[6];
+  if (performance.now() - P.touchAt > 1500) P.sp = me[4] / 1000;   // follow the screen unless we just moved it
+  render();
+}
+
+// ------------------------------------------------------------- UI
+const buzz = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+function hhmm(h) { const m = Math.round(h * 60) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); }
+const isBat = () => P.role === "battery";
+function spToY(v) { return isBat() ? (1 - (v + 1) / 2) : (1 - v); }    // 0 = top of the track
+function render() {
+  const wait = $("wait"), box = $("waitBox");
+  if (!ROOM) return;
+  if (!P.lastSt || Date.now() - P.lastSt > 6000) {
+    wait.hidden = false; box.innerHTML = `<h2>Waiting for the big screen…</h2><div style="color:#6b7280">Room ${ROOM}</div>`;
+  } else if (!P.role) {
+    wait.hidden = false; box.innerHTML = P.full ? `<h2>The grid is full</h2><div>All plants are taken – watch the big screen.</div>` : `<h2>Joining…</h2><div>Getting you a power plant.</div>`;
+  } else wait.hidden = true;
+  $("black").hidden = !P.bo;
+  if (!P.role) return;
+  const ri = RI[P.role];
+  document.documentElement.style.setProperty("--role", ri.color);
+  $("icon").innerHTML = ICONS[P.role];
+  $("roleName").textContent = "You run a " + ri.name;
+  $("roleTip").textContent = P.cap + " MW · " + ri.tip;
+  const tr = $("trip");
+  if (P.trip > 0) { tr.hidden = false; tr.textContent = "Your plant TRIPPED! Back online in " + P.trip + " s"; } else tr.hidden = true;
+  $("clock").textContent = hhmm(P.h) + (P.run ? "" : (P.done ? " · day over" : " · paused"));
+  $("scn").textContent = P.scn;
+  const bat = isBat();
+  $("zero").style.display = bat ? "block" : "none";
+  $("soc").style.display = bat ? "block" : "none";
+  $("tlabel").textContent = bat ? "SUPPLY" : "MAX";
+  $("blabel").textContent = bat ? "CHARGE" : "OFF";
+  $("socv").textContent = P.soc + " %"; $("socbar").style.width = P.soc + "%";
+  const av = $("avail");
+  if (P.role === "wind") { av.style.display = "block"; av.style.top = (100 * (1 - P.w)) + "%"; } else av.style.display = "none";
+  const fill = $("fill");
+  if (bat) {
+    const o = P.o;
+    if (o >= 0) { fill.style.bottom = "50%"; fill.style.top = (50 - 50 * o) + "%"; }
+    else { fill.style.top = "50%"; fill.style.bottom = (50 + 50 * o) + "%"; }
+  } else { fill.style.top = (100 * (1 - P.o)) + "%"; fill.style.bottom = "0"; }
+  $("handle").style.top = (100 * spToY(P.sp)) + "%";
+  const mw = Math.round(P.o * P.cap);
+  $("now").textContent = (bat && mw < 0 ? "charging " + (-mw) : mw) + " MW";
+  $("tgt").textContent = bat ? (P.sp >= 0 ? "supply " : "charge ") + Math.round(Math.abs(P.sp) * 100) + " %" : Math.round(P.sp * 100) + " %";
+}
+function drawFreq() {
+  P.fShown += (P.f - P.fShown) * 0.25;
+  const f = P.fShown, dev = f - 50, ad = Math.abs(dev);
+  $("fv").innerHTML = f.toFixed(2) + "<small> Hz</small>";
+  const adv = $("advice");
+  if (P.bo) { adv.className = "bad"; adv.textContent = "Blackout!"; }
+  else if (ad < 0.2) { adv.className = "ok"; adv.textContent = "Balanced – hold steady"; }
+  else if (dev < 0) { adv.className = ad < 0.5 ? "warn" : "bad"; adv.textContent = "Too LOW – more power!"; }
+  else { adv.className = ad < 0.5 ? "warn" : "bad"; adv.textContent = "Too HIGH – less power!"; }
+  const cv = $("mini"), r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 3);
+  if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
+  const R = Math.min(r.width / 2 - 4, r.height - 6), cx = r.width / 2, cy = r.height - 3;
+  const ang = (hz) => Math.PI + (clamp(hz, 49, 51) - 49) / 2 * Math.PI;
+  const seg = (a, b, c) => { g.beginPath(); g.arc(cx, cy, R * 0.8, ang(a), ang(b)); g.strokeStyle = c; g.lineWidth = R * 0.32; g.stroke(); };
+  seg(49, 49.5, "#fca5a5"); seg(49.5, 49.8, "#fde68a"); seg(49.8, 50.2, "#86efac"); seg(50.2, 50.5, "#fde68a"); seg(50.5, 51, "#fca5a5");
+  const a = ang(f);
+  g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * R * 0.98, cy + Math.sin(a) * R * 0.98); g.strokeStyle = "#990000"; g.lineWidth = 3.5; g.lineCap = "round"; g.stroke();
+  g.beginPath(); g.arc(cx, cy, 4, 0, 2 * Math.PI); g.fillStyle = "#18181b"; g.fill();
+  requestAnimationFrame(drawFreq);
+}
+let lastBand = true;
+setInterval(() => {                           // a nudge in your hand when the grid leaves the green band
+  const inBand = Math.abs(P.f - 50) < 0.2;
+  if (!inBand && lastBand && P.run) buzz(80);
+  lastBand = inBand; render();
+}, 500);
+
+// dragging the bar
+const track = $("track");
+function setFromY(clientY) {
+  if (!P.role) return;
+  const r = track.getBoundingClientRect(), y = clamp((clientY - r.top) / r.height, 0, 1);
+  P.sp = isBat() ? clamp(1 - 2 * y, -1, 1) : clamp(1 - y, 0, 1);
+  if (isBat() && Math.abs(P.sp) < 0.04) P.sp = 0;           // a little snap at zero
+  P.touchAt = performance.now(); render(); sendSp();
+}
+let dragging = false;
+track.addEventListener("pointerdown", (e) => { dragging = true; try { track.setPointerCapture(e.pointerId); } catch (_) {} setFromY(e.clientY); e.preventDefault(); });
+track.addEventListener("pointermove", (e) => { if (dragging) { setFromY(e.clientY); e.preventDefault(); } });
+const endDrag = () => { if (dragging) { dragging = false; sendSp(true); } };
+track.addEventListener("pointerup", endDrag); track.addEventListener("pointercancel", endDrag);
+function nudge(d) {
+  if (!P.role) return;
+  P.sp = isBat() ? clamp(P.sp + 2 * d, -1, 1) : clamp(P.sp + d, 0, 1);
+  P.touchAt = performance.now(); render(); sendSp(true); buzz(15);
+}
+$("more").onclick = () => nudge(0.1);
+$("less").onclick = () => nudge(-0.1);
+
+// ------------------------------------------------------------- go
+if (!ROOM) {
+  $("wait").hidden = false;
+  $("waitBox").innerHTML = `<h2>Enter the room code</h2><div>shown on the big screen</div><input id="roomIn" maxlength="8" autocomplete="off" autocapitalize="characters"><br><button id="roomGo">Join</button>`;
+  const go = () => { const v = $("roomIn").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (v) location.search = "?room=" + v; };
+  $("roomGo").onclick = go; $("roomIn").onkeydown = (e) => { if (e.key === "Enter") go(); };
+} else {
+  $("roomTag").textContent = "room " + ROOM;
+  rt = Realtime("dtu-grid-" + ROOM, onMsg, (ok) => $("dot").className = ok ? "live" : "");
+  const hello = () => rt.send({ t:"hello", id:ID });
+  hello(); setInterval(hello, 2000);
+  window.addEventListener("pagehide", () => rt.send({ t:"bye", id:ID }));
+  render();
+}
+requestAnimationFrame(drawFreq);
+window.__PH = { following:() => followSid, P, id:ID, setSp:(v) => { P.sp = v; P.touchAt = performance.now(); sendSp(true); render(); } };
+})();
+</script>
+</body>
+</html>

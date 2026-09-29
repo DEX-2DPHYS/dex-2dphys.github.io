@@ -2491,13 +2491,24 @@ var qrcode = function() {
     return ev;
   }
 
+  // Only ONE big screen may referee a room. Every screen sends who it is and when it opened;
+  // phones follow the most recently opened one and ignore older ones, and an older screen
+  // that hears a newer one goes quiet. Without this, a forgotten tab (Chrome wakes background
+  // tabs about once a minute) could push its own old board - even a solved one - onto the phones.
+  const SID = Math.random().toString(36).slice(2, 10);
+  let STARTED = Date.now(), superseded = false, followSid = null, followStarted = 0;
   function packState() {
-    return { t: "state", seq: ++lastSeq, room: ROOM,
+    return { t: "state", seq: ++lastSeq, room: ROOM, sid: SID, started: STARTED,
       pieces: pieces.map(p => [+p.x.toFixed(4), +p.y.toFixed(4), p.placed ? 1 : 0, p.holders]),
       z: zOrder, players: players.map(p => [p.id, p.slot]), startT, doneT, now: Date.now() };
   }
   function applyState(s) {
-    if (s.seq < lastSeq && s.seq > 3) return;          // an old one overtaken by a newer
+    if (s.sid && s.sid !== followSid) {
+      if (followSid && (s.started || 0) < followStarted) return false;   // an older big screen: ignore it
+      followSid = s.sid; followStarted = s.started || 0;                 // the first, or a newer, big screen
+      lastSeq = 0; lastApplied = 0;
+    }
+    if (s.seq < lastSeq && s.seq > 3) return false;    // an old one overtaken by a newer
     lastSeq = s.seq;
     const before = pieces.map(p => p.holders.length >= 2 && p.holders.includes(MY_ID));
     players = s.players.map(([id, slot]) => ({ id, slot, seen: 0 }));
@@ -2520,6 +2531,7 @@ var qrcode = function() {
     if (drag && !pieces[drag.k].holders.includes(MY_ID) && lastApplied > 0) drag = null;  // the referee said no
     lastApplied = performance.now();
     updateMe();
+    return true;
   }
   let lastApplied = 0;
 
@@ -2813,6 +2825,7 @@ var qrcode = function() {
   function onMsg(m) {
     if (!m || typeof m !== "object") return;
     if (ROLE === "screen") {
+      if (m.t === "state") { if (m.sid && m.sid !== SID) otherScreen(m); return; }
       if (m.t === "hello") {
         const pl = players.find(p => p.id === m.id);
         if (pl) pl.seen = Date.now();
@@ -2831,7 +2844,7 @@ var qrcode = function() {
       if (m.t === "state") {
         const wasDone = allPlaced() && lastApplied > 0;
         const snappedBefore = pieces.map(p => p.placed);
-        applyState(m);
+        if (applyState(m) === false) return;         // not the screen we follow
         pieces.forEach((p, k) => { if (p.placed && !snappedBefore[k] && lastApplied) click(); });
         if (allPlaced() && !wasDone && m.doneT) { chime(); celebrate(); }
         screenSeen = Date.now(); showWaiting();
@@ -2845,6 +2858,24 @@ var qrcode = function() {
 
   // ------------------------------------------------------------------ screen role
   let dirty = true;
+  function otherScreen(m) {
+    const newer = (m.started || 0) > STARTED || ((m.started || 0) === STARTED && m.sid > SID);
+    if (newer) { if (!superseded) { superseded = true; showSuperseded(); } }
+    else if (!superseded) { dirty = true; toast("Another big screen for room " + ROOM + " was open \u2013 it has been told to step aside"); }
+  }
+  function showSuperseded() {
+    let o = document.getElementById("superseded");
+    if (!o) {
+      o = document.createElement("div"); o.id = "superseded";
+      o.style.cssText = "position:fixed;inset:0;background:rgba(250,250,249,.93);display:flex;align-items:center;justify-content:center;z-index:50;font:18px/1.4 system-ui,sans-serif;text-align:center;padding:24px";
+      o.innerHTML = '<div style="max-width:560px"><div style="font-size:28px;font-weight:800;color:#990000;margin-bottom:10px">This screen is paused</div>' +
+        '<div>Another big screen has taken over room <b>' + ROOM + '</b>. Only one screen can run a room, so this one has gone quiet and the phones follow the other.</div>' +
+        '<button id="takeOver" style="margin-top:18px;font:inherit;font-weight:700;padding:10px 22px;border-radius:12px;border:0;background:#990000;color:#fff;cursor:pointer">Take over here instead</button></div>';
+      document.body.appendChild(o);
+      o.querySelector("#takeOver").onclick = () => { STARTED = Date.now(); superseded = false; o.style.display = "none"; dirty = true; };
+    }
+    o.style.display = "flex";
+  }
   function dropPlayer(id) {
     const i = players.findIndex(p => p.id === id); if (i < 0) return;
     pieces.forEach(p => { if (p.holders.includes(id)) handleEvents(reduce({ t: "rel", id, k: p.k })); });
@@ -2888,7 +2919,7 @@ var qrcode = function() {
     setInterval(() => {
       const now = Date.now();
       players.slice().forEach(p => { if (now - p.seen > 7000) dropPlayer(p.id); });
-      if (dirty || now - lastSent > 1500) { rt.send(packState()); dirty = false; lastSent = now; }
+      if (!superseded && (dirty || now - lastSent > 1500)) { rt.send(packState()); dirty = false; lastSent = now; }
     }, 60);
     document.getElementById("shuffleBtn").onclick = () => { audioOn(); scatter(); dirty = true; renderPlayers(); };
     document.getElementById("fsBtn").onclick = () => { audioOn(); (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {}); };
@@ -2977,7 +3008,7 @@ var qrcode = function() {
     pieces: () => pieces.map(p => ({ k: p.k, x: +p.x.toFixed(3), y: +p.y.toFixed(3), tx: +p.tx.toFixed(3), ty: +p.ty.toFixed(3), placed: p.placed, holders: p.holders.slice() })),
     players: () => players.map(p => ({ id: p.id, slot: p.slot })),
     worldToClient: (x, y) => { const r = cv.getBoundingClientRect(); return { x: r.left + OX + x * S, y: r.top + OY + y * S }; },
-    live: () => !!(rt && rt.live), shuffle: () => { if (ROLE === "screen") { scatter(); dirty = true; } }
+    live: () => !!(rt && rt.live), sid: () => SID, following: () => followSid, superseded: () => superseded, shuffle: () => { if (ROLE === "screen") { scatter(); dirty = true; } }
   };
 })();
 </script>

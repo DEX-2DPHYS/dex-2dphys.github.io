@@ -1,0 +1,9 @@
+{
+  "slug": "grid",
+  "name": "Grid Control (for phone)",
+  "description": "Keep the lights on: a classroom game where every phone runs one power plant - coal, gas, wind or battery - on a shared electricity grid shown on the big screen. Drag your output up or down and keep the frequency at 50 Hz together, through a morning ramp, a windy day, batteries, a storm and a plant trip. Teaches power balance, inertia, ramp rates, the merit order and storage. Runs over Supabase Realtime; nothing is stored.",
+  "status": "live",
+  "url": "tools/grid/index.html",
+  "icon": "device",
+  "tags": ["phone", "educational", "simulations"]
+}

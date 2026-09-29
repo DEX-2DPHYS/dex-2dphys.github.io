@@ -45,6 +45,7 @@
     "camera-fft",
     "camera-motion",
     "puzzle",
+    "grid",
     "lidar-ruler",
     "graph-digitizer",
     "transim",
