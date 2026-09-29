@@ -1,0 +1,9 @@
+{
+  "slug": "gront-lys",
+  "name": "GRØNT LYS – elnettet (telefon)",
+  "description": "Hold lyset tændt – grønt! Et klassespil hvor hver telefon styrer ét anlæg i det danske elnet: kraftvarmeværk, gasturbine, havvind, solceller, kablet til Norge, batterier eller Power-to-X. Sammen skal I holde frekvensen på 50 Hz gennem morgentoppen, en blæsende dag, en vindstille aften, en storm hvor Skagerrak-kablet falder ud – og et fossilfrit 2035. Lærer effektbalance, inerti, rampehastigheder, merit order, lagring og den grønne omstilling. Kører over Supabase Realtime; intet gemmes.",
+  "status": "live",
+  "url": "tools/gront-lys/index.html",
+  "icon": "device",
+  "tags": ["phone", "educational", "simulations"]
+}
