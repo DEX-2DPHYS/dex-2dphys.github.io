@@ -1,6 +1,6 @@
 # DSW example plugins
 
-Six research plugins for the Digital Science Workstation, plus the analysis
+Seven research plugins for the Digital Science Workstation, plus the analysis
 scripts used to check them. Everything here is **source**: build a bundle and
 put it in your plugin library, or read it as a worked example of the plugin
 ABI.
@@ -26,6 +26,7 @@ repointable from the launcher) and build it there.
 | `moire-bubble-tb-v1` | The same, carrying four twisted-bubble presets. | MIT |
 | `graphene-phonons` | Honeycomb lattice vibrations: Morse or harmonic bonds, second-neighbour shear springs, optional bond breaking and healing. | MIT |
 | `superlubricity` | Lennard-Jones interlayer energetics and moire lateral MD - stacking energy against twist and translation. | MIT |
+| `klein-magnetometer` | Many-junction graphene Klein-collimation magnetometer: exact Dirac-equation junction transmission (gate/linear/tanh/erf profiles), event-driven cyclotron ray tracing (no time step), Monte Carlo and ray-splitting engines, scattering with transport vs quantum length, junction and edge disorder, thermal averaging, noise-limited field resolution, sweeps and a 2-D optimiser, a coherent Fabry-Perot sidebar, and Veselago-lens density maps with point contacts. 18 validation gates in `test/`; design record in `DESIGN.md`. | MIT |
 
 ## Building a bundle
 
@@ -34,6 +35,15 @@ No CMake needed for the MIT ones. With a MinGW g++ (or MSVC equivalent):
 ```
 g++ -shared -std=c++17 -O3 -ffast-math -fopenmp -static -static-libgcc     -static-libstdc++ -o <id>.dll src/plugin.cpp -Isrc
 ```
+
+**`klein-magnetometer` is the exception: build it WITHOUT fast-math**
+(`-O2 -fno-fast-math -ffp-contract=off`, as `test/build.ps1` does). Under
+`-ffast-math` GCC assumes no NaN or Inf, so every `std::isfinite` guard is
+removed and a core can write `nan`/`inf` into its JSON replies, which the panel
+then cannot parse; the validation gates also need the exact floating-point
+order. `test/build.ps1` runs the gates before installing; `-Quick` skips the
+one gate (G2) that needs the June 2026 reference data, which is not in this
+repository.
 
 `-static` matters: it leaves the DLL depending only on KERNEL32 and the system
 UCRT, so there is nothing to ship alongside it. A MinGW-built plugin loads fine
@@ -58,6 +68,10 @@ upgrade against `ws://127.0.0.1:8090/ws/<id>` can drive the whole UI vocabulary
 and assert on the replies. Binary `DXF1` frames can be written straight to PNG.
 
 * `probe-*.js`, `stepprobe.js`, `cyclerun.js` - drive a plugin and assert
+  (`probe-klein-panel.js` drives the Klein panel in headless Chrome, 35 checks)
+* `study-klein.js`, `study-hall.js` - run a JSON job list of Klein R(B) curves,
+  or Hall-bar reference curves through the transport plugin, and save every
+  curve with its full parameter echo
 * `gasconfirm.js`, `gassweep.js`, `gastest.js` - blister pressure and volume,
   compared against the Hencky solution
 * `registry.py`, `strain.py` - commensurate-site registry and per-atom strain
