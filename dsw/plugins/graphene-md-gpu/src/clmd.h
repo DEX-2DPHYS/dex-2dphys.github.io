@@ -40,14 +40,6 @@
 #include <vector>
 
 #if defined(_WIN32)
-// windows.h defines min/max as macros, which turns any later std::max( into
-// "illegal token on right side of ::" under MSVC. Suppress them.
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
 #endif
 
@@ -123,6 +115,9 @@ inline Api &api() {
     HMODULE h = LoadLibraryA("OpenCL.dll");
     if (!h) return A;
     auto get = [&](const char *n) { return (void *)GetProcAddress(h, n); };
+#else
+    return A;
+#endif
     A.GetPlatformIDs = (decltype(A.GetPlatformIDs))get("clGetPlatformIDs");
     A.GetDeviceIDs = (decltype(A.GetDeviceIDs))get("clGetDeviceIDs");
     A.GetDeviceInfo = (decltype(A.GetDeviceInfo))get("clGetDeviceInfo");
@@ -150,11 +145,6 @@ inline Api &api() {
            A.GetProgramBuildInfo && A.CreateKernel && A.CreateBuffer &&
            A.EnqueueWriteBuffer && A.EnqueueReadBuffer && A.SetKernelArg &&
            A.EnqueueNDRangeKernel && A.Finish && A.ReleaseMemObject;
-#else
-    // No OpenCL loader off Windows yet: the GPU engine reports itself absent
-    // and the plugin falls back to its CPU path.
-    (void) 0;
-#endif
     return A;
 }
 

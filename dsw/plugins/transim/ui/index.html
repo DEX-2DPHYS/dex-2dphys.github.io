@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Graphene Transport Explorer — DSW</title>
+<script src="/dex.js"></script>
+<style>
+:root{--bg:#f7f9fc;--fg:#172033;--muted:#64748b;--panel:rgba(255,255,255,.97);--panel2:#f4f7fb;--line:#d9e0ea;--input:#fff;--accent:#0b57d0;--accent2:#12b8a6;--soft:#e8f0fe;--danger:#c62828;--shadow:0 18px 60px rgba(31,42,68,.17);--canvas:#f7f9fc}
+:root[data-theme="dark"]{--bg:#080d14;--fg:#e7edf6;--muted:#91a1b7;--panel:rgba(13,20,32,.97);--panel2:#101a2a;--line:#24334a;--input:#0b1422;--accent:#4aa3ff;--accent2:#4ae3d2;--soft:#102d4d;--danger:#ff7b84;--shadow:0 20px 70px rgba(0,0,0,.48);--canvas:#070b11}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--fg);font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}button,input,select{font:inherit}button{color:var(--fg)}
+.app{height:100%;display:grid;grid-template-rows:54px minmax(0,1fr)}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel);z-index:30}.back{color:var(--muted);text-decoration:none;font-size:14px}.brand{min-width:0}.brand h1{margin:0;font-size:16px;line-height:1.15;letter-spacing:.01em}.brand p{margin:2px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.top-actions{margin-left:auto;display:flex;gap:7px}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:7px 10px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px}.btn:hover{border-color:var(--accent)}.btn.accent{background:var(--soft);border-color:var(--accent);font-weight:650}.btn.primary{background:var(--accent);border-color:var(--accent);color:white;font-weight:700}.btn.danger{color:var(--danger)}.iconbtn{width:34px;padding:6px;font-size:15px}
+.workspace{position:relative;min-height:0;overflow:hidden}.stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:54px 34px 78px}.frame-shell{position:relative;width:min(100%,calc((100vh - 192px)*16/9));max-height:100%;aspect-ratio:16/9;border:1px solid var(--line);border-radius:15px;overflow:hidden;background:var(--canvas);box-shadow:0 12px 38px rgba(0,0,0,.22)}#view,#drawLayer{position:absolute;inset:0;width:100%;height:100%;display:block}#view{image-rendering:auto}#drawLayer{pointer-events:none}.drawing .frame-shell{cursor:crosshair}.drawing #drawLayer{pointer-events:auto}
+.hud{position:absolute;left:18px;top:16px;z-index:8;width:min(285px,calc(100vw - 36px));pointer-events:none}.hud-card{background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.16);backdrop-filter:blur(12px)}.eyebrow{font-size:10.5px;color:var(--accent2);font-weight:800;letter-spacing:.15em;text-transform:uppercase}.hud-title{font:650 14px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;margin-top:3px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}.metric{border-top:1px solid var(--line);padding-top:6px}.metric span{display:block;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}.metric b{font:600 12.5px/1.4 ui-monospace,Consolas,monospace}.statusline{margin-top:7px;color:var(--muted);font-size:12px}.live{color:var(--accent2)}
+.axis-x,.axis-y{position:absolute;color:var(--muted);font:11.5px ui-monospace,Consolas,monospace;z-index:4;pointer-events:none;text-shadow:0 1px 3px #000}.axis-x{bottom:7px;left:50%;transform:translateX(-50%)}.axis-y{left:7px;top:50%;transform:translateY(-50%) rotate(-90deg)}
+.dock{position:absolute;z-index:12;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:7px;background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);max-width:calc(100vw - 28px)}.tabs{display:flex;gap:4px;overflow:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{white-space:nowrap;border:0;background:transparent;color:var(--muted);border-radius:8px;padding:7px 9px;font-size:13px;cursor:pointer}.tab:hover{color:var(--fg);background:var(--panel2)}.tab.on{color:var(--fg);background:var(--soft);box-shadow:inset 0 0 0 1px var(--accent)}.dock-sep{height:25px;width:1px;background:var(--line);flex:0 0 auto}.runmini{display:flex;gap:5px;flex:0 0 auto}
+.drawer{position:absolute;z-index:40;right:0;top:0;height:100%;width:min(382px,94vw);background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(103%);transition:transform .2s ease;display:grid;grid-template-rows:auto auto minmax(0,1fr)}.drawer.open{transform:none}.drawer-head{display:flex;align-items:center;gap:9px;padding:12px 13px 9px}.drawer-head h2{font-size:14px;margin:0;flex:1}.drawer-head small{color:var(--muted);font-size:11.5px}.action-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 13px 10px}.action-grid .btn{padding:6px 3px;font-size:12px}.drawer-scroll{overflow-y:auto;padding:0 13px 24px}
+details.group{border:1px solid var(--line);border-radius:11px;margin:0 0 8px;overflow:hidden;background:color-mix(in srgb,var(--panel2) 56%,transparent)}details.group>summary{list-style:none;cursor:pointer;padding:9px 10px;color:var(--muted);font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;display:flex;gap:7px;align-items:center}details.group>summary::-webkit-details-marker{display:none}details.group>summary:before{content:"›";font-size:16px;color:var(--accent);transition:transform .12s}details[open]>summary:before{transform:rotate(90deg)}.body{padding:2px 10px 11px}.row{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;margin:6px 0}.row label,.field>label{font-size:12.5px;color:var(--muted)}.row output{font:600 12px ui-monospace,Consolas,monospace;text-align:right}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.field{margin:6px 0}.check{display:flex!important;align-items:center;gap:7px}.check input{width:auto!important}.help{display:inline-grid;place-items:center;width:15px;height:15px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--input);color:var(--muted);font-size:10.5px;cursor:help}
+input[type=number],select,input[type=file]{width:100%;min-width:0;background:var(--input);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 7px;font-size:12.5px}input[type=range]{width:100%;accent-color:var(--accent)}input[type=file]{font-size:11px}.inline{display:flex;gap:6px}.inline>*{flex:1}.derived{background:var(--input);border:1px solid var(--line);border-radius:9px;padding:8px;color:var(--muted);font:12px/1.55 ui-monospace,Consolas,monospace}.contact-list{display:flex;flex-direction:column;gap:5px;margin-top:7px}.contact{display:grid;grid-template-columns:9px minmax(0,1fr) 90px 26px;gap:6px;align-items:center;font-size:12px}.dot{width:9px;height:9px;border-radius:3px}.contact select{padding:4px}.contact .btn{padding:2px;min-height:25px}
+.progress{height:5px;background:var(--line);border-radius:5px;overflow:hidden;margin:8px 0;display:none}.progress.on{display:block}.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}.sweepbox{height:190px;border:1px solid var(--line);border-radius:9px;background:var(--input);margin-top:8px;position:relative}.sweepbox canvas{width:100%;height:100%;display:block}.hint{color:var(--muted);font-size:11.5px;line-height:1.45}.tiny{font-size:11px;color:var(--muted)}
+.detail{position:absolute;z-index:10;top:72px;right:24px;width:min(530px,calc(100vw - 48px));max-height:calc(100% - 160px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);padding:14px;display:none}.detail.on{display:block}.detail h3{font-size:13px;margin:0 0 9px}.detail p{font-size:12.5px;color:var(--muted);line-height:1.5}.detail table{width:100%;border-collapse:collapse;font:12px ui-monospace,Consolas,monospace}.detail th,.detail td{text-align:right;padding:6px;border-bottom:1px solid var(--line)}.detail th:first-child,.detail td:first-child{text-align:left}.valid-note{border-left:3px solid var(--accent);padding:6px 8px;margin:7px 0;background:var(--panel2);font-size:12.5px}.valid-note.ok{border-color:var(--accent2)}.valid-note.warn{border-color:#f4b942}
+.modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.48);display:none;align-items:center;justify-content:center;padding:20px}.modal.on{display:flex}.modal-card{width:min(560px,100%);max-height:80vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);padding:18px}.modal-card h3{margin:0 0 10px;font-size:15px}.modal-card h4{font-size:11.5px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin:14px 0 4px}.modal-card p{font-size:13px;line-height:1.6;color:var(--muted);margin:0}.modal-close{float:right}
+.toast{position:absolute;z-index:70;top:12px;left:50%;transform:translate(-50%,-20px);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:12.5px;opacity:0;pointer-events:none;transition:.18s;box-shadow:var(--shadow)}.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:900px){.stage{padding:72px 10px 94px}.hud{top:10px;left:10px;width:250px}.hud-card{padding:7px 9px}.metrics{display:none}.dock{bottom:10px}.tab{padding:7px}.runmini .secondary{display:none}.top-actions .export{display:none}.brand p{display:none}}
+@media(max-height:640px){.stage{padding-top:42px;padding-bottom:70px}.hud{top:7px}.hud-card{padding:6px 9px}.metrics{margin-top:4px}.drawer-head{padding-top:8px}.action-grid{padding-bottom:7px}.dock{bottom:8px}}
+/* ============================================================
+   Front panel: three columns at 16:9.
+
+   The view used to be the whole workspace with the readout, the
+   tabs and the run buttons floating on top of it, and the only
+   chart in the plugin was buried in a slide-out drawer. Columns
+   give each of those a place of its own, and the view stops being
+   the only thing on screen without being made small.
+   ============================================================ */
+:root{--rail:300px;--side:390px;--gutter:12px}
+
+.workspace{display:grid;gap:var(--gutter);padding:var(--gutter);
+  grid-template-columns:var(--rail) minmax(0,1fr) var(--side);align-items:stretch}
+
+/* the old drawer, docked as the controls rail */
+.drawer{position:static;transform:none;width:auto;height:100%;min-height:0;
+  border:1px solid var(--line);border-radius:14px;box-shadow:none;z-index:1;
+  overflow:hidden;transition:none}
+.drawer.open{transform:none}
+.drawer-head small{display:none}
+
+/* centre: the tab/run bar, then the device view */
+/* justify-/align-content must be reset explicitly: the rule this overrides is
+   a centring flexbox, and in grid those two centre the TRACKS, which leaves an
+   auto column sized to its content and floating in the middle of the column. */
+.stage{position:static;inset:auto;display:grid;gap:10px;padding:0;min-width:0;
+  min-height:0;grid-template-rows:auto auto minmax(0,1fr);grid-template-columns:minmax(0,1fr);
+  align-items:stretch;justify-items:stretch;align-content:stretch;
+  justify-content:stretch}
+/* the sweep reminder strip: what this sweep IS, sitting above the device */
+.sweepbar{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;
+  padding:6px 10px;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;font-size:12px;color:var(--muted);line-height:1.4;min-width:0}
+.sweepbar b{color:var(--fg);font-weight:600}
+.sweepbar .sb-main{flex:1 1 auto;min-width:0}
+.sweepbar .sb-prog{font-variant-numeric:tabular-nums}
+.sweepbar .sb-warn{flex-basis:100%;color:#b45309;font-weight:600}
+.sweepbar .sb-warn:empty{display:none}
+.viewbar{display:flex;align-items:center;gap:6px;padding:6px;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.viewbar .tabs{flex:1 1 auto;min-width:0}
+/* A size container, so the view can be sized against the height it actually
+   has rather than against arithmetic on the viewport. */
+.viewwrap{display:flex;align-items:center;justify-content:center;
+  min-width:0;min-height:0;container-type:size}
+/* 100cqh IS the height available here, so this fits in both directions at every
+   breakpoint. Sizing by viewport arithmetic instead let max-height clamp the
+   box at narrow widths, and a clamped max-height beats aspect-ratio -- the view
+   came out at 1.91 and the device render would have been stretched. */
+.frame-shell{width:min(100%,calc(100cqh*16/9));height:auto;max-height:100%;
+  aspect-ratio:16/9;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+
+/* right: readout, the sweep chart, and the tables -- all on the front page */
+/* Was a three-row grid of fixed cards. It now carries the sweep controls and
+   the numerical settings too, so it is a scrolling stack: each panel takes its
+   own height and the detail panel keeps whatever is left. */
+.side{display:flex;flex-direction:column;gap:var(--gutter);
+  min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+.side > .panel{flex:0 0 auto}
+.side > .panel-detail{flex:1 1 auto;min-height:150px}
+.side .group{margin-top:10px}
+.side .group summary{font-size:12.5px}
+.side .row2{gap:6px}
+.side .field label{font-size:11.5px}
+.side .panel{display:flex;flex-direction:column;min-height:0;padding:12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow)}
+.side .panel > h3{margin:0 0 9px;font-size:10.5px;font-weight:800;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--muted)}
+.side .hud{position:static;width:auto;pointer-events:auto}
+.side .hud-card{background:transparent;border:0;border-radius:0;padding:0;
+  box-shadow:none;backdrop-filter:none}
+.side .sweepbox{margin-top:0;height:172px;flex:0 0 auto}
+.side #sweepInfo{margin-top:7px;color:var(--muted)}
+.panel-detail .detail{position:static;display:none;width:auto;max-height:none;
+  padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;
+  overflow:auto;flex:1 1 auto;min-height:0}
+.panel-detail .detail.on{display:block}
+/* the placeholder follows the panel, so one sibling rule retires it */
+.detail.on + .detail-empty{display:none}
+
+/* the settings button now collapses the rail rather than opening a drawer */
+.app.norail .workspace{grid-template-columns:0 minmax(0,1fr) var(--side)}
+.app.norail .drawer{display:none}
+
+@media(max-width:1420px){:root{--rail:284px;--side:318px}}
+@media(max-width:1240px){:root{--rail:262px;--side:288px}
+  .side .sweepbox{height:150px}}
+/* Too narrow for three columns: put the readouts in a row UNDER the view
+   rather than hiding them -- they are the thing that was asked to be on the
+   front page. */
+@media(max-width:1120px){
+  .workspace{grid-template-columns:var(--rail) minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr) auto}
+  .drawer{grid-row:1/3}
+  .side{grid-column:2;grid-row:2;grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:auto}
+  .side .sweepbox{height:128px}}
+@media(max-width:840px){
+  .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+  .drawer{display:none}.side{grid-column:1;grid-row:2}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="back" href="/">← DSW</a>
+    <div class="brand"><h1>Graphene Transport Explorer</h1><p>Hybrid finite-volume + adaptive semiclassical transport</p></div>
+    <div class="top-actions">
+      <button class="btn export" id="exportJson">Export JSON</button><button class="btn export" id="exportPng">Export PNG</button>
+      <button class="btn iconbtn" id="theme" title="Toggle theme">◐</button><button class="btn accent" id="settings">Settings <span>⚙</span></button>
+    </div>
+  </header>
+    <div class="workspace" id="workspace">
+        <!-- left: every technical control, docked instead of sliding -->
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head"><div><h2>Experiment controls</h2><small>Technical controls stay tucked away here</small></div><button class="btn iconbtn" id="closeSettings">×</button></div>
+      <div class="action-grid"><button class="btn" data-run="fem">FEM</button><button class="btn" data-run="ballistic">Ballistic</button><button class="btn" data-run="quasi">Quasi</button><button class="btn primary" data-run="hybrid">Hybrid</button></div>
+      <div class="drawer-scroll">
+        <details class="group" open><summary>Device & material</summary><div class="body">
+          <div class="row2"><div class="field"><label>Width (µm)</label><input id="W_um" type="number" min=".2" step=".5" value="4"></div><div class="field"><label>Height (µm)</label><input id="H_um" type="number" min=".2" step=".5" value="2"></div></div>
+          <div class="field"><label>Carrier density n (cm⁻²) <button class="help" data-help="density">?</button></label><input id="n_cm2" type="number" step="1e11" value="1e12"></div>
+          <div class="field"><label>Mobility µ (cm²/Vs)</label><input id="mu_cm" type="number" step="1000" value="50000"></div>
+          <label class="check field"><input id="mfpFromMobility" type="checkbox" checked> Derive mean free path from µ and n</label>
+          <div class="field"><label>Mean free path ℓ (µm)</label><input id="mfp_um" type="number" min="0" step=".1" value=".5"></div>
+          <div class="field"><label>Magnetic field B (T) <output id="B_val">0.00 T</output></label><input id="B" type="range" min="-2" max="2" step=".01" value="0"></div>
+          <div class="row2"><div class="field"><label>Source V</label><input id="Vsource" type="number" step=".001" value=".001"></div><div class="field"><label>Drain V</label><input id="Vdrain" type="number" step=".001" value="0"></div></div>
+          <div class="row2"><div class="field"><label>Bulk scattering</label><select id="scattering"><option value="isotropic">Isotropic</option><option value="smallangle">Small-angle</option><option value="forward">Forward-biased</option><option value="none">None / ballistic</option></select></div><div class="field"><label>Edge scattering</label><select id="edge"><option value="specular">Specular</option><option value="diffuse">Diffuse</option><option value="mixed">Mixed</option><option value="absorbing">Absorbing</option></select></div></div>
+          <div class="derived" id="derived">Waiting for native core…</div>
+        </div></details>
+        <details class="group"><summary>Contacts</summary><div class="body">
+          <div class="field"><label>Preset layout</label><select id="contactPreset"><option value="hall_bar">Hall bar</option><option value="two_terminal">Two-terminal bar</option><option value="four_probe">Four-probe inline</option><option value="hall_cross">Hall cross</option></select></div>
+          <div class="field"><label>Contact depth (µm) <output id="dxNote"></output></label>
+            <input id="contactDepthUm" type="number" min="0.001" step="0.01" value="0.08"></div>
+          <div class="legend">How far the default electrodes reach in from their edge. They are boundary conditions, not sample, so this wants to be small — but keep it above the grid spacing dx, shown above. Drawn and imported contacts are unaffected.</div>
+          <div class="row2"><div class="field"><label>Draw role</label><select id="drawRole"><option value="source">Source</option><option value="drain">Drain</option><option value="probe">Probe</option><option value="absorber">Absorber</option></select></div><div class="field"><label>&nbsp;</label><button class="btn" id="drawContact">✎ Draw on map</button></div></div>
+          <div class="inline"><button class="btn" id="clearContacts">Clear</button><button class="btn" id="resetContacts">Restore preset</button></div><div class="contact-list" id="contactList"></div>
+        </div></details>
+        <details class="group"><summary>Spatial image maps</summary><div class="body">
+          <p class="hint">Images are reduced locally and sent to the native core. Luminance maps from the chosen minimum to maximum.</p>
+          <div class="field"><label>Density map</label><input type="file" id="densityFile" accept="image/*"></div><div class="row2"><div class="field"><label>min (cm⁻²)</label><input id="dmin" type="number" value="1e11"></div><div class="field"><label>max (cm⁻²)</label><input id="dmax" type="number" value="5e12"></div></div>
+          <div class="field"><label>Mobility map</label><input type="file" id="mobilityFile" accept="image/*"></div><div class="row2"><div class="field"><label>min</label><input id="mmin" type="number" value="5000"></div><div class="field"><label>max</label><input id="mmax" type="number" value="100000"></div></div>
+          <div class="row2"><div class="field"><label>Mobility controls</label><select id="mobScope"><option value="cond">Conductivity</option><option value="mfp">Mean free path</option><option value="both">Both</option></select></div><div class="field"><label>Channel</label><select id="mapChannel"><option value="lum">Luminance</option><option value="r">Red</option><option value="g">Green</option><option value="b">Blue</option></select></div></div>
+          <div class="row2"><label class="check field"><input id="mapInvert" type="checkbox"> Invert</label><div class="field"><label>Smooth radius</label><input id="mapSmooth" type="number" min="0" max="6" value="0"></div></div>
+          <div class="field"><label>Contact map</label><input type="file" id="contactFile" accept="image/*"></div><div class="inline"><button class="btn" data-clear-map="density">Clear density</button><button class="btn" data-clear-map="mobility">Clear mobility</button></div>
+        </div></details>
+        <details class="group"><summary>Model assumptions</summary><div class="body"><p class="hint">Semiclassical model: no Dirac-equation solution, quantum interference, weak localization, universal conductance fluctuations, tunnelling, or edge-state quantization. FEM is a local drift–diffusion model. Trajectories are semiclassical and phase-incoherent. The crossover adds Sharvin and Drude resistances in series.</p><button class="btn" data-help="assumptions">Read model guidance</button></div></details>
+        <div class="inline"><button class="btn" id="exportJson2">Export JSON</button><button class="btn" id="exportPng2">Export PNG</button><button class="btn danger" id="resetAll">Reset</button></div>
+      </div>
+    </aside>
+        <main class="stage">
+            <div class="viewbar"><nav class="tabs" id="tabs"><button class="tab on" data-view="device">Device</button><button class="tab" data-view="potential">Potential</button><button class="tab" data-view="current">Current</button><button class="tab" data-view="trajectories">Trajectories</button><button class="tab" data-view="transmission">Transmission</button><button class="tab" data-view="validity">Validity</button></nav><i class="dock-sep"></i><div class="runmini"><button class="btn primary" data-run="hybrid">Run hybrid</button><button class="btn secondary" data-run="fem">FEM</button><button class="btn secondary" id="runSweepTop">Run sweep</button><button class="btn danger" id="stop">Stop</button></div></div>
+            <div class="sweepbar" id="sweepBar"><span class="sb-main" id="sweepBarMain"></span><span class="sb-prog" id="sweepBarProg"></span><span class="sb-warn" id="sweepBarWarn"></span></div>
+            <div class="viewwrap"><div class="frame-shell"><canvas id="view"></canvas><canvas id="drawLayer"></canvas><div class="axis-x">x / source → drain</div><div class="axis-y">y / transverse</div></div></div>
+        </main>
+        <aside class="side">
+            <section class="panel"><h3>Readout</h3><div class="hud"><div class="hud-card"><div class="eyebrow" id="regime">hybrid regime</div><div class="hud-title" id="headline">4.00 × 2.00 µm · B = 0.00 T</div><div class="metrics"><div class="metric"><span>mean free path</span><b id="mfpHud">—</b></div><div class="metric"><span>cyclotron radius</span><b id="rcHud">∞</b></div><div class="metric"><span>conductance</span><b id="gHud">—</b></div></div><div class="statusline" id="status"><span class="live">●</span> connecting…</div></div></div></section>
+            <section class="panel"><h3>Parameter sweep</h3><div class="sweepbox"><canvas id="sweepCanvas"></canvas></div><div class="tiny" id="sweepInfo">No sweep yet.</div>
+          <div class="row" style="margin-top:8px;align-items:end;gap:8px">
+            <div class="field" style="flex:0 0 auto;min-width:118px">
+              <label>Axis scale</label>
+              <select id="sweepScale">
+                <option value="auto">Auto — full range</option>
+                <option selected value="robust">Robust — quartile range</option>
+                <option value="fixed">Fixed — locked below</option>
+              </select></div>
+            <button class="btn" id="lockFromView" type="button">From view</button>
+          </div>
+          <div class="row2" id="sweepLockRow">
+            <div class="field"><label>x min</label><input id="sxMin" type="number" step="any"></div>
+            <div class="field"><label>x max</label><input id="sxMax" type="number" step="any"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>y min</label><input id="syMin" type="number" step="any"></div>
+            <div class="field"><label>y max</label><input id="syMax" type="number" step="any"></div>
+          </div>
+          <div class="legend">A resistance sweep through the Dirac point diverges, so the full range is set by two or three points. <b>Robust</b> keeps the inter-quartile range with 1.5×IQR whiskers, which survives a peak several points wide where a 2–98 percentile clip does not; <b>Fixed</b> uses the numbers above, and <b>From view</b> fills them from what is on screen. Curves are clipped to the axes and anything outside is counted on the chart.</div>
+        <details class="group"><summary>Sweep settings</summary><div class="body">
+          <div class="field"><label>Sweep</label><select id="sweepType"><option value="vg">G vs Vg</option><option value="b">G vs B</option><option value="mfp">G vs ℓ</option><option value="vgb">G vs Vg & B (2D)</option></select></div>
+          <div class="row2"><label class="check"><input id="wantFem" type="checkbox" checked> FEM / Drude</label><label class="check"><input id="wantBal" type="checkbox"> Landauer / MC</label></div><label class="check field"><input id="snapshots" type="checkbox"> Store field snapshots</label>
+          <div class="row2"><div class="field"><label>Trajectory model</label><select id="balMode"><option value="crossover">Sharvin + Drude</option><option value="mc">Pure trajectory MC</option></select></div><div class="field"><label>Sweep quality</label><select id="quality"><option value="fast">Fast preview (caps trajectories)</option><option value="accurate">Configured trajectories</option></select></div></div>
+          <div id="vgRange"><div class="row2"><div class="field"><label>Vg from</label><input id="vgFrom" type="number" value="-40"></div><div class="field"><label>Vg to</label><input id="vgTo" type="number" value="40"></div></div><div class="row"><label>Vg points</label><input id="vgN" type="number" min="2" max="201" value="41"></div></div>
+          <div id="bRange" hidden><div class="row2"><div class="field"><label>B from</label><input id="bFrom" type="number" value="-1"></div><div class="field"><label>B to</label><input id="bTo" type="number" value="1"></div></div><div class="row"><label>B points</label><input id="bN" type="number" min="2" max="201" value="41"></div></div>
+          <div id="lRange" hidden><div class="row2"><div class="field"><label>ℓ from (nm)</label><input id="lFrom" type="number" min=".1" value="1"></div><div class="field"><label>ℓ to (nm)</label><input id="lTo" type="number" min="1" value="10000"></div></div><div class="row"><label>ℓ points</label><input id="lN" type="number" min="2" max="201" value="41"></div></div>
+          <div class="row2"><div class="field"><label>Measure</label><select id="measure"><option value="2t">Two-terminal</option><option value="hall">Hall Rxy</option><option value="rxx">Longitudinal Rxx</option></select></div><div class="field"><label>Plot quantity</label><select id="quantity"><option value="G">Conductance G</option><option value="R">Resistance R</option></select></div></div>
+          <details><summary class="tiny">Gate model n(Vg)</summary><div class="row2"><div class="field"><label>tox (nm)</label><input id="tox" type="number" value="300"></div><div class="field"><label>εr</label><input id="epsr" type="number" step=".1" value="3.9"></div></div><div class="field"><label>Dirac voltage V₀</label><input id="vdirac" type="number" step=".5" value="0"></div></details>
+          <div class="inline"><button class="btn primary" id="runSweep">Run sweep</button><button class="btn" id="exportCsv">Export CSV</button></div><div class="progress" id="progress"><i></i></div><div id="snapshotHost"></div>
+        </div></details>
+        </section>
+            <section class="panel">
+        <details class="group"><summary>Numerical settings</summary><div class="body">
+          <div class="row"><label>Grid resolution</label><input id="res" type="number" min="16" max="300" step="10" value="100"></div><div class="row"><label>Trajectories</label><input id="nTraj" type="number" min="100" max="1000000" step="500" value="2000"></div><div class="row"><label>Random seed</label><input id="seed" type="number" step="1" value="7"></div>
+          <div class="row"><label>FEM max iterations</label><input id="femIter" type="number" step="500" value="3000"></div><div class="row"><label>FEM tolerance</label><input id="femTol" type="number" step="1e-8" value="1e-7"></div><div class="row"><label>Max path (µm)</label><input id="maxPath_um" type="number" min="1" step="20" value="240"></div><div class="row"><label>Step safety cap</label><input id="maxSteps" type="number" min="100" step="1000" value="8000"></div><div class="row"><label>CPU threads (0 = all)</label><input id="threads" type="number" min="0" max="256" value="0"></div>
+          <p class="hint">Adaptive ds resolves scattering events exactly and caps angular advance near tight cyclotron arcs. The core automatically raises the step cap when needed to reach the selected path length.</p>
+        </div></details>
+        </section>
+        <section class="panel panel-detail"><h3>Detail</h3><section class="detail" id="detail"></section><p class="hint detail-empty">Choose the <b>Transmission</b> or <b>Validity</b> view to fill this panel.</p></section>
+        </aside>
+    <div class="toast" id="toast"></div>
+    </div>
+</div>
+<div class="modal" id="modal"><div class="modal-card"><button class="btn iconbtn modal-close" id="modalClose">×</button><h3 id="modalTitle">Help</h3><div id="modalBody"></div></div></div>
+<script>
+(() => {
+"use strict";
+const $=id=>document.getElementById(id), num=id=>+$ (id).value;
+const ROLE_COLOR={source:'#23b978',drain:'#f65b5c',probe:'#4096ff',absorber:'#f5b041'};
+const PRESETS={
+ hall_bar:[['source','source',0,.1,.04,.9],['drain','drain',.96,.1,1,.9],['probe_top','probe',.4,.94,.6,1],['probe_bottom','probe',.4,0,.6,.06]],
+ two_terminal:[['source','source',0,.05,.04,.95],['drain','drain',.96,.05,1,.95]],
+ four_probe:[['source','source',0,.05,.04,.95],['drain','drain',.96,.05,1,.95],['probe_1','probe',.28,.93,.4,1],['probe_2','probe',.6,.93,.72,1]],
+ hall_cross:[['source','source',0,.35,.04,.65],['drain','drain',.96,.35,1,.65],['probe_top','probe',.35,.96,.65,1],['probe_bottom','probe',.35,0,.65,.04]]
+};
+let lastSweepRange=null;
+let contacts=[], activeView='device', fem=null, traj=null, derived=null, drawMode=false, drawStart=null, sweep=null, toastTimer;
+const stateIds=['W_um','H_um','n_cm2','mu_cm','mfp_um','Vsource','Vdrain','B','res','nTraj','seed','femIter','femTol','maxSteps','maxPath_um','threads'];
+const HELP={
+ density:['Carrier density','The signed areal carrier concentration in graphene.','It sets kF = √(π|n|), Drude conductivity, cyclotron radius, mode count and the mobility-derived mean free path. Negative values represent holes.','Use cm⁻². A gate sweep derives this value from the oxide capacitance.'],
+ assumptions:['What this model can tell you','This workbench compares local drift–diffusion with phase-incoherent semiclassical trajectories.','The Hall finite-volume tensor is quantitative within the model; ballistic paths include magnetic curvature, bulk scattering and edge reflection. It does not include coherent quantum transport, Landau quantization, tunnelling or self-consistent electrostatics.','Use the Validity tab before interpreting a result. Treat ℓ/L and rc/W near unity as the interesting crossover region.']
+};
+function contactDepthUm(){const e=$('contactDepthUm');
+  const v=e?Number(e.value):NaN; return isFinite(v)&&v>0?v:0.08}
+// Every default electrode sits ON an edge, so which of its bounds is the
+// intrusion follows from which edge it touches. One rule covers all four
+// layouts, and the presets go on describing only where a contact sits and how
+// long it is ALONG its edge -- that length is its width, not its intrusion.
+function clonePreset(name){
+  const d=contactDepthUm(), W=num('W_um')||4, H=num('H_um')||2;
+  const fx=Math.min(.45,d/W), fy=Math.min(.45,d/H), E=1e-9;
+  return (PRESETS[name]||PRESETS.hall_bar).map(a=>{
+    const c={id:a[0],role:a[1],x0:a[2],y0:a[3],x1:a[4],y1:a[5]};
+    if(c.x0<=E) c.x1=fx; else if(c.x1>=1-E) c.x0=1-fx;
+    else if(c.y0<=E) c.y1=fy; else if(c.y1>=1-E) c.y0=1-fy;
+    return c})}
+// dx = W/res is the constraint the depth has to clear, so show it.
+function updateDxNote(){const e=$('dxNote'); if(!e) return;
+  const W=num('W_um')||4, r=Math.max(1,num('res')||100);
+  const dx=W/r, d=contactDepthUm();
+  e.textContent='dx = '+dx.toFixed(3)+' \u00b5m'+(d<dx?'  \u2014 below dx':'');
+  e.style.color = d<dx ? 'var(--danger,#f65b5c)' : '';}
+contacts=clonePreset('hall_bar');
+function payload(){const o={t:'configure'};stateIds.forEach(id=>o[id]=num(id));o.mfpFromMobility=$('mfpFromMobility').checked?1:0;o.scattering=$('scattering').value;o.edge=$('edge').value;o.mobScope=$('mobScope').value;return o}
+function contactString(){return contacts.map(c=>[c.id,c.role,c.x0,c.y0,c.x1,c.y1].join('|')).join(';')}
+function sync(){dex.send(payload());dex.send({t:'contacts',data:contactString()});updateHud()}
+let syncTimer;function deferSync(){clearTimeout(syncTimer);syncTimer=setTimeout(sync,90)}
+function toast(s){const e=$('toast');e.textContent=s;e.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('on'),2600)}
+function fmt(v,unit=''){if(v==null||!isFinite(v))return '—';const a=Math.abs(v);return (a&& (a>=1e4||a<.001)?v.toExponential(2):v.toFixed(a<10?3:1))+unit}
+function updateHud(){const B=num('B'),W=num('W_um'),H=num('H_um');$('B_val').textContent=B.toFixed(2)+' T';$('headline').textContent=`${W.toFixed(2)} × ${H.toFixed(2)} µm · B = ${B.toFixed(2)} T`;$('mfp_um').disabled=$('mfpFromMobility').checked;if(derived){$('mfpHud').textContent=fmt(derived.mfp_um,' µm');$('rcHud').textContent=derived.rc_um<0?'∞':fmt(derived.rc_um,' µm');const r=derived.mfp_um/W;$('regime').textContent=r<.2?'diffusive regime':r<3?'quasi-ballistic crossover':'ballistic regime';$('derived').textContent=`ℓ = ${fmt(derived.mfp_um,' µm')}\nrc = ${derived.rc_um<0?'∞':fmt(derived.rc_um,' µm')}\nkF = ${fmt(derived.kf,' m⁻¹')}\nmodes ≈ ${fmt(derived.modes)} · ${derived.threads} CPU threads`;}}
+function setStatus(s,busy=false){$('status').innerHTML=`<span class="${busy?'':'live'}">●</span> ${s}`}
+function renderContacts(){const h=$('contactList');h.innerHTML='';contacts.forEach((c,i)=>{const r=document.createElement('div');r.className='contact';r.innerHTML=`<i class="dot" style="background:${ROLE_COLOR[c.role]}"></i><span>${c.id}</span><select><option>source</option><option>drain</option><option>probe</option><option>absorber</option></select><button class="btn danger">×</button>`;const sel=r.querySelector('select');sel.value=c.role;sel.onchange=()=>{c.role=sel.value;sync()};r.querySelector('button').onclick=()=>{contacts.splice(i,1);renderContacts();sync()};h.appendChild(r)})}
+function setView(v){activeView=v;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));dex.send({t:'view',name:v});renderDetail()}
+function renderDetail(){const d=$('detail');if(activeView==='transmission'){d.classList.add('on');let html='<h3>Landauer transmission matrix</h3>';if(!traj)html+='<p>Run ballistic, quasi-ballistic, or hybrid transport to populate terminal statistics.</p>';else{html+=`<p>${traj.n.toLocaleString()} trajectories · ${fmt(traj.meanPath_um,' µm')} mean path · ${fmt(traj.meanScatters)} mean scattering events</p><table><tr><th>from → to</th><th>T</th><th>G</th></tr>`;traj.transmission.forEach(r=>html+=`<tr><td>${r.source} → ${r.target}</td><td>${r.T.toFixed(4)}</td><td>${fmt(r.G,' S')}</td></tr>`);html+='</table>'}d.innerHTML=html}else if(activeView==='validity'){d.classList.add('on');const W=num('W_um'),m=derived?derived.mfp_um:0,rc=derived?derived.rc_um:-1,r=m/W;let notes=r<.2?'<div class="valid-note ok">ℓ ≪ L: drift–diffusion FEM is likely appropriate.</div>':r<3?'<div class="valid-note warn">ℓ ~ L: this is the crossover regime; compare FEM and trajectories.</div>':'<div class="valid-note warn">ℓ ≫ L: ballistic transmission dominates and local FEM is outside its best regime.</div>';if(rc>0&&rc/num('H_um')>.3&&rc/num('H_um')<3)notes+='<div class="valid-note warn">rc ~ W: magnetic focusing and geometry should be visible.</div>';d.innerHTML=`<h3>Model validity</h3><table><tr><th>ratio</th><th>value</th></tr><tr><td>ℓ / L</td><td>${fmt(r)}</td></tr><tr><td>ℓ / W</td><td>${fmt(m/num('H_um'))}</td></tr><tr><td>rc / W</td><td>${rc<0?'∞':fmt(rc/num('H_um'))}</td></tr></table>${notes}<p>No phase coherence, quantum interference, Landau quantization, tunnelling, or edge-state quantization is included.</p>`}else d.classList.remove('on')}
+function run(mode){sync();dex.send({t:'run',mode});setStatus(`running ${mode}…`,true);if(mode==='fem')setView('potential');else if(mode!=='hybrid')setView('trajectories')}
+const dex=DEX.connect({canvas:$('view'),onStatus:s=>setStatus(s==='open'?'native core ready':s),onMessage:m=>{
+ if(m.t==='ready'){setStatus(`${m.backend} · ${m.threads} threads`);return}if(m.t==='derived'){derived=m;updateHud();renderDetail();return}
+ if(m.t==='fem'){fem=m;$('gHud').textContent=fmt(m.G,' S');setStatus(`FEM ${m.nx}×${m.ny} · ${m.iters} iterations · ${fmt(m.ms,' ms')}`);if(!m.converged)toast(`FEM residual ${m.residual.toExponential(2)} — inspect numerical settings`);return}
+ if(m.t==='traj'){traj=m;setStatus(`${m.n.toLocaleString()} adaptive trajectories · ${fmt(m.ms,' ms')} · ${m.threads} threads`);const src=m.transmission.find(x=>x.source==='source'&&x.target==='drain');if(src)$('gHud').textContent=fmt(src.G,' S');renderDetail();return}
+ if(m.t==='progress'){const q=Math.round(100*m.done/m.total);setStatus(`trajectories ${q}% · ${m.done.toLocaleString()}/${m.total.toLocaleString()}`,true);return}
+ if(m.t==='job'&&m.state==='done'){setStatus('complete');return}if(m.t==='error'){toast(m.message);setStatus('error');return}if(m.t==='notice'){toast(m.message);return}
+ if(m.t==='reset_done'){resetControls(false);toast('Defaults restored');return}handleSweepMessage(m)
+}});
+document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>run(b.dataset.run));$('stop').onclick=()=>{dex.send({t:'stop'});setStatus('stopped')};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+$('settings').onclick=()=>$('drawer').classList.add('open');$('closeSettings').onclick=()=>$('drawer').classList.remove('open');
+$('theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';drawSweep()};
+stateIds.forEach(id=>$(id).addEventListener(id==='B'?'input':'change',deferSync));['mfpFromMobility','scattering','edge','mobScope'].forEach(id=>$(id).addEventListener('change',deferSync));
+$('contactPreset').onchange=()=>{contacts=clonePreset($('contactPreset').value);renderContacts();sync()};
+// The depth is a fraction of the device, so a size change moves it too, and
+// dx moves with the resolution. Re-clone on any of them.
+['contactDepthUm','W_um','H_um','res'].forEach(id=>{const e=$(id); if(!e)return;
+  e.addEventListener('input',()=>{updateDxNote();
+    const p=$('contactPreset'); if(!p) return;
+    contacts=clonePreset(p.value); renderContacts(); sync()})});
+updateDxNote();$('resetContacts').onclick=()=>{contacts=clonePreset($('contactPreset').value);renderContacts();sync()};$('clearContacts').onclick=()=>{contacts=[];renderContacts();dex.send({t:'contacts',data:''});toast('Contacts cleared')};
+$('drawContact').onclick=()=>{drawMode=!drawMode;$('workspace').classList.toggle('drawing',drawMode);$('drawContact').classList.toggle('accent',drawMode);toast(drawMode?'Drag on the device to place a contact':'Contact drawing off')};
+function nativeDeviceRect(){const aw=960-72,ah=540-60,asp=num('W_um')/num('H_um');let w,h;if(aw/ah>asp){h=ah;w=h*asp}else{w=aw;h=w/asp}return{x:(960-w)/2,y:(540-h)/2,w,h}}
+function eventFrac(e){const r=$('drawLayer').getBoundingClientRect(),d=nativeDeviceRect(),px=(e.clientX-r.left)/r.width*960,py=(e.clientY-r.top)/r.height*540;return[Math.max(0,Math.min(1,(px-d.x)/d.w)),Math.max(0,Math.min(1,1-(py-d.y)/d.h))]}
+function drawPreview(a,b){const c=$('drawLayer'),r=c.getBoundingClientRect(),scale=devicePixelRatio||1;c.width=r.width*scale;c.height=r.height*scale;const x0=Math.min(a[0],b[0])*r.width,y0=(1-Math.max(a[1],b[1]))*r.height,x1=Math.max(a[0],b[0])*r.width,y1=(1-Math.min(a[1],b[1]))*r.height,ctx=c.getContext('2d');ctx.scale(scale,scale);ctx.strokeStyle=ROLE_COLOR[$('drawRole').value];ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.strokeRect(x0,y0,x1-x0,y1-y0)}
+const dl=$('drawLayer');dl.onpointerdown=e=>{if(!drawMode)return;drawStart=eventFrac(e);dl.setPointerCapture(e.pointerId)};dl.onpointermove=e=>{if(drawStart)drawPreview(drawStart,eventFrac(e))};dl.onpointerup=e=>{if(!drawStart)return;const b=eventFrac(e),a=drawStart;drawStart=null;dl.getContext('2d').clearRect(0,0,dl.width,dl.height);if(Math.abs(a[0]-b[0])<.008||Math.abs(a[1]-b[1])<.008)return;const role=$('drawRole').value,n=contacts.filter(c=>c.role===role).length+1;contacts.push({id:`${role}_${n}`,role,x0:Math.min(a[0],b[0]),y0:Math.min(a[1],b[1]),x1:Math.max(a[0],b[0]),y1:Math.max(a[1],b[1])});renderContacts();sync()};
+function loadImage(file,max=64){return new Promise((ok,no)=>{const im=new Image,u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.getContext('2d').getImageData(0,0,c.width,c.height))};im.onerror=no;im.src=u})}
+function smooth(v,w,h,r){if(!r)return v;const o=new Float32Array(v.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let s=0,n=0;for(let j=-r;j<=r;j++)for(let i=-r;i<=r;i++){const xx=x+i,yy=y+j;if(xx>=0&&xx<w&&yy>=0&&yy<h){s+=v[yy*w+xx];n++}}o[y*w+x]=s/n}return o}
+async function fieldMap(kind,file){const im=await loadImage(file),ch=$('mapChannel').value,inv=$('mapInvert').checked,d=im.data,v=new Float32Array(im.width*im.height),lo=num(kind==='density'?'dmin':'mmin'),hi=num(kind==='density'?'dmax':'mmax');for(let k=0;k<v.length;k++){let t=ch==='r'?d[k*4]/255:ch==='g'?d[k*4+1]/255:ch==='b'?d[k*4+2]/255:(.299*d[k*4]+.587*d[k*4+1]+.114*d[k*4+2])/255;if(inv)t=1-t;v[k]=lo+(hi-lo)*t}const z=smooth(v,im.width,im.height,Math.max(0,Math.min(6,num('mapSmooth')|0)));dex.send({t:'map',kind,w:im.width,h:im.height,data:Array.from(z)});toast(`${kind} map ${im.width}×${im.height} loaded`)}
+$('densityFile').onchange=e=>e.target.files[0]&&fieldMap('density',e.target.files[0]);$('mobilityFile').onchange=e=>e.target.files[0]&&fieldMap('mobility',e.target.files[0]);document.querySelectorAll('[data-clear-map]').forEach(b=>b.onclick=()=>{dex.send({t:'clear_map',kind:b.dataset.clearMap});toast(`${b.dataset.clearMap} map cleared`)});
+async function contactMap(file){const im=await loadImage(file,96),{width:w,height:h,data:d}=im,role=new Int8Array(w*h).fill(-1);for(let k=0;k<w*h;k++){const r=d[k*4],g=d[k*4+1],b=d[k*4+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<45||mx<85)continue;role[k]=r>g*1.18&&r>b*1.18?0:g>r*1.12&&g>b*1.12?1:b>r*1.12&&b>g*1.12?2:3}const seen=new Uint8Array(w*h),out=[],names=['source','drain','probe','absorber'];for(let k=0;k<role.length;k++){if(role[k]<0||seen[k])continue;const rr=role[k],q=[k];seen[k]=1;let minx=w,maxx=0,miny=h,maxy=0,n=0;for(let qi=0;qi<q.length;qi++){const p=q[qi],x=p%w,y=(p/w)|0;minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y);n++;for(const z of [p-1,p+1,p-w,p+w])if(z>=0&&z<role.length&&!seen[z]&&role[z]===rr&&Math.abs(z%w-x)<=1){seen[z]=1;q.push(z)}}if(n>=3){const ro=names[rr],i=out.filter(c=>c.role===ro).length+1;out.push({id:`${ro}_${i}`,role:ro,x0:minx/w,x1:(maxx+1)/w,y0:1-(maxy+1)/h,y1:1-miny/h})}}if(out.length){contacts=out;renderContacts();sync();toast(`${out.length} contacts extracted`)}else toast('No saturated contact regions found')}
+$('contactFile').onchange=e=>e.target.files[0]&&contactMap(e.target.files[0]);
+function sweepRanges(){const t=$('sweepType').value;$('vgRange').hidden=!(t==='vg'||t==='vgb');$('bRange').hidden=!(t==='b'||t==='vgb');$('lRange').hidden=t!=='mfp'}$('sweepType').onchange=sweepRanges;
+function startSweep(){sync();const keys=['vgFrom','vgTo','vgN','bFrom','bTo','bN','lFrom','lTo','lN','tox','epsr','vdirac'],m={t:'sweep',sweepType:$('sweepType').value,measure:$('measure').value,quantity:$('quantity').value,balMode:$('balMode').value,quality:$('quality').value,wantFem:$('wantFem').checked?1:0,wantBal:$('wantBal').checked?1:0,snapshots:$('snapshots').checked?1:0};keys.forEach(k=>m[k]=num(k));dex.send(m);setStatus('preparing sweep…',true)}
+$('runSweep').onclick=startSweep;$('runSweepTop').onclick=startSweep;
+/* ---- sweep reminder strip -------------------------------------------- */
+/* The trajectory budget is NOT recomputed here: the core reports what it
+   spent in sweep_start, and before a run the strip says which mode is set
+   rather than guessing a number. Two copies of that rule would drift. */
+let sweepBudget=null;
+const sbInt=n=>(+n||0).toLocaleString('en-US').replace(/,/g,String.fromCharCode(8201));
+function sweepSummary(){
+  if(!$('sweepBarMain'))return;
+  const t=$('sweepType').value, opt=id=>{const e=$(id);return e.options[e.selectedIndex].textContent;};
+  const rng = t==='vg'  ? 'Vg '+num('vgFrom')+' to '+num('vgTo')+' V, '+num('vgN')+' points'
+            : t==='b'   ? 'B '+num('bFrom')+' to '+num('bTo')+' T, '+num('bN')+' points'
+            : t==='mfp' ? 'mfp '+num('lFrom')+' to '+num('lTo')+' nm, '+num('lN')+' points'
+            : 'Vg '+num('vgFrom')+' to '+num('vgTo')+' V x B '+num('bFrom')+' to '+num('bTo')+' T, '+num('vgN')+'x'+num('bN');
+  const models=[];
+  if($('wantFem').checked)models.push('FEM/Drude');
+  if($('wantBal').checked)models.push('MC ('+opt('balMode')+')');
+  const parts=['<b>'+opt('measure')+'</b>',opt('quantity'),rng,
+    models.length?models.join(' + '):'<span class="sb-warn">no model selected</span>'];
+  let warn='';
+  if($('wantBal').checked){
+    if(sweepBudget){
+      parts.push(sbInt(sweepBudget.traj)+' trajectories/point'+
+        (sweepBudget.perTerminal!==sweepBudget.traj?' ('+sbInt(sweepBudget.perTerminal)+' per terminal)':''));
+      if(sweepBudget.capped)warn='Fast preview capped this at '+sbInt(sweepBudget.traj)+' trajectories a point: the Trajectories setting ('+sbInt(num('nTraj'))+') was not used. Switch Sweep quality to "Configured trajectories".';
+    }else{
+      parts.push($('quality').value==='accurate'?sbInt(num('nTraj'))+' trajectories/point':'fast preview, trajectory count capped');
+      if($('quality').value!=='accurate'&&$('measure').value!=='2t')
+        warn='A four-probe reading is a small difference between two probe potentials. "Fast preview" caps the trajectories and leaves it as noise.';
+    }
+  }
+  $('sweepBarMain').innerHTML=parts.join(' &middot; ');
+  $('sweepBarWarn').textContent=warn;
+}
+$('measure').addEventListener('change',()=>{
+  if($('measure').value!=='2t'&&$('quality').value!=='accurate'&&$('wantBal').checked){
+    $('quality').value='accurate';
+    toast('Sweep quality set to Configured trajectories: Rxy and Rxx need them');}});
+['sweepType','measure','quantity','balMode','quality','wantFem','wantBal','nTraj',
+ 'vgFrom','vgTo','vgN','bFrom','bTo','bN','lFrom','lTo','lN'].forEach(id=>{
+  const e=$(id); if(!e)return;
+  const h=()=>{sweepBudget=null;$('sweepBarProg').textContent='';sweepSummary();};
+  e.addEventListener('input',h); e.addEventListener('change',h);});
+sweepSummary();
+
+function handleSweepMessage(m){if(m.t==='sweep_start'){sweep={type:m.type,nx:m.nx,ny:m.ny,total:m.total,snapshots:m.snapshots,x:new Array(m.total),y:new Array(m.total),fem:new Array(m.total),bal:new Array(m.total)};$('progress').classList.add('on');$('progress').querySelector('i').style.width='0%';sweepBudget=Number.isFinite(m.traj)?{traj:m.traj,perTerminal:m.trajPerTerminal,capped:!!m.trajCapped}:null;sweepSummary();drawSweep()}else if(m.t==='sweep_point'&&sweep){sweep.x[m.i]=m.x;sweep.y[m.i]=m.y;sweep.fem[m.i]=m.fem;sweep.bal[m.i]=m.bal;$('progress').querySelector('i').style.width=(100*(m.i+1)/m.total)+'%';$('sweepInfo').textContent=`${m.i+1}/${m.total} points`;$('sweepBarProg').textContent=`${m.i+1}/${m.total}`;if(m.i%2===0||m.i+1===m.total)drawSweep()}else if(m.t==='sweep_done'){$('progress').classList.remove('on');$('sweepInfo').textContent=`Complete · ${sweep.total} native points`;$('sweepBarProg').textContent='complete';setStatus('sweep complete');if(sweep.snapshots){$('snapshotHost').innerHTML=`<div class="field"><label>Field snapshot <output id="snapshotVal">1 / ${sweep.total}</output></label><input id="snapshot" type="range" min="0" max="${sweep.total-1}" value="0"></div>`;$('snapshot').oninput=e=>{$('snapshotVal').textContent=`${+e.target.value+1} / ${sweep.total}`;dex.send({t:'sweep_snapshot',i:+e.target.value})}}}}
+function drawSweep(){const c=$('sweepCanvas'),r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);const W=r.width,H=r.height,css=getComputedStyle(document.documentElement);x.fillStyle=css.getPropertyValue('--input');x.fillRect(0,0,W,H);if(!sweep){x.fillStyle=css.getPropertyValue('--muted');x.font='11px Segoe UI';x.fillText('Run a parameter sweep',14,H/2);return}const vals=$('wantFem').checked?sweep.fem:sweep.bal;if(sweep.type==='vgb'){const finite=vals.filter(Number.isFinite),lo=Math.min(...finite),hi=Math.max(...finite);for(let j=0;j<sweep.ny;j++)for(let i=0;i<sweep.nx;i++){const v=vals[j*sweep.nx+i],t=isFinite(v)&&hi>lo?(v-lo)/(hi-lo):0;x.fillStyle=`hsl(${255-210*t} 76% ${30+28*t}%)`;x.fillRect(42+i*(W-54)/sweep.nx,10+j*(H-33)/sweep.ny,(W-54)/sweep.nx+1,(H-33)/sweep.ny+1)}}else{
+ // ---- autoscale over EVERY series drawn, not just the selected one --------
+ const SERIES=[['fem','FEM','#4aa3ff'],['bal','ballistic','#4ae3d2']];
+ const pts={};let any=false;
+ for(const [k] of SERIES){
+  const a=(sweep[k]||[]).map((v,i)=>(isFinite(v)&&sweep.x[i]!=null)?[sweep.x[i],v]:null).filter(Boolean);
+  pts[k]=a;if(a.length)any=true;
+ }
+ if(!any){x.fillStyle=css.getPropertyValue('--muted');x.font='11px Segoe UI';
+  x.fillText('No finite points in this sweep',14,H/2);return}
+ let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+ for(const [k] of SERIES)for(const p of pts[k]){
+  if(p[0]<xmin)xmin=p[0];if(p[0]>xmax)xmax=p[0];
+  if(p[1]<ymin)ymin=p[1];if(p[1]>ymax)ymax=p[1];
+ }
+ // A range is padded, never anchored to zero: forcing 0 into the window is
+ // what flattened every curve whose values sat far from it. Zero earns a
+ // baseline only when the data actually crosses it.
+ // Robust scaling drops the divergent tail without anyone typing a number:
+ // the useful part of an R(Vg) sweep is not the two points at the Dirac peak.
+ const smode=(($('sweepScale')||{}).value)||'robust';
+ // Tukey: quartiles with 1.5 IQR whiskers. A percentile clip at 2/98 only
+ // removes a 2 % tail, and a real Dirac-point divergence is several points
+ // wide -- three of forty-one in the test case -- so it survived the clip and
+ // the window came out identical to full autoscale. Clamped to the data range
+ // so this mode can only zoom IN.
+ if(smode==='robust'){
+  const ys=[]; for(const [k] of SERIES) for(const p of pts[k]) ys.push(p[1]);
+  if(ys.length>3){
+   ys.sort((a,b)=>a-b);
+   const at=f=>ys[Math.min(ys.length-1,Math.max(0,Math.round(f*(ys.length-1))))];
+   const q1=at(.25), q3=at(.75), iqr=q3-q1;
+   if(isFinite(iqr)&&iqr>0){
+    const lo=Math.max(ys[0], q1-1.5*iqr), hi=Math.min(ys[ys.length-1], q3+1.5*iqr);
+    if(hi>lo){ymin=lo;ymax=hi}
+   }
+  }
+ }
+ if(!(xmax>xmin)){const m=Math.abs(xmax)||1;xmin-=.5*m;xmax+=.5*m}
+ if(!(ymax>ymin)){const m=Math.abs(ymax)||1;ymin-=.05*m;ymax+=.05*m}
+ else{const pad=.08*(ymax-ymin);ymin-=pad;ymax+=pad}
+ if(smode==='fixed'){
+  const fv=id=>{const e=$(id),v=e?Number(e.value):NaN;
+                return (e&&e.value!==''&&isFinite(v))?v:null};
+  const a=fv('sxMin'),b=fv('sxMax'),c=fv('syMin'),d=fv('syMax');
+  if(a!==null&&b!==null&&b>a){xmin=a;xmax=b}
+  if(c!==null&&d!==null&&d>c){ymin=c;ymax=d}
+ }
+ lastSweepRange={xmin,xmax,ymin,ymax};
+ const L=54,R=10,T=12,B=28,PW=Math.max(10,W-L-R),PH=Math.max(10,H-T-B);
+ const px=v=>L+(v-xmin)/(xmax-xmin)*PW, py=v=>T+PH-(v-ymin)/(ymax-ymin)*PH;
+ // nice 1/2/5 ticks inside the data window
+ const ticks=(lo,hi,n)=>{const s=hi-lo;if(!(s>0))return [lo];
+  const raw=s/n,mag=Math.pow(10,Math.floor(Math.log10(raw))),nm=raw/mag;
+  const st=(nm<=1?1:nm<=2?2:nm<=5?5:10)*mag,out=[];
+  for(let v=Math.ceil(lo/st)*st;v<=hi+1e-9*st;v+=st)out.push(v);return out};
+ // Raise the precision until the labels actually differ -- a column of
+ // identical numbers is as misleading as a wrong one.
+ const label=vs=>{const big=vs.some(v=>v!==0&&(Math.abs(v)>=1e5||Math.abs(v)<1e-3));
+  for(let d=big?1:0;d<=6;d++){
+   const out=vs.map(v=>big?v.toExponential(d):v.toFixed(d));
+   if(new Set(out).size===out.length||d===6)return out}
+  return vs.map(String)};
+ const xt=ticks(xmin,xmax,5),yt=ticks(ymin,ymax,4);
+ const xl=label(xt),yl=label(yt);
+ x.font='11px ui-monospace,Consolas,monospace';x.lineWidth=1;
+ x.strokeStyle=css.getPropertyValue('--line');
+ x.fillStyle=css.getPropertyValue('--muted');
+ x.textAlign='right';x.textBaseline='middle';
+ yt.forEach((v,i)=>{const y=py(v);if(y<T-1||y>T+PH+1)return;
+  x.globalAlpha=.35;x.beginPath();x.moveTo(L,y);x.lineTo(L+PW,y);x.stroke();x.globalAlpha=1;
+  x.fillText(yl[i],L-6,y)});
+ x.textAlign='center';x.textBaseline='top';
+ xt.forEach((v,i)=>{const p=px(v);if(p<L-1||p>L+PW+1)return;
+  x.globalAlpha=.35;x.beginPath();x.moveTo(p,T);x.lineTo(p,T+PH);x.stroke();x.globalAlpha=1;
+  x.fillText(xl[i],p,T+PH+5)});
+ // a zero line only when zero is genuinely inside the window
+ if(ymin<0&&ymax>0){x.strokeStyle=css.getPropertyValue('--muted');x.globalAlpha=.5;
+  x.beginPath();x.moveTo(L,py(0));x.lineTo(L+PW,py(0));x.stroke();x.globalAlpha=1}
+ x.strokeStyle=css.getPropertyValue('--line');x.beginPath();
+ x.moveTo(L,T);x.lineTo(L,T+PH);x.lineTo(L+PW+R-4,T+PH);x.stroke();
+ // Clipped rather than left to run across the panel; a locked axis is only
+ // useful if what falls outside it stays outside.
+ x.save();x.beginPath();x.rect(L,T,PW,PH);x.clip();
+ SERIES.forEach(([k,,col])=>{const a=pts[k];if(!a.length)return;
+  x.strokeStyle=col;x.lineWidth=2;x.beginPath();
+  a.forEach((p,i)=>i?x.lineTo(px(p[0]),py(p[1])):x.moveTo(px(p[0]),py(p[1])));
+  x.stroke()});
+ x.restore();
+ // A plot that silently hides data is worse than one that rescales, so count it.
+ let nOff=0;
+ for(const [k] of SERIES) for(const p of pts[k])
+  if(p[1]<ymin||p[1]>ymax||p[0]<xmin||p[0]>xmax) nOff++;
+ if(nOff){x.fillStyle=css.getPropertyValue('--muted');x.textAlign='right';
+  x.textBaseline='top';
+  x.fillText(nOff+' point'+(nOff>1?'s':'')+' off scale',L+PW,T+2)}
+ // legend, so two curves in one frame are tellable apart
+ x.textAlign='left';x.textBaseline='middle';let lx=L+6;
+ SERIES.forEach(([k,name,col])=>{if(!pts[k].length)return;
+  x.strokeStyle=col;x.lineWidth=2;x.beginPath();x.moveTo(lx,T+7);x.lineTo(lx+14,T+7);x.stroke();
+  x.fillStyle=css.getPropertyValue('--muted');x.fillText(name,lx+18,T+7);
+  lx+=26+x.measureText(name).width});
+}}
+window.addEventListener('resize',drawSweep);$('exportCsv').onclick=()=>{if(!sweep)return;let s='x,y,fem,ballistic\n';for(let i=0;i<sweep.total;i++)s+=`${sweep.x[i]},${sweep.y[i]},${sweep.fem[i]??''},${sweep.bal[i]??''}\n`;download(new Blob([s],{type:'text/csv'}),'transim-sweep.csv')};
+function exportJSON(){const data={plugin:'transim',exported:new Date().toISOString(),parameters:payload(),contacts,fem,traj,sweep};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'transim-results.json')}function exportPNG(){const a=document.createElement('a');a.download='transim-view.png';a.href=$('view').toDataURL('image/png');a.click()}function download(blob,name){const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+$('exportJson').onclick=$('exportJson2').onclick=exportJSON;$('exportPng').onclick=$('exportPng2').onclick=exportPNG;
+function resetControls(send=true){const d={W_um:4,H_um:2,n_cm2:1e12,mu_cm:50000,mfp_um:.5,Vsource:.001,Vdrain:0,B:0,res:100,nTraj:2000,seed:7,femIter:3000,femTol:1e-7,maxSteps:8000,maxPath_um:240,threads:0};Object.entries(d).forEach(([k,v])=>$(k).value=v);$('mfpFromMobility').checked=true;$('scattering').value='isotropic';$('edge').value='specular';contacts=clonePreset('hall_bar');$('contactPreset').value='hall_bar';renderContacts();fem=traj=sweep=null;setView('device');if(send){dex.send({t:'reset'});sync()}updateHud();drawSweep()}
+$('resetAll').onclick=()=>resetControls(true);
+document.querySelectorAll('[data-help]').forEach(b=>b.onclick=e=>{e.preventDefault();const q=HELP[b.dataset.help]||HELP.assumptions;$('modalTitle').textContent=q[0];$('modalBody').innerHTML=`<h4>What is this?</h4><p>${q[1]}</p><h4>Physics</h4><p>${q[2]}</p><h4>How to use it</h4><p>${q[3]}</p>`;$('modal').classList.add('on')});$('modalClose').onclick=()=>$('modal').classList.remove('on');$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('on')};
+renderContacts();sweepRanges();updateHud();drawSweep();dex.send({t:'hello'});sync();
+// Debug hook: the chart and its data live in this closure, so without a way
+// to reach them from outside the only tool for checking the scaling is
+// guessing. Same reasoning as BWFX.debug().
+// Axis controls: any change just redraws, and 'From view' captures whatever
+// is on screen into the fields and locks it.
+['sweepScale','sxMin','sxMax','syMin','syMax'].forEach(id=>{
+  const e=$(id); if(!e) return;
+  e.addEventListener('change',drawSweep); e.addEventListener('input',drawSweep);});
+if($('lockFromView')) $('lockFromView').onclick=()=>{
+  if(!lastSweepRange){toast('Run a sweep first');return}
+  const r=lastSweepRange, sig=v=>Number(v.toPrecision(6));
+  $('sxMin').value=sig(r.xmin); $('sxMax').value=sig(r.xmax);
+  $('syMin').value=sig(r.ymin); $('syMax').value=sig(r.ymax);
+  $('sweepScale').value='fixed'; drawSweep();};
+window.__TX = { redraw: drawSweep,
+  setSweep(o){ sweep = o; drawSweep(); },
+  getSweep(){ return sweep; },
+  // contact geometry lives in here too, and a check that cannot reach it can
+  // only look at the markup -- which says nothing about where the electrodes
+  // actually end up.
+  clonePreset, contactDepthUm, getContacts(){ return contacts; },
+  getRange(){ return lastSweepRange; },
+  // the sweep strip lives in this closure too: a check that cannot call these
+  // can only read markup, which says nothing about what the strip reports.
+  handleSweepMessage, sweepSummary };
+})();
+</script>
+<script>
+// The controls are a docked rail now, so 'Settings' and its close button no
+// longer open and shut a drawer -- they collapse the rail, which is what a
+// person wants when they are looking at the device view. Bound here, after
+// the main script has had its turn, so nothing in it needed editing.
+(() => {
+  const app = document.querySelector('.app'), g = id => document.getElementById(id);
+  const set = on => { app.classList.toggle('norail', !on);
+    const b = g('settings'); if (b) b.setAttribute('aria-pressed', String(on));
+    window.dispatchEvent(new Event('resize')); };
+  if (g('settings')) g('settings').onclick = () => set(app.classList.contains('norail'));
+  if (g('closeSettings')) g('closeSettings').onclick = () => set(false);
+})();
+</script>
+<script>
+// The core paints its own background, so the theme is not a page-only concern:
+// without telling it, a white panel still showed a near-black device rectangle.
+// Bound after the main script, which has already wired the toggle.
+(() => {
+  const root = document.documentElement, KEY = "transim.theme";
+  try { const v = localStorage.getItem(KEY); if (v) root.dataset.theme = v; } catch {}
+  const push = () => { const light = root.dataset.theme !== "dark";
+    try { dex.send({ t: "theme", light: light ? 1 : 0 }); } catch {}
+    try { localStorage.setItem(KEY, root.dataset.theme || "light"); } catch {}
+    if (typeof drawSweep === "function") drawSweep(); };
+  const btn = document.getElementById("theme");
+  if (btn) { const was = btn.onclick;
+    btn.onclick = e => { if (was) was.call(btn, e); push(); }; }
+  push();
+  setTimeout(push, 800);   // once more after the socket has had time to open
+})();
+</script>
+</body></html>

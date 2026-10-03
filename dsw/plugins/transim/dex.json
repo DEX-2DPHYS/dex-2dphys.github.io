@@ -1,0 +1,6 @@
+{
+  "name": "Graphene Transport Explorer",
+  "description": "A native multicore hybrid FEM and semiclassical ballistic transport workbench for graphene devices: Hall and four-probe measurements, adaptive trajectories, editable contacts, spatial density/mobility maps, magnetic focusing, parameter sweeps and reproducible exports.",
+  "accent": "#0b57d0",
+  "version": "1.0"
+}

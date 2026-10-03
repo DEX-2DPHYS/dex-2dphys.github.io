@@ -38,10 +38,14 @@ set_target_properties(dsw PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 # ---------------------------------------------------------------- plugins
-# dsw_add_plugin(<id>) builds plugins/<id>/src/plugin.cpp into
-# plugins/<id>/<id>.so|dll|dylib — i.e. straight into its own bundle.
+# dsw_add_plugin(<id> [more.cpp ...]) builds plugins/<id>/src/plugin.cpp (and any further sources
+# named, from the same src/ folder) into plugins/<id>/<id>.so|dll|dylib — straight into its bundle.
 function(dsw_add_plugin id)
-  add_library(plugin_${id} SHARED plugins/${id}/src/plugin.cpp)
+  set(srcs plugins/${id}/src/plugin.cpp)
+  foreach(s ${ARGN})
+    list(APPEND srcs plugins/${id}/src/${s})
+  endforeach()
+  add_library(plugin_${id} SHARED ${srcs})
   target_include_directories(plugin_${id} PRIVATE include)
   set_target_properties(plugin_${id} PROPERTIES
     OUTPUT_NAME ${id}
@@ -78,3 +82,11 @@ dsw_add_plugin(graphene-phonons)
 dsw_add_plugin(moire-bubble)
 dsw_add_plugin(moire-bubble-tb-v1)
 dsw_add_plugin(superlubricity)
+
+# 2026-10: the rest of the current set. 2DMD is built WITHOUT LAMMPS here (its fast built-in
+# engine only; the LAMMPS engine is a local build, see the bundle README); EBL Workbench's core is
+# four sources (Monte Carlo, short range, solve).
+dsw_add_plugin(2dmd)
+dsw_add_plugin(klein-magnetometer)
+dsw_add_plugin(transim)
+dsw_add_plugin(ebl-workbench mc.cpp sr.cpp pec.cpp)

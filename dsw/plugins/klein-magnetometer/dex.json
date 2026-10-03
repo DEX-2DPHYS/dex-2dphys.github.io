@@ -1,0 +1,6 @@
+{
+  "name": "Klein Magnetometer Workbench",
+  "description": "Publication-grade semiclassical workbench for a many-junction graphene Klein-collimation magnetometer: exact Dirac-equation junction transmission, event-driven cyclotron ray tracing, Monte-Carlo and flux engines, thermal averaging, noise-limited field resolution, parameter sweeps and a coherent Fabry-Perot sidebar.",
+  "accent": "#7c3aed",
+  "version": "0.5.0"
+}

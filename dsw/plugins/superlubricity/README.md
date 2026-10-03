@@ -76,19 +76,53 @@ here for two things and deliberately not for a third:
 Geometry (N bottom/top, d, θ, offsets) · vdW model (neighbour mode, tail, C6,
 metric) · relaxation (xy, height, both alternating) · lateral MD (spring k, max
 steps, amplification) · automated modes (rotation sweep 0–180°, translate ±12 Å,
-stop) · energy chart replottable against time, θ or offset · registry map,
+stop) · energy chart replottable against time, θ or offset, with an optional
+red trace of the interlayer distance d on its own right-hand axis
+("Show interlayer distance (Å)") · registry map,
 displacement arrows, atom size, zoom · **light and dark themes**, including the
 natively-rendered stage, which is told the theme so it repaints to match.
 
 ## Defaults
 
-Light theme, **xy + height relaxation on**, registry map on. The relaxation
+Light theme, **xy + height relaxation on**, **auto-relax on release on**,
+registry map on. Auto-relax means letting go of a dragged flake settles it in
+x, y *and* the interlayer distance d (both stages, whatever the two tick boxes say,
+over a local window) and records the settled state on the graph rather than the
+point it was dropped at. The relaxation
 default matters: without it the offset stays wherever it was, and at a
 commensurate angle that is AA stacking — the energy *maximum* — so the twist
 sweep comes out upside down and the energies are only qualitative. With
 relaxation on, each angle settles into its own minimum (the offset relaxes to
 ~1.42 Å, the C-C bond length, i.e. the AB site) and the commensurate angles
 appear as the deep lock-in minima they are.
+
+## The relaxed interlayer distance sits ON the floor
+
+Worth knowing before reading the red trace on the chart: with these parameters
+the height relaxation always ends at **d = 3.34 A**, the bottom of its own
+range, for every angle and every offset - so the plotted d is a flat line, and
+the chart now says so rather than leaving it ambiguous.
+
+That is the clamp, not a bug in the plot. `D_MIN = 3.34` is the graphite
+spacing imposed as a floor, but the model's own minimum is lower: scanning U/A
+over a widened range (24/14 cells, theta = 0, no relaxation) gives
+
+| d (A)  | 2.90 | 3.00 | **3.05** | 3.10 | 3.20 | 3.34 | 3.40 | 3.75 |
+|--------|------|------|------|------|------|------|------|------|
+| U/A (mJ/m2) | -360.8 | -387.3 | **-390.5** | -389.2 | -377.0 | ~-347 | -334.3 | -251.8 |
+
+so the summed LJ wants 3.05 A and is held at 3.34 A by the clamp.
+
+The likely reason is a sigma-vs-r0 conflation in one constant. `LJ_R0_ANG =
+3.40` is used as the **pair minimum** (`C12 = C6 r0^6 / 2`), but 3.40 A is the
+standard graphite LJ **sigma**; the pair minimum is `2^(1/6) sigma = 3.816 A`.
+Rebuilding with `LJ_R0_ANG = 3.816` moves the lattice-sum minimum to **exactly
+3.40 A** - inside the slider range, where the height relaxation would have
+something to find and the red trace would show the layers breathing as the
+registry changes. It also shifts every energy (U/A at the minimum -390.5 ->
+-248.6 mJ/m2), which is why it has NOT been changed here: it is a change to
+what the calculator reports, not a bug fix, and the browser prototype shares
+the constant.
 
 ## Three bugs the relaxing sweep hid
 
