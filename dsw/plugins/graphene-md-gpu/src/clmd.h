@@ -40,7 +40,12 @@
 #include <vector>
 
 #if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX               // or windows.h turns std::min / std::max into macros
+#endif
 #include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
 
 namespace clmd {
@@ -116,7 +121,15 @@ inline Api &api() {
     if (!h) return A;
     auto get = [&](const char *n) { return (void *)GetProcAddress(h, n); };
 #else
-    return A;
+    // Linux: the ICD loader the GPU driver installs; macOS: the system framework
+#if defined(__APPLE__)
+    void *h = dlopen("/System/Library/Frameworks/OpenCL.framework/OpenCL", RTLD_NOW | RTLD_LOCAL);
+#else
+    void *h = dlopen("libOpenCL.so.1", RTLD_NOW | RTLD_LOCAL);
+    if (!h) h = dlopen("libOpenCL.so", RTLD_NOW | RTLD_LOCAL);
+#endif
+    if (!h) return A;
+    auto get = [&](const char *n) { return dlsym(h, n); };
 #endif
     A.GetPlatformIDs = (decltype(A.GetPlatformIDs))get("clGetPlatformIDs");
     A.GetDeviceIDs = (decltype(A.GetDeviceIDs))get("clGetDeviceIDs");
