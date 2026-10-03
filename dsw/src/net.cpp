@@ -65,6 +65,8 @@ std::string guess_content_type(const std::string &path) {
     if (ends(".ico")) return "image/x-icon";
     if (ends(".wasm")) return "application/wasm";
     if (ends(".woff2")) return "font/woff2";
+    if (ends(".mp4")) return "video/mp4";
+    if (ends(".webm")) return "video/webm";
     if (ends(".txt") || ends(".md")) return "text/plain; charset=utf-8";
     return "application/octet-stream";
 }
@@ -161,6 +163,8 @@ void Conn::send_response(int status, const std::string &content_type,
                          const std::string &body,
                          const std::string &extra_headers) {
     const char *text = status == 200   ? "OK"
+                       : status == 206 ? "Partial Content"
+                       : status == 416 ? "Range Not Satisfiable"
                        : status == 404 ? "Not Found"
                        : status == 400 ? "Bad Request"
                                        : "Error";

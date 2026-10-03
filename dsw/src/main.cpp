@@ -11,13 +11,48 @@
 
 using namespace dsw;
 
-static void serve_static_file(Conn &conn, const std::string &path) {
+// Static file, with HTTP Range ("bytes=a-b", "bytes=a-", "bytes=-n") answered as 206 so a
+// <video> can seek; without it Chrome plays from the start and every seek lands back near 0.
+static void serve_static_file(Conn &conn, const std::string &path, const HttpRequest *req = nullptr) {
     std::string body;
     if (!read_file(path, body)) {
         conn.send_response(404, "text/plain; charset=utf-8", "not found\n");
         return;
     }
-    conn.send_response(200, guess_content_type(path), body);
+    const std::string type = guess_content_type(path);
+    if (req) {
+        auto it = req->headers.find("range");
+        if (it != req->headers.end() && it->second.rfind("bytes=", 0) == 0 && !body.empty()) {
+            const std::string spec = it->second.substr(6);
+            const size_t dash = spec.find('-');
+            const size_t n = body.size();
+            if (dash != std::string::npos && spec.find(',') == std::string::npos) {
+                const std::string a = spec.substr(0, dash), b = spec.substr(dash + 1);
+                size_t first, last;
+                bool ok = true;
+                if (a.empty()) {                                   // last b bytes
+                    size_t k = b.empty() ? 0 : (size_t)strtoull(b.c_str(), nullptr, 10);
+                    ok = k > 0;
+                    first = k >= n ? 0 : n - k; last = n - 1;
+                } else {
+                    first = (size_t)strtoull(a.c_str(), nullptr, 10);
+                    last = b.empty() ? n - 1 : (size_t)strtoull(b.c_str(), nullptr, 10);
+                    if (last >= n) last = n - 1;
+                    ok = first <= last && first < n;
+                }
+                char extra[160];
+                if (!ok) {
+                    snprintf(extra, sizeof extra, "Content-Range: bytes */%zu\r\n", n);
+                    conn.send_response(416, "text/plain; charset=utf-8", "", extra);
+                    return;
+                }
+                snprintf(extra, sizeof extra, "Accept-Ranges: bytes\r\nContent-Range: bytes %zu-%zu/%zu\r\n", first, last, n);
+                conn.send_response(206, type, body.substr(first, last - first + 1), extra);
+                return;
+            }
+        }
+    }
+    conn.send_response(200, type, body, "Accept-Ranges: bytes\r\n");
 }
 
 static std::string plugins_json(Host &host) {
@@ -190,7 +225,7 @@ int main(int argc, char **argv) {
                                    "not found\n");
                 return;
             }
-            serve_static_file(conn, info.dir + "/" + sub);
+            serve_static_file(conn, info.dir + "/" + sub, &req);
             return;
         }
 
@@ -210,7 +245,7 @@ int main(int argc, char **argv) {
             return;
         }
         std::string p = (req.path == "/") ? "/index.html" : req.path;
-        serve_static_file(conn, web_dir + p);
+        serve_static_file(conn, web_dir + p, &req);
     }, err);
 
     if (!ok) {

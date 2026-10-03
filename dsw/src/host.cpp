@@ -292,11 +292,20 @@ std::vector<PluginInfo> Host::scan() const {
     scan_tree(library_dir(), "", "library", 0, out);
     // ids are the routing key, so they must be unique: first bundle wins
     // (built-ins first), later duplicates are dropped from the listing.
+    //
+    // One exception, and it matters: a bundle with no compiled core can
+    // never become ready, so it must not shadow one that can. plugins/ ships
+    // source-only templates (dex.json + ui/, no binary), and those were
+    // winning the id over working library bundles of the same name -- the
+    // launcher then listed six plugins that could not start while their
+    // DLLs sat in the library. A runnable duplicate therefore replaces a
+    // non-runnable one; when both can run, built-ins still win.
     std::vector<PluginInfo> uniq;
     for (auto &p : out) {
-        bool dup = false;
-        for (const auto &u : uniq) if (u.id == p.id) { dup = true; break; }
-        if (!dup) uniq.push_back(std::move(p));
+        PluginInfo *seen = nullptr;
+        for (auto &u : uniq) if (u.id == p.id) { seen = &u; break; }
+        if (!seen) { uniq.push_back(std::move(p)); continue; }
+        if (!seen->has_binary && p.has_binary) *seen = std::move(p);
     }
     return uniq;
 }

@@ -294,11 +294,12 @@
         <div class="rname" id="runName"></div>
         <div class="rmeta" id="runMeta"></div>
         <div class="spring"></div>
+        <button id="fullBtn" title="Show this experiment full screen (Esc returns)">Full screen &#x26F6;</button>
         <button id="openTabBtn" title="Open this experiment in its own browser tab">Open in tab &#8599;</button>
         <button id="reloadBtn" title="Restart the experiment">Restart</button>
         <button id="closeBtn" title="Back to the welcome page">&#10005; Close</button>
       </div>
-      <iframe id="frame" title="experiment"></iframe>
+      <iframe id="frame" title="experiment" allow="fullscreen"></iframe>
     </div>
   </div>
 </div>
@@ -431,6 +432,8 @@ function run(p) {
 
 $("#closeBtn").addEventListener("click", () => showPane("welcome"));
 $("#reloadBtn").addEventListener("click", () => { const f = $("#frame"); f.src = f.src; });
+// full screen: the experiment's own frame fills the screen; Esc (or the browser's exit) returns
+$("#fullBtn").addEventListener("click", () => { const f = $("#frame"); (f.requestFullscreen || f.webkitRequestFullscreen).call(f); });
 $("#openTabBtn").addEventListener("click", () => {
   if (selectedId) window.open("/plugins/" + encodeURIComponent(selectedId) + "/ui/index.html", "_blank");
 });
