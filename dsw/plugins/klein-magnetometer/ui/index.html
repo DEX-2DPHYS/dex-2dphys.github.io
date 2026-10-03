@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Klein Magnetometer Workbench</title>
+<script src="/dex.js"></script>
+<script src="km-tips.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f4f6f9;--panel:#ffffff;--panel2:#f7f8fa;--line:#dde3ea;--fg:#14181f;--fg2:#52514e;--muted:#6b7280;
+  --accent:#6d28d9;--accent-soft:#ede9fe;--warn:#b45309;--bad:#d03b3b;--good:#0ca30c;
+  --surface:#fcfcfb;--grid:#e6e8eb;--axis:#9aa3ad;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#4a3aa7;--s8:#e34948;
+  --seq-lo:#cde2fb;--seq-hi:#0d366b;--mask:#d6d6d2;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e1116;--panel:#16191f;--panel2:#1c2027;--line:#2a2f38;--fg:#f2f3f5;--fg2:#c3c2b7;--muted:#9aa1ab;
+  --accent:#a78bfa;--accent-soft:#2a2246;--warn:#fab219;--bad:#e66767;--good:#0ca30c;
+  --surface:#1a1a19;--grid:#2b2b29;--axis:#6b6b66;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9;--s8:#e66767;
+  --seq-lo:#104281;--seq-hi:#cde2fb;--mask:#3a3a37;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+.app{display:grid;grid-template-rows:52px minmax(0,1fr);height:100%}
+/* top bar */
+.top{display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.top h1{font-size:16px;margin:0;white-space:nowrap}
+.top .sub{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sp{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.status{display:flex;align-items:center;gap:8px;min-width:260px;font-size:13px;color:var(--fg2)}
+.prog{width:140px;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.live{background:var(--good)}.dot.busy{background:var(--warn)}
+/* three columns */
+.main{display:grid;grid-template-columns:330px minmax(0,1fr) 330px;min-height:0}
+.left,.right{overflow:auto;background:var(--panel);min-height:0}
+.left{border-right:1px solid var(--line)}
+.right{border-left:1px solid var(--line);padding:10px 12px}
+.center{display:grid;grid-template-rows:auto auto minmax(0,1fr);min-height:0;min-width:0;padding:10px;gap:8px}
+/* controls */
+.presetbar{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.presetbar select{flex:1;min-width:0;padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--panel2)}
+details.grp{border-bottom:1px solid var(--line)}
+details.grp>summary{cursor:pointer;padding:9px 12px;font-weight:600;font-size:13px;list-style:none;display:flex;justify-content:space-between}
+details.grp>summary::after{content:"+";color:var(--muted)}
+details.grp[open]>summary::after{content:"−"}
+.rows{padding:0 12px 10px;display:grid;gap:6px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 112px;align-items:center;gap:8px}
+.row label{font-size:13px;color:var(--fg);cursor:help}
+.row label small{color:var(--muted);margin-left:3px}
+.row input[type=number],.row input[type=text],.row select{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);text-align:right}
+.row select{text-align:left}
+.row input[type=checkbox]{justify-self:end;width:16px;height:16px}
+.row.off{opacity:.45}
+.row.adj input,.row.adj select{border-color:var(--warn)}
+.note{font-size:12px;color:var(--muted);padding:0 12px 10px}
+.chip{font-size:12px;color:var(--fg2);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 7px}
+/* tabs */
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+.tab.on{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 10px;min-height:44px}
+.toolbar label{font-size:13px;color:var(--fg2);display:flex;align-items:center;gap:5px}
+.toolbar input[type=number]{width:78px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);text-align:right}
+.toolbar select{padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--panel2)}
+.toolbar .sep{width:1px;height:22px;background:var(--line)}
+.toolbar .info{font-size:12px;color:var(--muted)}
+.view{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:0;overflow:hidden}
+.pane{position:absolute;inset:0;display:none}
+.pane.on{display:block}
+.pane canvas.chart{position:absolute;inset:0;width:100%;height:100%}
+.pane.split .a{position:absolute;left:0;right:0;top:0;height:62%}
+.pane.split .b{position:absolute;left:0;right:0;bottom:0;height:38%;border-top:1px solid var(--line)}
+.cv-wrap{position:absolute;inset:0}
+.cv-wrap canvas{position:absolute;inset:0;width:100%;height:100%}
+#devPane{display:none;align-items:center;justify-content:center;padding:8px}
+#devPane.on{display:flex}
+#view{max-width:100%;max-height:100%;aspect-ratio:16/9;width:auto;height:100%;border-radius:8px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.15);display:none;z-index:5;white-space:nowrap;color:var(--fg)}
+.tip b{font-weight:600}
+.tip .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.cross{position:absolute;top:0;bottom:0;width:1px;background:var(--axis);display:none;pointer-events:none;z-index:4}
+.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;text-align:center;padding:30px;pointer-events:none}
+/* right column */
+.right h3{font-size:13px;margin:12px 0 6px;color:var(--fg)}
+.right h3:first-child{margin-top:2px}
+table.kv{width:100%;border-collapse:collapse;font-size:12.5px}
+table.kv td{padding:3px 2px;border-bottom:1px solid var(--line);vertical-align:top}
+table.kv td:first-child{color:var(--fg2)}
+table.kv td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+table.kv tr[title]{cursor:help}
+.flag{font-size:12px;border-radius:7px;padding:6px 8px;margin:6px 0;border:1px solid var(--line);background:var(--panel2)}
+.flag.warn{border-color:var(--warn);color:var(--warn)}
+.flag.ok{border-color:var(--good)}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+.btnrow .btn{font-size:12.5px;padding:5px 8px}
+.held{font-size:12.5px;display:grid;gap:4px}
+.held div{display:flex;align-items:center;gap:6px}
+.held .sw{width:12px;height:3px;border-radius:2px}
+.held button{margin-left:auto;border:0;background:none;color:var(--muted);cursor:pointer}
+textarea#methods{width:100%;height:150px;font-size:12px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);padding:6px;resize:vertical}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:70vw}
+.toast.on{opacity:.95}
+.htable{position:absolute;inset:0;overflow:auto;padding:10px;font-size:12.5px}
+.htable table{border-collapse:collapse;width:100%}
+.htable td,.htable th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:right;font-variant-numeric:tabular-nums}
+.htable th{color:var(--fg2);font-weight:600}
+@media (max-width:1250px){.main{grid-template-columns:300px minmax(0,1fr)}.right{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <h1>Klein Magnetometer Workbench</h1>
+    <span class="sub" id="headline">—</span>
+    <span class="sp"></span>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">connecting…</span><div class="prog"><i id="progBar"></i></div><span id="eta" class="info"></span></div>
+    <button class="btn primary" id="runCurve" title="Compute R(B) over the field grid with the current settings">Run R(B)</button>
+    <button class="btn danger" id="stopBtn">Stop</button>
+    <button class="btn" id="themeBtn" title="Light / dark">◐</button>
+  </div>
+  <div class="main">
+    <aside class="left" id="left">
+      <div class="presetbar">
+        <select id="preset" title="Load a preset parameter set">
+          <option value="">Presets…</option>
+          <option value="default">Default device (gate profile, N=16)</option>
+          <option value="june">June-report optimum (asymptotic T, cap 6 as in June)</option>
+          <option value="first">First simulation (N=40, W=2 µm, ±50 mT), converged cap</option>
+          <option value="unipolar">Unipolar control (n–n′–n)</option>
+          <option value="skew">Skewed junctions (odd-in-B response)</option>
+          <option value="disorder">Disordered junctions</option>
+          <option value="diffusive">Short mean free path (should fail)</option>
+          <option value="rough">Rough, diffuse edges</option>
+          <option value="warm">Warm: 77 K, phonons + thermal smearing</option>
+        </select>
+        <button class="btn" id="saveCfg" title="Save all settings as JSON">Save</button>
+        <button class="btn" id="loadCfg" title="Load settings JSON">Load</button>
+        <input type="file" id="loadFile" accept=".json" hidden>
+      </div>
+      <div id="controls"></div>
+    </aside>
+
+    <section class="center">
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-tab="device">Device</button>
+        <button class="tab" data-tab="rb">R(B)</button>
+        <button class="tab" data-tab="fates">Transmission &amp; fates</button>
+        <button class="tab" data-tab="sens">Sensitivity &amp; noise</button>
+        <button class="tab" data-tab="sweep">Sweep</button>
+        <button class="tab" data-tab="grid">Optimise (2-D grid)</button>
+        <button class="tab" data-tab="angular">Junction T(θ)</button>
+        <button class="tab" data-tab="coherent">Coherent (Fabry–Pérot)</button>
+      </div>
+      <div class="toolbar" id="toolbar"></div>
+      <div class="view" id="viewArea">
+        <div class="pane on" id="devPane"><canvas id="view" width="960" height="540"></canvas></div>
+        <div class="pane" id="rbPane"><div class="cv-wrap"><canvas class="chart" id="cRB"></canvas></div></div>
+        <div class="pane split" id="fatesPane"><div class="a cv-wrap"><canvas class="chart" id="cT"></canvas></div><div class="b cv-wrap"><canvas class="chart" id="cFate"></canvas></div></div>
+        <div class="pane split" id="sensPane"><div class="a cv-wrap"><canvas class="chart" id="cSens"></canvas></div><div class="b"><div class="htable" id="noiseTable"></div></div></div>
+        <div class="pane" id="sweepPane"><div class="cv-wrap"><canvas class="chart" id="cSweep"></canvas></div></div>
+        <div class="pane split" id="gridPane"><div class="a cv-wrap"><canvas class="chart" id="cGrid"></canvas></div><div class="b"><div class="htable" id="gridInfo"></div></div></div>
+        <div class="pane" id="angularPane"><div class="cv-wrap"><canvas class="chart" id="cAng"></canvas></div></div>
+        <div class="pane split" id="coherentPane"><div class="a cv-wrap"><canvas class="chart" id="cCoh"></canvas></div><div class="b"><div class="htable" id="cohTable"></div></div></div>
+      </div>
+    </section>
+
+    <aside class="right" id="right">
+      <h3>Derived quantities</h3>
+      <table class="kv" id="derivedTable"></table>
+      <div id="syncFlag" class="flag">waiting for core…</div>
+      <h3>Last R(B) curve</h3>
+      <table class="kv" id="metricTable"><tr><td colspan="2" style="color:var(--muted)">Run R(B) to see figures of merit.</td></tr></table>
+      <div id="curveFlags"></div>
+      <h3>Held curves <span class="info" style="font-weight:400;color:var(--muted)">(overlaid on R(B))</span></h3>
+      <div class="held" id="heldList"><span style="color:var(--muted);font-size:12.5px">None. Use “Hold” on the R(B) tab.</span></div>
+      <h3>Export</h3>
+      <div class="btnrow">
+        <button class="btn" id="expJson" title="The last result message as JSON, including every parameter">Result JSON</button>
+        <button class="btn" id="expCsv" title="The last R(B) curve as CSV">Curve CSV</button>
+        <button class="btn" id="expSweepCsv" title="Sweep or grid metrics as CSV">Sweep/grid CSV</button>
+        <button class="btn" id="expPng" title="The visible chart as PNG">Chart PNG</button>
+      </div>
+      <h3>Methods text</h3>
+      <textarea id="methods" readonly></textarea>
+      <div class="btnrow"><button class="btn" id="copyMethods">Copy</button></div>
+    </aside>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// =====================================================================
+// 1. CONTROL SPEC — one entry per core `configure` key. The panel is built
+//    from this table, the payload is read from it, and every reply from the
+//    core is compared against it, so a control and the value the core uses
+//    cannot drift apart silently.
+// =====================================================================
+const G = {geo:'Geometry', car:'Carriers & junction profile', dis:'Junction disorder', edge:'Edges & injection',
+  sc:'Scattering & temperature', field:'Field grid', eng:'Statistics & engine', noise:'Readout & noise', coh:'Coherent sidebar'};
+const CONTROLS = [
+  // key, group, label, unit, type, default, extra
+  {k:'nCells', g:'geo', l:'Cells (n,p,n,…)', u:'', t:'int', d:16, min:1, max:400, tip:'Number of alternating n/p regions. Junctions = cells − 1. Cell 0 is n-type.'},
+  {k:'Ln_um', g:'geo', l:'n-cell length', u:'µm', t:'num', d:0.5, min:0.01, step:0.05, tip:'Length of every n-type cell along the current.'},
+  {k:'Lp_um', g:'geo', l:'p-cell length', u:'µm', t:'num', d:0.5, min:0.01, step:0.05, tip:'Length of every p-type cell along the current.'},
+  {k:'W_um', g:'geo', l:'Strip width W', u:'µm', t:'num', d:10, min:0.1, step:0.5, tip:'Channel width. Sets the mode count M = floor(k_F,min W / π).'},
+  {k:'skewDeg', g:'geo', l:'Junction skew', u:'°', t:'num', d:0, min:-80, max:80, step:1, tip:'All junction lines rotated by this angle. Breaks B → −B symmetry (odd response).'},
+  {k:'nN_cm2', g:'car', l:'n density', u:'cm⁻²', t:'num', d:1e12, min:1e9, step:1e11, tip:'Electron density in the n cells. k_F = √(πn).'},
+  {k:'nP_cm2', g:'car', l:'|p| density', u:'cm⁻²', t:'num', d:1e12, min:1e9, step:1e11, tip:'Hole density in the p cells (magnitude).'},
+  {k:'unipolar', g:'car', l:'Unipolar control', u:'', t:'chk', d:0, tip:'Make the "p" cells electron-like at the |p| density: removes Klein filtering, keeps the geometry. The decisive control device.'},
+  {k:'profile', g:'car', l:'Junction profile', u:'', t:'sel', d:'gate', opts:[['gate','gate electrostatic (arctan)'],['linear','linear ramp'],['tanh','tanh'],['erf','erf'],['asymptotic','asymptotic formula (June)']],
+    tip:'Potential profile across each junction. Transmission is obtained by integrating the Dirac equation exactly, except for "asymptotic", which uses exp(−π k_y²/|dk/dx|).'},
+  {k:'d_nm', g:'car', l:'Junction width d', u:'nm', t:'num', d:10, min:0.01, step:1, tip:'Defined by the MAXIMUM gradient: |dk/dx|max = |Δk|/d for every profile. Gate profile: gate height h = d/π.'},
+  {k:'vF', g:'car', l:'Fermi velocity', u:'m/s', t:'num', d:1e6, min:1e5, step:5e4, tip:'Dirac velocity.'},
+  {k:'sigmaPos_nm', g:'dis', l:'Position jitter σ', u:'nm', t:'num', d:0, min:0, step:5, tip:'RMS random displacement of each junction along x (frozen per disorder seed).'},
+  {k:'sigmaWidth', g:'dis', l:'Width jitter σ', u:'rel.', t:'num', d:0, min:0, step:0.05, tip:'Relative RMS spread of each junction width d.'},
+  {k:'sigmaDensity', g:'dis', l:'Density jitter σ', u:'rel.', t:'num', d:0, min:0, step:0.05, tip:'Relative RMS spread of each cell density.'},
+  {k:'sigmaTiltDeg', g:'dis', l:'Local tilt σ', u:'°', t:'num', d:0, min:0, step:1, tip:'Junction line roughness: a random local normal rotation drawn at every crossing.'},
+  {k:'disorderSeed', g:'dis', l:'Disorder seed', u:'', t:'int', d:1, min:0, tip:'Which frozen disorder realisation. Sweep it for ensemble statistics.'},
+  {k:'edge', g:'edge', l:'Side edges', u:'', t:'sel', d:'specular', opts:[['specular','specular'],['diffuse','diffuse (specularity p)'],['absorbing','absorbing (grounded)']], tip:'Boundary condition at y = 0 and y = W.'},
+  {k:'specularity', g:'edge', l:'Specularity p', u:'', t:'num', d:1, min:0, max:1, step:0.1, tip:'Probability of a specular bounce; otherwise Lambertian. Only with diffuse edges.'},
+  {k:'injection', g:'edge', l:'Injection', u:'', t:'sel', d:'cosine', opts:[['cosine','Landauer cos θ, full width'],['aperture','cos θ through a centred aperture'],['collimated','collimated Gaussian']], tip:'Angular and spatial distribution of carriers entering at x = 0.'},
+  {k:'apertureFrac', g:'edge', l:'Aperture / W', u:'', t:'num', d:1, min:0.01, max:1, step:0.05, tip:'Aperture width as a fraction of W (aperture injection). Also scales the mode count.'},
+  {k:'collimSigmaDeg', g:'edge', l:'Collimation σ', u:'°', t:'num', d:10, min:0.1, step:1, tip:'Angular width of a collimated source.'},
+  {k:'leftContactFrac', g:'edge', l:'Source contact / W', u:'', t:'num', d:1, min:0.001, max:1, step:0.05, tip:'Length of the source contact on the left end wall, centred, as a fraction of W. Below 1 the rest of that wall reflects specularly and carriers are injected (cos θ) only through the contact.'},
+  {k:'rightContactFrac', g:'edge', l:'Drain contact / W', u:'', t:'num', d:1, min:0.001, max:1, step:0.05, tip:'Length of the drain contact on the right end wall, centred, as a fraction of W. Below 1 the rest of that wall reflects specularly.'},
+  {k:'mfp_um', g:'sc', l:'Scattering-event length', u:'µm', t:'num', d:30, min:0, step:1, tip:'Mean distance between scattering EVENTS. Isotropic: equals the transport length. Forward (kick σ): transport length = this / (1 − exp(−σ²/2)), i.e. ~66× longer at σ = 10°. Use the mobility box to set it from a measured mobility. 0 = ballistic.'},
+  {k:'_mu', g:'sc', l:'…or mobility', u:'cm²/Vs', t:'num', d:0, min:0, step:10000, local:true, tip:'If > 0, sets the event length from the transport length ℓ_tr = μħk_F/e at the n density, converted for the chosen scattering model.'},
+  {k:'scatter', g:'sc', l:'Scattering model', u:'', t:'sel', d:'forward', opts:[['forward','forward (small angle)'],['drude','isotropic (Drude)'],['none','none']], tip:'Angular character of each scattering event.'},
+  {k:'forwardSigmaDeg', g:'sc', l:'Forward kick σ', u:'°', t:'num', d:10, min:0, step:1, tip:'Gaussian angular kick per forward-scattering event.'},
+  {k:'mfpPh300_um', g:'sc', l:'Phonon ℓ at 300 K', u:'µm', t:'num', d:0, min:0, step:0.5, tip:'Acoustic-phonon mean free path at 300 K, scaled ∝ 1/T and combined by Matthiessen. 0 = off.'},
+  {k:'tempK', g:'sc', l:'Temperature', u:'K', t:'num', d:20, min:0.01, step:1, tip:'Sets phonon scattering and, with energy nodes > 1, the Fermi-window average.'},
+  {k:'eeMfp_um', g:'sc', l:'e–e dispersion length', u:'µm', t:'num', d:0, min:0, step:0.5, tip:'Small-angle, momentum-conserving beam dispersion (does not change mobility). 0 = off.'},
+  {k:'eeSigmaDeg', g:'sc', l:'e–e kick σ', u:'°', t:'num', d:15, min:0, step:1, tip:'Angular kick per e–e event.'},
+  {k:'bMin_mT', g:'field', l:'B min', u:'mT', t:'num', d:-20, step:1, tip:'Lower end of the field grid.'},
+  {k:'bMax_mT', g:'field', l:'B max', u:'mT', t:'num', d:20, step:1, tip:'Upper end of the field grid.'},
+  {k:'bN', g:'field', l:'Field points', u:'', t:'int', d:81, min:2, max:2001, tip:'Number of field values (odd numbers include B = 0).'},
+  {k:'engine', g:'eng', l:'Engine', u:'', t:'sel', d:'mc', opts:[['mc','Monte Carlo (production)'],['flux','flux / ray splitting (cross-check)']], tip:'Monte Carlo is the production engine. The flux engine splits rays at every junction and is an independent check.'},
+  {k:'nTraj', g:'eng', l:'Trajectories / field', u:'', t:'int', d:20000, min:100, max:50000000, step:10000, tip:'Monte-Carlo trajectories per field point (and per energy node). σ_T = √(T(1−T)/n).'},
+  {k:'seed', g:'eng', l:'Random seed', u:'', t:'int', d:7, min:0, tip:'Trajectory i uses the same random stream at every field (common random numbers).'},
+  {k:'nEnergy', g:'eng', l:'Energy nodes', u:'', t:'int', d:1, min:1, max:40, tip:'Gauss–Fermi quadrature nodes over −df/dE. 1 = T = 0 limit. Cost scales linearly.'},
+  {k:'fluxNY', g:'eng', l:'Flux: y nodes', u:'', t:'int', d:24, min:1, max:512, tip:'Injection-position nodes (flux engine).'},
+  {k:'fluxNS', g:'eng', l:'Flux: angle nodes', u:'', t:'int', d:257, min:3, max:8193, tip:'Injection sin θ nodes (flux engine).'},
+  {k:'fluxJitter', g:'eng', l:'Flux: jitter nodes', u:'', t:'chk', d:1, tip:'Randomise each node within its cell (unbiased against grid aliasing).'},
+  {k:'fluxThreshold', g:'eng', l:'Flux: roulette weight', u:'', t:'num', d:1e-4, min:1e-9, max:0.5, step:1e-4, tip:'Branches lighter than this play Russian roulette (unbiased).'},
+  {k:'maxPathFactor', g:'eng', l:'Path cap / L_tot', u:'', t:'num', d:200, min:1, step:10, tip:'Trajectories longer than this × total length are counted as NOT transmitted. Too small a cap inflates the MR (cap 6 overstates MR(20 mT) 3.6× on the first-simulation device); ≥100 is converged there. The curve flags warn when capped carriers are not negligible next to T.'},
+  {k:'threads', g:'eng', l:'Threads', u:'', t:'int', d:0, min:0, max:256, tip:'0 = all cores.'},
+  {k:'biasA_uA', g:'noise', l:'Bias current', u:'µA', t:'num', d:10, min:0, step:1, tip:'Readout current I.'},
+  {k:'noiseTempK', g:'noise', l:'Noise temperature', u:'K', t:'num', d:0, min:0, step:1, tip:'Electron temperature in the Johnson term 4kTR. 0 = the device temperature (so a temperature sweep moves the noise too).'},
+  {k:'hooge', g:'noise', l:'Hooge α_H', u:'', t:'num', d:0, min:0, step:1e-3, tip:'1/f term α_H V²/(N_c f); N_c = carriers in the channel. 0 = off.'},
+  {k:'freqHz', g:'noise', l:'Readout frequency', u:'Hz', t:'num', d:1, min:1e-6, step:1, tip:'Frequency at which the 1/f term is evaluated.'},
+  {k:'mrField_mT', g:'noise', l:'MR reported at |B| =', u:'mT', t:'num', d:10, min:0, step:1, tip:'Field at which MR = <R(±B)>/R(0) − 1 is reported (symmetrised, interpolated).'},
+  {k:'fitWindow_mT', g:'noise', l:'Parabola fit window', u:'mT', t:'num', d:0, min:0, step:1, tip:'|B| range of the local even-parabola fit for R0 and curvature. 0 = one third of the field window.'},
+  {k:'sgHalf', g:'noise', l:'Derivative half-window', u:'pts', t:'int', d:2, min:1, max:10, tip:'Local quadratic fit over ±n points for dR/dB.'},
+  {k:'eRange_meV', g:'coh', l:'Energy half-range', u:'meV', t:'num', d:25, min:0.1, max:200, step:1, tip:'Coherent T(E) is computed over E_F ± this.'},
+  {k:'eN', g:'coh', l:'Energy points', u:'', t:'int', d:251, min:3, max:4001, tip:'Energy grid size.'},
+  {k:'kyN', g:'coh', l:'k_y points', u:'', t:'int', d:49, min:4, max:1024, tip:'Transverse-momentum quadrature for the mode average.'},
+];
+const BY = Object.fromEntries(CONTROLS.map(c => [c.k, c]));
+
+const PRESETS = {
+  default: {},
+  june: {nCells:16, Ln_um:0.5, Lp_um:0.5, W_um:10, profile:'asymptotic', d_nm:10, mfp_um:30, scatter:'forward', forwardSigmaDeg:10, seed:13, bN:81, maxPathFactor:6},
+  first: {nCells:40, Ln_um:0.5, Lp_um:0.5, W_um:2, profile:'asymptotic', d_nm:10, mfp_um:2, scatter:'forward', forwardSigmaDeg:10, seed:13, bMin_mT:-50, bMax_mT:50, bN:81, nTraj:10000},
+  unipolar: {unipolar:1},
+  skew: {skewDeg:10},
+  disorder: {sigmaPos_nm:20, sigmaWidth:0.2, sigmaDensity:0.05, sigmaTiltDeg:3},
+  diffusive: {mfp_um:1, scatter:'drude'},
+  rough: {edge:'diffuse', specularity:0.3, W_um:4},
+  warm: {tempK:77, mfpPh300_um:2, nEnergy:7, noiseTempK:77},
+};
+
+const METRICS = [
+  ['mrAt','MR at the chosen field','max','<R(±B*)>/R(0) − 1 at the field set in “MR reported at”.'],
+  ['mrEdge','MR at the window edge','max','<R(±B_max)>/R(0) − 1.'],
+  ['peakSens','peak |dR/dB|/R0 (1/T)','max','Steepest local slope of R(B), normalised by R0 (interior points only).'],
+  ['bMinFlank_nT','flank resolution (nT/√Hz)','min','√S_V / (I |dR/dB|) at the steepest point.'],
+  ['bMinVertex_nT','vertex resolution (nT, 1 Hz)','min','√(δR/a) for a parabolic readout at B = 0.'],
+  ['T0','T(0)','max','Zero-field transmission per mode.'],
+  ['R0','R0 (Ω)','min','Zero-field resistance from the local even-parabola fit.'],
+  ['mrDepth','MR depth','max','(Rmax − Rmin)/Rmin over the field window.'],
+  ['fwhm_mT','dip FWHM (mT)','min','Full width at half maximum of the R(B) dip.'],
+  ['curvNorm','curvature a/R0 (1/T²)','max','Even-parabola curvature normalised by R0.'],
+  ['peakSensParabola','2|a|Bmax/R0 (1/T)','max','June-report definition: slope of the global even parabola at the window edge.'],
+  ['peakSlope','peak |dR/dB| (Ω/T)','max','Unnormalised steepest slope.'],
+];
+const METRIC = Object.fromEntries(METRICS.map(m => [m[0], {label:m[1], goal:m[2], tip:m[3]}]));
+const SWEEPABLE = [['nCells','cells'],['Ln_um','n-cell length (µm)'],['Lp_um','p-cell length (µm)'],['L_um','both cell lengths (µm)'],['W_um','width W (µm)'],
+  ['n_cm2','both densities (cm⁻²)'],['nN_cm2','n density (cm⁻²)'],['nP_cm2','|p| density (cm⁻²)'],['d_nm','junction width d (nm)'],['skewDeg','skew (°)'],
+  ['mfp_um','mean free path (µm)'],['mfpPh300_um','phonon ℓ at 300 K (µm)'],['tempK','temperature (K)'],['forwardSigmaDeg','forward kick σ (°)'],
+  ['eeMfp_um','e–e length (µm)'],['eeSigmaDeg','e–e kick σ (°)'],['specularity','specularity p'],['apertureFrac','aperture / W'],['collimSigmaDeg','collimation σ (°)'],
+  ['sigmaPos_nm','position jitter (nm)'],['sigmaWidth','width jitter (rel.)'],['sigmaDensity','density jitter (rel.)'],['sigmaTiltDeg','tilt jitter (°)'],['disorderSeed','disorder seed'],
+  ['maxPathFactor','path cap / L_tot'],['vF','Fermi velocity (m/s)']];
+const SWEEP_LABEL = Object.fromEntries(SWEEPABLE);
+
+// =====================================================================
+// 2. small helpers
+// =====================================================================
+const $ = id => document.getElementById(id);
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const SERIES = () => [1,2,3,4,5,6,7,8].map(i => css('--s' + i));
+function fmt(v, d = 3) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  const a = Math.abs(v);
+  if (a !== 0 && (a >= 1e5 || a < 1e-3)) return v.toExponential(d - 1);
+  return (+v.toPrecision(d + (a >= 100 ? 1 : 0))).toString();
+}
+function toast(s, ms = 2800) { const t = $('toast'); t.textContent = s; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), ms); }
+function download(name, text, type = 'application/json') {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function hexToRgb(h) { h = h.replace('#',''); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]; }
+function mix(a, b, t) { const A = hexToRgb(a), B = hexToRgb(b); return `rgb(${A.map((v,i) => Math.round(v + (B[i]-v)*t)).join(',')})`; }
+function seqColor(t) { return mix(css('--seq-lo'), css('--seq-hi'), Math.max(0, Math.min(1, t))); }
+function stamp() { const d = new Date(), p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; }
+const KF = n_cm2 => Math.sqrt(Math.PI * n_cm2 * 1e4);
+const HBAR = 1.054571817e-34, QE = 1.602176634e-19;
+
+// =====================================================================
+// 3. chart engine (canvas): lines, markers, error bars, log axes, legend,
+//    crosshair tooltip; heat map with colour bar and per-cell tooltip.
+// =====================================================================
+function niceTicks(lo, hi, n = 6) {
+  if (!(hi > lo)) { const c = isFinite(lo) ? lo : 0; return [c]; }
+  const span = hi - lo, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), r = step0 / mag;
+  const step = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  return out;
+}
+function logTicks(lo, hi) { const out = []; for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e++) for (const m of [1,2,5]) { const v = m * Math.pow(10, e); if (v >= lo * 0.999 && v <= hi * 1.001) out.push(v); } return out; }
+function tickLabel(v) { const a = Math.abs(v); if (a === 0) return '0'; if (a >= 1e4 || a < 1e-2) { const e = Math.floor(Math.log10(a)), m = v / Math.pow(10, e); return (Math.abs(m - Math.round(m)) < 1e-9 ? Math.round(m) : m.toFixed(1)) + 'e' + e; } return String(+v.toPrecision(4)); }
+
+function prepCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  g.fillStyle = css('--surface'); g.fillRect(0, 0, W, H);
+  return {g, W, H};
+}
+
+function drawChart(cv, spec) {
+  if (!cv || !cv.clientWidth) return;
+  const {g, W, H} = prepCanvas(cv);
+  const fg = css('--fg'), fg2 = css('--fg2'), grid = css('--grid'), axis = css('--axis');
+  const series = (spec.series || []).filter(s => s && s.x && s.x.length);
+  const L = 72, R = 16, T = spec.title ? 30 : 14, B = 46, pw = W - L - R, ph = H - T - B;
+  cv._chart = null;
+  if (spec.title) { g.fillStyle = fg; g.font = '600 13px Segoe UI, system-ui'; g.textAlign = 'left'; g.fillText(spec.title, L, 19); }
+  if (!series.length || pw < 40 || ph < 40) { g.fillStyle = css('--muted'); g.font = '14px Segoe UI'; g.textAlign = 'center'; g.fillText(spec.empty || 'No data yet', W / 2, H / 2); return; }
+  let xl = Infinity, xh = -Infinity, yl = Infinity, yh = -Infinity;
+  for (const s of series) for (let i = 0; i < s.x.length; i++) {
+    const x = s.x[i], y = s.y[i]; if (!isFinite(x) || !isFinite(y)) continue;
+    if (spec.xlog && x <= 0) continue; if (spec.ylog && y <= 0) continue;
+    const e = s.err && isFinite(s.err[i]) ? s.err[i] : 0;
+    xl = Math.min(xl, x); xh = Math.max(xh, x); yl = Math.min(yl, y - e); yh = Math.max(yh, y + e);
+  }
+  for (const h of spec.hlines || []) if (isFinite(h.y)) { yl = Math.min(yl, h.y); yh = Math.max(yh, h.y); }
+  if (spec.ylim) { if (spec.ylim[0] !== null) yl = spec.ylim[0]; if (spec.ylim[1] !== null) yh = spec.ylim[1]; }
+  if (spec.xlim) { xl = spec.xlim[0]; xh = spec.xlim[1]; }
+  if (!isFinite(xl)) { g.fillStyle = css('--muted'); g.fillText('No finite data', W / 2, H / 2); return; }
+  if (spec.ylog) { if (yl <= 0) yl = yh / 1e3; yl /= 1.15; yh *= 1.15; } else { const pad = (yh - yl) * 0.06 || Math.abs(yh) * 0.1 || 1; if (!(spec.ylim && spec.ylim[0] !== null)) yl -= pad; if (!(spec.ylim && spec.ylim[1] !== null)) yh += pad; }
+  if (xh === xl) { xl -= 1; xh += 1; }
+  const fx = spec.xlog ? v => L + (Math.log(v) - Math.log(xl)) / (Math.log(xh) - Math.log(xl)) * pw : v => L + (v - xl) / (xh - xl) * pw;
+  const fy = spec.ylog ? v => T + ph - (Math.log(v) - Math.log(yl)) / (Math.log(yh) - Math.log(yl)) * ph : v => T + ph - (v - yl) / (yh - yl) * ph;
+  // grid + ticks
+  g.font = '12px Segoe UI, system-ui'; g.lineWidth = 1;
+  const xt = spec.xlog ? logTicks(xl, xh) : niceTicks(xl, xh, Math.max(3, Math.round(pw / 90)));
+  const yt = spec.ylog ? logTicks(yl, yh) : niceTicks(yl, yh, Math.max(3, Math.round(ph / 55)));
+  g.strokeStyle = grid; g.fillStyle = fg2;
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (const v of xt) { const x = fx(v); if (x < L - 1 || x > L + pw + 1) continue; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.fillText(tickLabel(v), x, T + ph + 6); }
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (const v of yt) { const y = fy(v); if (y < T - 1 || y > T + ph + 1) continue; g.beginPath(); g.moveTo(L, y); g.lineTo(L + pw, y); g.stroke(); g.fillText(tickLabel(v), L - 7, y); }
+  g.strokeStyle = axis; g.beginPath(); g.moveTo(L, T + ph); g.lineTo(L + pw, T + ph); g.moveTo(L, T); g.lineTo(L, T + ph); g.stroke();
+  g.fillStyle = fg2; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(spec.xlabel || '', L + pw / 2, H - 8);
+  g.save(); g.translate(15, T + ph / 2); g.rotate(-Math.PI / 2); g.fillText(spec.ylabel || '', 0, 0); g.restore();
+  // reference lines
+  g.save(); g.beginPath(); g.rect(L, T, pw, ph); g.clip();
+  for (const h of spec.hlines || []) { if (!isFinite(h.y)) continue; g.strokeStyle = h.color || axis; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(L, fy(h.y)); g.lineTo(L + pw, fy(h.y)); g.stroke(); g.setLineDash([]); if (h.label) { g.fillStyle = fg2; g.textAlign = 'right'; g.fillText(h.label, L + pw - 4, fy(h.y) - 5); } }
+  for (const v of spec.vlines || []) { if (!isFinite(v.x)) continue; g.strokeStyle = v.color || axis; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(fx(v.x), T); g.lineTo(fx(v.x), T + ph); g.stroke(); g.setLineDash([]); if (v.label) { g.fillStyle = fg2; g.textAlign = 'left'; g.fillText(v.label, fx(v.x) + 4, T + ph - 8); } }
+  // series
+  for (const s of series) {
+    const col = s.color; g.strokeStyle = col; g.fillStyle = col; g.lineWidth = s.width || 2; g.setLineDash(s.dash || []);
+    if (s.err) { g.lineWidth = 1; g.globalAlpha = 0.55; for (let i = 0; i < s.x.length; i++) { const e = s.err[i]; if (!isFinite(e) || !isFinite(s.y[i]) || e <= 0) continue; const x = fx(s.x[i]); let y0 = s.y[i] - e, y1 = s.y[i] + e; if (spec.ylog && y0 <= 0) y0 = yl; g.beginPath(); g.moveTo(x, fy(y0)); g.lineTo(x, fy(y1)); g.stroke(); } g.globalAlpha = 1; g.lineWidth = s.width || 2; }
+    if (s.line !== false) { g.beginPath(); let pen = false; for (let i = 0; i < s.x.length; i++) { const x = s.x[i], y = s.y[i]; if (!isFinite(x) || !isFinite(y) || (spec.xlog && x <= 0) || (spec.ylog && y <= 0)) { pen = false; continue; } const X = fx(x), Y = fy(y); if (pen) g.lineTo(X, Y); else { g.moveTo(X, Y); pen = true; } } g.stroke(); }
+    g.setLineDash([]);
+    if (s.marker) { const r = s.marker === true ? 3.5 : s.marker; g.strokeStyle = css('--surface'); g.lineWidth = 1.5; for (let i = 0; i < s.x.length; i++) { const x = s.x[i], y = s.y[i]; if (!isFinite(x) || !isFinite(y) || (spec.ylog && y <= 0) || (spec.xlog && x <= 0)) continue; g.beginPath(); g.arc(fx(x), fy(y), r, 0, 2 * Math.PI); g.fill(); g.stroke(); } }
+  }
+  g.restore();
+  // legend (>= 2 named series)
+  const named = series.filter(s => s.label && !s.nolegend);
+  if (named.length >= 2 || spec.legendAlways && named.length) {
+    g.font = '12px Segoe UI, system-ui'; const lw = Math.min(260, Math.max(...named.map(s => g.measureText(s.label).width)) + 34), lh = 17;
+    const shown = named.slice(0, Math.floor((ph - 10) / lh)); const lx = spec.legendLeft ? L + 8 : L + pw - lw - 8, ly = T + 8;
+    g.fillStyle = css('--panel'); g.globalAlpha = 0.9; g.fillRect(lx, ly, lw, shown.length * lh + 8); g.globalAlpha = 1; g.strokeStyle = grid; g.strokeRect(lx, ly, lw, shown.length * lh + 8);
+    shown.forEach((s, i) => { const y = ly + 12 + i * lh; g.strokeStyle = s.color; g.lineWidth = 2; g.setLineDash(s.dash || []); g.beginPath(); g.moveTo(lx + 7, y); g.lineTo(lx + 24, y); g.stroke(); g.setLineDash([]); g.fillStyle = fg; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(s.label, lx + 29, y); });
+    g.textBaseline = 'alphabetic';
+  }
+  cv._chart = {spec, series, fx, fy, xl, xh, L, T, pw, ph, inv: X => spec.xlog ? Math.exp(Math.log(xl) + (X - L) / pw * (Math.log(xh) - Math.log(xl))) : xl + (X - L) / pw * (xh - xl)};
+}
+
+function drawHeat(cv, spec) {
+  if (!cv || !cv.clientWidth) return;
+  const {g, W, H} = prepCanvas(cv);
+  cv._chart = null;
+  const fg = css('--fg'), fg2 = css('--fg2');
+  const {xs, ys, z} = spec; const L = 78, R = 92, T = spec.title ? 30 : 14, B = 46, pw = W - L - R, ph = H - T - B;
+  if (spec.title) { g.fillStyle = fg; g.font = '600 13px Segoe UI, system-ui'; g.textAlign = 'left'; g.fillText(spec.title, L, 19); }
+  if (!xs || !ys || !xs.length || pw < 40 || ph < 40) { g.fillStyle = css('--muted'); g.font = '14px Segoe UI'; g.textAlign = 'center'; g.fillText(spec.empty || 'No grid yet', W / 2, H / 2); return; }
+  let lo = Infinity, hi = -Infinity;
+  for (let j = 0; j < ys.length; j++) for (let i = 0; i < xs.length; i++) { const v = z[j] && z[j][i]; if (isFinite(v) && (!spec.zlog || v > 0)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  const tz = v => !isFinite(v) ? NaN : spec.zlog ? (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo) || 1) : (v - lo) / (hi - lo || 1);
+  const cw = pw / xs.length, ch = ph / ys.length;
+  for (let j = 0; j < ys.length; j++) for (let i = 0; i < xs.length; i++) {
+    const v = z[j] ? z[j][i] : undefined, x = L + i * cw, y = T + ph - (j + 1) * ch;
+    if (v === undefined) { g.fillStyle = css('--panel2'); g.fillRect(x + 1, y + 1, cw - 2, ch - 2); continue; }
+    const masked = spec.mask && spec.mask[j] && spec.mask[j][i];
+    g.fillStyle = masked ? css('--mask') : (isFinite(v) ? seqColor(tz(v)) : css('--mask'));
+    g.fillRect(x + 1, y + 1, cw - 2, ch - 2);
+    if (masked) { g.save(); g.beginPath(); g.rect(x + 1, y + 1, cw - 2, ch - 2); g.clip(); g.strokeStyle = css('--axis'); g.lineWidth = 1; for (let k = -ch; k < cw; k += 7) { g.beginPath(); g.moveTo(x + k, y + ch); g.lineTo(x + k + ch, y); g.stroke(); } g.restore(); }
+    if (cw > 46 && ch > 18 && isFinite(v)) { g.fillStyle = tz(v) > 0.55 === (document.documentElement.dataset.theme !== 'dark') ? '#fff' : '#111'; g.font = '11px Segoe UI'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(fmt(v, 3), x + cw / 2, y + ch / 2); }
+  }
+  if (spec.best) { const [bi, bj] = spec.best; g.strokeStyle = css('--s2'); g.lineWidth = 3; g.strokeRect(L + bi * cw + 1.5, T + ph - (bj + 1) * ch + 1.5, cw - 3, ch - 3); }
+  g.fillStyle = fg2; g.font = '12px Segoe UI'; g.textBaseline = 'top'; g.textAlign = 'center';
+  const stepX = Math.max(1, Math.ceil(xs.length / Math.max(1, pw / 60)));
+  xs.forEach((v, i) => { if (i % stepX === 0) g.fillText(tickLabel(v), L + (i + 0.5) * cw, T + ph + 6); });
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  const stepY = Math.max(1, Math.ceil(ys.length / Math.max(1, ph / 22)));
+  ys.forEach((v, j) => { if (j % stepY === 0) g.fillText(tickLabel(v), L - 7, T + ph - (j + 0.5) * ch); });
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(spec.xlabel || '', L + pw / 2, H - 8);
+  g.save(); g.translate(15, T + ph / 2); g.rotate(-Math.PI / 2); g.fillText(spec.ylabel || '', 0, 0); g.restore();
+  // colour bar
+  if (isFinite(lo)) {
+    const bx = L + pw + 18, bw = 14;
+    for (let k = 0; k < ph; k++) { g.fillStyle = seqColor(1 - k / ph); g.fillRect(bx, T + k, bw, 1.5); }
+    g.fillStyle = fg2; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = '11px Segoe UI';
+    g.fillText(fmt(hi, 3), bx + bw + 4, T + 6); g.fillText(fmt(lo, 3), bx + bw + 4, T + ph - 6);
+    g.save(); g.translate(bx + bw + 60, T + ph / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center'; g.fillText(spec.zlabel || '', 0, 0); g.restore();
+  }
+  cv._heat = {spec, L, T, pw, ph, cw, ch};
+}
+
+// hover: crosshair + nearest point per series, or the heat-map cell
+function attachHover(cv) {
+  const wrap = cv.parentElement, cross = document.createElement('div'); cross.className = 'cross'; wrap.appendChild(cross);
+  const tip = $('tip');
+  cv.addEventListener('mouseleave', () => { tip.style.display = 'none'; cross.style.display = 'none'; });
+  cv.addEventListener('mousemove', ev => {
+    const r = cv.getBoundingClientRect(), X = ev.clientX - r.left, Y = ev.clientY - r.top;
+    let html = '';
+    if (cv._heat && !cv._chart) {
+      const h = cv._heat; const i = Math.floor((X - h.L) / h.cw), j = Math.floor((h.T + h.ph - Y) / h.ch);
+      const s = h.spec; if (i < 0 || j < 0 || i >= s.xs.length || j >= s.ys.length) { tip.style.display = 'none'; return; }
+      const v = s.z[j] ? s.z[j][i] : undefined;
+      html = `<b>${s.xlabel}</b> ${fmt(s.xs[i], 4)}<br><b>${s.ylabel}</b> ${fmt(s.ys[j], 4)}<br><b>${s.zlabel}</b> ${v === undefined ? 'pending' : fmt(v, 4)}` + (s.mask && s.mask[j] && s.mask[j][i] ? '<br><i>fails a constraint</i>' : '') + (s.extra ? s.extra(i, j) : '');
+      cross.style.display = 'none';
+    } else if (cv._chart) {
+      const c = cv._chart; if (X < c.L || X > c.L + c.pw) { tip.style.display = 'none'; cross.style.display = 'none'; return; }
+      const xv = c.inv(X); let bestX = null;
+      const rows = [];
+      for (const s of c.series) {
+        if (s.nohover) continue;
+        let bi = -1, bd = Infinity; for (let i = 0; i < s.x.length; i++) { const d = Math.abs(s.x[i] - xv); if (d < bd && isFinite(s.y[i])) { bd = d; bi = i; } }
+        if (bi < 0) continue; if (bestX === null) bestX = s.x[bi];
+        rows.push(`<span class="sw" style="background:${s.color}"></span>${s.label || ''} <b>${fmt(s.y[bi], 4)}</b>${s.err && isFinite(s.err[bi]) ? ' ± ' + fmt(s.err[bi], 2) : ''}`);
+        if (rows.length >= 12) break;
+      }
+      if (!rows.length) return;
+      cross.style.display = 'block'; cross.style.left = c.fx(bestX) + 'px';
+      html = `<b>${c.spec.xlabel}</b> ${fmt(bestX, 4)}<br>` + rows.join('<br>');
+    } else return;
+    tip.innerHTML = html; tip.style.display = 'block';
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.min(innerWidth - tw - 8, ev.clientX + 14) + 'px'; tip.style.top = Math.min(innerHeight - th - 8, ev.clientY + 14) + 'px';
+  });
+}
+
+// =====================================================================
+// 4. state
+// =====================================================================
+const S = {
+  tab: 'device', connected: false, busy: null, derived: null, curve: null, held: [],
+  sweep: null, grid: null, angular: null, coherent: null, lastResult: null, tagN: 0, sentTag: '', sent: null,
+  runStart: 0, version: '?',
+  ui: {rbMode: 'R', rbFit: true, rbErr: true, fatesView: 'fates', sweepView: 'family', sweepMetric: 'peakSens', sweepLog: false,
+       gridMetric: 'bMinFlank_nT', gridLogZ: true, t0Min: 0.02, lMax: 0, ballMax: 0.5, angSeries: false, angLog: false, cohView: 'E',
+       pathsB: 15, pathsN: 160, autoPaths: true,
+       sweep: {param: 'nCells', from: 4, to: 32, n: 8, log: false},
+       grid: {param: 'nCells', from: 4, to: 32, n: 8, log: false, param2: 'd_nm', from2: 5, to2: 40, n2: 6, log2: true}},
+};
+
+// =====================================================================
+// 5. build the controls
+// =====================================================================
+function buildControls() {
+  const host = $('controls'); host.innerHTML = '';
+  const groups = {};
+  for (const key of Object.keys(G)) {
+    const d = document.createElement('details'); d.className = 'grp'; d.open = ['geo','car','sc','eng','field'].includes(key);
+    d.innerHTML = `<summary>${G[key]}</summary><div class="rows"></div>`; host.appendChild(d); groups[key] = d.querySelector('.rows');
+  }
+  for (const c of CONTROLS) {
+    const row = document.createElement('div'); row.className = 'row'; row.id = 'row_' + c.k;
+    const lab = `<label for="c_${c.k}" title="${c.tip || ''}">${c.l}${c.u ? `<small>${c.u}</small>` : ''}</label>`;
+    let inp;
+    if (c.t === 'sel') inp = `<select id="c_${c.k}">${c.opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>`;
+    else if (c.t === 'chk') inp = `<input type="checkbox" id="c_${c.k}">`;
+    else inp = `<input type="number" id="c_${c.k}" ${c.min !== undefined ? `min="${c.min}"` : ''} ${c.max !== undefined ? `max="${c.max}"` : ''} step="${c.step || (c.t === 'int' ? 1 : 'any')}">`;
+    row.innerHTML = lab + inp; groups[c.g].appendChild(row);
+    const el = row.querySelector('#c_' + c.k);
+    el.addEventListener('change', () => { row.classList.remove('adj'); onControlChange(c.k); });
+    if (c.t !== 'sel' && c.t !== 'chk') el.addEventListener('keydown', e => { if (e.key === 'Enter') el.blur(); });
+  }
+  // computed chips under some groups
+  const geoNote = document.createElement('div'); geoNote.className = 'note'; geoNote.id = 'geoNote'; groups.geo.parentElement.appendChild(geoNote);
+  const engNote = document.createElement('div'); engNote.className = 'note'; engNote.id = 'engNote'; groups.eng.parentElement.appendChild(engNote);
+  const scNote = document.createElement('div'); scNote.className = 'note'; scNote.id = 'scNote'; groups.sc.parentElement.appendChild(scNote);
+  setValues(defaults());
+}
+function defaults() { return Object.fromEntries(CONTROLS.map(c => [c.k, c.d])); }
+function getVal(k) {
+  const c = BY[k], el = $('c_' + k); if (!el) return undefined;
+  if (c.t === 'chk') return el.checked ? 1 : 0;
+  if (c.t === 'sel') return el.value;
+  const v = parseFloat(el.value); return isFinite(v) ? (c.t === 'int' ? Math.round(v) : v) : c.d;
+}
+function numText(v) { v = +v; const a = Math.abs(v); return a !== 0 && (a >= 1e5 || a < 1e-3) ? v.toExponential().replace('e+', 'e') : String(v); }
+function setVal(k, v) { const c = BY[k], el = $('c_' + k); if (!el || v === undefined) return; if (c.t === 'chk') el.checked = !!+v; else if (c.t === 'sel') el.value = v; else el.value = numText(v); }
+function setValues(o) { for (const [k, v] of Object.entries(o)) setVal(k, v); refreshEnables(); }
+function values() { return Object.fromEntries(CONTROLS.map(c => [c.k, getVal(c.k)])); }
+
+// mobility helper -> mean free path
+// Mobility measures the TRANSPORT length ℓ_tr = μħk_F/e. A forward event with Gaussian kick σ
+// relaxes momentum only by 1 − ⟨cos⟩ = 1 − exp(−σ²/2), so the core's per-event length is
+// ℓ_event = ℓ_tr (1 − ⟨cos⟩). For isotropic scattering the two are equal.
+function relaxFrac(v) { return v.scatter === 'forward' ? 1 - Math.exp(-0.5 * Math.pow(v.forwardSigmaDeg * Math.PI / 180, 2)) : 1; }
+function trFromMu(mu_cm2Vs, n_cm2) { return mu_cm2Vs * 1e-4 * HBAR * KF(n_cm2) / QE * 1e6; }
+function mfpFromMu(mu_cm2Vs, n_cm2, v) { return trFromMu(mu_cm2Vs, n_cm2) * relaxFrac(v || values()); }
+function muFromMfp(mfp_um, n_cm2, v) { return mfp_um / relaxFrac(v || values()) * 1e-6 * QE / (HBAR * KF(n_cm2)) * 1e4; }
+
+function onControlChange(k) {
+  // mobility is the physical input when set: keep ℓ = μħk_F/e consistent with the density
+  if (['_mu', 'nN_cm2', 'scatter', 'forwardSigmaDeg'].includes(k) && getVal('_mu') > 0) setVal('mfp_um', +mfpFromMu(getVal('_mu'), getVal('nN_cm2')).toPrecision(6));
+  if (k === 'mfp_um' && getVal('_mu') > 0) setVal('_mu', 0);   // typing ℓ directly releases the mobility link
+  refreshEnables(); scheduleSync();
+}
+function refreshEnables() {
+  const v = values();
+  const en = {specularity: v.edge === 'diffuse', apertureFrac: v.injection === 'aperture', collimSigmaDeg: v.injection === 'collimated',
+    forwardSigmaDeg: v.scatter === 'forward', eeSigmaDeg: v.eeMfp_um > 0, nTraj: v.engine === 'mc',
+    fluxNY: v.engine === 'flux', fluxNS: v.engine === 'flux', fluxJitter: v.engine === 'flux', fluxThreshold: v.engine === 'flux'};
+  for (const [k, on] of Object.entries(en)) { const r = $('row_' + k); if (r) r.classList.toggle('off', !on); }
+  // geometry and cost notes
+  const nJ = Math.max(0, v.nCells - 1), nn = Math.ceil(v.nCells / 2), np = Math.floor(v.nCells / 2), Lt = nn * v.Ln_um + np * v.Lp_um;
+  $('geoNote').textContent = `${nJ} junctions · L_tot = ${fmt(Lt, 4)} µm · aspect L/W = ${fmt(Lt / v.W_um, 3)}`;
+  const per = v.engine === 'mc' ? v.nTraj : v.fluxNY * v.fluxNS;
+  const total = per * v.bN * v.nEnergy;
+  $('engNote').textContent = `${v.engine === 'mc' ? 'trajectories' : 'quadrature nodes'} per curve: ${total.toLocaleString()} (${per.toLocaleString()} × ${v.bN} fields × ${v.nEnergy} energies)` +
+    (v.engine === 'mc' ? ` · σ_T ≈ ${fmt(Math.sqrt(0.25 / Math.max(1, v.nTraj)), 2)} at T = 0.5` : '');
+  const mu = muFromMfp(v.mfp_um, v.nN_cm2, v), ltr = v.mfp_um / relaxFrac(v);
+  $('scNote').textContent = v.mfp_um > 0 && v.scatter !== 'none' ? `event length ${fmt(v.mfp_um, 3)} µm → transport length ℓ_tr = ${fmt(ltr, 3)} µm ⇔ μ = ${fmt(mu, 3)} cm²/Vs at n = ${fmt(v.nN_cm2, 3)} cm⁻² · L_tot/ℓ_tr = ${fmt(Lt / ltr, 3)}` : 'Ballistic (no impurity scattering).';
+  $('headline').textContent = `${v.nCells} cells · L ${v.Ln_um}/${v.Lp_um} µm · W ${v.W_um} µm · d ${v.d_nm} nm (${v.profile}) · n ${fmt(v.nN_cm2, 3)}/${fmt(v.nP_cm2, 3)} cm⁻²${v.unipolar ? ' · UNIPOLAR' : ''}${v.skewDeg ? ` · skew ${v.skewDeg}°` : ''}`;
+}
+
+// =====================================================================
+// 6. talking to the core
+// =====================================================================
+function payload() { const o = {t: 'configure'}; for (const c of CONTROLS) if (!c.local) o[c.k] = getVal(c.k); return o; }
+let syncTimer = 0;
+function scheduleSync() { clearTimeout(syncTimer); syncTimer = setTimeout(sync, 150); }
+function sync() {
+  clearTimeout(syncTimer);
+  const p = payload(); p.tag = 'ui' + (++S.tagN); S.sentTag = p.tag; S.sent = p;
+  dex.send(p); $('syncFlag').className = 'flag'; $('syncFlag').textContent = 'sent to core…';
+  if (S.tab === 'device' && S.ui.autoPaths) tracePathsSoon();
+  if (S.tab === 'angular') setTimeout(() => runMode('angular'), 60);
+}
+function runMode(mode, extra = {}) {
+  if (!S.connected) { toast('Core not connected'); return; }
+  sync();
+  const m = Object.assign({t: 'run', mode}, extra);
+  dex.send(m);
+  if (mode !== 'angular' && mode !== 'paths') { S.busy = mode; S.runStart = performance.now(); setBusy(mode); }
+}
+function setBusy(mode) {
+  $('dot').className = 'dot ' + (mode ? 'busy' : 'live');
+  $('status').textContent = mode ? `running ${mode}…` : 'idle · native core ready';
+  if (!mode) { $('progBar').style.width = '0%'; $('eta').textContent = ''; }
+}
+let pathsTimer = 0;
+function tracePathsSoon() { clearTimeout(pathsTimer); pathsTimer = setTimeout(() => { if (!S.busy) dex.send({t: 'run', mode: 'paths', B_mT: S.ui.pathsB, n: S.ui.pathsN}); }, 250); }
+
+function compareEcho(d) {
+  if (!S.sent || d.tag !== S.sentTag) return;
+  const adjusted = [];
+  for (const c of CONTROLS) {
+    if (c.local) continue;
+    const sent = S.sent[c.k], got = d.params[c.k];
+    if (got === undefined) { adjusted.push([c.k, 'missing']); continue; }
+    const same = typeof sent === 'string' ? sent === got : Math.abs(+sent - +got) <= 1e-6 * Math.max(1, Math.abs(+sent));
+    if (!same) { adjusted.push([c.k, got]); setVal(c.k, got); $('row_' + c.k).classList.add('adj'); }
+  }
+  const f = $('syncFlag');
+  if (!adjusted.length) { f.className = 'flag ok'; f.textContent = `Core in sync: all ${CONTROLS.filter(c => !c.local).length} parameters confirmed (core v${d.params.version}).`; }
+  else { f.className = 'flag warn'; f.textContent = 'Core adjusted: ' + adjusted.map(a => `${BY[a[0]].l} → ${a[1]}`).join('; ') + '. The controls now show the values in use.'; refreshEnables(); }
+  S.lastEcho = {adjusted, params: d.params};
+}
+
+const dex = DEX.connect({
+  canvas: $('view'),
+  onStatus: s => { S.connected = s === 'open'; if (s === 'open') { setBusy(null); dex.send({t: 'hello'}); pushTheme(); sync(); } else { $('dot').className = 'dot'; $('status').textContent = s; } },
+  onMessage: m => handle(m),
+});
+window.dex = dex;
+
+function handle(m) {
+  switch (m.t) {
+    case 'ready': S.version = m.version; break;
+    case 'derived': S.derived = m; renderDerived(); compareEcho(m); updateMethods(); break;
+    case 'progress': {
+      const f = Math.max(0, Math.min(1, m.frac)); $('progBar').style.width = (100 * f).toFixed(1) + '%';
+      const el = (performance.now() - S.runStart) / 1000; const eta = f > 0.02 ? el * (1 - f) / f : NaN;
+      $('eta').textContent = `${(100 * f).toFixed(0)}% · ${el.toFixed(0)} s${isFinite(eta) ? ` · ~${eta < 90 ? eta.toFixed(0) + ' s' : (eta / 60).toFixed(1) + ' min'} left` : ''}`;
+      if (m.total > 1) $('status').textContent = `running ${m.mode} · ${m.i + 1}/${m.total}`;
+      break; }
+    case 'curve': S.curve = m; S.lastResult = m; renderMetrics(); redrawCurveTabs(); updateMethods(); if (S.tab === 'device') {} break;
+    case 'sweep_start': S.sweep = {param: m.param, xs: m.xs, pts: [], cfg: Object.assign({}, S.ui.sweep), base: S.derived && S.derived.params}; drawSweep(); break;
+    case 'sweep_point': if (S.sweep) { S.sweep.pts[m.i] = m; drawSweep(); } break;
+    case 'sweep_done': if (S.sweep) { S.lastResult = {t: 'sweep', param: S.sweep.param, xs: S.sweep.xs, points: S.sweep.pts, params: S.derived && S.derived.params}; } break;
+    case 'grid_start': S.grid = {param: m.param, param2: m.param2, xs: m.xs, ys: m.ys, pts: [], base: S.derived && S.derived.params}; drawGrid(); break;
+    case 'grid_point': if (S.grid) { (S.grid.pts[m.j] = S.grid.pts[m.j] || [])[m.i] = m; drawGrid(); } break;
+    case 'grid_done': if (S.grid) { S.lastResult = {t: 'grid', param: S.grid.param, param2: S.grid.param2, xs: S.grid.xs, ys: S.grid.ys, points: S.grid.pts, params: S.derived && S.derived.params}; drawGrid(); } break;
+    case 'angular': S.angular = m; drawAngular(); break;
+    case 'coherent': S.coherent = m; S.lastResult = m; drawCoherent(); break;
+    case 'paths': break;
+    case 'density': S.density = m; S.lastResult = m; setBusy(null); toast(`Density map: ${m.n.toLocaleString()} trajectories · source→drain T = ${fmt(m.T, 4)} ± ${fmt(m.sigmaT, 2)} · reflected ${fmt(m.R, 3)}`, 6000); break;
+    case 'job': if (m.state === 'done' || m.state === 'stopped') { S.busy = null; setBusy(null); if (m.state === 'stopped') toast('Stopped'); } break;
+    case 'error': toast('Core: ' + m.message, 5000); break;
+    case 'reset_done': break;
+  }
+}
+
+// =====================================================================
+// 7. right column
+// =====================================================================
+function renderDerived() {
+  const d = S.derived; if (!d) return;
+  const rows = [
+    ['k_F (n cells)', fmt(d.kF, 4) + ' m⁻¹', 'Fermi wavevector √(πn).'],
+    ['E_F', fmt(d.EF_meV, 4) + ' meV', 'ħ v_F k_F'],
+    ['λ_F', fmt(d.lambdaF_nm, 4) + ' nm', '2π/k_F'],
+    ['k_F d', fmt(d.kFd, 4), 'Smoothness parameter. The asymptotic formula is 1 % accurate only for k_F d ≳ 20.'],
+    ['gate height h = d/π', fmt(d.h_nm, 3) + ' nm', 'For the gate-electrostatic profile.'],
+    ['T(30°), this profile', fmt(d.T30, 4), 'Exact single-junction transmission at 30° incidence.'],
+    ['T(30°), asymptotic', fmt(d.T30asym, 4), 'exp(−π k_y²/|dk/dx|) at 30°.'],
+    ['R_c at |B|max', isFinite(d.Rc_um) ? fmt(d.Rc_um, 4) + ' µm' : '∞', 'ħ k_F / e|B|.'],
+    ['rotation per n cell', fmt(d.deltaPerCell_deg, 3) + '°', 'L_n / R_c at the field-window edge.'],
+    ['modes M (lead)', d.modes, 'Landauer mode count of the injecting cell: floor(|k_lead| × injection width / π). ⟨T⟩ is averaged over these modes.'],
+    ['modes at bottleneck', d.modesBottleneck, 'floor(k_F,min W / π): modes that can pass every cell (for reference; not used in G).'],
+    ['junctions', d.junctions, ''],
+    ['L_tot', fmt(d.Ltot_um, 4) + ' µm', ''],
+    ['event length ℓ_event', isFinite(d.mfpEff_um) ? fmt(d.mfpEff_um, 4) + ' µm' : '∞ (ballistic)', 'Mean distance between scattering events (impurity + phonon(T), Matthiessen).'],
+    ['transport length ℓ_tr', isFinite(d.mfpTr_um) ? fmt(d.mfpTr_um, 4) + ' µm' : '∞', 'Momentum-relaxation length; equals ℓ_event for isotropic scattering.'],
+    ['equivalent mobility', isFinite(d.mobility_cm2Vs) ? fmt(d.mobility_cm2Vs, 3) + ' cm²/Vs' : '∞', 'μ = e ℓ_tr / (ħ k_F) at the n density.'],
+    ['L_tot / ℓ_tr', isFinite(d.mfpTr_um) ? fmt(d.Ltot_um / d.mfpTr_um, 3) : '0', 'Keep well below 1 for a ballistic device.'],
+    ['k_B T', fmt(d.kT_meV, 3) + ' meV', ''],
+    ['Dirac solver |T+R−1|', fmt(d.worstUnitarity, 2), 'Worst current-conservation error over the junction tables.'],
+    ['profile tail at window', fmt(d.mismatch, 2), 'Residual of the profile at the integration window (gate profile: capped by the cell half-length).'],
+  ];
+  $('derivedTable').innerHTML = rows.map(r => `<tr title="${r[2]}"><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+}
+function renderMetrics() {
+  const c = S.curve; if (!c) return; const m = c.metrics;
+  const rows = [
+    ['R0', fmt(m.R0, 4) + ' Ω', 'Local even-parabola fit at B = 0.'],
+    ['T(0)', fmt(m.T0, 4), 'Transmission per mode at the field point nearest 0.'],
+    [`MR at ${fmt(m.mrField_mT, 3)} mT`, fmt(m.mrAt * 100, 4) + ' %', '<R(±B*)>/R(0) − 1, symmetrised.'],
+    ['MR at window edge', fmt(m.mrEdge * 100, 4) + ' %', '<R(±B_max)>/R(0) − 1.'],
+    ['MR depth', fmt(m.mrDepth * 100, 4) + ' %', '(Rmax − Rmin)/Rmin over the window: dominated by the tails where T is small; prefer the fixed-field MR.'],
+    ['FWHM', fmt(m.fwhm_mT, 4) + ' mT', 'Full width at half maximum of the dip (NaN if wider than the window).'],
+    ['curvature a/R0', fmt(m.curvNorm, 4) + ' T⁻²', 'Even-parabola curvature.'],
+    ['peak |dR/dB|/R0', fmt(m.peakSens, 4) + ' T⁻¹', 'True local slope at the steepest interior point.'],
+    ['   at B', fmt(m.peakSlopeB_mT, 4) + ' mT', ''],
+    ['2|a|B_max/R0 (June)', fmt(m.peakSensParabola, 4) + ' T⁻¹', 'Parabola-defined sensitivity used in the June report.'],
+    ['flank R', fmt(m.flankR, 4) + ' Ω', 'Resistance at the operating point.'],
+    ['B_min flank', fmt(m.bMinFlank_nT, 4) + ' nT/√Hz', '√S_V / (I |dR/dB|).'],
+    ['B_min vertex', fmt(m.bMinVertex_nT, 4) + ' nT', '√(δR/a), 1 Hz.'],
+    ['modes (effective)', `${c.modes} (${fmt(c.modesEff, 4)})`, 'Thermal average of M over the energy nodes.'],
+    ['compute time', fmt(c.ms / 1000, 3) + ' s', ''],
+  ];
+  $('metricTable').innerHTML = rows.map(r => `<tr title="${r[2]}"><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+  const flags = [];
+  if (m.peakAtEdge) flags.push(['warn', 'The steepest slope is at the edge of the field window: the true maximum lies outside it. Widen B min / B max.']);
+  if (m.cappedOverT > 0.01) flags.push(['warn', `Capped carriers reach ${fmt(m.cappedOverT * 100, 3)} % of the transmitted fraction somewhere on the curve: T is biased low and the MR high. Raise “Path cap / L_tot” until the MR stops changing.`]);
+  const lostMax = c.lost ? Math.max(...c.lost) : 0; if (lostMax > 0.01) flags.push(['', `${fmt(lostMax * 100, 3)} % of carriers are absorbed at the edges.`]);
+  if (c.worstUnitarity > 1e-5) flags.push(['warn', `Dirac solver current error ${fmt(c.worstUnitarity, 2)}.`]);
+  const relErr = c.sigmaR && c.R ? Math.max(...c.sigmaR.map((s, i) => s / c.R[i]).filter(isFinite)) : 0;
+  flags.push([relErr > 0.03 ? 'warn' : 'ok', `Largest statistical error on R: ${fmt(relErr * 100, 3)} %.` + (relErr > 0.03 ? ' Increase trajectories for derivative metrics.' : '')]);
+  $('curveFlags').innerHTML = flags.map(f => `<div class="flag ${f[0]}">${f[1]}</div>`).join('');
+}
+function renderHeld() {
+  const h = $('heldList');
+  if (!S.held.length) { h.innerHTML = '<span style="color:var(--muted);font-size:12.5px">None. Use “Hold” on the R(B) tab.</span>'; return; }
+  const cols = SERIES();
+  h.innerHTML = S.held.map((c, i) => `<div><span class="sw" style="background:${cols[(i + 1) % 8]}"></span>${c.label}<button data-i="${i}" title="remove">✕</button></div>`).join('');
+  h.querySelectorAll('button').forEach(b => b.onclick = () => { S.held.splice(+b.dataset.i, 1); renderHeld(); drawRB(); });
+}
+function updateMethods() {
+  const p = (S.curve && S.curve.params) || (S.derived && S.derived.params); if (!p) return;
+  const d = S.derived || {}, c = S.curve;
+  const prof = {gate: 'a gate-electrostatic arctan profile', linear: 'a linear ramp', tanh: 'a tanh profile', erf: 'an erf profile', asymptotic: 'the asymptotic Cheianov–Fal\'ko form'}[p.profile];
+  const txt = [
+    `Magnetotransport was computed with the Klein Magnetometer Workbench (DSW plugin, core v${p.version}). The device consists of ${p.nCells} alternating ${p.unipolar ? 'n/n′ (unipolar control)' : 'n/p'} regions (${p.nCells - 1} junctions) of length ${p.Ln_um}/${p.Lp_um} µm in a ${p.W_um} µm wide strip, with n = ${fmt(p.nN_cm2, 3)} and |p| = ${fmt(p.nP_cm2, 3)} cm⁻²${p.skewDeg ? `, junctions skewed by ${p.skewDeg}°` : ''}.`,
+    p.profile === 'asymptotic'
+      ? `Junction transmission used the asymptotic expression T = exp(−π k_y²/|dk/dx|) with |dk/dx| = |Δk|/d, d = ${p.d_nm} nm (k_F d = ${fmt(d.kFd, 3)}).`
+      : `The angle-resolved junction transmission T(k_y) was obtained by integrating the two-component Dirac equation (fourth-order Runge–Kutta) across ${prof} whose maximum gradient is |Δk|/d with d = ${p.d_nm} nm (k_F d = ${fmt(d.kFd, 3)}); current conservation |T+R−1| < ${fmt(Math.max(d.worstUnitarity || 0, 1e-12), 1)}.`,
+    `Carriers were injected ${p.injection === 'cosine' ? 'with the Landauer cos θ flux distribution across the full width' : p.injection === 'aperture' ? `through a centred aperture of ${p.apertureFrac} W with a cos θ distribution` : `as a collimated Gaussian beam (σ = ${p.collimSigmaDeg}°)`} and propagated on exact cyclotron arcs with an event-driven tracer (no time step); at each junction they were transmitted with probability T(k_y) and refracted with conserved k_y, or specularly reflected.`,
+    `Edges were ${p.edge === 'specular' ? 'specular' : p.edge === 'diffuse' ? `partially diffuse (specularity ${p.specularity}, Lambertian otherwise)` : 'absorbing'}. ${p.mfp_um > 0 || p.mfpPh300_um > 0 ? `Bulk scattering was ${p.scatter === 'drude' ? 'isotropic' : p.scatter === 'forward' ? `forward (Gaussian kick σ = ${p.forwardSigmaDeg}°)` : 'off'} with an impurity mean free path of ${p.mfp_um} µm${p.mfpPh300_um > 0 ? ` and an acoustic-phonon mean free path of ${p.mfpPh300_um} µm at 300 K scaled as 1/T (T = ${p.tempK} K, Matthiessen's rule)` : ''}.` : 'Transport was ballistic.'}${p.eeMfp_um > 0 ? ` Electron–electron beam dispersion was included as momentum-conserving angular kicks (σ = ${p.eeSigmaDeg}°) with mean free path ${p.eeMfp_um} µm.` : ''}${p.sigmaPos_nm || p.sigmaWidth || p.sigmaDensity || p.sigmaTiltDeg ? ` Junction disorder: position σ = ${p.sigmaPos_nm} nm, relative width σ = ${p.sigmaWidth}, relative density σ = ${p.sigmaDensity}, local tilt σ = ${p.sigmaTiltDeg}° (realisation ${p.disorderSeed}).` : ''}`,
+    `${p.engine === 'mc' ? `Each of ${p.bN} field points between ${p.bMin_mT} and ${p.bMax_mT} mT used ${Number(p.nTraj).toLocaleString('en')} Monte-Carlo trajectories with common random numbers across field (seed ${p.seed})` : `Each of ${p.bN} field points used a ${p.fluxNY} × ${p.fluxNS} injection quadrature with deterministic ray splitting at junctions and Russian roulette below weight ${p.fluxThreshold}`}${p.nEnergy > 1 ? `, at ${p.nEnergy} Gauss quadrature energies over the Fermi window at ${p.tempK} K` : ' at the Fermi energy'}. Trajectories were followed up to ${p.maxPathFactor} × L_tot (capped carriers counted as not transmitted${c && isFinite(c.metrics.cappedOverT) ? `; at most ${fmt(100 * c.metrics.cappedOverT, 2)} % of T` : ''}). The conductance is G = (4e²/h) M ⟨T⟩ with M = ${c ? c.modes : d.modes} modes.`,
+    `R0 and the curvature come from a weighted even-parabola fit over |B| ≤ ${p.fitWindow_mT > 0 ? p.fitWindow_mT : fmt(Math.max(Math.abs(p.bMin_mT), Math.abs(p.bMax_mT)) / 3, 3)} mT; dR/dB from local quadratic fits over ±${p.sgHalf} points. The field resolution is √S_V/(I|dR/dB|) at the steepest point, with S_V = 4k_BTR + 2eIR²${p.hooge > 0 ? ` + α_H(IR)²/(N_c f) (α_H = ${p.hooge}, f = ${p.freqHz} Hz)` : ''} at I = ${p.biasA_uA} µA and T = ${p.noiseTempK > 0 ? p.noiseTempK : p.tempK} K.`,
+    c ? `Result: R0 = ${fmt(c.metrics.R0, 4)} Ω, T(0) = ${fmt(c.metrics.T0, 4)}, peak |dR/dB|/R0 = ${fmt(c.metrics.peakSens, 4)} T⁻¹ at ${fmt(c.metrics.peakSlopeB_mT, 3)} mT, B_min = ${fmt(c.metrics.bMinFlank_nT, 3)} nT/√Hz.` : '',
+  ];
+  $('methods').value = txt.filter(Boolean).join(' ');
+}
+
+// =====================================================================
+// 8. tabs, toolbars and the charts
+// =====================================================================
+const PANES = {device: 'devPane', rb: 'rbPane', fates: 'fatesPane', sens: 'sensPane', sweep: 'sweepPane', grid: 'gridPane', angular: 'angularPane', coherent: 'coherentPane'};
+function setTab(t) {
+  S.tab = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  for (const [k, id] of Object.entries(PANES)) $(id).classList.toggle('on', k === t);
+  dex.send({t: 'view', name: t});
+  buildToolbar(); redrawActive();
+  if (t === 'angular' && S.connected && (!S.angular || stale(S.angular.params))) runMode('angular');
+  if (t === 'device' && S.connected) tracePathsSoon();
+}
+function opt(list, sel) { return list.map(o => `<option value="${o[0]}" ${o[0] === sel ? 'selected' : ''}>${o[1]}</option>`).join(''); }
+function paramSel(id, sel) { return `<select id="${id}">${opt(SWEEPABLE, sel)}</select>`; }
+function buildToolbar() {
+  const tb = $('toolbar'), u = S.ui;
+  const T = {
+    device: `<label>Sample paths at B <input type="number" id="tbPB" value="${u.pathsB}" step="1"> mT</label>
+      <label>trajectories <input type="number" id="tbPN" value="${u.pathsN}" min="1" max="5000"></label>
+      <button class="btn" id="tbTrace">Trace</button><button class="btn" id="tbDensity" title="Path-density heat map of many trajectories at this field">Density map</button><label title="Only until the first reflection at an edge or end wall (the classic ray picture)"><input type="checkbox" id="tbFirst" checked> first flight</label><button class="btn" id="tbClearPaths">Clear</button>
+      <label><input type="checkbox" id="tbAuto" ${u.autoPaths ? 'checked' : ''}> retrace on change</label>
+      <span class="info">green = transmitted · orange = reflected · red = absorbed · grey = path cap · bar = 1 µm</span>`,
+    rb: `<label>Show <select id="tbRBMode">${opt([['R','R (Ω)'],['RR0','R / R0'],['G','G (mS)'],['T','T per mode']], u.rbMode)}</select></label>
+      <label><input type="checkbox" id="tbFit" ${u.rbFit ? 'checked' : ''}> parabola fits</label>
+      <label><input type="checkbox" id="tbErr" ${u.rbErr ? 'checked' : ''}> error bars</label>
+      <span class="sep"></span><button class="btn" id="tbHold">Hold curve</button><button class="btn" id="tbClearHeld">Clear held</button>
+      <span class="info">Held curves are overlaid for comparison (use R/R0 to compare shapes).</span>`,
+    fates: `<label>Lower panel <select id="tbFates">${opt([['fates','carrier fates'],['path','mean path length'],['edge','fraction touching an edge'],['cross','junction crossings per carrier']], u.fatesView)}</select></label>
+      <span class="info">Upper: T(B) per mode with ±1σ. Fates: reflected to source, absorbed at edges, path cap.</span>`,
+    sens: `<span class="info">Normalised local slope (dR/dB)/R0 and the noise budget at the steepest point. Bias, temperature and Hooge settings are in “Readout &amp; noise”.</span>`,
+    sweep: `<label>Sweep ${paramSel('tbSP', u.sweep.param)}</label>
+      <label>from <input type="number" id="tbSF" value="${u.sweep.from}"></label><label>to <input type="number" id="tbST" value="${u.sweep.to}"></label>
+      <label>points <input type="number" id="tbSN" value="${u.sweep.n}" min="2" max="400"></label><label><input type="checkbox" id="tbSL" ${u.sweep.log ? 'checked' : ''}> log</label>
+      <button class="btn primary" id="tbSRun">Run sweep</button><span class="sep"></span>
+      <label>View <select id="tbSV">${opt([['family','R/R0 family'],['metric','metric vs parameter'],['table','table']], u.sweepView)}</select></label>
+      <label>metric <select id="tbSM">${opt(METRICS.map(m => [m[0], m[1]]), u.sweepMetric)}</select></label>
+      <label><input type="checkbox" id="tbSLy" ${u.sweepLog ? 'checked' : ''}> log y</label>`,
+    grid: `<label>x ${paramSel('tbGP', u.grid.param)}</label><label><input type="number" id="tbGF" value="${u.grid.from}"></label><label>→<input type="number" id="tbGT" value="${u.grid.to}"></label><label>n<input type="number" id="tbGN" value="${u.grid.n}" min="2" max="60"></label><label><input type="checkbox" id="tbGL" ${u.grid.log ? 'checked' : ''}>log</label>
+      <span class="sep"></span>
+      <label>y ${paramSel('tbGP2', u.grid.param2)}</label><label><input type="number" id="tbGF2" value="${u.grid.from2}"></label><label>→<input type="number" id="tbGT2" value="${u.grid.to2}"></label><label>n<input type="number" id="tbGN2" value="${u.grid.n2}" min="2" max="60"></label><label><input type="checkbox" id="tbGL2" ${u.grid.log2 ? 'checked' : ''}>log</label>
+      <button class="btn primary" id="tbGRun">Run grid</button>
+      <span class="sep"></span>
+      <label>Figure of merit <select id="tbGM">${opt(METRICS.map(m => [m[0], m[1] + (m[2] === 'min' ? ' ↓' : ' ↑')]), u.gridMetric)}</select></label>
+      <label><input type="checkbox" id="tbGLZ" ${u.gridLogZ ? 'checked' : ''}> log colour</label>
+      <label title="Discard devices whose zero-field transmission is too small to measure">T(0) ≥ <input type="number" id="tbC1" value="${u.t0Min}" step="0.01"></label>
+      <label title="Maximum total device length (0 = no limit)">L_tot ≤ <input type="number" id="tbC2" value="${u.lMax}" step="1"> µm</label>
+      <label title="Maximum L_tot / ℓ_eff (0 = no limit)">L_tot/ℓ ≤ <input type="number" id="tbC3" value="${u.ballMax}" step="0.1"></label>
+      <button class="btn" id="tbApply" title="Set the controls to the best admissible device">Apply best</button>
+      <button class="btn" id="tbRefine" title="Re-run a finer grid around the best point">Refine around best</button>`,
+    angular: `<label><input type="checkbox" id="tbAS" ${u.angSeries ? 'checked' : ''}> series product T(θ)<sup>N−1</sup></label>
+      <label><input type="checkbox" id="tbALog" ${u.angLog ? 'checked' : ''}> log y</label><button class="btn" id="tbARun">Recompute</button>
+      <span class="info">Single-junction transmission at the n density for every profile at the current d. Recomputed on every change while this tab is open.</span>`,
+    coherent: `<button class="btn primary" id="tbCRun">Run coherent calculation</button>
+      <label>View <select id="tbCV">${opt([['E','T(E): coherent vs incoherent'],['thermal','thermally smoothed']], u.cohView)}</select></label>
+      <span class="info">Both curves solve the same problem: B = 0, straight junctions, ballistic, mode-averaged (the junction-disorder realisation is included). Only phase coherence differs. Energy range and grids are in “Coherent sidebar”.</span>`,
+  };
+  tb.innerHTML = T[S.tab] || '';
+  const on = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
+  const num = id => parseFloat($(id).value);
+  // device
+  on('tbPB', 'change', () => { u.pathsB = num('tbPB'); tracePathsSoon(); }); on('tbPN', 'change', () => { u.pathsN = Math.round(num('tbPN')); tracePathsSoon(); });
+  on('tbTrace', 'click', () => { sync(); dex.send({t: 'run', mode: 'paths', B_mT: u.pathsB, n: u.pathsN}); });
+  on('tbClearPaths', 'click', () => dex.send({t: 'clear_paths'})); on('tbAuto', 'change', e => u.autoPaths = e.target.checked);
+  on('tbDensity', 'click', () => { sync(); u.autoPaths = false; if ($('tbAuto')) $('tbAuto').checked = false; dex.send({t: 'run', mode: 'density', B_mT: u.pathsB, n: 200000, gx: 240, gy: 120, first: $('tbFirst').checked ? 1 : 0}); setBusy('density map'); });
+  // rb
+  on('tbRBMode', 'change', e => { u.rbMode = e.target.value; drawRB(); }); on('tbFit', 'change', e => { u.rbFit = e.target.checked; drawRB(); }); on('tbErr', 'change', e => { u.rbErr = e.target.checked; drawRB(); });
+  on('tbHold', 'click', () => { if (!S.curve) return toast('Run R(B) first'); const p = S.curve.params; S.held.push({label: `N=${p.nCells} L=${p.Ln_um} W=${p.W_um} d=${p.d_nm} ${p.profile}${p.unipolar ? ' unip' : ''}${p.skewDeg ? ' skew' + p.skewDeg : ''}`, B: S.curve.B_mT, R: S.curve.R, sR: S.curve.sigmaR, R0: S.curve.metrics.R0, T: S.curve.T, G: S.curve.G}); if (S.held.length > 7) S.held.shift(); renderHeld(); drawRB(); });
+  on('tbClearHeld', 'click', () => { S.held = []; renderHeld(); drawRB(); });
+  on('tbFates', 'change', e => { u.fatesView = e.target.value; drawFates(); });
+  // sweep
+  const readSweep = () => { u.sweep = {param: $('tbSP').value, from: num('tbSF'), to: num('tbST'), n: Math.round(num('tbSN')), log: $('tbSL').checked}; };
+  ['tbSP','tbSF','tbST','tbSN','tbSL'].forEach(id => on(id, 'change', readSweep));
+  on('tbSP', 'change', () => { const k = $('tbSP').value; const cur = currentParamValue(k); if (isFinite(cur)) { $('tbSF').value = +(cur / 2).toPrecision(3); $('tbST').value = +(cur * 2).toPrecision(3); readSweep(); } });
+  on('tbSRun', 'click', () => { readSweep(); if (u.sweep.log && (u.sweep.from <= 0 || u.sweep.to <= 0)) return toast('Log sweep needs positive limits'); runMode('sweep', {param: u.sweep.param, from: u.sweep.from, to: u.sweep.to, n: u.sweep.n, log: u.sweep.log ? 1 : 0}); setTab('sweep'); });
+  on('tbSV', 'change', e => { u.sweepView = e.target.value; drawSweep(); }); on('tbSM', 'change', e => { u.sweepMetric = e.target.value; drawSweep(); }); on('tbSLy', 'change', e => { u.sweepLog = e.target.checked; drawSweep(); });
+  // grid
+  const readGrid = () => { u.grid = {param: $('tbGP').value, from: num('tbGF'), to: num('tbGT'), n: Math.round(num('tbGN')), log: $('tbGL').checked, param2: $('tbGP2').value, from2: num('tbGF2'), to2: num('tbGT2'), n2: Math.round(num('tbGN2')), log2: $('tbGL2').checked}; };
+  ['tbGP','tbGF','tbGT','tbGN','tbGL','tbGP2','tbGF2','tbGT2','tbGN2','tbGL2'].forEach(id => on(id, 'change', readGrid));
+  on('tbGRun', 'click', () => { readGrid(); const g = u.grid; runMode('grid', {param: g.param, from: g.from, to: g.to, n: g.n, log: g.log ? 1 : 0, param2: g.param2, from2: g.from2, to2: g.to2, n2: g.n2, log2: g.log2 ? 1 : 0}); });
+  on('tbGM', 'change', e => { u.gridMetric = e.target.value; drawGrid(); }); on('tbGLZ', 'change', e => { u.gridLogZ = e.target.checked; drawGrid(); });
+  on('tbC1', 'change', () => { u.t0Min = num('tbC1'); drawGrid(); }); on('tbC2', 'change', () => { u.lMax = num('tbC2'); drawGrid(); }); on('tbC3', 'change', () => { u.ballMax = num('tbC3'); drawGrid(); });
+  on('tbApply', 'click', applyBest); on('tbRefine', 'click', refineGrid);
+  // angular
+  on('tbAS', 'change', e => { u.angSeries = e.target.checked; drawAngular(); }); on('tbALog', 'change', e => { u.angLog = e.target.checked; drawAngular(); }); on('tbARun', 'click', () => runMode('angular'));
+  // coherent
+  on('tbCRun', 'click', () => runMode('coherent', {eRange_meV: getVal('eRange_meV'), eN: getVal('eN'), kyN: getVal('kyN')}));
+  on('tbCV', 'change', e => { u.cohView = e.target.value; drawCoherent(); });
+}
+function currentParamValue(k) {
+  const v = values();
+  const map = {L_um: v.Ln_um, n_cm2: v.nN_cm2};
+  return k in map ? map[k] : v[k];
+}
+
+const PHYS = CONTROLS.filter(c => ['geo','car','dis','edge','sc'].includes(c.g) && !c.local).map(c => c.k);
+function stale(params) { if (!params) return ''; const v = values(); const diff = PHYS.filter(k => { const a = v[k], b = params[k]; return typeof a === 'string' ? a !== b : Math.abs(+a - +b) > 1e-6 * Math.max(1, Math.abs(+a)); }); return diff.length ? `  [settings changed since this run: ${diff.slice(0, 3).map(k => BY[k].l).join(', ')}${diff.length > 3 ? '…' : ''}]` : ''; }
+function redrawActive() { ({rb: drawRB, fates: drawFates, sens: drawSens, sweep: drawSweep, grid: drawGrid, angular: drawAngular, coherent: drawCoherent})[S.tab]?.(); }
+function redrawCurveTabs() { if (['rb','fates','sens'].includes(S.tab)) redrawActive(); }
+
+function curveY(c, mode, i, R0) {
+  if (mode === 'R') return c.R[i]; if (mode === 'RR0') return c.R[i] / R0; if (mode === 'G') return c.G[i] * 1e3; return c.T[i];
+}
+function drawRB() {
+  const c = S.curve, u = S.ui, cols = SERIES(), series = [];
+  const ylab = {R: 'R (Ω)', RR0: 'R / R0', G: 'G (mS)', T: 'T per mode'}[u.rbMode];
+  S.held.forEach((h, i) => {
+    const y = h.B.map((_, k) => u.rbMode === 'R' ? h.R[k] : u.rbMode === 'RR0' ? h.R[k] / h.R0 : u.rbMode === 'G' ? h.G[k] * 1e3 : h.T[k]);
+    series.push({x: h.B, y, color: cols[(i + 1) % 8], label: h.label, width: 1.6, dash: [5, 3]});
+  });
+  if (c) {
+    const R0 = c.metrics.R0;
+    const y = c.B_mT.map((_, i) => curveY(c, u.rbMode, i, R0));
+    let err = null;
+    if (u.rbErr) err = c.B_mT.map((_, i) => u.rbMode === 'R' ? c.sigmaR[i] : u.rbMode === 'RR0' ? c.sigmaR[i] / R0 : u.rbMode === 'G' ? c.G[i] * 1e3 * c.sigmaR[i] / c.R[i] : c.sigmaT[i]);
+    series.unshift({x: c.B_mT, y, err, color: cols[0], label: 'current', marker: c.B_mT.length <= 101 ? 3 : false});
+    if (u.rbFit && (u.rbMode === 'R' || u.rbMode === 'RR0')) {
+      const m = c.metrics, sc = u.rbMode === 'R' ? 1 : 1 / R0, xs = c.B_mT;
+      const bmax = Math.max(...xs.map(Math.abs)), fw = (c.params.fitWindow_mT > 0 ? c.params.fitWindow_mT : bmax / 3);
+      if (isFinite(m.aGlobal)) series.push({x: xs, y: xs.map(b => (m.R0global + m.aGlobal * (b * 1e-3) ** 2) * sc), color: css('--axis'), label: 'global even parabola', width: 1.4, dash: [2, 3], nohover: true});
+      if (isFinite(m.aLocal)) { const xl = xs.filter(b => Math.abs(b) <= fw); series.push({x: xl, y: xl.map(b => (m.R0local + m.aLocal * (b * 1e-3) ** 2) * sc), color: cols[1], label: `local fit |B| ≤ ${fmt(fw, 3)} mT`, width: 2, nohover: true}); }
+    }
+  }
+  const vl = c && isFinite(c.metrics.peakSlopeB_mT) ? [{x: c.metrics.peakSlopeB_mT, label: 'steepest'}] : [];
+  drawChart($('cRB'), {series, xlabel: 'B (mT)', ylabel: ylab, title: c ? `R(B) — ${c.params.nCells} cells, ${c.params.engine === 'mc' ? Number(c.params.nTraj).toLocaleString('en') + ' trajectories' : 'flux engine'} per field${stale(c.params)}` : '', vlines: vl, empty: 'Press “Run R(B)” to compute the magnetoresistance.'});
+}
+function drawFates() {
+  const c = S.curve, cols = SERIES();
+  if (!c) { drawChart($('cT'), {series: [], empty: 'Run R(B) first.'}); drawChart($('cFate'), {series: []}); return; }
+  drawChart($('cT'), {series: [{x: c.B_mT, y: c.T, err: c.sigmaT, color: cols[0], label: 'T per mode', marker: c.B_mT.length <= 101 ? 3 : false}], xlabel: 'B (mT)', ylabel: 'T per mode', title: 'Transmission per mode' + stale(c.params)});
+  const v = S.ui.fatesView; let series, ylab;
+  if (v === 'fates') { series = [{x: c.B_mT, y: c.T, color: cols[0], label: 'transmitted'}, {x: c.B_mT, y: c.reflected, color: cols[1], label: 'reflected'}, {x: c.B_mT, y: c.lost, color: cols[2], label: 'absorbed at edges'}, {x: c.B_mT, y: c.capped, color: cols[3], label: 'path cap'}]; ylab = 'fraction'; }
+  else if (v === 'path') { series = [{x: c.B_mT, y: c.meanPath_um, color: cols[0], label: 'mean path'}]; ylab = 'mean path (µm)'; }
+  else if (v === 'edge') { series = [{x: c.B_mT, y: c.edgeFrac, color: cols[0], label: 'touching an edge'}]; ylab = 'fraction of carriers'; }
+  else { series = [{x: c.B_mT, y: c.meanCross, color: cols[0], label: 'crossings'}]; ylab = 'junction crossings / carrier'; }
+  drawChart($('cFate'), {series, xlabel: 'B (mT)', ylabel: ylab});
+}
+function drawSens() {
+  const c = S.curve, cols = SERIES();
+  if (!c) { drawChart($('cSens'), {series: [], empty: 'Run R(B) first.'}); $('noiseTable').innerHTML = ''; return; }
+  const m = c.metrics, s = c.dRdB.map(v => v / m.R0);
+  drawChart($('cSens'), {series: [{x: c.B_mT, y: s, color: cols[0], label: '(dR/dB)/R0', marker: c.B_mT.length <= 101 ? 3 : false}], xlabel: 'B (mT)', ylabel: '(dR/dB)/R0 (1/T)', title: 'Normalised field sensitivity' + stale(c.params),
+    hlines: [{y: 0}], vlines: isFinite(m.peakSlopeB_mT) ? [{x: m.peakSlopeB_mT, label: 'operating point'}] : []});
+  const p = c.params, I = p.biasA_uA * 1e-6;
+  const row = (a, b, t = '') => `<tr title="${t}"><th style="text-align:left">${a}</th><td>${b}</td></tr>`;
+  const sq = v => isFinite(v) ? fmt(Math.sqrt(v) * 1e9, 4) + ' nV/√Hz' : '—';
+  $('noiseTable').innerHTML = `<table>
+    ${row('Operating point', `B = ${fmt(m.peakSlopeB_mT, 4)} mT, R = ${fmt(m.flankR, 4)} Ω, |dR/dB| = ${fmt(m.peakSlope, 4)} Ω/T`)}
+    ${row('Bias', `I = ${p.biasA_uA} µA, V = ${fmt(I * m.flankR * 1e3, 4)} mV, P = ${fmt(I * I * m.flankR * 1e9, 4)} nW`)}
+    ${row('Johnson √(4kTR)', sq(m.johnson), `T = ${p.noiseTempK > 0 ? p.noiseTempK : p.tempK} K`)}
+    ${row('Shot √(2eIR²)', sq(m.shot))}
+    ${row('Hooge 1/f', p.hooge > 0 ? sq(m.flicker) + ` at ${p.freqHz} Hz (N_c = ${fmt(c.carriers, 3)})` : 'off')}
+    ${row('Total √S_V', sq(m.sv))}
+    ${row('Flank field resolution', fmt(m.bMinFlank_nT, 4) + ' nT/√Hz', '√S_V / (I |dR/dB|)')}
+    ${row('Vertex (parabolic) resolution', fmt(m.bMinVertex_nT, 4) + ' nT in 1 Hz', '√(δR/a)')}
+    ${row('Dominant noise', isFinite(m.sv) ? ['Johnson','shot','1/f'][[m.johnson, m.shot, m.flicker || 0].indexOf(Math.max(m.johnson, m.shot, m.flicker || 0))] : '—')}
+    ${row('Shot/Johnson crossover current', fmt(2 * 1.380649e-23 * p.noiseTempK / (1.602176634e-19 * m.flankR) * 1e6, 4) + ' µA', 'I* = 2kT/(eR)')}
+  </table>`;
+}
+
+function metricOf(pt, k) { return pt && pt.curve && pt.curve.metrics ? pt.curve.metrics[k] : NaN; }
+function drawSweep() {
+  if (S.tab !== 'sweep') return;
+  const sw = S.sweep, u = S.ui, cv = $('cSweep');
+  const tableHost = $('sweepPane');
+  let tbl = tableHost.querySelector('.htable');
+  if (u.sweepView === 'table') {
+    cv.style.display = 'none'; if (!tbl) { tbl = document.createElement('div'); tbl.className = 'htable'; tableHost.appendChild(tbl); } tbl.style.display = 'block';
+    if (!sw) { tbl.innerHTML = '<p>No sweep yet.</p>'; return; }
+    tbl.innerHTML = `<table><tr><th>${SWEEP_LABEL[sw.param] || sw.param}</th>${METRICS.map(m => `<th title="${m[3]}">${m[1]}</th>`).join('')}</tr>` +
+      sw.xs.map((x, i) => `<tr><td>${fmt(x, 4)}</td>${METRICS.map(m => `<td>${fmt(metricOf(sw.pts[i], m[0]), 4)}</td>`).join('')}</tr>`).join('') + '</table>';
+    return;
+  }
+  cv.style.display = ''; if (tbl) tbl.style.display = 'none';
+  if (!sw) { drawChart(cv, {series: [], empty: 'Choose a parameter and press “Run sweep”.'}); return; }
+  const lab = SWEEP_LABEL[sw.param] || sw.param;
+  if (u.sweepView === 'family') {
+    const n = sw.xs.length, series = [];
+    sw.pts.forEach((p, i) => { if (!p) return; const c = p.curve; const R0 = c.metrics.R0; series.push({x: c.B_mT, y: c.R.map(r => r / R0), color: seqColor(n > 1 ? 0.15 + 0.85 * i / (n - 1) : 1), label: `${lab} = ${fmt(sw.xs[i], 4)}`, width: 1.8}); });
+    drawChart(cv, {series, xlabel: 'B (mT)', ylabel: 'R / R0', title: `R(B)/R0 as ${lab} varies (light → dark = increasing)${stale(sw.base)}`, ylog: u.sweepLog});
+  } else {
+    const k = u.sweepMetric, xs = [], ys = [];
+    sw.xs.forEach((x, i) => { const v = metricOf(sw.pts[i], k); if (sw.pts[i]) { xs.push(x); ys.push(v); } });
+    drawChart(cv, {series: [{x: xs, y: ys, color: SERIES()[0], label: METRIC[k].label, marker: 4}], xlabel: lab, ylabel: METRIC[k].label, title: `${METRIC[k].label} vs ${lab}${stale(sw.base)}`, xlog: sw.cfg && sw.cfg.log, ylog: u.sweepLog});
+  }
+}
+
+// grid / optimiser
+function lengthsFor(base, k, v) {
+  const o = Object.assign({}, base);
+  if (k === 'L_um') { o.Ln_um = o.Lp_um = v; } else if (k === 'n_cm2') { o.nN_cm2 = o.nP_cm2 = v; } else o[k] = v;
+  return o;
+}
+function gridEval() {
+  const gr = S.grid; if (!gr) return null;
+  const u = S.ui, k = u.gridMetric, goal = METRIC[k].goal, base = values();
+  const z = [], mask = []; let best = null, bestV = goal === 'max' ? -Infinity : Infinity;
+  gr.ys.forEach((y, j) => { z[j] = []; mask[j] = []; gr.xs.forEach((x, i) => {
+    const pt = gr.pts[j] && gr.pts[j][i]; if (!pt) { z[j][i] = undefined; return; }
+    const v = metricOf(pt, k); z[j][i] = v;
+    const p = lengthsFor(lengthsFor(base, gr.param, x), gr.param2, y);
+    const Lt = Math.ceil(p.nCells / 2) * p.Ln_um + Math.floor(p.nCells / 2) * p.Lp_um;
+    const mfp = pt.curve.mfpEff_um; const T0 = metricOf(pt, 'T0');
+    const bad = (u.t0Min > 0 && !(T0 >= u.t0Min)) || (u.lMax > 0 && Lt > u.lMax) || (u.ballMax > 0 && isFinite(mfp) && mfp > 0 && Lt / mfp > u.ballMax) || !isFinite(v);
+    mask[j][i] = bad;
+    if (!bad && (goal === 'max' ? v > bestV : v < bestV)) { bestV = v; best = [i, j]; }
+  }); });
+  return {z, mask, best, bestV};
+}
+function drawGrid() {
+  if (S.tab !== 'grid') return;
+  const gr = S.grid, u = S.ui;
+  if (!gr) { drawHeat($('cGrid'), {empty: 'Choose two parameters and press “Run grid”. Hatched cells fail a constraint; the orange frame marks the best admissible device.'}); $('gridInfo').innerHTML = ''; return; }
+  const ev = gridEval(), k = u.gridMetric;
+  const done = gr.pts.reduce((a, r) => a + (r ? r.filter(Boolean).length : 0), 0), total = gr.xs.length * gr.ys.length;
+  drawHeat($('cGrid'), {xs: gr.xs, ys: gr.ys, z: ev.z, mask: ev.mask, best: ev.best, zlog: u.gridLogZ, xlabel: SWEEP_LABEL[gr.param] || gr.param, ylabel: SWEEP_LABEL[gr.param2] || gr.param2,
+    zlabel: METRIC[k].label, title: `${METRIC[k].label} (${METRIC[k].goal === 'min' ? 'lower' : 'higher'} is better) — ${done}/${total} devices${stale(gr.base)}`,
+    extra: (i, j) => { const pt = gr.pts[j] && gr.pts[j][i]; if (!pt) return ''; const m = pt.curve.metrics; return `<br>T(0) ${fmt(m.T0, 3)} · R0 ${fmt(m.R0, 4)} Ω<br>peak sens ${fmt(m.peakSens, 4)} /T · B_min ${fmt(m.bMinFlank_nT, 3)} nT/√Hz`; }});
+  let html = '';
+  if (ev.best) {
+    const [i, j] = ev.best, m = gr.pts[j][i].curve.metrics;
+    html += `<table><tr><th style="text-align:left">Best admissible device</th><td>${SWEEP_LABEL[gr.param] || gr.param} = <b>${fmt(gr.xs[i], 4)}</b>, ${SWEEP_LABEL[gr.param2] || gr.param2} = <b>${fmt(gr.ys[j], 4)}</b></td></tr>` +
+      METRICS.map(mm => `<tr title="${mm[3]}"><th style="text-align:left">${mm[1]}</th><td>${fmt(m[mm[0]], 4)}</td></tr>`).join('') + '</table>';
+  } else html = '<p>No admissible device yet (all cells fail a constraint or are pending).</p>';
+  html += `<p style="color:var(--muted)">Constraints: T(0) ≥ ${u.t0Min}${u.lMax > 0 ? `, L_tot ≤ ${u.lMax} µm` : ''}${u.ballMax > 0 ? `, L_tot/ℓ ≤ ${u.ballMax}` : ''}. Metrics carry Monte-Carlo noise: confirm the winner with a high-statistics R(B) run (“Apply best”, then raise trajectories).</p>`;
+  $('gridInfo').innerHTML = html;
+}
+function applyBest() {
+  const gr = S.grid, ev = gridEval(); if (!ev || !ev.best) return toast('No admissible best point');
+  const [i, j] = ev.best; const set = {};
+  for (const [k, v] of [[gr.param, gr.xs[i]], [gr.param2, gr.ys[j]]]) { if (k === 'L_um') { set.Ln_um = set.Lp_um = v; } else if (k === 'n_cm2') { set.nN_cm2 = set.nP_cm2 = v; } else set[k] = k === 'nCells' || k === 'disorderSeed' ? Math.round(v) : +(+v).toPrecision(6); }
+  setValues(set); sync(); toast('Applied: ' + Object.entries(set).map(([k, v]) => `${k} = ${v}`).join(', '));
+}
+function refineGrid() {
+  const gr = S.grid, ev = gridEval(); if (!ev || !ev.best) return toast('No admissible best point');
+  const [i, j] = ev.best, g = S.ui.grid;
+  const span = (arr, idx, log) => { const lo = arr[Math.max(0, idx - 1)], hi = arr[Math.min(arr.length - 1, idx + 1)]; return [lo, hi]; };
+  const [a, b] = span(gr.xs, i), [c, d] = span(gr.ys, j);
+  Object.assign(g, {from: +a.toPrecision(4), to: +b.toPrecision(4), from2: +c.toPrecision(4), to2: +d.toPrecision(4)});
+  if (gr.param === 'nCells') { g.n = Math.min(40, Math.max(2, Math.round(b - a) + 1)); }
+  buildToolbar();
+  runMode('grid', {param: g.param, from: g.from, to: g.to, n: g.n, log: g.log ? 1 : 0, param2: g.param2, from2: g.from2, to2: g.to2, n2: g.n2, log2: g.log2 ? 1 : 0});
+}
+
+function drawAngular() {
+  if (S.tab !== 'angular') return;
+  const a = S.angular, u = S.ui, cols = SERIES();
+  if (!a) { drawChart($('cAng'), {series: [], empty: 'Computing…'}); return; }
+  const names = [['gate','gate electrostatic'],['linear','linear ramp'],['tanh','tanh'],['erf','erf'],['asymptotic','asymptotic formula']];
+  const nJ = a.junctions;
+  const series = names.map(([k, lab], i) => ({x: a.theta_deg, y: a.profiles[k].T.map(t => u.angSeries ? Math.pow(t, Math.max(1, nJ)) : t), color: cols[i], label: lab + (k === a.selected ? ' (selected)' : ''), width: k === a.selected ? 3 : 1.6, dash: k === 'asymptotic' ? [6, 3] : []}));
+  drawChart($('cAng'), {series, xlabel: 'incidence angle θ (°)', ylabel: u.angSeries ? `T(θ)^${nJ}` : 'T(θ)', ylog: u.angLog, ylim: u.angLog ? [1e-6, 1.2] : [0, 1.05],
+    title: `Single-junction transmission, k_F d = ${fmt(a.kFd, 3)}${u.angSeries ? ` — product over ${nJ} junctions (no refraction, no field)` : ''}`});
+}
+function drawCoherent() {
+  if (S.tab !== 'coherent') return;
+  const c = S.coherent, u = S.ui, cols = SERIES();
+  if (!c) { drawChart($('cCoh'), {series: [], empty: 'Press “Run coherent calculation”. It computes the fully phase-coherent transmission of the whole junction train at B = 0 versus energy and compares it with the incoherent ray model.'}); $('cohTable').innerHTML = ''; return; }
+  if (u.cohView === 'E') {
+    drawChart($('cCoh'), {series: [{x: c.eps_meV, y: c.Tcoh, color: cols[0], label: 'coherent (phase kept)', width: 1.6}, {x: c.eps_meV, y: c.Tinc, color: cols[1], label: 'incoherent (ray model)', width: 2.2}],
+      xlabel: 'E − E_F (meV)', ylabel: 'mode-averaged T', title: `Fabry–Pérot: ${c.params.nCells} cells, ${c.params.profile} profile, d = ${c.params.d_nm} nm${stale(c.params)}`});
+  } else {
+    const n = c.temps.length, series = c.temps.map((t, i) => ({x: c.eps_meV, y: c.smoothed[i].map(v => v === null ? NaN : v), color: seqColor(0.2 + 0.8 * (1 - i / Math.max(1, n - 1))), label: `${t} K`, width: 1.8}));
+    series.push({x: c.eps_meV, y: c.Tinc, color: cols[1], label: 'incoherent', dash: [6, 3], width: 2});
+    drawChart($('cCoh'), {series, xlabel: 'E − E_F (meV)', ylabel: 'thermally averaged T', title: 'Coherent T(E) convolved with −df/dE (dark = cold)' + stale(c.params)});
+  }
+  $('cohTable').innerHTML = `<table><tr><th>T (K)</th><th title="Peak-to-peak of (coherent / incoherent) after the same thermal smoothing: the oscillation only, without the smooth energy trend">FP visibility</th><th>coherent ⟨T⟩ at E_F</th><th>incoherent ⟨T⟩ at E_F</th><th>coherent/incoherent − 1</th></tr>` +
+    c.temps.map((t, i) => `<tr><td>${t}</td><td>${isFinite(c.visibility[i]) && isFinite(c.thermalCoh[i]) ? fmt(100 * c.visibility[i], 3) + ' %' : '—'}</td><td>${fmt(c.thermalCoh[i], 4)}</td><td>${fmt(c.thermalInc[i], 4)}</td><td>${isFinite(c.thermalCoh[i]) ? fmt(100 * (c.thermalCoh[i] / c.thermalInc[i] - 1), 3) + ' %' : '—'}</td></tr>`).join('') +
+    `</table><p style="color:var(--muted)">At E_F: coherent ${fmt(c.TcohEF, 4)}, incoherent ${fmt(c.TincEF, 4)}. Worst |T+R−1| ${fmt(Math.max(...c.worstUnit), 2)}. “—” means the thermal window does not fit inside ±${c.params.eRange_meV} meV; widen the energy range. ${fmt(c.ms / 1000, 3)} s.</p>`;
+}
+
+// =====================================================================
+// 9. wiring
+// =====================================================================
+function pushTheme() { try { dex.send({t: 'theme', light: document.documentElement.dataset.theme !== 'dark' ? 1 : 0}); } catch (e) {} }
+$('themeBtn').onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('km.theme', r.dataset.theme); } catch (e) {} pushTheme(); renderHeld(); redrawActive(); };
+try { const t = localStorage.getItem('km.theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+$('runCurve').onclick = () => { runMode('curve'); if (!['rb','fates','sens'].includes(S.tab)) setTab('rb'); };
+$('stopBtn').onclick = () => dex.send({t: 'stop'});
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$('preset').onchange = e => { const k = e.target.value; if (!k) return; setValues(Object.assign(defaults(), PRESETS[k])); sync(); toast('Preset: ' + e.target.selectedOptions[0].text); e.target.value = ''; };
+$('saveCfg').onclick = () => download(`klein-settings-${stamp()}.json`, JSON.stringify({kind: 'klein-magnetometer-settings', version: S.version, values: values(), ui: S.ui}, null, 2));
+$('loadCfg').onclick = () => $('loadFile').click();
+$('loadFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const o = JSON.parse(await f.text()); const v = o.values || o.params || o; setValues(Object.assign(defaults(), Object.fromEntries(Object.entries(v).filter(([k]) => BY[k])))); if (o.ui) Object.assign(S.ui, o.ui); buildToolbar(); sync(); toast('Settings loaded'); } catch (err) { toast('Could not read settings: ' + err.message); } e.target.value = ''; };
+$('expJson').onclick = () => { if (!S.lastResult) return toast('Nothing computed yet'); download(`klein-${S.lastResult.t}-${stamp()}.json`, JSON.stringify(S.lastResult)); };
+$('expCsv').onclick = () => {
+  const c = S.curve; if (!c) return toast('Run R(B) first');
+  const head = '# Klein Magnetometer Workbench core ' + c.params.version + '\n# ' + JSON.stringify(c.params) + '\nB_mT,T,sigmaT,R_ohm,sigmaR_ohm,G_S,dRdB_ohm_per_T,reflected,absorbed,capped,meanPath_um,edgeFrac,meanCross\n';
+  download(`klein-curve-${stamp()}.csv`, head + c.B_mT.map((b, i) => [b, c.T[i], c.sigmaT[i], c.R[i], c.sigmaR[i], c.G[i], c.dRdB[i], c.reflected[i], c.lost[i], c.capped[i], c.meanPath_um[i], c.edgeFrac[i], c.meanCross[i]].join(',')).join('\n'), 'text/csv');
+};
+$('expSweepCsv').onclick = () => {
+  const keys = METRICS.map(m => m[0]);
+  if (S.sweep && (S.tab === 'sweep' || !S.grid)) {
+    const sw = S.sweep; download(`klein-sweep-${sw.param}-${stamp()}.csv`, `# base ${JSON.stringify(S.derived && S.derived.params)}\n${sw.param},${keys.join(',')}\n` + sw.xs.map((x, i) => [x, ...keys.map(k => metricOf(sw.pts[i], k))].join(',')).join('\n'), 'text/csv');
+  } else if (S.grid) {
+    const gr = S.grid; const rows = []; gr.ys.forEach((y, j) => gr.xs.forEach((x, i) => rows.push([x, y, ...keys.map(k => metricOf(gr.pts[j] && gr.pts[j][i], k))].join(','))));
+    download(`klein-grid-${gr.param}-${gr.param2}-${stamp()}.csv`, `# base ${JSON.stringify(S.derived && S.derived.params)}\n${gr.param},${gr.param2},${keys.join(',')}\n` + rows.join('\n'), 'text/csv');
+  } else toast('No sweep or grid yet');
+};
+$('expPng').onclick = () => {
+  const pane = $(PANES[S.tab]); const cv = S.tab === 'device' ? $('view') : pane.querySelector('canvas.chart');
+  if (!cv) return; const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = `klein-${S.tab}-${stamp()}.png`; a.click();
+};
+$('copyMethods').onclick = () => { navigator.clipboard.writeText($('methods').value).then(() => toast('Methods text copied'), () => { $('methods').select(); document.execCommand('copy'); toast('Methods text copied'); }); };
+['cRB','cT','cFate','cSens','cSweep','cGrid','cAng','cCoh'].forEach(id => attachHover($(id)));
+new ResizeObserver(() => redrawActive()).observe($('viewArea'));
+
+buildControls(); buildToolbar(); renderHeld(); KMTip.install();
+const qs = new URLSearchParams(location.search); if (qs.get('tab')) setTab(qs.get('tab'));
+
+// hook for headless checks (gate G9): the spec, the payload and the last echo
+window.__KM = {CONTROLS, payload, values, setValues, sync, S, setTab, runMode};
+</script>
+</body>
+</html>

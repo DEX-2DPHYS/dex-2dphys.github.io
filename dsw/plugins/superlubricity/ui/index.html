@@ -9,49 +9,52 @@
      Every colour below is a token so the two themes stay in step. */
   :root {
     --bg:#0b0e14; --panel:#131824; --sunk:#0d111a; --ink:#e8ecf4;
-    --muted:#8a94a8; --line:#232b3d; --accent:#22d3ee; --accent-ink:#04222a;
+    --muted:#8a94a8; --lab:#bcc6d8; --head:#a7b6d0;
+    --line:#232b3d; --accent:#22d3ee; --accent-ink:#04222a;
     --good:#34d399; --warn:#fbbf24; --bad:#f87171; --chart:#22d3ee;
   }
   :root[data-theme="light"] {
     --bg:#f6f7fb; --panel:#ffffff; --sunk:#f1f4f9; --ink:#10213f;
-    --muted:#5a6a85; --line:#d7deea; --accent:#0b57d0; --accent-ink:#ffffff;
+    --muted:#5a6a85; --lab:#2f3f59; --head:#3d4d68;
+    --line:#d7deea; --accent:#0b57d0; --accent-ink:#ffffff;
     --good:#0f766e; --warn:#b45309; --bad:#b91c1c; --chart:#0b57d0;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--ink);
-         font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+         font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   .wrap { max-width:1560px; margin:0 auto; padding:18px 20px 40px; }
   header { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
   header a { color:var(--muted); text-decoration:none; font-size:13px; }
   header a:hover { color:var(--accent); }
-  h1 { font-size:19px; letter-spacing:-.01em; }
+  h1 { font-size:21px; letter-spacing:-.01em; }
   .spacer { margin-left:auto; }
-  .status { font-size:12.5px; color:var(--muted); font-family:ui-monospace,Menlo,monospace; }
+  .status { font-size:13.5px; color:var(--lab); font-family:ui-monospace,Menlo,monospace; }
   .status .live { color:var(--accent); }
 
-  .layout { display:grid; grid-template-columns:330px minmax(0,1fr) 300px; gap:16px; align-items:start; }
-  @media (max-width:1280px){ .layout { grid-template-columns:320px minmax(0,1fr); } }
+  .layout { display:grid; grid-template-columns:352px minmax(0,1fr) 320px; gap:16px; align-items:start; }
+  @media (max-width:1280px){ .layout { grid-template-columns:352px minmax(0,1fr); } }
   @media (max-width:900px){ .layout { grid-template-columns:1fr; } }
 
   .card { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:14px; }
   .card + .card { margin-top:14px; }
-  h2 { font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted);
-       font-weight:700; margin:16px 0 8px; display:flex; align-items:center; }
+  h2 { font-size:12.5px; text-transform:uppercase; letter-spacing:.085em; color:var(--head);
+       font-weight:700; margin:18px 0 9px; display:flex; align-items:center; }
   h2:first-child { margin-top:0; }
 
-  label.f { display:block; font-size:12px; color:var(--muted); margin:9px 0 3px; }
-  label.f b { color:var(--ink); font-weight:600; font-family:ui-monospace,Menlo,monospace; float:right; }
+  label.f { display:block; font-size:13.5px; color:var(--lab); margin:11px 0 4px; font-weight:500; }
+  label.f b { color:var(--ink); font-weight:700; font-size:13.5px;
+              font-family:ui-monospace,Menlo,monospace; float:right; }
   input[type=number], input[type=text], select {
     width:100%; background:var(--sunk); color:var(--ink); border:1px solid var(--line);
-    border-radius:7px; padding:5px 7px; font:inherit; font-size:12.5px; }
-  input[type=range] { width:100%; accent-color:var(--accent); height:20px; }
+    border-radius:7px; padding:6px 8px; font:inherit; font-size:13.5px; }
+  input[type=range] { width:100%; accent-color:var(--accent); height:22px; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .chk { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink);
-         margin:7px 0; cursor:pointer; }
+  .chk { display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink);
+         margin:8px 0; cursor:pointer; }
   .chk input { accent-color:var(--accent); }
 
   button { background:var(--sunk); color:var(--ink); border:1px solid var(--line);
-           border-radius:7px; padding:7px 8px; font:inherit; font-size:12.5px; cursor:pointer; }
+           border-radius:7px; padding:8px 9px; font:inherit; font-size:13.5px; cursor:pointer; }
   button:hover:not(:disabled) { border-color:var(--accent); }
   button:disabled { opacity:.45; cursor:default; }
   button.on { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:650; }
@@ -63,37 +66,44 @@
                 border-radius:11px; background:var(--sunk); cursor:grab; touch-action:none; }
   canvas#view.grabbing { cursor:grabbing; }
   canvas.plot { width:100%; display:block; }
+  /* The chart's own tool bar: x-axis choice on the left, the d switch
+     hard right so it reads as belonging to the second (red) axis. */
+  .chartbar { display:flex; align-items:center; gap:14px; margin:0 0 10px; flex-wrap:wrap; }
+  .chartbar .btns { flex:1 1 260px; margin:0; }
+  .chartbar .hgt { flex:0 0 auto; margin:0; white-space:nowrap;
+                   color:var(--bad); font-weight:650; }
+  .chartbar .hgt input { accent-color:var(--bad); }
 
-  .read { font-size:12px; font-family:ui-monospace,Menlo,monospace; }
-  .read div { display:flex; justify-content:space-between; gap:8px; padding:2.5px 0;
+  .read { font-size:13px; font-family:ui-monospace,Menlo,monospace; }
+  .read div { display:flex; justify-content:space-between; gap:8px; padding:3.5px 0;
               border-bottom:1px solid var(--line); }
   .read div:last-child { border-bottom:0; }
-  .read .k { color:var(--muted); }
+  .read .k { color:var(--lab); }
   .read .v { color:var(--ink); text-align:right; }
-  .big { font-size:19px; font-family:ui-monospace,Menlo,monospace; color:var(--accent);
+  .big { font-size:23px; font-family:ui-monospace,Menlo,monospace; color:var(--accent);
          padding:8px 0 2px; letter-spacing:-.02em; }
-  .big small { display:block; font-size:10.5px; color:var(--muted); letter-spacing:.08em;
+  .big small { display:block; font-size:11.5px; color:var(--lab); letter-spacing:.08em;
                text-transform:uppercase; font-family:system-ui,sans-serif; margin-bottom:2px; }
 
   .bar { height:4px; background:var(--sunk); border-radius:3px; overflow:hidden; margin-top:9px; }
   .bar i { display:block; height:100%; background:var(--accent); width:0; transition:width .12s; }
-  .note { font-size:11.5px; color:var(--muted); line-height:1.55; margin-top:9px; }
-  .warn { font-size:11.5px; line-height:1.5; margin-top:8px; padding:7px 9px; border-radius:8px;
-          border:1px solid var(--line); color:var(--muted); background:var(--sunk); }
+  .note { font-size:12.5px; color:var(--lab); line-height:1.6; margin-top:10px; }
+  .warn { font-size:12.5px; line-height:1.55; margin-top:8px; padding:8px 10px; border-radius:8px;
+          border:1px solid var(--line); color:var(--lab); background:var(--sunk); }
 
-  .ti { cursor:help; color:var(--muted); font-size:9px; width:14px; height:14px;
+  .ti { cursor:help; color:var(--muted); font-size:10px; width:16px; height:16px;
         border:1px solid var(--line); border-radius:50%; display:inline-flex;
         align-items:center; justify-content:center; margin-left:6px; flex:0 0 auto; line-height:1; }
   .ti:hover { color:var(--accent); border-color:var(--accent); }
   .tb { position:fixed; background:#0f172a; color:#e2e8f0; border:1px solid #334155;
         border-radius:9px; padding:10px 13px; line-height:1.65; max-width:310px;
         pointer-events:none; display:none; z-index:999; box-shadow:0 8px 28px rgba(0,0,0,.55);
-        font-size:11.5px; }
+        font-size:12.5px; }
   .tb .th { font-weight:700; color:#38bdf8; display:block; margin-bottom:4px; }
   .tb .eq { font-family:ui-monospace,monospace; background:#172033; border-left:3px solid #38bdf8;
             padding:3px 7px; margin:4px 0; display:block; border-radius:0 4px 4px 0;
-            color:#bfdbfe; font-size:11px; }
-  .tb .nt { color:#94a3b8; font-size:11px; display:block; margin-top:4px; }
+            color:#bfdbfe; font-size:12px; }
+  .tb .nt { color:#94a3b8; font-size:12px; display:block; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -157,6 +167,8 @@
         <h2>Relaxation <span class="ti" id="ti-relax">?</span></h2>
         <label class="chk"><input type="checkbox" id="rxy" checked> xy relax (lateral offset)</label>
         <label class="chk"><input type="checkbox" id="rd" checked> h relax (interlayer d)</label>
+        <label class="chk"><input type="checkbox" id="rrel" checked>
+          Auto-relax when the flake is released</label>
         <div class="btns">
           <button id="relaxBtn">Relax now</button>
           <button id="resetPosBtn">Reset position</button>
@@ -214,12 +226,16 @@
           <span style="font-size:11px;color:var(--muted);font-family:ui-monospace,monospace"
                 id="chartInfo">0 points</span>
         </h2>
-        <div class="btns three" style="margin:0 0 10px">
-          <button id="xTime" class="on">vs time</button>
-          <button id="xAng">vs θ</button>
-          <button id="xTx">vs offset x</button>
+        <div class="chartbar">
+          <div class="btns three">
+            <button id="xTime" class="on">vs time</button>
+            <button id="xAng">vs θ</button>
+            <button id="xTx">vs offset x</button>
+          </div>
+          <label class="chk hgt"><input type="checkbox" id="showH">
+            Show interlayer distance (Å)</label>
         </div>
-        <canvas class="plot" id="chart" height="250"></canvas>
+        <canvas class="plot" id="chart" height="280"></canvas>
       </div>
     </div>
 
@@ -273,7 +289,9 @@
           <div><span class="k">MD step</span><span class="v" id="rStep">—</span></div>
         </div>
         <div class="note">Drag the flake centre to slide it, the outer ring to
-          twist it. The energy follows live.</div>
+          twist it. The energy follows live. Let go and — unless the auto-relax
+          box is cleared — it settles into x, y and the interlayer distance d,
+          and the point recorded on the graph is the relaxed one.</div>
       </div>
     </div>
   </div>
@@ -292,6 +310,7 @@
   let xMode = "time";
   let metric = 1;
   let dragging = false;
+  let showH = false;          // second (red) axis: interlayer distance d
 
   // ---------------------------------------------------------------- theme
   // Persisted per browser; the core is told too, because the atomistic stage
@@ -381,20 +400,22 @@
 
   function drawChart() {
     const c = $("chart");
-    c.style.height = "250px";
+    const CH = 280;
+    c.style.height = CH + "px";
     const dpr = Math.min(2, devicePixelRatio || 1);
-    const w = c.clientWidth, h = 250;
+    const w = c.clientWidth, h = CH;
     if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
     const g = c.getContext("2d");
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
-    const pad = { l: 74, r: 12, t: 12, b: 30 };
+    // the height axis needs headroom for its own caption
+    const pad = { l: 92, r: showH ? 66 : 14, t: showH ? 26 : 18, b: 34 };
     const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
     const line = css("--line"), muted = css("--muted"), acc = css("--chart");
 
     $("chartInfo").textContent = series.length + " points";
     if (series.length < 1) {
-      g.fillStyle = muted; g.textAlign = "center"; g.font = "12px system-ui";
+      g.fillStyle = muted; g.textAlign = "center"; g.font = "13.5px system-ui";
       g.fillText("run a sweep, or drag the flake, to record energy", w / 2, h / 2);
       return;
     }
@@ -415,24 +436,33 @@
     const X = x => pad.l + (x - x0) / (x1 - x0) * pw;
     const Y = y => pad.t + ph - (y - y0) / (y1 - y0) * ph;
 
+    // Just enough digits that no two ticks print the same number: over a
+    // narrow energy range two decimals label three gridlines identically,
+    // which reads as a broken axis.
+    let ydp = 2;
+    for (; ydp < 7; ydp++) {
+      const seen = new Set();
+      for (let i = 0; i <= 4; i++) seen.add((y1 - (i / 4) * (y1 - y0)).toExponential(ydp));
+      if (seen.size === 5) break;
+    }
     g.strokeStyle = line; g.lineWidth = 1;
-    g.fillStyle = muted; g.font = "10px ui-monospace,monospace"; g.textAlign = "right";
+    g.fillStyle = css("--lab"); g.font = "12px ui-monospace,monospace"; g.textAlign = "right";
     for (let i = 0; i <= 4; i++) {
       const yy = pad.t + (i / 4) * ph, v = y1 - (i / 4) * (y1 - y0);
       g.beginPath(); g.moveTo(pad.l, yy); g.lineTo(pad.l + pw, yy); g.stroke();
-      g.fillText(Number(v).toExponential(2), pad.l - 6, yy + 3);
+      g.fillText(Number(v).toExponential(ydp), pad.l - 6, yy + 4);
     }
     g.textAlign = "center";
     for (let i = 0; i <= 5; i++) {
       const xx = pad.l + (i / 5) * pw, v = x0 + (i / 5) * (x1 - x0);
       g.strokeStyle = line;
       g.beginPath(); g.moveTo(xx, pad.t); g.lineTo(xx, pad.t + ph); g.stroke();
-      g.fillStyle = muted;
+      g.fillStyle = css("--lab");
       g.fillText(xMode === "angle" ? v.toFixed(0) + "°" : v.toFixed(xMode === "tx" ? 1 : 0), xx, h - 10);
     }
-    g.fillStyle = muted; g.textAlign = "center";
+    g.fillStyle = css("--lab"); g.textAlign = "center"; g.font = "12.5px system-ui";
     g.fillText(xMode === "angle" ? "twist θ (deg)" : xMode === "tx" ? "offset x (Å)" : "sample",
-               pad.l + pw / 2, h - 1);
+               pad.l + pw / 2, h - 2);
 
     // sort by x so a sweep draws as a curve rather than a scribble
     const pts = series.slice().filter(p => isFinite(xOf(p)) && isFinite(yOf(p)));
@@ -443,6 +473,47 @@
     g.fillStyle = acc;
     if (pts.length < 400) for (const p of pts) { g.beginPath(); g.arc(X(xOf(p)), Y(yOf(p)), 1.9, 0, 7); g.fill(); }
 
+    // The interlayer distance d on its own right-hand axis. It shares nothing
+    // with the energy scale — d moves by hundredths of an Angstrom while U spans
+    // orders of magnitude — so it is autoscaled independently and drawn in red.
+    if (showH) {
+      const red = css("--bad");
+      let d0 = Infinity, d1 = -Infinity;
+      for (const p of pts) if (isFinite(p.d)) { d0 = Math.min(d0, p.d); d1 = Math.max(d1, p.d); }
+      const dmin = d0, dspread = d1 - d0;
+      if (isFinite(d0)) {
+        // A height that barely moves still needs a legible axis: hold a
+        // minimum window, and print enough decimals that two ticks never
+        // round to the same number.
+        if (d1 - d0 < 0.04) { const mid = (d0 + d1) / 2; d0 = mid - 0.02; d1 = mid + 0.02; }
+        const sp = (d1 - d0) * 0.08; d0 -= sp; d1 += sp;
+        const ddp = (d1 - d0) < 0.05 ? 3 : 2;
+        const Yd = v => pad.t + ph - (v - d0) / (d1 - d0) * ph;
+        g.strokeStyle = red; g.lineWidth = 1.7; g.beginPath();
+        let started = false;
+        for (const p of pts) {
+          if (!isFinite(p.d)) continue;
+          const x = X(xOf(p)), y = Yd(p.d);
+          started ? g.lineTo(x, y) : g.moveTo(x, y);
+          started = true;
+        }
+        g.stroke();
+        g.fillStyle = red; g.textAlign = "left"; g.font = "12px ui-monospace,monospace";
+        for (let i = 0; i <= 4; i++) {
+          const yy = pad.t + (i / 4) * ph, v = d1 - (i / 4) * (d1 - d0);
+          g.fillText(v.toFixed(ddp), pad.l + pw + 7, yy + 4);
+        }
+        g.font = "12.5px system-ui";
+        g.fillText("d (Å)", pad.l + pw + 7, pad.t - 10);
+        if (dspread < 5e-4) {
+          g.textAlign = "left"; g.font = "12px system-ui";
+          g.fillText("d constant at " + dmin.toFixed(3) + " Å" +
+                     (dmin <= 3.3401 ? " (the 3.34 Å floor of the h-relax range)" : ""),
+                     pad.l + 9, pad.t + 15);
+        }
+      }
+    }
+
     // where we are now
     if (S && isFinite(S.UA)) {
       const cx = X(xMode === "angle" ? S.angle : xMode === "tx" ? S.tx : xOf(pts[pts.length - 1]));
@@ -450,8 +521,8 @@
       if (cx >= pad.l && cx <= pad.l + pw) {
         g.strokeStyle = muted; g.save(); g.setLineDash([3, 3]);
         g.beginPath(); g.moveTo(cx, pad.t); g.lineTo(cx, pad.t + ph); g.stroke(); g.restore();
-        g.fillStyle = css("--bad");
-        g.beginPath(); g.arc(cx, Math.max(pad.t, Math.min(pad.t + ph, cy)), 4, 0, 7); g.fill();
+        g.fillStyle = css("--warn");
+        g.beginPath(); g.arc(cx, Math.max(pad.t, Math.min(pad.t + ph, cy)), 4.5, 0, 7); g.fill();
       }
     }
   }
@@ -504,6 +575,7 @@
     metric = +$("metric").value; send("metric", metric); readout(S); drawChart();
   });
   for (const [id, key] of [["tail", "tail"], ["rxy", "relaxXY"], ["rd", "relaxD"],
+                           ["rrel", "relaxRelease"],
                            ["registry", "registry"], ["arrows", "arrows"], ["bottom", "bottom"]])
     $(id).addEventListener("change", () => send(key, $(id).checked ? 1 : 0));
 
@@ -517,6 +589,7 @@
   $("mdStop").onclick = () => dex.send({ t: "mdstop" });
   $("mdReset").onclick = () => dex.send({ t: "mdreset" });
   $("clearChart").onclick = () => { series = []; drawChart(); };
+  $("showH").addEventListener("change", () => { showH = $("showH").checked; drawChart(); });
   $("themeBtn").onclick = () => { theme = theme === "light" ? "dark" : "light"; applyTheme(theme); };
 
   for (const [id, mode] of [["xTime", "time"], ["xAng", "angle"], ["xTx", "tx"]])
@@ -542,6 +615,7 @@
     send("translationStep", +$("translationStep").value);
     send("amp", +$("amp").value);
     send("relaxXY", $("rxy").checked ? 1 : 0); send("relaxD", $("rd").checked ? 1 : 0);
+    send("relaxRelease", $("rrel").checked ? 1 : 0);
     send("registry", $("registry").checked ? 1 : 0);
     send("arrows", $("arrows").checked ? 1 : 0);
     send("bottom", $("bottom").checked ? 1 : 0);
@@ -568,8 +642,7 @@
   const up = () => {
     if (!down) return;
     down = false; view.classList.remove("grabbing");
-    dex.send({ t: "release" });
-    dex.send({ t: "point" });   // record where the drag landed
+    dex.send({ t: "release" });   // the core relaxes, then records the point
   };
   view.addEventListener("pointerup", up);
   view.addEventListener("pointercancel", up);
@@ -627,7 +700,9 @@ following −∇U, which the energy pass already computes exactly — no search 
 trial offsets. It is clamped to one lattice constant so it finds the
 <i>nearest</i> minimum, not the global one.
 <b>h relax</b> scans the interlayer spacing over 3.34–3.75 Å.
-<span class="nt">With both ticked they alternate until the energy stops changing.</span>`);
+<span class="nt">With both ticked they alternate until the energy stops changing.</span>
+<span class="nt">Auto-relax on release does both regardless of the two boxes, over a short local window, so letting go of the flake always settles it in x, y and the interlayer distance d.</span>
+<span class="nt">With these Lennard-Jones parameters every registry wants a smaller d than the 3.34 Å floor of that scan, so the relaxed d sits ON the floor and the red trace on the graph is flat. That is the clamp, not a missing curve.</span>`);
 
   tip("ti-md", `<span class="th">Lateral MD — moiré reconstruction</span>
 Instead of moving the flake rigidly, every top atom moves: three Hooke springs

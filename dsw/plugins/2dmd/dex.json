@@ -1,0 +1,6 @@
+{
+  "name": "2DMD - Layered Molecular Dynamics",
+  "description": "A stack of 2D layers rather than a sheet on a substrate: one to four live sheets over a rigid substrate, twisted, with a fixed-N gas pocket that can sit in any gap. Phase 1 - Morse CPU engine.",
+  "accent": "#12557f",
+  "version": "0.1"
+}

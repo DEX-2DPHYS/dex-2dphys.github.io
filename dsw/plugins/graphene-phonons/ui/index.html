@@ -123,8 +123,10 @@
       <div class="row"><input type="range" id="smax" min="0.01" max="0.5" step="0.005" value="0.1"></div>
       <label>Atom radius <span class="val" id="radV"></span></label>
       <div class="row"><input type="range" id="rad" min="0" max="8" step="0.25" value="2.5"></div>
+      <div class="hint" id="radHint"></div>
       <label>Bond width <span class="val" id="lineWV"></span></label>
       <div class="row"><input type="range" id="lineW" min="0.5" max="6" step="0.25" value="1.75"></div>
+      <div class="hint" id="lineWHint"></div>
       <div class="chk"><input type="checkbox" id="dark"><label for="dark" style="margin:0">Dark background</label></div>
     </div>
 
@@ -222,6 +224,20 @@
   const MAGIC = 0x31485047;             // 'GPH1'
   let pos = null, bonds = null, strain = null, nAtoms = 0, nBonds = 0;
   let ePot = 0, eKin = 0, frameNo = 0;
+  // Colour bins for the bond batching below. 64 steps across the strain
+  // ramp is finer than the eye resolves on a 1.75 px line, and it is the
+  // number of canvas state changes per frame -- which used to be one per
+  // bond. binOf/order are counting-sort scratch, grown as the lattice does.
+  const COLOR_BINS = 64;
+  let binOf = null, order = null;
+  const binCount = new Int32Array(COLOR_BINS),
+        binStart = new Int32Array(COLOR_BINS),
+        binFill  = new Int32Array(COLOR_BINS);
+  // Above this many cells the atoms are dots under the bonds and cost
+  // 15-25% of the frame, so a rebuild turns them off -- visibly, by moving
+  // the Atom radius slider, so it can be dragged back up.
+  const ATOM_MAX_CELLS = 50;
+  let fitCheck = 0, kpiAt = 0;
   let view = { s: 1, ox: 0, oy: 0, fitted: false };
 
   function parseFrame(bytes) {
@@ -283,39 +299,84 @@
     ctx.fillRect(0, 0, w, h);
     if (!pos) return;
     if (!view.fitted) fit();
-    else if (outside()) fit();   // keep everything in view as the lattice moves
+    // keep everything in view as the lattice moves. outside() is a full pass
+    // over every atom, so check it every fifth frame rather than every one:
+    // a lattice cannot leave the window in 80 ms, and at 80k atoms this was
+    // a measurable share once the drawing stopped dominating.
+    else if ((fitCheck = (fitCheck + 1) % 5) === 0 && outside()) fit();
 
     const scale = SCALES[$("scale").value] || SCALES.classic;
     const smax = +$("smax").value;
-    ctx.lineWidth = +$("lineW").value * dpr();
-    ctx.lineCap = "round";
+    const lw = +$("lineW").value * dpr();
+    ctx.lineWidth = lw;
+    // Round caps are two extra half-discs to rasterise per segment and are
+    // not visible on a hairline. Measured at 200 cells: butt caps carried a
+    // thin-line frame from 30.3 to 37.8 fps.
+    ctx.lineCap = lw <= 1.25 ? "butt" : "round";
     const bondStride = Math.max(1, Math.ceil(nBonds / 120000));
-    for (let b = 0; b < nBonds; b += bondStride) {
-      const i = bonds[2 * b], j = bonds[2 * b + 1];
-      const t = Math.min(1, Math.abs(strain[b]) / smax);
-      const c = scale(t);
+    // Bonds, batched by colour. Quantise each bond's strain colour into one
+    // of COLOR_BINS bins, counting-sort the bonds into those bins, and draw
+    // each bin as a SINGLE path. Two linear passes replace 30k-120k canvas
+    // path submissions and just as many strokeStyle strings per frame.
+    const nDraw = Math.ceil(nBonds / bondStride);
+    if (!binOf || binOf.length < nDraw) {
+      binOf = new Uint8Array(nDraw);
+      order = new Int32Array(nDraw);
+    }
+    const inv = 1 / smax;
+    for (let b = 0, w = 0; w < nDraw; b += bondStride, w++) {
+      let t = Math.abs(strain[b]) * inv;
+      if (t > 1) t = 1;
+      binOf[w] = (t * (COLOR_BINS - 1)) | 0;
+    }
+    binCount.fill(0);
+    for (let w = 0; w < nDraw; w++) binCount[binOf[w]]++;
+    for (let k = 0, acc = 0; k < COLOR_BINS; k++) {
+      binStart[k] = acc; binFill[k] = acc; acc += binCount[k];
+    }
+    for (let w = 0; w < nDraw; w++) order[binFill[binOf[w]]++] = w;
+    for (let k = 0; k < COLOR_BINS; k++) {
+      const cnt = binCount[k];
+      if (!cnt) continue;
+      const c = scale(k / (COLOR_BINS - 1));
       ctx.strokeStyle = "rgb(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ")";
       ctx.beginPath();
-      ctx.moveTo(sx(pos[2 * i]), sy(pos[2 * i + 1]));
-      ctx.lineTo(sx(pos[2 * j]), sy(pos[2 * j + 1]));
+      for (let q = binStart[k], e = binStart[k] + cnt; q < e; q++) {
+        const b = order[q] * bondStride;
+        const i = bonds[2 * b], j = bonds[2 * b + 1];
+        ctx.moveTo(sx(pos[2 * i]), sy(pos[2 * i + 1]));
+        ctx.lineTo(sx(pos[2 * j]), sy(pos[2 * j + 1]));
+      }
       ctx.stroke();
     }
     const r = +$("rad").value * dpr();
     if (r > 0) {
       ctx.fillStyle = dark ? "#e8ecf5" : "#1b2430";
       const atomStride = Math.max(1, Math.ceil(nAtoms / 100000));
+      // Every atom is the same colour, so the whole lattice is one path and
+      // one fill. The moveTo before each arc is not optional: without it the
+      // arcs are joined by a straight line from the previous subpath.
+      ctx.beginPath();
       for (let i = 0; i < nAtoms; i += atomStride) {
-        ctx.beginPath();
-        ctx.arc(sx(pos[2 * i]), sy(pos[2 * i + 1]), r, 0, 6.283185);
-        ctx.fill();
+        const X = sx(pos[2 * i]), Y = sy(pos[2 * i + 1]);
+        ctx.moveTo(X + r, Y);
+        ctx.arc(X, Y, r, 0, 6.283185);
       }
+      ctx.fill();
     }
-    $("kpi").innerHTML =
-      "<b>" + nAtoms.toLocaleString() + "</b> atoms &nbsp; <b>" + nBonds.toLocaleString() +
-      "</b> bonds<br>step <b>" + frameNo.toLocaleString() + "</b><br>" +
-      "E<sub>pot</sub> " + ePot.toFixed(2) + " &nbsp; E<sub>kin</sub> " + eKin.toFixed(2) +
-      "<br>E<sub>tot</sub> <b>" + (ePot + eKin).toFixed(2) + "</b>" +
-      (bondStride > 1 ? "<br>display sample 1/" + bondStride : "");
+    // The readout is an innerHTML write, i.e. a parse and a reflow. At 8 Hz
+    // it is still faster than anyone can read; at frame rate it was competing
+    // with the lattice for the same milliseconds.
+    const tNow = performance.now();
+    if (tNow - kpiAt > 125) {
+      kpiAt = tNow;
+      $("kpi").innerHTML =
+        "<b>" + nAtoms.toLocaleString() + "</b> atoms &nbsp; <b>" + nBonds.toLocaleString() +
+        "</b> bonds<br>step <b>" + frameNo.toLocaleString() + "</b><br>" +
+        "E<sub>pot</sub> " + ePot.toFixed(2) + " &nbsp; E<sub>kin</sub> " + eKin.toFixed(2) +
+        "<br>E<sub>tot</sub> <b>" + (ePot + eKin).toFixed(2) + "</b>" +
+        (bondStride > 1 ? "<br>display sample 1/" + bondStride : "");
+    }
   }
 
   function resize() {
@@ -378,9 +439,34 @@
     $(id).addEventListener("change", () => dex.send(paramMsg()));
   for (const id of ["scale","dark"]) $(id).addEventListener("change", draw);
 
+  // Says why the display backed off, beside each slider that moved. Both are
+  // still live controls -- drag them back up and the cost comes back with
+  // them, which is the honest way round.
+  function bigLatticeHint(cells) {
+    const big = cells > ATOM_MAX_CELLS;
+    const a = $("radHint"), b = $("lineWHint");
+    if (a) a.textContent = big
+      ? "Atoms are off above " + ATOM_MAX_CELLS + " cells - they cost about a fifth of the frame and sit under the bonds. Raise the radius to bring them back."
+      : "";
+    if (b) b.textContent = big
+      ? "Thinned to one screen pixel above " + ATOM_MAX_CELLS + " cells. A wider line leaves the canvas hairline fast path and measured 16x slower at 100 cells. Raise it if you want the thicker look."
+      : "";
+  }
   function rebuild() {
     const m = paramMsg();
     m.t = "build"; m.cells = cellsValue();
+    // Peter, 2026-09-17: do not draw the atoms on a large lattice. Done by
+    // MOVING the slider rather than by ignoring it -- a control that silently
+    // has no effect reads as broken, and this way it can be dragged back up.
+    if (m.cells > ATOM_MAX_CELLS) {
+      if (+$("rad").value > 0) { $("rad").value = 0; label("rad"); }
+      // one DEVICE pixel, whatever the display's ratio: that is where the
+      // canvas hairline fast path ends. Clamped to the slider's own range.
+      const want = Math.max(+$("lineW").min,
+                            Math.round((1 / dpr()) * 4) / 4);
+      if (+$("lineW").value > want) { $("lineW").value = want; label("lineW"); }
+    }
+    bigLatticeHint(m.cells);
     view.fitted = false;
     dex.send(m);
     // The core starts stopped; the panel starts showing "Pause". Say what we

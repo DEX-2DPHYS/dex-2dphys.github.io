@@ -204,6 +204,12 @@ struct Instance {
     int relax_phase = 0;   // 0 = xy, 1 = height
     int relax_pass = 0, relax_max_pass = 4;
     bool relax_quick = false;
+    // A release-triggered relaxation always runs BOTH stages, whatever the two
+    // tick boxes say: "let go and it settles" would be a lie otherwise. The
+    // boxes still own what the Relax now button and the sweeps do.
+    bool relax_all = false;
+    bool rxOn() const { return relax_all || relax_xy; }
+    bool rdOn() const { return relax_all || relax_d; }
     // xy (gradient descent)
     double rx_step = 0, rx_tx0 = 0, rx_ty0 = 0, rx_best = 0;
     double rx_px = 0, rx_py = 0;   // best-so-far offset, for backtracking
@@ -234,6 +240,8 @@ struct Instance {
     // ---- rigid drag (PT on the vdW landscape) ----
     bool dragging = false;
     int drag_mode = 0;         // 1 = translate, 2 = rotate
+    bool relax_on_release = true;    // letting go settles the flake
+    bool point_after_relax = false;  // record where it SETTLED, not where it was dropped
     Vec2 grab_world, grab_off;
     double grab_angle = 0, grab_bearing = 0;
 
@@ -961,18 +969,28 @@ struct Instance {
     void stop_job() {
         job = JOB_NONE;
         job_label.clear();
+        finish_relax();
         status = "stopped";
     }
 
-    void start_relax(bool quick) {
-        if (!relax_xy && !relax_d) { status = "no relaxation enabled"; return; }
+    void start_relax(bool quick, bool all = false) {
+        relax_all = all;
+        if (!rxOn() && !rdOn()) { status = "no relaxation enabled"; return; }
         job = JOB_RELAX;
         relax_quick = quick;
         relax_pass = 0;
         relax_max_pass = quick ? 2 : 4;
-        relax_phase = relax_xy ? 0 : 1;
+        relax_phase = rxOn() ? 0 : 1;
         if (relax_phase == 0) relax_xy_begin(quick); else relax_d_begin(quick);
         status = "relaxing";
+    }
+
+    // Ends a relaxation cleanly. A release-triggered one records its point
+    // here rather than at drop time, so the graph carries the settled state -
+    // which is the number the drag was asking for.
+    void finish_relax() {
+        relax_all = false;
+        if (point_after_relax) { point_after_relax = false; push_point(); }
     }
 
     // Which stage a fresh sweep position starts in, given what is enabled.
@@ -1049,14 +1067,15 @@ struct Instance {
                 else phase_done = relax_d_step();
                 if (!phase_done) continue;
                 // move to the next phase / pass
-                if (relax_phase == 0 && relax_d) { relax_phase = 1; relax_d_begin(relax_quick); continue; }
+                if (relax_phase == 0 && rdOn()) { relax_phase = 1; relax_d_begin(relax_quick); continue; }
                 relax_pass++;
-                if (relax_pass >= relax_max_pass || !(relax_xy && relax_d)) {
+                if (relax_pass >= relax_max_pass || !(rxOn() && rdOn())) {
                     job = JOB_NONE;
                     status = "relaxed";
+                    finish_relax();
                     return true;
                 }
-                relax_phase = relax_xy ? 0 : 1;
+                relax_phase = rxOn() ? 0 : 1;
                 if (relax_phase == 0) relax_xy_begin(relax_quick); else relax_d_begin(relax_quick);
                 continue;
             }
@@ -1156,6 +1175,25 @@ struct Instance {
         }
     }
 
+    // Letting go of the flake settles it: gradient descent on (tx, ty) and a
+    // local scan of the interlayer height, alternating, then the point is
+    // recorded. Quick mode on purpose - this runs on every mouse-up, and the
+    // window it searches is local, so it finds the minimum you dropped it in
+    // rather than walking off to a different one.
+    void release() {
+        const bool was = dragging;
+        dragging = false;
+        drag_mode = 0;
+        if (!was) return;
+        if (relax_on_release && job == JOB_NONE) {
+            point_after_relax = true;
+            start_relax(true, true);
+            status = "settling";
+        } else {
+            push_point();
+        }
+    }
+
     // The lateral force on the rigid flake, in nN. This is -grad U from the
     // energy pass itself, so it is exact and shares the reported potential —
     // no spring constant, damping or any other fitted quantity involved.
@@ -1193,6 +1231,7 @@ void handle(Instance *s, const std::string &m) {
         else if (k == "tail") { s->use_tail = v != 0; s->energy_dirty = true; }
         else if (k == "c6") { if (v > 0) { s->c6 = v; s->energy_dirty = true; } }
         else if (k == "metric") s->metric = (int)v;
+        else if (k == "relaxRelease") s->relax_on_release = v != 0;
         else if (k == "atomSize") s->atom_size = std::max(1.0, std::min(10.0, v));
         else if (k == "kspring") s->kspring = std::max(1.0, std::min(20000.0, v));
         else if (k == "mdsteps") s->md_max_steps = std::max(10, std::min(5000, (int)v));
@@ -1218,7 +1257,7 @@ void handle(Instance *s, const std::string &m) {
     else if (t == "resetpos") s->reset_position();
     else if (t == "grab") s->grab(dexmsg::get_num(m, "x", 0.5), dexmsg::get_num(m, "y", 0.5));
     else if (t == "move") s->move(dexmsg::get_num(m, "x", 0.5), dexmsg::get_num(m, "y", 0.5));
-    else if (t == "release") { s->dragging = false; s->drag_mode = 0; }
+    else if (t == "release") s->release();
     else if (t == "recompute") s->energy_dirty = true;
     else if (t == "point") s->push_point();
 }
