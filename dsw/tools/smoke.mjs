@@ -39,8 +39,17 @@ function frameFrom(id) {
       try { ws.close(); } catch {}
     }, FRAME_TIMEOUT_MS);
     ws.onopen = () => ws.send('f');
+    let echoed = false;
     ws.onmessage = (ev) => {
-      if (typeof ev.data === 'string') return;      // status JSON, keep waiting
+      if (typeof ev.data === 'string') {
+        // a core that sends frames only for its own requests (EBL Workbench) says hello first and
+        // offers "echo": ask it for that, then for the frame carrying the echo's binary part
+        if (!echoed && /"t"\s*:\s*"hello"/.test(ev.data) && /"echo"/.test(ev.data)) {
+          echoed = true;
+          ws.send(JSON.stringify({ t: 'req', id: 1, type: 'echo', n: 16 }));
+        } else if (echoed && /"t"\s*:\s*"res"/.test(ev.data)) ws.send('f');
+        return;                                     // status JSON, keep waiting
+      }
       clearTimeout(timer);
       const bytes = ev.data.byteLength;
       try { ws.close(); } catch {}
