@@ -1,6 +1,6 @@
 {
   "name": "2DMD - Layered Molecular Dynamics",
-  "description": "A stack of 2D layers rather than a sheet on a substrate: one to four live sheets over a rigid substrate, twisted, with a fixed-N gas pocket that can sit in any gap. Phase 1 - Morse CPU engine.",
+  "description": "Layered molecular dynamics of 2D materials: up to six sheets of graphene, hBN and transition-metal dichalcogenides (and a Mo/W telluride alloy), each with its own size, offset and twist, on a substrate. Gas pockets in any gap, protrusions, local heating, an energy minimiser, H-terminated edges, and a LAMMPS deck exporter. Fast built-in engine, or LAMMPS (AIREBO, ExTeP, REBO-MoS2, Stillinger-Weber) in builds that link it.",
   "accent": "#12557f",
   "version": "0.1"
 }

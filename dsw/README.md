@@ -85,31 +85,26 @@ else is a category and is scanned deeper. Bundle folder names are the
 routing key, so they must be unique across both roots — a duplicate name is
 dropped from the listing (built-ins win).
 
-Ships with nine experiments — four demonstrations of the plug-in idea, and a
-2D-materials set that is the reason the workstation exists:
+Ships with nine experiments — two small demonstrations of the plug-in idea (also the templates
+below), and the research and teaching set the workstation exists for:
 
 | Plugin | What it shows |
 |--------|---------------|
 | `gray-scott` | Gray–Scott reaction–diffusion on a 512×512 torus: presets, F/k sliders, paint-to-seed brush, steps/s telemetry. |
 | `wave-tank` | Damped 2D wave equation with absorbing shores and single/double-slit barriers: poke the water, drive an oscillator, watch interference fringes form. |
-| `pattern-transfer` | Nanofabrication process-flow simulator on a 3D voxel cross-section: spin resist, EBL/UV exposure, contrast-curve development, deposition, RIE/wet/SF6 etch, lift-off — with undo-by-replay and a native painter-sorted isometric renderer. |
-| `graphene-md` | Bilayer molecular dynamics: Morse C–C bonds that break and re-form, sp² angle stiffness, a bending umbrella and Lennard-Jones adhesion to a rigid substrate. Push a mesa, bump or gas blister up and watch the sheet drape, wrinkle and tear. |
-| `graphene-md-gpu` | The same model with an OpenCL engine, and an exporter that writes a runnable LAMMPS deck from the current state. The GPU library is loaded at runtime, so the CPU path works everywhere. |
-| `graphene-phonons` | Lattice vibrations of a graphene sheet — the modes, not the drape. |
-| `moire-bubble` | Moiré bubbles in bilayers: registry, and what a trapped pocket does to it. |
-| `moire-bubble-tb-v1` | The twisted-bubble variant, kept as its own bundle so its results stay reproducible. |
-| `superlubricity` | Structural superlubricity — sliding two lattices past each other out of registry. |
-
-Two further bundles live in `examples/2d-materials/` rather than here, because
-they link `liblammps` and call Win32 APIs directly, so CI cannot build them:
-`graphene-md` (the AIREBO/ExTeP/REBO-MoS2 engine, **GPL-2.0** — see its
-`NOTICE.md`) and `2dmd`, the layered-stack plugin. Build those locally.
+| `2dmd` | Layered molecular dynamics of 2D materials: up to six sheets of graphene, hBN, MoS₂, WS₂, MoTe₂, WTe₂ (and a Mo/W telluride alloy), each with its own size, offset and twist, on a substrate; gas pockets, protrusions, local heating, an energy minimiser, and a LAMMPS deck exporter. The downloads use its fast built-in engine; the LAMMPS engine (AIREBO, ExTeP, REBO-MoS₂, Stillinger–Weber) is a local build, see `plugins/2dmd`. |
+| `graphene-md-gpu` | Graphene molecular dynamics on an OpenCL engine, with an exporter that writes a runnable LAMMPS deck. The GPU library is loaded at runtime, so the CPU path works everywhere. |
+| `graphene-phonons` | Graphene Lattice Vibrations: a honeycomb of point masses with Morse or harmonic bonds and angular springs — phonons and thermal motion, grab an atom to drive it, switch on bond breaking to see the lattice tear and heal. |
+| `superlubricity` | Structural Superlubricity: the van der Waals energy of a real atomistic flake on graphene, summed pair by pair with a Hamaker tail; relax, sweep the twist, slide the flake, and run lateral MD to watch the moiré reconstruct. |
+| `klein-magnetometer` | Klein Magnetometer Workbench: a many-junction graphene Klein-collimation magnetometer — exact Dirac-equation junction transmission, cyclotron ray tracing, Monte-Carlo and flux engines, thermal averaging, noise-limited field resolution and a coherent Fabry–Pérot sidebar. |
+| `transim` | Graphene Transport Explorer: hybrid FEM and semiclassical ballistic transport in graphene devices — Hall and four-probe measurements, adaptive trajectories, editable contacts, density/mobility maps, magnetic focusing, parameter sweeps. |
+| `ebl-workbench` | EBL Workbench: electron-beam lithography from layout to resist profile — Pattern Studio, PSF and Monte Carlo, exposure and proximity correction, Fab Studio. The page is the standalone HTML; the native core runs the Monte Carlo and the proximity correction on every core. |
 
 <p>
   <img src="docs/wave-tank.png" alt="Wave Tank: double-slit interference" width="49%">
   <img src="docs/gray-scott.png" alt="Gray–Scott reaction–diffusion" width="49%">
-  <img src="docs/pattern-transfer.png" alt="EBL Pattern Transfer: metal lift-off grating" width="49%">
-  <img src="docs/graphene-md.png" alt="Graphene MD: a sheet draped over a substrate bump" width="49%">
+  <img src="docs/2dmd.png" alt="2DMD: a layered 2D-material flake on its substrate" width="49%">
+  <img src="docs/ebl-workbench.png" alt="EBL Workbench: delivered dose and the profile along a cut-line" width="49%">
 </p>
 
 ## Downloads & installing a plugin
@@ -219,10 +214,10 @@ Message vocabulary is entirely yours — the host just relays JSON.
 
 The shipped plugins are meant as templates — `wave-tank` for
 click-interaction and mode switches, `gray-scott` for parameter sweeps and
-brushes, `pattern-transfer` for event-driven experiments where the UI sends
-discrete commands and the core keeps a replayable history, and `graphene-md`
-for the case where the browser owns the rendering and the core streams it
-packed geometry over the frame channel instead of pixels.
+brushes, `2dmd` for the case where the browser owns the rendering and the core
+streams it packed geometry over the frame channel instead of pixels, and
+`ebl-workbench` for a core that answers requests (JSON in, typed binary
+results out) instead of drawing at all.
 
 ## Protocol (for the curious)
 

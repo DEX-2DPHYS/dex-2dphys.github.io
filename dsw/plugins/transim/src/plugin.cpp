@@ -1063,15 +1063,12 @@ void heat(Instance &s, const V &v, int nx, int ny, DeviceRect d,
     if (symmetric) { const double m=std::max(std::abs(lo),std::abs(hi)); lo=-m;hi=m; }
     const double range = hi - lo;
     const bool flat = !std::isfinite(range) || range <= 1e-12 * std::max({1.0, std::abs(lo), std::abs(hi)});
-    std::fprintf(stderr,"heat start nx=%d ny=%d d=%d,%d,%d,%d lo=%g hi=%g range=%g flat=%d\n",nx,ny,d.x,d.y,d.w,d.h,lo,hi,range,flat?1:0);
     for (int py=0;py<d.h;++py) for(int px=0;px<d.w;++px){
         const int i=clampi(px*nx/d.w,0,nx-1), j=clampi((d.h-1-py)*ny/d.h,0,ny-1);
         double q=static_cast<double>(v[static_cast<size_t>(j)*nx+i]); if(logScale)q=std::log1p(std::max(0.0,q));
         const RGB c=colorMap(map,flat?.5:(q-lo)/range); uint8_t *p0=&s.frame[(static_cast<size_t>(d.y+py)*FRAME_W+d.x+px)*4];
         p0[0]=(uint8_t)c.r;p0[1]=(uint8_t)c.g;p0[2]=(uint8_t)c.b;p0[3]=255;
-        if(py==0&&px==0)std::fprintf(stderr,"heat first ok i=%d j=%d q=%g color=%g\n",i,j,q,c.r);
     }
-    std::fprintf(stderr,"heat done\n");
 }
 
 void drawContacts(Instance &s, DeviceRect d) {
@@ -1103,16 +1100,12 @@ void paintFrame(Instance &s) {
         for(const Path &p:s.traj.paths){RGB c=p.status==TRANSMITTED?RGB{65,225,160}:p.status==REFLECTED?RGB{255,190,75}:p.status==LOST?RGB{245,95,105}:RGB{165,180,205};for(size_t i=1;i<p.points.size();++i)line(s,d.x+(int)(p.points[i-1].x*d.w),d.y+d.h-(int)(p.points[i-1].y*d.h),d.x+(int)(p.points[i].x*d.w),d.y+d.h-(int)(p.points[i].y*d.h),c,.72,1);}
     } else {
         GridFields g=buildFields(s,s.p); heat(s,g.n,g.nx,g.ny,d,VIRIDIS,false,false);
-        std::fprintf(stderr,"paint grids\n");
         for(int i=1;i<10;++i){int x=d.x+i*d.w/10;line(s,x,d.y,x,d.y+d.h,grid,.22);}
         for(int j=1;j<6;++j){int y=d.y+j*d.h/6;line(s,d.x,y,d.x+d.w,y,grid,.22);}
     }
-    std::fprintf(stderr,"paint contacts\n");
     drawContacts(s,d);
-    std::fprintf(stderr,"paint borders\n");
     line(s,d.x,d.y,d.x+d.w,d.y,edge,.8);line(s,d.x,d.y+d.h,d.x+d.w,d.y+d.h,edge,.8);
     line(s,d.x,d.y,d.x,d.y+d.h,edge,.8);line(s,d.x+d.w,d.y,d.x+d.w,d.y+d.h,edge,.8);
-    std::fprintf(stderr,"paint exit\n");
 }
 
 // ---------------------------------------------------------------- control protocol and ABI
@@ -1232,7 +1225,7 @@ int advance(void *ptr,double) {
 
 void onMessage(void *p,const char *json,size_t len){handleMessage(*static_cast<Instance*>(p),std::string(json,len));}
 const char *pollMessage(void *p){Instance &s=*static_cast<Instance*>(p);if(s.outbox.empty())return nullptr;s.handout=std::move(s.outbox.front());s.outbox.pop_front();return s.handout.c_str();}
-int render(void *p,dex_frame *out){Instance &s=*static_cast<Instance*>(p);std::fprintf(stderr,"render pre %p %zu/%zu out=%p\n",(void*)s.frame.data(),s.frame.size(),s.frame.capacity(),(void*)out);paintFrame(s);std::fprintf(stderr,"render post %p %zu/%zu\n",(void*)s.frame.data(),s.frame.size(),s.frame.capacity());out->width=FRAME_W;out->height=FRAME_H;out->rgba=s.frame.data();std::fprintf(stderr,"render assigned %p\n",(void*)out->rgba);return 1;}
+int render(void *p,dex_frame *out){Instance &s=*static_cast<Instance*>(p);paintFrame(s);out->width=FRAME_W;out->height=FRAME_H;out->rgba=s.frame.data();return 1;}
 
 const dex_plugin_api API={DEX_ABI_VERSION,"transim","Graphene Transport Explorer","1.0",create,destroy,advance,onMessage,pollMessage,render};
 

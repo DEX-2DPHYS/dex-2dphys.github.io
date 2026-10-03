@@ -81,7 +81,7 @@ c++ --version            # any C++17 compiler (cl.exe on Windows)
 ```
 
 After a build, each experiment's compiled core should sit inside its own bundle
-folder — `plugins/graphene-md/graphene-md.so` (`.dll` on Windows, `.dylib` on
+folder — `plugins/superlubricity/superlubricity.so` (`.dll` on Windows, `.dylib` on
 macOS) beside its `dex.json` and `ui/`. If a core is missing, that plugin will
 be listed but will not open.
 
