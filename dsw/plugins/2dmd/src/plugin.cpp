@@ -59,6 +59,8 @@
 #include <windows.h>
 #else
 #include <dlfcn.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 #ifdef DMD_LAMMPS
@@ -2453,7 +2455,11 @@ struct Instance {
         std::string acc;
         for (size_t i = 0; i <= p.size(); i++) {
             if (i == p.size() || p[i] == 47 || p[i] == 92) {
+#ifdef _WIN32
                 if (acc.size() > 2) CreateDirectoryA(acc.c_str(), nullptr);
+#else
+                if (!acc.empty()) mkdir(acc.c_str(), 0755);
+#endif
             }
             if (i < p.size()) acc.push_back(p[i]);
         }
@@ -2483,9 +2489,13 @@ struct Instance {
         // Resolve and create it, and report the ABSOLUTE path back: a relative
         // one means nothing to whoever has to find the files.
         {
+#ifdef _WIN32
             char full[MAX_PATH];
             const DWORD fn = GetFullPathNameA(dir.c_str(), MAX_PATH, full, nullptr);
             if (fn > 0 && fn < MAX_PATH) dir.assign(full, fn);
+#else
+            if (dir.empty() || dir[0] != '/') { char cwd[4096]; if (getcwd(cwd, sizeof cwd)) dir = std::string(cwd) + "/" + dir; }
+#endif
             makeDirs(dir);
         }
         dmexport::Deck D;
