@@ -48,7 +48,9 @@ const got = crypto.createHash('sha256').update(buf).digest('hex');
 if (!want || got !== want) { console.error(`Node download ${file}: checksum ${got} does not match ${want}`); process.exit(1); }
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ebw-node-'));
 fs.writeFileSync(path.join(tmp, file), buf);
-execFileSync('tar', ['-xf', file], { cwd: tmp });
+// Windows' own tar (bsdtar) opens zips; the GNU tar a Git-bash shell finds first does not
+const winTar = plat === 'win' && process.env.SystemRoot ? path.join(process.env.SystemRoot, 'System32', 'tar.exe') : null;
+execFileSync(winTar && fs.existsSync(winTar) ? winTar : 'tar', ['-xf', file], { cwd: tmp });
 const dir = path.join(tmp, file.replace(/\.(zip|tar\.xz|tar\.gz)$/, ''));
 const nodeBin = plat === 'win' ? path.join(dir, 'node.exe') : path.join(dir, 'bin', 'node');
 cp(nodeBin, path.join(app, 'node', plat === 'win' ? 'node.exe' : 'node'));

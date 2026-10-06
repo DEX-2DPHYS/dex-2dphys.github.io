@@ -16,11 +16,18 @@ endif()
 
 add_executable(ebw-core core-main.cpp mc.cpp sr.cpp pec.cpp koh.cpp)
 
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-  target_link_libraries(ebw-core PRIVATE OpenMP::OpenMP_CXX)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # a fully static binary: -fopenmp with -static makes gcc take libgomp.a (CMake's OpenMP target links
+  # libgomp.so by path, which a static link refuses)
+  target_compile_options(ebw-core PRIVATE -fopenmp)
+  target_link_options(ebw-core PRIVATE -fopenmp -static)
 else()
-  message(WARNING "OpenMP not found: ebw-core will run on one thread")
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+    target_link_libraries(ebw-core PRIVATE OpenMP::OpenMP_CXX)
+  else()
+    message(WARNING "OpenMP not found: ebw-core will run on one thread")
+  endif()
 endif()
 
 if(MSVC)
@@ -28,9 +35,7 @@ if(MSVC)
   set_property(TARGET ebw-core PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")   # no VC++ redistributable needed
 else()
   target_compile_options(ebw-core PRIVATE -O3 -fno-fast-math -ffp-contract=off)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_options(ebw-core PRIVATE -static)                               # runs on any x64 Linux
-  elseif(MINGW)
+  if(MINGW)
     target_link_options(ebw-core PRIVATE -static -static-libgcc -static-libstdc++)
   endif()
 endif()
