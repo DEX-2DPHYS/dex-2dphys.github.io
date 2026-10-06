@@ -7,7 +7,7 @@
 //   page -> core  {t:"req", id, type, ...payload}          (exposure-worker protocol verbatim)
 //                 {t:"project", version, project}           (sent before the first native request)
 //   core -> page  {t:"res", id, ok, result, bin:[{key,offset,count,type?}]} | {t:"res", id, ok:false, error}
-//                 (offset in 4-byte words from the start of the data; type "f64" or "i32", default float32)
+//                 (offset in 4-byte words from the start of the data; type "f64", "i32" or "u8", default float32)
 //                 {t:"progress", id, p}
 // Binary parts travel as the DSW "frame": the host prefixes DXF1 + w + h; our bytes are
 //   "EBW1" u32le id, then Float32 data. The page asks for a frame ("f") only when a res
@@ -20,6 +20,7 @@
 #include "mc.h"
 #include "sr.h"
 #include "pec.h"
+#include "koh.h"
 #include "ompcompat.h"
 
 #include <cstring>
@@ -31,9 +32,9 @@ using json = nlohmann_lmp::json;
 
 namespace {
 
-const char *CORE_VERSION = "0.4";
+const char *CORE_VERSION = "0.5";
 
-json supportsList() { return json::array({"echo", "mcInit", "mcBatches", "srRows", "pecSolve"}); }
+json supportsList() { return json::array({"echo", "mcInit", "mcBatches", "srRows", "pecSolve", "kohEtch"}); }
 json limitsObj() { return {{"threads", std::max(1, omp_get_num_procs() - 1)}}; }
 
 struct Instance {
@@ -80,6 +81,36 @@ template <class T> Part part(const std::string &key, const std::string &type, co
     Part p{key, type, std::vector<uint8_t>(v.size() * sizeof(T)), v.size()};
     if (!v.empty()) memcpy(p.bytes.data(), v.data(), p.bytes.size());
     return p;
+}
+
+// Base64 (RFC 4648) to bytes: the page sends large typed arrays this way (koh.js kohPayload).
+std::vector<uint8_t> b64decode(const std::string &in) {
+    static int8_t T[256];
+    static bool init = false;
+    if (!init) {
+        for (int i = 0; i < 256; i++) T[i] = -1;
+        const char *a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        for (int i = 0; i < 64; i++) T[(uint8_t)a[i]] = (int8_t)i;
+        init = true;
+    }
+    std::vector<uint8_t> out;
+    out.reserve(in.size() * 3 / 4);
+    uint32_t acc = 0; int bits = 0;
+    for (unsigned char c : in) {
+        if (c == '=') break;
+        const int v = T[c];
+        if (v < 0) continue;
+        acc = (acc << 6) | (uint32_t)v; bits += 6;
+        if (bits >= 8) { bits -= 8; out.push_back((uint8_t)((acc >> bits) & 0xFF)); }
+    }
+    return out;
+}
+template <class T> std::vector<T> b64typed(const std::string &in, size_t expect, const char *what) {
+    std::vector<uint8_t> b = b64decode(in);
+    if (b.size() != expect * sizeof(T)) throw std::runtime_error(std::string("kohEtch: ") + what + " has the wrong size");
+    std::vector<T> v(expect);
+    if (expect) memcpy(v.data(), b.data(), b.size());
+    return v;
 }
 
 }  // namespace
@@ -153,6 +184,30 @@ void handleRequest(Instance *I, const json &m) {
             parts.push_back(part("gotQ", "f64", R.gotQ)); parts.push_back(part("history", "f64", R.history));
             queueParts(I, id, parts, bin);
             say(I, {{"t", "res"}, {"id", id}, {"ok", true}, {"result", {{"it", R.it}, {"err", R.err}, {"lo", R.lo}, {"hi", R.hi}, {"threads", threads}}}, {"bin", bin}});
+            return;
+        }
+        if (type == "kohEtch") {
+            // the KOH level set (koh.h): the page sends the material codes, the rate and slope
+            // tables and the wafer axes; the etched mask goes back as bytes
+            koh::Input in;
+            in.W = m.at("W").get<int>(); in.H = m.at("H").get<int>(); in.D = m.at("D").get<int>();
+            if (in.W <= 0 || in.H <= 0 || in.D <= 0) throw std::runtime_error("kohEtch: empty grid");
+            in.hx = m.at("hx").get<double>(); in.hy = m.at("hy").get<double>(); in.hz = m.at("hz").get<double>();
+            in.timeS = m.at("timeS").get<double>(); in.coarseNm = m.at("coarseNm").get<double>();
+            const json &r = m.at("rates");
+            in.ratePoly = r.at("poly").get<double>(); in.rateOx = r.at("ox").get<double>(); in.rateAl = r.at("al").get<double>();
+            for (int q = 0; q < 3; q++) { in.bx[q] = m.at("bx").at(q).get<double>(); in.bz[q] = m.at("bz").at(q).get<double>(); in.bu[q] = m.at("bu").at(q).get<double>(); }
+            in.lutN = m.at("lutN").get<int>();
+            const size_t L = (size_t)(in.lutN + 1) * (in.lutN + 1), NF = (size_t)in.W * in.H * in.D;
+            in.lut = b64typed<float>(m.at("lut").get<std::string>(), L, "lut");
+            in.slut = b64typed<float>(m.at("slut").get<std::string>(), L, "slut");
+            in.codes = b64typed<uint8_t>(m.at("codes").get<std::string>(), NF, "codes");
+            const int threads = std::max(1, omp_get_num_procs() - 1);
+            koh::Output o = koh::etch(in, threads);
+            std::vector<Part> parts; json bin;
+            parts.push_back(part("mask", "u8", o.mask));
+            queueParts(I, id, parts, bin);
+            say(I, {{"t", "res"}, {"id", id}, {"ok", true}, {"result", {{"steps", o.steps}, {"threads", threads}}}, {"bin", bin}});
             return;
         }
         say(I, {{"t", "res"}, {"id", id}, {"ok", false}, {"error", "unsupported request " + type}});

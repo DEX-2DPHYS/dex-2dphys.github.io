@@ -56,6 +56,7 @@
     "graphene-bandstructure",
     "graphene-phonons",
     "landau",
+    "ebl-workbench",
     "ebl",
     "pattern-transfer",
     "graphene-square-stack",

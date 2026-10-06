@@ -79,8 +79,13 @@ dsw_add_plugin(superlubricity)
 
 # 2026-10: the rest of the current set. 2DMD is built WITHOUT LAMMPS here (its fast built-in
 # engine only; the LAMMPS engine is a local build, see the bundle README); EBL Workbench's core is
-# four sources (Monte Carlo, short range, solve).
+# five sources (Monte Carlo, short range, solve, KOH etch).
 dsw_add_plugin(2dmd)
 dsw_add_plugin(klein-magnetometer)
 dsw_add_plugin(transim)
-dsw_add_plugin(ebl-workbench mc.cpp sr.cpp pec.cpp)
+dsw_add_plugin(ebl-workbench mc.cpp sr.cpp pec.cpp koh.cpp)
+# EBL Workbench's core reproduces the page's JavaScript to the bit (its KOH and solve gates compare
+# voxels and doses): no FMA contraction, which rounds differently from JavaScript.
+if(NOT MSVC)
+  target_compile_options(plugin_ebl-workbench PRIVATE -ffp-contract=off)
+endif()

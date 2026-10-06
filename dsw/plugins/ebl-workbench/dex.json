@@ -1,6 +1,6 @@
 {
   "name": "EBL Workbench",
-  "description": "Electron-beam lithography from layout to resist profile: Pattern Studio, PSF and Monte Carlo, exposure and proximity correction, Fab Studio. The same page as the standalone HTML, with the heavy computation moved into a native multithreaded core as it is ported.",
+  "description": "Electron-beam lithography from layout to resist profile: Pattern Studio, PSF and Monte Carlo, exposure and proximity correction, Fab Studio with crystal-plane KOH etching. The same page as the standalone HTML, with the heavy computation in a native multithreaded core.",
   "accent": "#1f6f5c",
-  "version": "0.1"
+  "version": "0.2"
 }
