@@ -139,7 +139,9 @@ jobs:
           cp -R repo/ebl-workbench/tutorial/videos "$s/tutorial/videos"
           printf '%s\r\n' "EBL Workbench - electron-beam lithography from layout to resist profile" "" \
             "Open 'EBL Workbench.html' in Chrome, Edge or Firefox (double-click it). Nothing to install." \
-            "Keep the 'tutorial' folder next to it: the tutorial videos play from there." \
+            "Keep the 'tutorial' folder next to it: the tutorial videos (AI-generated) play from there." \
+            "" "Free to use for students and staff at DTU. Users outside DTU: please ask for permission" \
+            "first, at pbog@dtu.dk." \
             "" "For real e-beam work there is EBL Workbench Pro (Windows, macOS, Linux), with a native core:" \
             "https://dex-2dphys.github.io/ebl-workbench/" > "$s/README.txt"
           (cd html && zip -qr "$GITHUB_WORKSPACE/dist/EBL-Workbench-HTML.zip" "EBL Workbench")
@@ -157,5 +159,10 @@ jobs:
             - Windows: double-click `Start EBL Workbench Pro.cmd`
             - macOS (Apple Silicon): `xattr -dr com.apple.quarantine "EBL Workbench Pro"` once, then double-click `Start EBL Workbench Pro.command`
             - Linux (x64): `./start-ebl-workbench-pro.sh`
-            Each package passed its smoke test on its own platform before publishing.
+
+            Please note: the macOS and Linux versions have not yet been tested by real users. Feedback is welcome at pbog@dtu.dk.
+
             EBL-Workbench-HTML.zip is the browser version for offline use (teaching, demo patterns): unzip and double-click `EBL Workbench.html`. It also runs online: https://dex-2dphys.github.io/ebl-workbench/
+
+            The tutorial videos are AI-generated.
+            Free to use for students and staff at DTU. Users outside DTU: please ask for permission first, at pbog@dtu.dk.

@@ -76,6 +76,10 @@ Nothing is installed and nothing leaves the computer: the backend listens on 127
 Projects are saved with Save / Save as... (downloads folder) and opened with Open...
 Included: Node.js ${ver} (app/node, MIT licence, LICENSE beside it) to run the backend.
 Check the package on this computer: app/node/node${plat === 'win' ? '.exe' : ''} app/tools/smoke.mjs
+${plat === 'win' ? '' : '\nPlease note: the macOS and Linux versions have not yet been tested by real users. Feedback is\nwelcome at pbog@dtu.dk.\n'}
+The tutorial videos (the T buttons) are AI-generated.
+Free to use for students and staff at DTU. Users outside DTU: please ask for permission first, at
+pbog@dtu.dk. More: https://dex-2dphys.github.io/ebl-workbench/
 `.replace(/\n/g, plat === 'win' ? '\r\n' : '\n'));
 let n = 0, bytes = 0; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else { n++; bytes += fs.statSync(p).size; } } }; walk(pkg);
 console.log(`assembled ${pkg}: ${n} files, ${(bytes / 2 ** 20).toFixed(0)} MB, Node ${ver} (${file})`);
