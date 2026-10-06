@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EBL Workbench · DEX, 2DPHYS, DTU</title>
+  <meta name="description" content="EBL Workbench: electron-beam lithography from layout to resist profile — Pattern Studio with GDSII, PSF models and Monte Carlo, exposure and proximity correction, Fab Studio with crystal-plane KOH etching. In the browser, or as EBL Workbench Pro for Windows, macOS and Linux." />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23990000'/><text x='50' y='68' font-size='52' font-family='Arial,sans-serif' font-weight='700' text-anchor='middle' fill='white'>D</text></svg>" />
+  <style>
+    :root { --red:#990000; --bg:#ffffff; --bg-soft:#f5f5f4; --card:#ffffff; --border:#e5e3e0; --text:#1b1a19; --text-soft:#5c5955; --code:#f0efed; --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --red:#ff5a5f; --bg:#131211; --bg-soft:#1b1a18; --card:#1e1c1a; --border:#322f2c; --text:#f3f1ee; --text-soft:#a8a39d; --code:#23211f; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.4); } }
+    :root[data-theme="dark"] { --red:#ff5a5f; --bg:#131211; --bg-soft:#1b1a18; --card:#1e1c1a; --border:#322f2c; --text:#f3f1ee; --text-soft:#a8a39d; --code:#23211f; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.4); }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    a { color: inherit; }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; max-width: 1040px; margin: 0 auto; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--red); color: #fff; display: grid; place-items: center; font-weight: 700; }
+    .brand-name { font-weight: 700; } .brand-sub { font-size: 12px; color: var(--text-soft); }
+    .nav a.link { text-decoration: none; color: var(--text-soft); font-size: 14px; margin-left: 14px; }
+    .nav a.link.here { color: var(--text); font-weight: 600; }
+    header { padding: 28px 0 8px; }
+    h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; margin: 0 0 10px; letter-spacing: -.01em; }
+    .lead { color: var(--text-soft); font-size: 17px; max-width: 780px; margin: 0; }
+    .shot { margin: 22px 0 6px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    .shot img { width: 100%; display: block; }
+    .grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 14px; margin: 24px 0; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+    .opt { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); }
+    .opt h2 { font-size: 19px; margin: 0 0 6px; } .opt p { color: var(--text-soft); font-size: 14px; margin: 0 0 12px; }
+    .pro-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: #c0122b; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .04em; vertical-align: middle; }
+    .btn { display: inline-block; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); text-decoration: none; font-weight: 600; font-size: 14px; margin: 0 6px 6px 0; }
+    .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+    .os { margin: 10px 0 0; font-size: 13.5px; color: var(--text-soft); }
+    .os b { color: var(--text); }
+    code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+    section h3 { font-size: 17px; margin: 26px 0 6px; }
+    ul { padding-left: 20px; color: var(--text-soft); } li { margin: 4px 0; }
+    table { border-collapse: collapse; font-size: 14px; color: var(--text-soft); margin: 6px 0; }
+    td, th { border-bottom: 1px solid var(--border); padding: 5px 10px 5px 0; text-align: left; } th { color: var(--text); }
+    footer { border-top: 1px solid var(--border); margin-top: 32px; padding: 18px 0 30px; color: var(--text-soft); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a class="brand" href="../" aria-label="DEX home"><div class="brand-mark">D</div><div><div class="brand-name">DEX · EBL Workbench</div><div class="brand-sub">2DPHYS, DTU</div></div></a>
+    <div><a class="link" href="../">Tools</a><a class="link here" href="./">EBL Workbench</a><a class="link" href="../dsw/">DSW</a><a class="link" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io" target="_blank" rel="noopener">GitHub →</a></div>
+  </div>
+  <main class="wrap">
+    <header>
+      <h1>EBL Workbench</h1>
+      <p class="lead">Electron-beam lithography from layout to resist profile: draw or import a pattern (GDSII), choose or simulate the point-spread function with a Monte Carlo, expose and correct for proximity effects, then process the sample in Fab Studio — resist, development, lift-off, RIE and crystal-plane KOH etching.</p>
+    </header>
+    <div class="shot"><img src="../assets/tool-previews/ebl-workbench.png" alt="EBL Workbench: the delivered dose map and the dose profile along a cut-line" loading="lazy" /></div>
+
+    <div class="grid">
+      <div class="opt">
+        <h2>EBL Workbench</h2>
+        <p>The whole Workbench in your browser — Chrome, Edge or Firefox, on any computer. Nothing to install; it runs on your machine, and the tutorial videos stream from this site. For teaching, exercises and the demo patterns.</p>
+        <a class="btn primary" href="app.html">Open in the browser</a>
+        <a class="btn" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-HTML.zip">Download for offline use</a>
+        <p class="os" style="margin-top:6px">The download is the same page as one HTML file, with its tutorial videos (about 90 MB): unzip and double-click <i>EBL Workbench.html</i>.</p>
+      </div>
+      <div class="opt">
+        <h2>EBL Workbench <span class="pro-tag">PRO</span></h2>
+        <p>The same Workbench for real e-beam work. Monte Carlo, the proximity-correction solve and KOH etching run in a native multithreaded core on all processor cores, and whole-chip corrections use the computer's memory instead of a browser tab's — a full chip in minutes. Self-contained: unzip and start, nothing to install. Results are the same as in the browser version.</p>
+        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-Pro-windows-x64.zip">Windows</a>
+        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-Pro-macos-arm64.zip">macOS (Apple Silicon)</a>
+        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-Pro-linux-x64.zip">Linux (x64)</a>
+        <div class="os"><b>Windows:</b> double-click <i>Start EBL Workbench Pro.cmd</i>. The first time Windows may warn about an unrecognised app: <i>More info → Run anyway</i>.</div>
+        <div class="os"><b>macOS:</b> once, in Terminal: <code>xattr -dr com.apple.quarantine "EBL Workbench Pro"</code> (the package is not notarised), then double-click <i>Start EBL Workbench Pro.command</i>.</div>
+        <div class="os"><b>Linux:</b> <code>./start-ebl-workbench-pro.sh</code> in the unzipped folder.</div>
+        <div class="os">A small window stays open while you work (closing it stops the Workbench), and the Workbench opens in your browser, marked <span class="pro-tag" style="font-size:10px">PRO</span>. Nothing leaves the computer: the backend listens on this machine only.</div>
+      </div>
+    </div>
+
+    <section>
+      <h3>Which one?</h3>
+      <table>
+        <tr><th></th><th>EBL Workbench</th><th>EBL Workbench Pro</th></tr>
+        <tr><td>Runs</td><td>in any browser</td><td>Windows, macOS (Apple Silicon), Linux (x64)</td></tr>
+        <tr><td>Monte Carlo, correction, KOH</td><td>JavaScript, in the page</td><td>native core, all processor cores (several times faster)</td></tr>
+        <tr><td>Largest correction</td><td>about 2 million control points</td><td>whole chips — limited by the computer's memory</td></tr>
+        <tr><td>Use it for</td><td>teaching, exercises, demo patterns</td><td>real e-beam layouts</td></tr>
+      </table>
+      <h3>What is in it</h3>
+      <ul>
+        <li><b>Pattern Studio</b> — draw shapes, arrays and dose ramps; import and export GDSII (with dose tables for corrected files).</li>
+        <li><b>PSF</b> — double/triple Gaussian and exponential models, or a built-in Monte Carlo of electron scattering in resist and substrate.</li>
+        <li><b>Exposure</b> — delivered dose maps and cut-lines; per-shape, raster and fractured proximity correction.</li>
+        <li><b>Fab Studio</b> — spin, expose, develop, deposit, lift-off, RIE, isotropic and KOH etching on a voxel sample in 2D or 3D; KOH follows the crystal planes of the wafer.</li>
+        <li>Tutorial videos for each tab, under the <b>T</b> buttons.</li>
+      </ul>
+      <p class="os">All versions and their release notes: <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/tag/pro-v1.0">release pro-v1.0</a>.</p>
+    </section>
+    <footer>DEX — digital experiments from the 2DPHYS group at DTU · <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></footer>
+  </main>
+  <script>
+    // the site's theme choice, if one is stored (the main page's toggle)
+    try { const t = localStorage.getItem('dex-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</body>
+</html>

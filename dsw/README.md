@@ -98,13 +98,11 @@ below), and the research and teaching set the workstation exists for:
 | `superlubricity` | Structural Superlubricity: the van der Waals energy of a real atomistic flake on graphene, summed pair by pair with a Hamaker tail; relax, sweep the twist, slide the flake, and run lateral MD to watch the moiré reconstruct. |
 | `klein-magnetometer` | Klein Magnetometer Workbench: a many-junction graphene Klein-collimation magnetometer — exact Dirac-equation junction transmission, cyclotron ray tracing, Monte-Carlo and flux engines, thermal averaging, noise-limited field resolution and a coherent Fabry–Pérot sidebar. |
 | `transim` | Graphene Transport Explorer: hybrid FEM and semiclassical ballistic transport in graphene devices — Hall and four-probe measurements, adaptive trajectories, editable contacts, density/mobility maps, magnetic focusing, parameter sweeps. |
-| `ebl-workbench` | EBL Workbench: electron-beam lithography from layout to resist profile — Pattern Studio, PSF and Monte Carlo, exposure and proximity correction, Fab Studio. The page is the standalone HTML; the native core runs the Monte Carlo and the proximity correction on every core. |
 
 <p>
   <img src="docs/wave-tank.png" alt="Wave Tank: double-slit interference" width="49%">
   <img src="docs/gray-scott.png" alt="Gray–Scott reaction–diffusion" width="49%">
   <img src="docs/2dmd.png" alt="2DMD: a layered 2D-material flake on its substrate" width="49%">
-  <img src="docs/ebl-workbench.png" alt="EBL Workbench: delivered dose and the profile along a cut-line" width="49%">
 </p>
 
 ## Downloads & installing a plugin
@@ -215,9 +213,9 @@ Message vocabulary is entirely yours — the host just relays JSON.
 The shipped plugins are meant as templates — `wave-tank` for
 click-interaction and mode switches, `gray-scott` for parameter sweeps and
 brushes, `2dmd` for the case where the browser owns the rendering and the core
-streams it packed geometry over the frame channel instead of pixels, and
-`ebl-workbench` for a core that answers requests (JSON in, typed binary
-results out) instead of drawing at all.
+streams it packed geometry over the frame channel instead of pixels. (The EBL
+Workbench, once the example of a core that answers requests instead of drawing,
+is a standalone program now: see ../ebl-workbench/ and ../pro/.)
 
 ## Protocol (for the curious)
 

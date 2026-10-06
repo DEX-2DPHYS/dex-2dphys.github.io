@@ -4,9 +4,10 @@
 # with its own Node (pro/tools/smoke.mjs: the backend and core answer; a correction, KOH and the Monte
 # Carlo agree with the page's JavaScript) before anything is published.
 #
-# A push to main that touches pro/ builds and tests. A pro-v* tag (or a manual run with a version)
-# also publishes the three zips as a Release — NOT marked latest, so the DSW and EBL Workbench pages'
-# releases/latest/download/... links keep pointing at the DSW release.
+# A push to main that touches pro/ or ebl-workbench/ builds and tests. A pro-v* tag (or a manual run
+# with a version) also publishes the three zips, plus EBL-Workbench-HTML.zip (the browser version for
+# offline use: ebl-workbench/app.html and its videos), as a Release — NOT marked latest, so the DSW
+# page's releases/latest/download/... links keep pointing at the DSW release.
 
 name: EBL Workbench Pro
 
@@ -20,7 +21,7 @@ on:
   push:
     tags: ['pro-v*']
     branches: [main]
-    paths: ['pro/**', '.github/workflows/pro-release.yml']
+    paths: ['pro/**', 'ebl-workbench/**', '.github/workflows/pro-release.yml']
 
 permissions:
   contents: write
@@ -105,6 +106,11 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/pro-v') || inputs.version != ''
     runs-on: ubuntu-latest
     steps:
+      # the repository in its own folder, for the HTML version's page and videos
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+
       - uses: actions/download-artifact@v4
         with:
           path: art
@@ -122,11 +128,28 @@ jobs:
           done
           ls -lh dist
 
+      # the HTML version for offline use: one page that runs from file:// in any browser, its videos beside it
+      - name: Zip the HTML version
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="html/EBL Workbench"
+          mkdir -p "$s/tutorial"
+          cp repo/ebl-workbench/app.html "$s/EBL Workbench.html"
+          cp -R repo/ebl-workbench/tutorial/videos "$s/tutorial/videos"
+          printf '%s\r\n' "EBL Workbench - electron-beam lithography from layout to resist profile" "" \
+            "Open 'EBL Workbench.html' in Chrome, Edge or Firefox (double-click it). Nothing to install." \
+            "Keep the 'tutorial' folder next to it: the tutorial videos play from there." \
+            "" "For real e-beam work there is EBL Workbench Pro (Windows, macOS, Linux), with a native core:" \
+            "https://dex-2dphys.github.io/ebl-workbench/" > "$s/README.txt"
+          (cd html && zip -qr "$GITHUB_WORKSPACE/dist/EBL-Workbench-HTML.zip" "EBL Workbench")
+          ls -lh dist/EBL-Workbench-HTML.zip
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.version || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          name: EBL Workbench Pro ${{ inputs.version || github.ref_name }}
+          name: EBL Workbench ${{ inputs.version || github.ref_name }}
           make_latest: 'false'
           files: dist/*.zip
           body: |
@@ -134,4 +157,5 @@ jobs:
             - Windows: double-click `Start EBL Workbench Pro.cmd`
             - macOS (Apple Silicon): `xattr -dr com.apple.quarantine "EBL Workbench Pro"` once, then double-click `Start EBL Workbench Pro.command`
             - Linux (x64): `./start-ebl-workbench-pro.sh`
-            Each package passed its smoke test on its own platform before publishing. The HTML version and the DSW plugin are on https://dex-2dphys.github.io/tools/ebl-workbench/
+            Each package passed its smoke test on its own platform before publishing.
+            EBL-Workbench-HTML.zip is the browser version for offline use (teaching, demo patterns): unzip and double-click `EBL Workbench.html`. It also runs online: https://dex-2dphys.github.io/ebl-workbench/

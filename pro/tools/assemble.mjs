@@ -18,12 +18,12 @@ const CORE = arg('--core'), OUT = arg('--out'), LIBOMP = arg('--libomp');
 if (!CORE || !OUT) { console.error('usage: node pro/tools/assemble.mjs --core <ebw-core> --out <dir> [--libomp <dylib>]'); process.exit(2); }
 const plat = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'darwin' : 'linux';
 const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-const PRO = path.resolve('pro'), UI = path.resolve('dsw/plugins/ebl-workbench/ui');
+const PRO = path.resolve('pro'), UI = path.resolve('ebl-workbench');
 const pkg = path.join(path.resolve(OUT), 'EBL Workbench Pro'), app = path.join(pkg, 'app');
 const cp = (a, b) => { fs.mkdirSync(path.dirname(b), { recursive: true }); fs.cpSync(a, b, { recursive: true }); };
 
 fs.rmSync(pkg, { recursive: true, force: true });
-cp(path.join(UI, 'standalone.html'), path.join(pkg, 'EBL Workbench.html'));
+cp(path.join(UI, 'app.html'), path.join(pkg, 'EBL Workbench.html'));
 cp(path.join(UI, 'tutorial', 'videos'), path.join(pkg, 'tutorial', 'videos'));
 for (const f of fs.readdirSync(path.join(PRO, 'desktop'))) if (f.endsWith('.mjs')) cp(path.join(PRO, 'desktop', f), path.join(app, 'desktop', f));
 const exe = plat === 'win' ? 'ebw-core.exe' : 'ebw-core';
