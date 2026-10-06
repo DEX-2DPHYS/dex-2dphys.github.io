@@ -35,11 +35,15 @@
     .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
     .os { margin: 10px 0 0; font-size: 13.5px; color: var(--text-soft); }
     .os b { color: var(--text); }
-    code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+    .grid > * { min-width: 0; } .tw { overflow-x: auto; max-width: 100%; }
+    code { overflow-wrap: anywhere; background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
     section h3 { font-size: 17px; margin: 26px 0 6px; }
     ul { padding-left: 20px; color: var(--text-soft); } li { margin: 4px 0; }
     table { border-collapse: collapse; font-size: 14px; color: var(--text-soft); margin: 6px 0; }
     td, th { border-bottom: 1px solid var(--border); padding: 5px 10px 5px 0; text-align: left; } th { color: var(--text); }
+    .intro { margin: 22px 0 0; max-width: 820px; } .intro p, p.body { font-size: 15.5px; margin: 0 0 12px; max-width: 820px; }
+    .note, .os.warn { background: var(--bg-soft); border-left: 3px solid var(--red); padding: 9px 12px; border-radius: 0 8px 8px 0; }
+    .note { font-size: 14.5px !important; color: var(--text-soft); }
     footer { border-top: 1px solid var(--border); margin-top: 32px; padding: 18px 0 30px; color: var(--text-soft); font-size: 13px; }
   </style>
 </head>
@@ -55,10 +59,16 @@
     </header>
     <div class="shot"><img src="../assets/tool-previews/ebl-workbench.png" alt="EBL Workbench: the delivered dose map and the dose profile along a cut-line" loading="lazy" /></div>
 
+    <section class="intro">
+      <p>The EBL Workbench follows a pattern through the whole electron-beam lithography process, from the layout you draw to the structure left on the wafer. It shows why a pattern comes out the way it does: the electrons scatter in the resist and the substrate, the dose spreads into neighbouring shapes, and the result depends on how the resist is developed and how the sample is etched. You can change a parameter and see its effect straight away.</p>
+      <p>The aim is a complete set of tools for <b>teaching and learning</b>, for <b>self-study and experimentation</b>, and for <b>serious pattern design, testing and preparation</b>: checking a layout, finding a dose, correcting for proximity effects and exporting the corrected pattern as GDSII. Modules that prepare write files for some e-beam writers are planned.</p>
+      <p class="note"><b>The tutorial videos are AI-generated.</b> There is one for each tab, under the <b>T</b> buttons, and they are a quick way to get started. They may contain small mistakes or show an earlier version of a screen, so trust the Workbench itself where the two differ.</p>
+    </section>
+
     <div class="grid">
       <div class="opt">
         <h2>EBL Workbench</h2>
-        <p>The whole Workbench in your browser — Chrome, Edge or Firefox, on any computer. Nothing to install; it runs on your machine, and the tutorial videos stream from this site. For teaching, exercises and the demo patterns.</p>
+        <p>The whole Workbench in your browser — Chrome, Edge or Firefox, on any computer. Nothing to install; it runs on your machine, and the (AI-generated) tutorial videos stream from this site. For teaching, exercises and the demo patterns.</p>
         <a class="btn primary" href="app.html">Open in the browser</a>
         <a class="btn" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-HTML.zip">Download for offline use</a>
         <p class="os" style="margin-top:6px">The download is the same page as one HTML file, with its tutorial videos (about 90 MB): unzip and double-click <i>EBL Workbench.html</i>.</p>
@@ -72,30 +82,35 @@
         <div class="os"><b>Windows:</b> double-click <i>Start EBL Workbench Pro.cmd</i>. The first time Windows may warn about an unrecognised app: <i>More info → Run anyway</i>.</div>
         <div class="os"><b>macOS:</b> once, in Terminal: <code>xattr -dr com.apple.quarantine "EBL Workbench Pro"</code> (the package is not notarised), then double-click <i>Start EBL Workbench Pro.command</i>.</div>
         <div class="os"><b>Linux:</b> <code>./start-ebl-workbench-pro.sh</code> in the unzipped folder.</div>
+        <div class="os warn"><b>Please note:</b> the macOS and Linux versions have not yet been tested by real users. If you try one, tell us how it went (pbog@dtu.dk), whether or not it worked.</div>
         <div class="os">A small window stays open while you work (closing it stops the Workbench), and the Workbench opens in your browser, marked <span class="pro-tag" style="font-size:10px">PRO</span>. Nothing leaves the computer: the backend listens on this machine only.</div>
       </div>
     </div>
 
     <section>
       <h3>Which one?</h3>
-      <table>
+      <div class="tw"><table>
         <tr><th></th><th>EBL Workbench</th><th>EBL Workbench Pro</th></tr>
         <tr><td>Runs</td><td>in any browser</td><td>Windows, macOS (Apple Silicon), Linux (x64)</td></tr>
         <tr><td>Monte Carlo, correction, KOH</td><td>JavaScript, in the page</td><td>native core, all processor cores (several times faster)</td></tr>
         <tr><td>Largest correction</td><td>about 2 million control points</td><td>whole chips — limited by the computer's memory</td></tr>
         <tr><td>Use it for</td><td>teaching, exercises, demo patterns</td><td>real e-beam layouts</td></tr>
-      </table>
+      </table></div>
       <h3>What is in it</h3>
       <ul>
         <li><b>Pattern Studio</b> — draw shapes, arrays and dose ramps; import and export GDSII (with dose tables for corrected files).</li>
         <li><b>PSF</b> — double/triple Gaussian and exponential models, or a built-in Monte Carlo of electron scattering in resist and substrate.</li>
         <li><b>Exposure</b> — delivered dose maps and cut-lines; per-shape, raster and fractured proximity correction.</li>
         <li><b>Fab Studio</b> — spin, expose, develop, deposit, lift-off, RIE, isotropic and KOH etching on a voxel sample in 2D or 3D; KOH follows the crystal planes of the wafer.</li>
-        <li>Tutorial videos for each tab, under the <b>T</b> buttons.</li>
+        <li>AI-generated tutorial videos for each tab, under the <b>T</b> buttons.</li>
       </ul>
-      <p class="os">All versions and their release notes: <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/tag/pro-v1.0">release pro-v1.0</a>.</p>
+      <h3>About</h3>
+      <p class="body">The EBL Workbench was programmed by Claude Code (Anthropic's AI coding assistant). It is based on a series of visualisation and simulation programs that Peter Bøggild at 2DPHYS, Department of Physics, Technical University of Denmark (DTU), developed over 20 years of teaching electron-beam lithography.</p>
+      <h3>Terms of use</h3>
+      <p class="body">The EBL Workbench is free to use for students and staff at DTU. Users outside DTU must ask for permission first, by writing to Peter Bøggild at <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a>. Questions, bug reports and suggestions are welcome at the same address.</p>
+      <p class="os">All downloads: <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/tag/pro-v1.0">release pro-v1.0</a>.</p>
     </section>
-    <footer>DEX — digital experiments from the 2DPHYS group at DTU · <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></footer>
+    <footer>DEX — digital experiments from the 2DPHYS group, Department of Physics, DTU · Free for DTU users; others ask <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a> · <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></footer>
   </main>
   <script>
     // the site's theme choice, if one is stored (the main page's toggle)
