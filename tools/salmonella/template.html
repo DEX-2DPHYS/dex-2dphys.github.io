@@ -15,6 +15,9 @@
   #edge::after{content:"";position:absolute;right:5px;top:50%;width:4px;height:56px;margin-top:-28px;border-radius:2px;background:rgba(40,52,64,.18);transition:background .2s}
   #edge:hover::after{background:rgba(40,52,64,.45)}
   html.dark #edge::after{background:rgba(220,230,240,.18)}
+  /* inside the presenter the edge belongs to its slide-change triangle; the "Control panel" tab opens the panel */
+  html.framed #edge::after{display:none}
+  html.clean #edge,html.clean .dh-keys,html.clean .dh-tab{display:none!important}
   #panel{position:fixed;top:0;right:0;height:100%;width:300px;box-sizing:border-box;padding:18px 18px 24px;overflow-y:auto;z-index:10;
     background:rgba(18,24,32,.86);color:#e7edf3;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
     border-left:1px solid rgba(255,255,255,.08);box-shadow:-12px 0 40px rgba(0,0,0,.25);
@@ -39,10 +42,182 @@
   .help ul{margin:0;padding-left:16px;color:#aebbc8;font-size:12px}
   .help li{margin:3px 0}
   .help kbd{font-family:inherit;color:#e7edf3;background:rgba(255,255,255,.1);border-radius:4px;padding:0 5px}
+
+  /* ============================ micro-textbooks ============================ */
+  /* the book symbol beside each preset */
+  .vrow{display:flex;gap:4px;align-items:stretch}
+  .vrow>[data-view]{flex:1;min-width:0}
+  .vinfo{flex:0 0 26px;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+    color:#9fb0c0;border-radius:7px;padding:0;cursor:pointer;transition:all .18s}
+  .vinfo:hover{background:rgba(120,190,255,.22);border-color:rgba(120,190,255,.55);color:#eaf4ff}
+
+  #mt{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .22s ease}
+  /* display:flex above outranks the UA rule for [hidden], so the closed reader would otherwise
+     sit invisibly over the whole canvas and swallow every orbit, zoom and panel hover. */
+  #mt[hidden]{display:none}
+  #mt.on{opacity:1}
+  .mt-scrim{position:absolute;inset:0;background:rgba(8,13,19,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+  .mt-doc{position:relative;width:min(1480px,94vw);height:min(880px,92vh);display:flex;flex-direction:column;
+    background:#fbfcfd;color:#1d2830;border-radius:16px;overflow:hidden;
+    box-shadow:0 30px 90px rgba(0,0,0,.5);transform:translateY(10px) scale(.994);
+    transition:transform .22s cubic-bezier(.4,0,.2,1);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif}
+  #mt.on .mt-doc{transform:none}
+  html.dark .mt-doc{background:#141c25;color:#dbe5ee}
+
+  .mt-head{position:relative;padding:20px 30px 16px;border-bottom:1px solid rgba(0,0,0,.09);
+    background:linear-gradient(180deg,rgba(94,164,214,.12),transparent)}
+  html.dark .mt-head{border-bottom-color:rgba(255,255,255,.1);background:linear-gradient(180deg,rgba(94,164,214,.16),transparent)}
+  .mt-crumb{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:#6d8296;font-weight:600}
+  html.dark .mt-crumb{color:#7f9ab0}
+  .mt-head h1{margin:5px 0 4px;font-size:27px;font-weight:650;letter-spacing:-.01em}
+  .mt-lead{margin:0;max-width:98ch;font-size:14.5px;line-height:1.5;color:#4a5c6b}
+  html.dark .mt-lead{color:#9fb4c6}
+  .mt-x{position:absolute;top:16px;right:18px;width:32px;height:32px;border-radius:50%;
+    border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.7);color:#41525f;
+    font-size:21px;line-height:1;cursor:pointer;transition:all .16s}
+  .mt-x:hover{background:#e8492f;border-color:#e8492f;color:#fff}
+  html.dark .mt-x{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#c3d2df}
+
+  .mt-body{flex:1;min-height:0;display:grid;grid-template-columns:1.32fr .92fr;gap:0}
+  .mt-text{min-height:0;overflow-y:auto;padding:20px 28px 26px 30px;scrollbar-width:thin}
+  .mt-side{min-height:0;overflow-y:auto;padding:20px 28px 26px 22px;
+    background:rgba(94,164,214,.05);border-left:1px solid rgba(0,0,0,.07);scrollbar-width:thin}
+  html.dark .mt-side{background:rgba(255,255,255,.03);border-left-color:rgba(255,255,255,.08)}
+  .mt-text section{margin:0 0 20px}
+  .mt-text h2{font-size:15.5px;font-weight:650;margin:0 0 7px;color:#1b6ea8;letter-spacing:-.005em}
+  html.dark .mt-text h2{color:#79bdec}
+  .mt-text p{margin:0 0 10px;font-size:14.2px;line-height:1.62;max-width:78ch}
+  .mt-text strong{font-weight:650}
+  .mt-text em{font-style:italic}
+
+  /* equations — no maths library, just flexbox */
+  /* A fraction is a two-row inline-flex box; vertical-align:middle puts its bar on the
+     text's own middle, which is what makes it sit level with the rest of the line. */
+  .eq{display:block;margin:15px 0;text-align:center;font-size:16.5px;line-height:1.35;
+    font-family:"Cambria Math",Cambria,"Times New Roman",Georgia,serif}
+  .mt-text .mi,.eq .mi{font-style:italic}
+  .eq .op{margin:0 .3em}
+  .eq .op2{font-style:normal}
+  .eq sub,.eq sup{font-size:.72em}
+  .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;
+    margin:0 .22em;line-height:1.28}
+  .frac>span{padding:0 .36em}
+  .frac>.fr-n{border-bottom:1.2px solid currentColor;padding-bottom:2px}
+  .frac>.fr-d{padding-top:2px}
+
+  /* drug-target box: the point every chapter lands on */
+  .mt-target{border:1px solid rgba(232,110,47,.35);background:rgba(232,140,47,.08);
+    border-radius:11px;padding:13px 16px 4px;margin-top:22px!important}
+  html.dark .mt-target{background:rgba(232,140,47,.1);border-color:rgba(232,140,47,.32)}
+  .mt-target-tag{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:#b5651d;margin-bottom:6px}
+  html.dark .mt-target-tag{color:#eaa860}
+  .mt-target p{font-size:13.6px;max-width:74ch}
+
+  /* figures */
+  .mt-fig{margin:0 0 18px}
+  .mt-fig img,.mt-fig .dia{display:block;width:100%;height:auto;border-radius:9px}
+  .mt-fig img{box-shadow:0 3px 14px rgba(0,0,0,.18)}
+  .mt-fig .dia{background:#fff;border:1px solid rgba(0,0,0,.09)}
+  html.dark .mt-fig .dia{background:#0f1720;border-color:rgba(255,255,255,.1)}
+  .mt-fig figcaption{margin-top:6px;font-size:12.2px;line-height:1.45;color:#5d7183}
+  html.dark .mt-fig figcaption{color:#8ea4b6}
+  .mt-shot{position:relative;width:100%;aspect-ratio:16/9;border-radius:9px;overflow:hidden;
+    background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center}
+  html.dark .mt-shot{background:rgba(255,255,255,.05)}
+  .mt-shot-wait,.anno-wait{font-size:12px;color:#7b8fa1;letter-spacing:.02em}
+  /* the diagram scales to the column, so label sizes are in viewBox units chosen to land
+     near the caption size once scaled (viewBox is 320 wide, rendered around 540) */
+  .dia .dl{font:600 7px "Segoe UI",system-ui,sans-serif;fill:#33506a}
+  .dia .dls{font:500 6.2px "Segoe UI",system-ui,sans-serif;fill:#5d7183}
+  .dia .dlw{font:700 6.6px "Segoe UI",system-ui,sans-serif;fill:#fff}
+  html.dark .dia .dl{fill:#c3d6e6} html.dark .dia .dls{fill:#8ea4b6}
+
+  /* key numbers */
+  .mt-facts{border:1px solid rgba(0,0,0,.1);border-radius:11px;padding:12px 15px;background:rgba(255,255,255,.65)}
+  html.dark .mt-facts{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+  .mt-facts h3{margin:0 0 8px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:#6d8296;font-weight:700}
+  .mt-facts dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12.6px}
+  .mt-facts dt{color:#5d7183;white-space:nowrap}
+  html.dark .mt-facts dt{color:#8ea4b6}
+  .mt-facts dd{margin:0;font-weight:600}
+
+  /* ---- annotated figure ---- */
+  .mt-explore{margin-bottom:24px!important}
+  .mt-ex-hint{margin:0 0 9px!important;font-size:12.5px!important;color:#6d8296}
+  html.dark .mt-ex-hint{color:#8ea4b6}
+  .anno{position:relative;width:100%;aspect-ratio:16/9;border-radius:11px;overflow:hidden;
+    background:rgba(0,0,0,.06);color:#eaf4ff;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+  html.dark .anno{background:rgba(255,255,255,.05)}
+  .anno-img{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .anno-img img{width:100%;height:100%;object-fit:cover;display:block}
+  .anno-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;
+    color:rgba(255,255,255,.9);filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+  .anno-pin{position:absolute;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.92);background:rgba(20,32,44,.72);color:#fff;
+    font:700 11.5px "Segoe UI",system-ui,sans-serif;cursor:pointer;padding:0;
+    box-shadow:0 2px 8px rgba(0,0,0,.45);transition:all .16s;backdrop-filter:blur(2px)}
+  .anno-pin:hover{background:#5ea4d6;transform:translate(-50%,-50%) scale(1.14)}
+  .anno-pin.on{background:#5ea4d6;border-color:#fff;transform:translate(-50%,-50%) scale(1.18);
+    box-shadow:0 0 0 5px rgba(94,164,214,.32),0 2px 8px rgba(0,0,0,.45)}
+  .anno.picked .anno-pin:not(.on){opacity:.45}
+  .anno-card{position:absolute;width:264px;max-width:46%;padding:11px 13px 12px;border-radius:10px;
+    background:rgba(13,21,30,.93);border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 10px 30px rgba(0,0,0,.5);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+    opacity:0;visibility:hidden;transition:opacity .18s ease,transform .18s ease;pointer-events:none;z-index:3}
+  .anno-card.anno-r{transform:translate(8px,-50%) scale(.98)}
+  .anno-card.anno-l{transform:translate(calc(-100% - 8px),-50%) scale(.98)}
+  .anno-card.on{opacity:1;visibility:visible;pointer-events:auto}
+  .anno-card.anno-r.on{transform:translate(12px,-50%)}
+  .anno-card.anno-l.on{transform:translate(calc(-100% - 12px),-50%)}
+  .anno-card h4{margin:0 0 5px;font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px;color:#fff}
+  .anno-n{flex:0 0 17px;height:17px;border-radius:50%;background:#5ea4d6;color:#06131e;
+    font:700 10.5px "Segoe UI",system-ui,sans-serif;display:flex;align-items:center;justify-content:center}
+  .anno-card p{margin:0;font-size:12.3px;line-height:1.5;color:#c8d8e6}
+  .anno-deeper{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.13);display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+  .anno-deeper-l{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#7f9ab0;font-weight:700}
+  .anno-link{background:none;border:none;padding:1px 0;margin:0;text-align:left;cursor:pointer;
+    font:inherit;font-size:11.6px;line-height:1.35;color:#7fc2f0;text-decoration:underline;text-underline-offset:2px}
+  .anno-link:hover{color:#aeddff}
+
+  /* footer */
+  .mt-foot{border-top:1px solid rgba(0,0,0,.09);padding:11px 30px 13px;display:flex;
+    align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(0,0,0,.02)}
+  html.dark .mt-foot{border-top-color:rgba(255,255,255,.1);background:rgba(255,255,255,.02)}
+  .mt-more{display:flex;gap:7px;flex-wrap:wrap}
+  .mt-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(0,0,0,.14);
+    color:#2b3b47;border-radius:8px;padding:7px 11px;font:inherit;font-size:12.6px;cursor:pointer;transition:all .16s}
+  .mt-btn:hover{border-color:#5ea4d6;color:#12628f;background:#f2f9ff}
+  html.dark .mt-btn{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);color:#cfdeeb}
+  html.dark .mt-btn:hover{background:rgba(94,164,214,.22);border-color:rgba(94,164,214,.55);color:#eaf4ff}
+  .mt-rel{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .mt-rel-l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#6d8296;font-weight:700}
+  .mt-chip{background:rgba(94,164,214,.13);border:1px solid rgba(94,164,214,.32);color:#12628f;
+    border-radius:999px;padding:5px 11px;font:inherit;font-size:12.2px;cursor:pointer;transition:all .16s}
+  .mt-chip:hover{background:rgba(94,164,214,.3);color:#06131e}
+  html.dark .mt-chip{color:#9bd0f5}
+  html.dark .mt-chip:hover{color:#eaf4ff}
+
+  .mt-toast{position:absolute;left:50%;bottom:66px;transform:translateX(-50%);
+    background:rgba(13,21,30,.94);color:#eaf4ff;padding:9px 16px;border-radius:9px;font-size:12.8px;
+    box-shadow:0 8px 26px rgba(0,0,0,.45);z-index:6}
+
+  @media (max-height:740px){
+    .mt-doc{height:96vh}
+    .mt-head{padding:14px 26px 12px}
+    .mt-head h1{font-size:23px}
+    .mt-lead{font-size:13.5px}
+  }
 </style>
 </head>
 <body>
 <div id="stage"></div>
+<script>try{if(window.frameElement)document.documentElement.classList.add("framed");}catch(e){}
+/* ?clean=1: pure illustration (section dividers) - no hints, tab or edge grip */
+if(/[?&]clean=1(&|$)/.test(location.search))document.documentElement.classList.add("clean");</script>
 <div id="edge" title=""></div>
 <aside id="panel">
   <h1>Salmonella enterica</h1>
@@ -98,5 +273,43 @@
   </section>
 </aside>
 <!--BUNDLE-->
+<!--discreet-hints:start-->
+<style>
+:root{--dh-k:1}
+.dh-keys{position:fixed;bottom:calc(6px*var(--dh-k));z-index:2147483000;max-width:calc(100vw - 24px);box-sizing:border-box;
+  padding:calc(2px*var(--dh-k)) calc(8px*var(--dh-k));border-radius:calc(6px*var(--dh-k));
+  font:500 calc(11px*var(--dh-k))/1.4 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  letter-spacing:.01em;color:rgba(71,85,105,.62);text-shadow:0 0 3px rgba(255,255,255,.75);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;cursor:default;
+  transition:color .2s,background .2s}
+.dh-keys:hover{color:rgba(30,41,59,.95);background:rgba(255,255,255,.82);white-space:normal}
+.dh-keys.dh-wrap{white-space:normal;text-align:right}
+.dh-keys b{font-weight:700;color:inherit}
+.dh-keys .dh-sep{opacity:.45;padding:0 .35em}
+.dh-bl{left:calc(8px*var(--dh-k))}.dh-br{right:calc(8px*var(--dh-k))}.dh-bc{left:50%;transform:translateX(-50%)}
+.dh-tab{position:fixed;top:50%;z-index:2147483000;transform:translateY(-50%);padding:calc(5px*var(--dh-k)) calc(9px*var(--dh-k));
+  font:600 calc(11px*var(--dh-k))/1.2 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.04em;
+  color:rgba(51,65,85,.6);background:rgba(255,255,255,.55);border:1px solid rgba(100,116,139,.22);border-radius:calc(7px*var(--dh-k));
+  cursor:pointer;user-select:none;white-space:nowrap;transition:color .2s,background .2s,opacity .25s}
+.dh-tab:hover{color:rgba(15,23,42,.95);background:rgba(255,255,255,.92)}
+.dh-tab.dh-right{right:calc(18px*var(--dh-k))}
+.dh-tab.dh-left{left:calc(18px*var(--dh-k))}
+.dh-tab .dh-arr{font-size:1.3em;line-height:0;position:relative;top:.08em}
+.dh-tab.dh-hide{opacity:0;pointer-events:none}
+</style>
+<div class="dh-keys dh-bl" title="Keys work once the simulation has focus: click it first."><b>drag</b> orbit<span class="dh-sep">·</span><b>right-drag</b> pan<span class="dh-sep">·</span><b>wheel</b> zoom<span class="dh-sep">·</span><b>shift+wheel</b> focus plane<span class="dh-sep">·</span><b>double-click</b> pivot<span class="dh-sep">·</span><b>arrows / WASD</b> fly<span class="dh-sep">·</span><b>1–7</b> views<span class="dh-sep">·</span><b>C</b> cross-section<span class="dh-sep">·</span><b>T</b> tumble<span class="dh-sep">·</span><b>space</b> pause<span class="dh-sep">·</span><b>R</b> overview<span class="dh-sep">·</span><b>P</b> panel<span class="dh-sep">·</span><b>F</b> fullscreen</div>
+<div class="dh-tab dh-right" id="dh-tab0" role="button" tabindex="-1">Control panel <span class="dh-arr">›</span></div>
+<script>(function(){function fit(){var k=1;try{var fe=window.frameElement;if(fe){var w=fe.getBoundingClientRect().width;if(w>0&&innerWidth>0)k=Math.min(5,Math.max(1,innerWidth/w));}}catch(_){}document.documentElement.style.setProperty('--dh-k',k.toFixed(3));}fit();addEventListener('resize',fit);setInterval(fit,1000);})();</script>
+<script>
+(function(){
+  (function(){
+    var tab=document.getElementById('dh-tab0');
+    tab.addEventListener('click',function(e){e.stopPropagation();try{document.getElementById('edge').click();}catch(_){}});
+    function sync(){var open=false;try{open=!!(document.getElementById('panel').classList.contains('open'));}catch(_){}tab.classList.toggle('dh-hide',open);}
+    sync();setInterval(sync,250);
+  })();
+})();
+</script>
+<!--discreet-hints:end-->
 </body>
 </html>
