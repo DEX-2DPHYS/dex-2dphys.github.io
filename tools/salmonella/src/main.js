@@ -14,6 +14,7 @@ import { buildMedium } from './medium.js';
 import { SceneDoFPass } from './dof.js';
 import { vignetteFragGLSL } from './glsl.js';
 import { PAL } from './palette.js';
+import { initPortal } from './portal.js';
 
 const Q = new URLSearchParams(location.search);
 const stage = document.getElementById('stage');
@@ -285,6 +286,98 @@ function toggleFullscreen() {
   if (!document.fullscreenElement) el.requestFullscreen?.().catch(() => {}); else document.exitFullscreen?.();
 }
 
+// ------------------------------------------------------------------ textbook figures
+// The micro-textbooks illustrate themselves from this very scene, so a figure can never
+// show something the model no longer does. A request snaps the camera to the view's own
+// pose, renders one frame, reads the canvas back, and puts everything as it was - all
+// inside a single animation frame, so nothing of it reaches the screen.
+//
+// The pose is exactly the stored view (no damping, no tween), which is what lets the K⁺
+// annotation pins be placed once in percentage coordinates and stay put.
+// Annotation pins are given as points in an object's own coordinates and projected through
+// the capture camera, so a label can never drift off the part it names - if the model or the
+// view pose is edited, the pins follow.
+const anchorObjects = { kchannel: kch.group, porin: porin.group, atp: atp.group };
+
+const figCache = new Map();
+const figQueue = [];
+
+function requestFigure(viewName, opts = {}, cb) {
+  const k = viewName + '|' + JSON.stringify(opts);
+  const hit = figCache.get(k);
+  if (hit) { cb(hit.url, hit.pts); return; }
+  figQueue.push({ k, viewName, opts, cb });
+}
+
+function projectAnchors(a) {
+  const obj = a && anchorObjects[a.obj];
+  if (!obj) return null;
+  obj.updateMatrixWorld(true);
+  const v = new THREE.Vector3();
+  return a.pts.map((p) => {
+    v.set(p[0], p[1], p[2]).applyMatrix4(obj.matrixWorld).project(camera);
+    return { x: (v.x * 0.5 + 0.5) * 100, y: (-v.y * 0.5 + 0.5) * 100 };
+  });
+}
+
+function downscale(src, w) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = Math.round(w * src.height / src.width);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.86);
+}
+
+function serveFigure() {
+  const job = figQueue.shift();
+  const v = views[job.viewName];
+  if (!v) { job.cb(null); return; }
+  const o = job.opts;
+
+  // remember everything the capture is about to disturb
+  const sPos = camera.position.clone(), sTgt = controls.target.clone();
+  const sPlane = curPlane, sCut = S.cutaway, sDof = S.dof, sNear = camera.near, sFocus = focusCur;
+
+  const dir = new THREE.Vector3().subVectors(v.pos, v.target);
+  if (o.zoom) dir.multiplyScalar(o.zoom);
+  if (o.yaw) dir.applyAxisAngle(camera.up, o.yaw);
+  if (o.pitch) dir.applyAxisAngle(new THREE.Vector3().crossVectors(dir, camera.up).normalize(), o.pitch);
+  camera.position.copy(v.target).add(dir);
+  controls.target.copy(v.target);
+  curPlane = v.plane;
+  S.cutaway = o.cut !== undefined ? o.cut : v.cut; applyClip();
+
+  const d = camera.position.distanceTo(controls.target);
+  camera.near = clamp(d * 0.012, 0.04, 40);
+  camera.updateProjectionMatrix();
+  camera.lookAt(controls.target);
+  camera.updateMatrixWorld(true);
+
+  S.dof = o.dof !== undefined ? o.dof : (v.dof !== undefined ? v.dof : 0.3);
+  dof.uniforms.focus.value = d;
+  dof.uniforms.dofWidth.value = 0.1 + 1.6 * Math.pow(1 - S.dof, 2);
+  dof.uniforms.maxRadius.value = S.dof < 0.02 ? 0 : 18 * (size.y / 1080);
+
+  composer.render();
+  let url = null;
+  try { url = downscale(renderer.domElement, o.w || 760); } catch (e) { url = null; }
+  const pts = projectAnchors(o.anchors);   // same camera as the frame just captured
+
+  // put it all back; the next frame re-derives focus and near from these
+  camera.position.copy(sPos); controls.target.copy(sTgt);
+  curPlane = sPlane; S.cutaway = sCut; applyClip();
+  S.dof = sDof; focusCur = sFocus;
+  camera.near = sNear; camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+
+  if (url) figCache.set(job.k, { url, pts });
+  job.cb(url, pts);
+}
+
+initPortal({
+  requestFigure,
+  onNavigate: (id) => flyTo(id),   // following a "related" link also moves the model
+});
+
 // ------------------------------------------------------------------ resize
 function onResize() {
   const w = innerWidth, h = innerHeight;
@@ -355,6 +448,9 @@ function frame() {
   vig.uniforms.time.value = simT;
 
   composer.render();
+  // A pending textbook figure is rendered and read back here, then the frame is drawn
+  // again from the restored camera, so the captured pose never reaches the screen.
+  if (figQueue.length) { serveFigure(); controls.update(); composer.render(); }
   autoQuality(dt);
 }
 
