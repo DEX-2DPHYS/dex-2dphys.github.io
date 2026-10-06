@@ -1,0 +1,10 @@
+{
+  "slug": "ebl-workbench",
+  "name": "EBL Workbench",
+  "description": "Electron-beam lithography from layout to resist profile: Pattern Studio with GDSII, PSF models and a Monte Carlo, exposure and proximity correction, and Fab Studio with crystal-plane KOH etching.",
+  "status": "live",
+  "url": "tools/ebl-workbench/index.html",
+  "icon": "device",
+  "tags": ["simulations", "educational", "applications"],
+  "note": "Open it in the browser, download it for offline use, or run it in DSW with a native core."
+}
