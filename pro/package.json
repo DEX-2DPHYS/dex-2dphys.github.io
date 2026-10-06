@@ -1,0 +1,9 @@
+{
+  "name": "ebl-workbench-src",
+  "private": true,
+  "type": "module",
+  "description": "10855 EBL Workbench source. node_modules live outside Dropbox in %LOCALAPPDATA%\\ulam-build\\node_modules (see build.js).",
+  "scripts": {
+    "test": "node test/run.js"
+  }
+}

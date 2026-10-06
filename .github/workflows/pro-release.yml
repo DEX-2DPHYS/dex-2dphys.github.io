@@ -1,0 +1,137 @@
+# Builds EBL Workbench Pro for Linux, macOS and Windows: the native core (pro/native, CMake) and a
+# self-contained package per platform (pro/tools/assemble.mjs: the page, its videos, the backend, the core
+# and a Node.js runtime from nodejs.org, checksum-verified). Each package then runs its own smoke test
+# with its own Node (pro/tools/smoke.mjs: the backend and core answer; a correction, KOH and the Monte
+# Carlo agree with the page's JavaScript) before anything is published.
+#
+# A push to main that touches pro/ builds and tests. A pro-v* tag (or a manual run with a version)
+# also publishes the three zips as a Release — NOT marked latest, so the DSW and EBL Workbench pages'
+# releases/latest/download/... links keep pointing at the DSW release.
+
+name: EBL Workbench Pro
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag to publish a Release as (e.g. pro-v1.0). Leave blank to only build and test.'
+        required: false
+        default: ''
+  push:
+    tags: ['pro-v*']
+    branches: [main]
+    paths: ['pro/**', '.github/workflows/pro-release.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: linux-x64
+          - os: macos-latest
+            label: macos-arm64
+          - os: windows-latest
+            label: windows-x64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Apple clang has no OpenMP: Homebrew's libomp, shipped inside the package (below)
+      - name: OpenMP (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libomp
+
+      - name: Configure the core
+        shell: bash
+        run: |
+          extra=""
+          if [ "$RUNNER_OS" = "macOS" ]; then extra="-DOpenMP_ROOT=$(brew --prefix libomp)"; fi
+          cmake -S pro/native -B build-core -DCMAKE_BUILD_TYPE=Release $extra
+
+      - name: Build the core
+        run: cmake --build build-core --config Release --parallel
+
+      - name: Locate the core (macOS - libomp beside it)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "Windows" ]; then core=build-core/Release/ebw-core.exe; else core=build-core/ebw-core; fi
+          echo "CORE=$core" >> "$GITHUB_ENV"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cp "$(brew --prefix libomp)/lib/libomp.dylib" build-core/libomp.dylib
+            chmod u+w build-core/libomp.dylib
+            old=$(otool -L "$core" | awk '/libomp/ {print $1; exit}')
+            # found beside the core, not in Homebrew (which a user does not have)
+            install_name_tool -change "$old" @executable_path/libomp.dylib "$core"
+            install_name_tool -id @executable_path/libomp.dylib build-core/libomp.dylib
+            codesign --force -s - build-core/libomp.dylib
+            codesign --force -s - "$core"
+            otool -L "$core"
+            echo "LIBOMP=build-core/libomp.dylib" >> "$GITHUB_ENV"
+          fi
+          if [ "$RUNNER_OS" = "Linux" ]; then file "$core"; ldd "$core" || true; fi
+          "$core" --version
+
+      - name: Assemble the package
+        shell: bash
+        run: |
+          if [ -n "${LIBOMP:-}" ]; then node pro/tools/assemble.mjs --core "$CORE" --out stage --libomp "$LIBOMP"
+          else node pro/tools/assemble.mjs --core "$CORE" --out stage; fi
+
+      - name: Smoke test (the package, with its own Node)
+        shell: bash
+        working-directory: stage/EBL Workbench Pro
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then ./app/node/node.exe app/tools/smoke.mjs; else ./app/node/node app/tools/smoke.mjs; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ebl-workbench-pro-${{ matrix.label }}
+          path: stage
+          retention-days: 30
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/pro-v') || inputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+
+      - name: Zip the packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for d in art/ebl-workbench-pro-*/; do
+            label=$(basename "$d"); label=${label#ebl-workbench-pro-}
+            # artifacts lose the execute bits: put them back before zipping (zip keeps them)
+            find "$d" -type f \( -name node -o -name ebw-core -o -name '*.sh' -o -name '*.command' \) -exec chmod +x {} +
+            (cd "$d" && zip -qry "$GITHUB_WORKSPACE/dist/EBL-Workbench-Pro-$label.zip" "EBL Workbench Pro")
+          done
+          ls -lh dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: EBL Workbench Pro ${{ inputs.version || github.ref_name }}
+          make_latest: 'false'
+          files: dist/*.zip
+          body: |
+            EBL Workbench Pro: the EBL Workbench with its heavy parts (Monte Carlo, proximity-correction short range and solve, KOH etching) in a native multithreaded core, and the computer's memory for whole-chip corrections. Self-contained: unzip and start, nothing to install.
+            - Windows: double-click `Start EBL Workbench Pro.cmd`
+            - macOS (Apple Silicon): `xattr -dr com.apple.quarantine "EBL Workbench Pro"` once, then double-click `Start EBL Workbench Pro.command`
+            - Linux (x64): `./start-ebl-workbench-pro.sh`
+            Each package passed its smoke test on its own platform before publishing. The HTML version and the DSW plugin are on https://dex-2dphys.github.io/tools/ebl-workbench/

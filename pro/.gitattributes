@@ -1,0 +1,4 @@
+# start scripts: Unix line endings for macOS/Linux, CRLF for Windows
+*.sh text eol=lf
+*.command text eol=lf
+*.cmd text eol=crlf
