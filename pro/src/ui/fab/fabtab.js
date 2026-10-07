@@ -8,9 +8,10 @@
 import { $, esc, toast, download, pickFile, openModal, readNum, numField, modalOpen } from '../dom.js';
 import { createFabEngine, autoVoxelNm, MAX_SLICES } from '../../core/fab/engine.js';
 import { sampleFor, sampleForLine, doseMapsFromRaster, BUDGETS } from '../../core/fab/device.js';
-import { M, MAT_NAMES, MAT_COLOR, RESIST_PRESETS, RESIST_LABELS, DEVELOPERS, DEPOSIT_MATERIALS, ETCH_MATERIALS, TRANSFER_MATERIALS, MAT_MAP, isResist } from '../../core/fab/materials.js';
+import { M, MAT_NAMES, MAT_COLOR, RESIST_PRESETS, RESIST_LABELS, DEVELOPERS, DEPOSIT_MATERIALS, ETCH_MATERIALS, TRANSFER_MATERIALS, MAT_MAP, isResist, LIBRARY_PRESETS, LEARNING_RESISTS, STUDIO_DEVELOPERS, FAB_LEVELS, presetOf } from '../../core/fab/materials.js';
 import { deviceAreas, isExposedPurpose } from '../../core/geom/library.js';
 import { makeResist, remainingFraction } from '../../core/physics/resist.js';
+import { calibrationOf, devDeviation, describeCal } from '../../core/physics/devcal.js';
 import { drawCrossSection, sliceThumbData, thumbURL } from './render2d.js';
 import { createIso } from './iso3d.js';
 import { staleOverlay } from '../stale.js';
@@ -19,6 +20,8 @@ import { WAFER_SURFACES, WAFER_FLAT_LIST, flatLabelOf, normalizeWafer, waferBasi
 import { kohPayload, kohPayloadRaw } from '../../core/fab/koh.js';
 import { KOH_METHODS } from '../../core/fab/kohrun.js';
 import { nativeCore } from '../native.js';
+import { describeMove, developConditions, trimCalText } from '../../core/resists/move.js';
+import { psfKeV } from '../resists/resiststab.js';
 
 const STEP_LABELS = { deposit: 'Deposit material', transfer_2d: 'Transfer 2D material', spinresist: 'Spin resist', expose: 'Expose (EBL)', uv_expose: 'Expose (UV)', develop: 'Develop', descum: 'O₂ plasma (descum / graphene)', etch_rie: 'Etch — RIE (anisotropic)', etch_sf6: 'Etch — SF6 (MoS₂ / hBN)', etch_wet: 'Etch — wet / isotropic', etch_koh: 'Etch — KOH (anisotropic Si)', liftoff: 'Lift-off / strip resist', strip: 'Strip resist' };
 const STEP_ICONS = { deposit: '⬇', transfer_2d: '◫', spinresist: '◎', expose: '✦', uv_expose: '☀', develop: '⚗', descum: '♨', etch_rie: '⚡', etch_sf6: '⚗', etch_wet: '💧', etch_koh: '◇', liftoff: '⬆', strip: '⬆' };
@@ -66,7 +69,7 @@ export function createFabTab(app) {
       </div>
 
       <div class="panel">
-        <div class="section-title">Add a process step</div>
+        <div class="section-title">Add a process step <span class="fab-level" id="fabLevel" data-tip="<b>Learning</b> — the studio's generic teaching resists and developers: simple, illustrative numbers.<br><b>Advanced</b> — the resists of the resist library (the DTU Nanolab cleanroom), each with its contrast curves and the conditions they were measured at (kV, film thickness, developer, time, temperature). A film, voltage or development away from a curve's conditions is moved by the library's model, and every step says whether that is inside the process window or extrapolated."><button type="button" data-level="learning">Learning</button><button type="button" data-level="advanced">Advanced</button></span></div>
         <select class="field" id="fabStep">${opt(STEP_LABELS)}</select>
         <div id="fabParams" style="margin-top:8px;"></div>
         <div class="row" style="margin-top:8px;">
@@ -148,9 +151,16 @@ export function createFabTab(app) {
   const iso = createIso($('fabCanvas3d'), { onFrame: (f) => { if (st.view === '3d') $('fabViewInfo').textContent = `${f.quads.toLocaleString()} quads · ${f.ms.toFixed(0)} ms${f.q > 1 ? ' · ÷' + f.q : ''}`; } });
   iso.setState(eng.state);
 
-  // legend
-  $('fabLegend').innerHTML = [M.AIR, M.PMMA, M.PMMA_EXP, M.CSAR, M.MEDUSA, M.S1813, M.SU8, M.GRAPHENE, M.MOS2, M.HBN, M.AU, M.CR, M.AL, M.POLYSI, M.SIO2, M.SI3N4, M.SI]
-    .map((m) => `<span class="row" style="gap:5px;"><span style="display:inline-block;width:12px;height:12px;border:1px solid #aaa;background:rgb(${MAT_COLOR[m].join(',')})"></span>${esc(MAT_NAMES[m])}</span>`).join('');
+  // legend: the resists on the sample (unexposed and exposed), else the studio's usual ones, then the rest
+  let legendKey = '';
+  function legend() {
+    const rs = eng.state.resistStates || [];
+    const resists = rs.length ? rs.flatMap((r) => [r.matId, r.matExpId]) : [M.PMMA, M.PMMA_EXP, M.CSAR, M.MEDUSA, M.S1813, M.SU8];
+    const list = [M.AIR, ...new Set(resists), M.GRAPHENE, M.MOS2, M.HBN, M.AU, M.CR, M.AL, M.POLYSI, M.SIO2, M.SI3N4, M.SI], key = list.join();
+    if (key === legendKey) return; legendKey = key;
+    $('fabLegend').innerHTML = list.map((m) => `<span class="row" style="gap:5px;"><span style="display:inline-block;width:12px;height:12px;border:1px solid #aaa;background:rgb(${MAT_COLOR[m].join(',')})"></span>${esc(MAT_NAMES[m])}</span>`).join('');
+  }
+  legend();
 
   // ---------------------------------------------------------------- sample
   function sourceOptions() {
@@ -316,21 +326,66 @@ export function createFabTab(app) {
 
   // ---------------------------------------------------------------- step form
   const resistOptions = () => Object.entries(RESIST_LABELS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
-  function paramsHtml(type) {
+  // ---- Learning / Advanced (project setting; Learning by default)
+  const level = () => (app.project.settings?.fabLevel === 'advanced' ? 'advanced' : 'learning');
+  let formLevel = 'learning';
+  const learningOptions = () => [...LEARNING_RESISTS, 'custom'].map((k) => `<option value="${k}">${esc(RESIST_LABELS[k] || k)}</option>`).join('');
+  const libraryOptions = () => { const lib = app.resists?.library() || []; return ['positive', 'negative'].map((t) => `<optgroup label="${t === 'positive' ? 'Positive' : 'Negative'} (resist library)">${lib.filter((r) => r.tone === t && LIBRARY_PRESETS[r.id]).map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</optgroup>`).join(''); };
+  const condLabel = (c) => `${c.kV} kV, ${c.thicknessNm} nm, ${DEVELOPERS[c.developer] || c.developer} ${c.timeS} s, ${c.tempC} °C`;
+  // a library resist's curves, by quality (the user's own and imported ones included)
+  function curveOptions(libId) {
+    const e = app.resists?.entryOf(libId); if (!e) return '';
+    let h = `<option value="model">Library reference — ${esc(condLabel(e.model.ref))} (${esc(e.model.refBasis || '')})</option>`;
+    for (const [q, name] of [['measured', 'Measured'], ['datasheet', 'Datasheet'], ['literature', 'Literature'], ['estimate', 'Best guesses']]) {
+      const ds = (e.datasets || []).filter((d) => d.quality === q && d.fit && !d.superseded);
+      if (ds.length) h += `<optgroup label="${name}">${ds.map((d) => `<option value="${esc(d.id)}">${esc(condLabel(d.conditions))} · ${esc(d.id)}${d.from ? ` · from ${esc(d.from)}` : ''}</option>`).join('')}</optgroup>`;
+    }
+    return h;
+  }
+  function curveOf(libId, id) {
+    const e = app.resists?.entryOf(libId); if (!e) return null;
+    if (id === 'model' || !id) { const R = e.model.ref; return { D100: R.D100, gamma: R.gamma, round: R.round ?? 0.5, cond: R, tone: e.tone, label: 'the library reference' }; }
+    const d = (e.datasets || []).find((x) => x.id === id);
+    return d ? { D100: d.fit.D100, gamma: d.fit.gamma, round: d.fit.round ?? 0.5, cond: d.conditions, tone: e.tone, label: `${d.quality} curve ${d.id}` } : null;
+  }
+  // a library resist's own extra conditions (Medusa: PEB): the process value and the curve's, side by side
+  function extrasForm(lib, cur = {}, cal = {}) {
+    const e = app.resists?.entryOf(lib), X = e?.model.extra || [], el = $('fpXtra'); if (!el) return;
+    el.innerHTML = X.map((x) => `${numField('fpX_' + x.key, `${esc(x.short || x.name)} — this process (${esc(x.unit)})`, cur[x.key] ?? e.model.ref[x.key], 5)}${numField('fpXc_' + x.key, `${esc(x.short || x.name)} of the curve (${esc(x.unit)})`, cal[x.key] ?? e.model.ref[x.key], 5)}`).join('') + (X.length ? '<div></div>' : '');
+    for (const x of X) { $('fpX_' + x.key).oninput = () => { curveNote(); drawCurve(); }; $('fpXc_' + x.key).oninput = () => { curveNote(); drawCurve(); }; }
+  }
+  const extrasOf = (lib, prefix) => Object.fromEntries((app.resists?.entryOf(lib)?.model.extra || []).map((x) => [x.key, num(prefix + x.key, null)]));
+  // the developers a resist on the sample can be developed in: a library resist's own, else the studio's
+  function developerOptionsFor(target) {
+    const rs = sampleResist(target), lib = rs?.devParams?.lib || (rs ? null : RESIST_PRESETS[target]?.lib);
+    const list = lib ? LIBRARY_PRESETS[lib].developers : Object.keys(STUDIO_DEVELOPERS);
+    return list.map((k) => `<option value="${k}">${esc(DEVELOPERS[k] || k)}</option>`).join('');
+  }
+  function paramsHtml(type, lvl = level()) {
     switch (type) {
       case 'deposit': return `<div class="three">${sel('fpMat', 'Material', DEPOSIT_MATERIALS)}${numField('fpThick', 'Thickness (nm)', 30, 1)}${sel('fpMethod', 'Method', { directional: 'Directional (evaporation)', conformal: 'Conformal (sputtering / CVD)' })}</div>`;
       case 'transfer_2d': return `<div class="three">${sel('fpTMat', 'Material', TRANSFER_MATERIALS)}${numField('fpTSize', 'Flake size (nm)', 140, 10)}${numField('fpTThick', 'Layer (nm)', 1, 1)}</div>`;
-      case 'spinresist': return `<div class="two"><div><div class="label">Resist</div><select class="field" id="fpPreset">${resistOptions()}</select></div>${numField('fpRThick', 'Thickness (nm)', 80, 5)}
+      case 'spinresist': if (lvl === 'advanced') return `<div class="two"><div><div class="label">Resist (library)</div><select class="field" id="fpPreset">${libraryOptions()}</select></div><div><div class="label">Contrast curve <span class="q" data-tip="The curves the resist library holds for this resist — measured at DTU, datasheets, literature, best guesses, and your own — each for its own conditions. The film thickness, the development and the voltage it was measured at are filled in below.">?</span></div><select class="field" id="fpCurveSel"></select></div>${numField('fpRThick', 'Thickness (nm)', 100, 5)}
+        <div><div class="label">Tone</div><select class="field" id="fpType" disabled><option value="positive">positive</option><option value="negative">negative</option></select></div>
+        ${numField('fpGamma', 'Contrast γ', 3, 0.1)}${numField('fpSoft', 'Kink rounding (%)', 30, 10, 'min="0" max="100"')}${numField('fpD100', 'D₁₀₀ (µC/cm²)', 250, 10)}${numField('fpDark', 'Dark erosion (nm/min)', 0.1, 0.1)}${numField('fpSide', 'Sidewall (°)', 90, 1)}${numField('fpScum', 'Scum (nm)', 1, 0.5)}</div><div hidden>${numField('fpClear', 'Clearing dose frac.', 0.5, 0.05)}</div>
+        <div class="label" style="margin-top:6px;">The curve was measured at <span class="q" data-tip="A contrast curve holds for one film thickness, one voltage and one development. When the film you spin, the PSF's voltage or the develop step differ, the develop step moves the curve with the resist library's model, and says whether that is inside the process window or extrapolated.">?</span></div>
+        <div class="three">${sel('fpCalDev', 'Developer', DEVELOPERS)}${numField('fpDevT', 'Time (s)', 60, 5)}${numField('fpCalT', 'Temperature (°C)', 21, 0.5)}${numField('fpCalTh', 'Film (nm)', 100, 5)}${numField('fpCalKV', 'Voltage (kV)', 100, 5)}<div></div></div>
+        <div class="three" id="fpXtra"></div>
+        <div class="hint" id="fpCurveNote" style="margin-top:4px;"></div>
+        <canvas id="fpCurve" style="width:100%;height:120px;display:block;margin-top:6px;"></canvas><div class="hint">The curve as measured (remaining thickness vs dose, log axis). Advanced: the resist library's resists and curves; Learning: the studio's teaching resists.</div>`;
+        return `<div class="two"><div><div class="label">Resist</div><select class="field" id="fpPreset">${learningOptions()}</select></div>${numField('fpRThick', 'Thickness (nm)', 80, 5)}
         <div><div class="label">Tone</div><select class="field" id="fpType"><option value="positive">positive</option><option value="negative">negative</option></select></div><div></div>
-        ${numField('fpGamma', 'Contrast γ', 7, 0.5)}${numField('fpSoft', 'Kink rounding (%) <span class="q" data-tip="Rounds the two corners of the contrast curve, at D₀ and D₁₀₀, without changing γ: the tangent at D₅₀ keeps its slope and still meets 1 and 0 at D₀ and D₁₀₀. 0 = the ideal piecewise curve; a real resist is more like 20–50.">?</span>', 100, 10, 'min="0" max="100"')}${numField('fpD100', 'D₁₀₀ (µC/cm²)', 450, 10)}${numField('fpDark', 'Dark erosion (nm/min)', 2, 0.5)}${numField('fpSide', 'Sidewall (°)', 90, 1)}${numField('fpScum', 'Scum (nm)', 2, 0.5)}${numField('fpDevT', 'Dev. time (s)', 60, 5)}${numField('fpClear', 'Clearing dose frac.', 0.5, 0.05)}</div>
-        <canvas id="fpCurve" style="width:100%;height:120px;display:block;margin-top:6px;"></canvas><div class="hint">Contrast curve of this resist (remaining thickness vs dose, log axis). Changing the preset fills the parameters from the studio's table.</div>`;
+        ${numField('fpGamma', 'Contrast γ', 7, 0.5)}${numField('fpSoft', 'Kink rounding (%) <span class="q" data-tip="Rounds the two corners of the contrast curve, at D₀ and D₁₀₀, without changing γ: the tangent at D₅₀ keeps its slope and still meets 1 and 0 at D₀ and D₁₀₀. 0 = the ideal piecewise curve; a real resist is more like 20–50.">?</span>', 100, 10, 'min="0" max="100"')}${numField('fpD100', 'D₁₀₀ (µC/cm²)', 450, 10)}${numField('fpDark', 'Dark erosion (nm/min)', 2, 0.5)}${numField('fpSide', 'Sidewall (°)', 90, 1)}${numField('fpScum', 'Scum (nm)', 2, 0.5)}</div><div hidden>${numField('fpClear', 'Clearing dose frac.', 0.5, 0.05)}</div>
+        <div class="label" style="margin-top:6px;">Curve measured with <span class="q" data-tip="A contrast curve (D₀, D₁₀₀, γ) holds only for the development it was measured with: this developer, this time, this temperature (and this thickness). The develop step compares its own conditions with these and warns when they differ — the model does not know how the curve would change.<br><br>The presets' values are illustrative teaching values: put in the conditions of the curve you actually measured.">?</span></div>
+        <div class="three">${sel('fpCalDev', 'Developer', STUDIO_DEVELOPERS)}${numField('fpDevT', 'Time (s)', 60, 5)}${numField('fpCalT', 'Temperature (°C)', 21, 0.5)}</div>
+        <canvas id="fpCurve" style="width:100%;height:120px;display:block;margin-top:6px;"></canvas><div class="hint">Contrast curve of this resist (remaining thickness vs dose, log axis). Changing the preset fills the parameters from the studio's table — illustrative teaching values (Learning). Real resists and measured curves: <b>Advanced</b>.</div>`;
       case 'expose': case 'uv_expose': return `<div class="label">Dose from</div><select class="field" id="fpSource"><option value="layout">the layout — delivered dose of the Exposure tab (PSF, written doses)</option><option value="pattern">a built-in pattern (studio patterns)</option><option value="custom">shapes drawn here (mask editor)</option></select>
         <div id="fpLayoutRow" style="margin-top:6px;"><div class="two">${numField('fpScale', 'Dose scale ×', 1, 0.05)}<div class="hint" style="align-self:end;">Multiplies the layout dose: try over- and under-exposure without touching the layout.</div></div>
           <div class="hint" id="fpScaleHint" style="margin-top:4px;"></div></div>
         <div id="fpPatternRow" style="display:none;margin-top:6px;"><div class="three">${sel('fpPattern', 'Pattern', { grating: 'Grating', single: 'Single line', iso_trench: 'Isolated trench', dots: 'Dot array', blanket: 'Blanket' })}${numField('fpDose', type === 'uv_expose' ? 'Dose (mJ/cm²)' : 'Dose (µC/cm²)', type === 'uv_expose' ? 90 : 150, 10)}${numField('fpPitch', 'Pitch (nm)', 200, 10)}${numField('fpDuty', 'Duty (%)', 50, 5)}${numField('fpLineW', 'Line width (nm)', 100, 5)}${numField('fpDotPitch', 'Dot pitch (nm)', 100, 10)}${numField('fpDotDiam', 'Dot Ø (nm)', 50, 5)}${numField('fpDotSlice', 'Dot slice (%)', 0, 5)}</div></div>
         <div id="fpMaskRow" style="display:none;margin-top:6px;"><div id="fpMaskHost"></div><div class="hint">The field is the write field; only the part inside the dashed sample reaches the wafer. Each shape keeps its own dose. Right-click a shape to delete it.</div></div>
         <canvas id="fpCurve" style="width:100%;height:110px;display:block;margin-top:6px;"></canvas><div class="hint" id="fpCurveHint"></div>`;
-      case 'develop': return `<div class="three"><div><div class="label">Resist</div><select class="field" id="fpTarget">${resistOptions()}</select></div>${sel('fpChem', 'Developer', DEVELOPERS)}${numField('fpTime', 'Time (s)', 60, 5)}</div><div class="hint" id="fpDevHint" style="margin-top:4px;"></div>
+      case 'develop': return `<div class="two"><div><div class="label">Resist</div><select class="field" id="fpTarget">${resistOptions()}</select></div><div><div class="label">Developer</div><select class="field" id="fpChem">${developerOptionsFor(null)}</select></div>${numField('fpTime', 'Time (s)', 60, 5)}${numField('fpTemp', 'Temperature (°C)', 21, 0.5)}</div><div class="hint" id="fpDevHint" style="margin-top:4px;"></div>
         <canvas id="fpCurve" style="width:100%;height:110px;display:block;margin-top:6px;"></canvas><div class="hint" id="fpCurveHint"></div>`;
       case 'descum': return `<div class="three">${numField('fpDTime', 'O₂ plasma (s)', 30, 1)}${numField('fpDRate', 'Resist rate (nm/s)', 0.5, 0.05)}${numField('fpDGr', 's per graphene ML', 30, 1)}</div><div class="hint" id="fpDSum" style="margin-top:4px;"></div>`;
       case 'etch_rie': return `<div class="three">${sel('fpETarget', 'Target', ETCH_MATERIALS)}${numField('fpEDepth', 'Depth (nm)', 80, 5)}${numField('fpESel', 'Selectivity to resist', 10, 1)}</div>`;
@@ -352,13 +407,15 @@ export function createFabTab(app) {
     switch (type) {
       case 'deposit': return { material: val('fpMat'), thickness: num('fpThick', 30), method: val('fpMethod') };
       case 'transfer_2d': return { material: val('fpTMat'), flakeSize: num('fpTSize', 140), layerThick: num('fpTThick', 1) };
-      case 'spinresist': return { thickness: num('fpRThick', 80), type: val('fpType'), resist: val('fpPreset'), dose: RESIST_PRESETS[val('fpPreset')]?.dose || 150, contrast: num('fpGamma', 3), soft: num('fpSoft', 0) / 100, D100: num('fpD100', 120), darkErosion: num('fpDark', 2), sidewall: num('fpSide', 90), scum: num('fpScum', 0), clearFrac: num('fpClear', 0.5), devTime: num('fpDevT', 60) };
+      case 'spinresist': return { thickness: num('fpRThick', 80), type: val('fpType'), resist: val('fpPreset'), dose: RESIST_PRESETS[val('fpPreset')]?.dose || 150, contrast: num('fpGamma', 3), soft: num('fpSoft', 0) / 100, D100: num('fpD100', 120), darkErosion: num('fpDark', 2), sidewall: num('fpSide', 90), scum: num('fpScum', 0), clearFrac: num('fpClear', 0.5), devTime: num('fpDevT', 60), calDeveloper: val('fpCalDev'), calTimeS: num('fpDevT', 60), calTempC: num('fpCalT', 21),
+        ...($('fpCurveSel') ? { lib: val('fpPreset'), curveId: val('fpCurveSel'), calThicknessNm: num('fpCalTh', null), calKV: num('fpCalKV', null), type: LIBRARY_PRESETS[val('fpPreset')]?.type || val('fpType'),
+          extras: extrasOf(val('fpPreset'), 'fpX_'), calExtras: extrasOf(val('fpPreset'), 'fpXc_') } : {}) };
       case 'expose': case 'uv_expose': {
         if (val('fpSource') === 'layout') return { source: 'layout', scale: num('fpScale', 1), pattern: 'layout' };
         if (val('fpSource') === 'custom') { const sh = maskEd().getShapes(); return { source: 'custom', pattern: 'custom', dose: sh.length ? Math.max(...sh.map((x) => x.dose)) : 0, maskShapes: sh, ...(type === 'uv_expose' ? { doseUnit: 'mJ/cm²' } : {}) }; }
         return { source: 'pattern', pattern: val('fpPattern'), dose: num('fpDose', 150), pitch: num('fpPitch', 200), duty: num('fpDuty', 50), lineW: num('fpLineW', 100), dotPitch: num('fpDotPitch', 100), dotDiam: num('fpDotDiam', 50), dotSlice: num('fpDotSlice', 0), ...(type === 'uv_expose' ? { doseUnit: 'mJ/cm²' } : {}) };
       }
-      case 'develop': { const t = val('fpTarget'); const rs = eng.state.resistStates.find((r) => r.name === t); const dp = rs?.devParams || RESIST_PRESETS[t] || {}; return { targetResist: t, developer: val('fpChem'), devTime: num('fpTime', 60), sidewall: dp.sidewall || 90, contrast: dp.contrast || 3, darkErosion: dp.darkErosion || 2, clearFrac: dp.clearFrac || 0.5, D100: dp.D100 || 120, scum: dp.scum || 0 }; }
+      case 'develop': { const t = val('fpTarget'); const rs = eng.state.resistStates.find((r) => r.name === t); const dp = rs?.devParams || RESIST_PRESETS[t] || {}; return { targetResist: t, developer: val('fpChem'), devTime: num('fpTime', 60), tempC: num('fpTemp', 21), kV: psfKeV(app.project), sidewall: dp.sidewall || 90, contrast: dp.contrast || 3, darkErosion: dp.darkErosion || 2, clearFrac: dp.clearFrac || 0.5, D100: dp.D100 || 120, scum: dp.scum || 0 }; }
       case 'descum': return { time: num('fpDTime', 30), rate: num('fpDRate', 0.5), grSecPerML: num('fpDGr', 30) };
       case 'etch_rie': return { target: val('fpETarget'), depth: num('fpEDepth', 80), selectivity: num('fpESel', 10) };
       case 'etch_sf6': return { depth: num('fpSDepth', 15) };
@@ -372,9 +429,9 @@ export function createFabTab(app) {
     switch (type) {
       case 'deposit': set('fpMat', p.material); set('fpThick', p.thickness); set('fpMethod', p.method); break;
       case 'transfer_2d': set('fpTMat', p.material); set('fpTSize', p.flakeSize); set('fpTThick', p.layerThick); break;
-      case 'spinresist': set('fpPreset', p.resist); set('fpRThick', p.thickness); set('fpType', p.type); set('fpGamma', p.contrast); set('fpSoft', Math.round(100 * (p.soft || 0))); set('fpD100', p.D100); set('fpDark', p.darkErosion); set('fpSide', p.sidewall); set('fpScum', p.scum); set('fpDevT', p.devTime); set('fpClear', p.clearFrac ?? 0.5); drawCurve(); break;
+      case 'spinresist': set('fpPreset', p.lib || p.resist); if (p.lib && $('fpCurveSel')) { $('fpCurveSel').innerHTML = curveOptions(p.lib); set('fpCurveSel', p.curveId || 'model'); set('fpCalTh', p.calThicknessNm); set('fpCalKV', p.calKV); extrasForm(p.lib, p.extras || {}, p.calExtras || {}); } set('fpRThick', p.thickness); set('fpType', p.type); set('fpGamma', p.contrast); set('fpSoft', Math.round(100 * (p.soft || 0))); set('fpD100', p.D100); set('fpDark', p.darkErosion); set('fpSide', p.sidewall); set('fpScum', p.scum); { const c = calibrationOf(p, RESIST_PRESETS[p.resist]); set('fpDevT', c.timeS); set('fpCalDev', c.developer); set('fpCalT', c.tempC); } set('fpClear', p.clearFrac ?? 0.5); curveNote(); drawCurve(); break;
       case 'expose': case 'uv_expose': set('fpSource', p.source === 'layout' ? 'layout' : p.source === 'custom' || p.pattern === 'custom' ? 'custom' : 'pattern'); if (p.source === 'custom' || p.pattern === 'custom') maskEd().setShapes(p.maskShapes); set('fpScale', p.scale ?? 1); set('fpPattern', p.pattern === 'custom' || p.pattern === 'layout' ? 'grating' : p.pattern); set('fpDose', p.dose); set('fpPitch', p.pitch); set('fpDuty', p.duty); set('fpLineW', p.lineW); set('fpDotPitch', p.dotPitch); set('fpDotDiam', p.dotDiam); set('fpDotSlice', p.dotSlice); syncExposeRows(); break;
-      case 'develop': set('fpTarget', p.targetResist); set('fpChem', p.developer); set('fpTime', p.devTime); devHint(); drawCurve(); break;
+      case 'develop': set('fpTarget', p.targetResist); $('fpChem').innerHTML = developerOptionsFor(p.targetResist); set('fpChem', p.developer); set('fpTime', p.devTime); set('fpTemp', p.tempC ?? calOfTarget(p.targetResist).tempC); devHint(); drawCurve(); break;
       case 'descum': set('fpDTime', p.time); set('fpDRate', p.rate); set('fpDGr', p.grSecPerML); descumSummary(); break;
       case 'etch_rie': set('fpETarget', p.target); set('fpEDepth', p.depth); set('fpESel', p.selectivity); break;
       case 'etch_sf6': set('fpSDepth', p.depth); break;
@@ -407,15 +464,38 @@ export function createFabTab(app) {
     updatePendingDose();
   }
   function devHint() {
-    const t = val('fpTarget'), chem = val('fpChem'), p = RESIST_PRESETS[t];
+    const t = val('fpTarget'), chem = val('fpChem'), rs0 = sampleResist(t), p = presetOf(t, rs0?.devParams?.lib);
     const present = eng.state.resistStates.some((r) => r.name === t);
-    $('fpDevHint').innerHTML = (present ? '' : `<span style="color:#a60">No ${esc(t)} on the sample yet. </span>`) + (p ? (p.developers.includes(chem) ? `${esc(DEVELOPERS[chem])} is a usual developer for ${esc(t)}.` : `<span style="color:#a60">${esc(DEVELOPERS[chem] || chem)} is unusual for ${esc(t)} (advisory only).</span>`) : '');
+    const dc = developConditions(rs0?.devParams || { lib: p?.lib }, p, { developer: chem, timeS: num('fpTime', 60), tempC: num('fpTemp', 21) }, psfKeV(app.project));
+    const calText = dc.calibration.outside ? (dc.move ? trimCalText(dc.calibration.text) : dc.calibration.text) : null;
+    const dev = dc.outside ? { outside: true, text: [calText, ...dc.other.map((o) => `${o} — the curve's conditions differ`)].filter(Boolean).join('; ') } : dc.calibration;
+    const nStack = eng.state.resistStates.length, inStack = eng.state.resistStates.some((r) => r.name === t);
+    $('fpDevHint').innerHTML = (nStack >= 2 && inStack ? `<div class="hint" id="fpBilayer" style="margin-bottom:3px;">A ${nStack}-layer resist stack: develop each layer as its own step, in the same developer, top layer first — in the lab one development dissolves them together. A more sensitive bottom layer (e.g. PMMA 50K under 950K) opens wider: the undercut for lift-off.</div>` : '')
+      + (present ? '' : `<span style="color:#a60">No ${esc(t)} on the sample yet. </span>`) + (p ? (p.developers.includes(chem) ? `${esc(DEVELOPERS[chem])} is a usual developer for ${esc(t)}. ` : `<span style="color:#a60">${esc(DEVELOPERS[chem] || chem)} is unusual for ${esc(t)} (advisory only). </span>`) : '')
+      + (dev.outside ? `<div id="fpDevWarn" style="color:#b45309;margin-top:4px;">⚠ ${esc(dev.text)}</div>` : `<span style="color:#15803d">✓ ${esc(dev.text)}</span>`);
+    // a library resist: the model moves the curve, and says whether that is inside the process window
+    const mv = dc.move;
+    if (mv) $('fpDevHint').innerHTML += `<div id="fpDevMove" class="${mv.regime === 'window' ? 'fab-mv-win' : 'fab-mv-ext'}" style="margin-top:3px;">${mv.regime === 'window' ? 'ℹ' : '⚠'} ${esc(describeMove(mv))}</div>`;
   }
   // the resist on the sample that a step acts on (the last one spun, or the one named)
   function sampleResist(name) {
     const rs = eng.state.resistStates;
     const r = name ? rs.find((x) => x.name === name) : rs[rs.length - 1];
     return r || null;
+  }
+  // the development the target resist's contrast curve was measured for (from its spin step, else its preset)
+  const calOfTarget = (name) => { const rs = sampleResist(name); return calibrationOf(rs?.devParams || {}, presetOf(name, rs?.devParams?.lib)); };
+  // Advanced spin step: the chosen curve against the film you spin and the PSF's voltage (the develop
+  // step moves it the same way, with the development too)
+  function curveNote() {
+    const el = $('fpCurveNote'); if (!el) return;
+    const lib = val('fpPreset'), cal = { developer: val('fpCalDev'), timeS: num('fpDevT', 60), tempC: num('fpCalT', 21) };
+    const dp = { lib, D100: num('fpD100', 120), contrast: num('fpGamma', 3), resistThick: num('fpRThick', 100), calThicknessNm: num('fpCalTh', null), calKV: num('fpCalKV', null), calDeveloper: cal.developer, calTimeS: cal.timeS, calTempC: cal.tempC, extras: extrasOf(lib, 'fpX_'), calExtras: extrasOf(lib, 'fpXc_') };
+    const dc = developConditions(dp, LIBRARY_PRESETS[lib], cal, psfKeV(app.project));
+    const c = curveOf(lib, val('fpCurveSel'));
+    el.innerHTML = `${c ? `Curve: ${esc(c.label)} — ${esc(condLabel({ kV: dp.calKV, thicknessNm: dp.calThicknessNm, ...cal }))}. ` : ''}`
+      + (dc.other.length ? `<span class="fab-mv-${dc.move?.regime === 'window' ? 'win' : 'ext'}" id="fpCurveWarn">⚠ This sample: ${esc(dc.other.join('; '))}. The curve strictly holds for one film and voltage: the develop step will move it with the library's model — ${esc(describeMove(dc.move))}.</span>`
+        : `<span style="color:#15803d">✓ This film and the PSF's ${psfKeV(app.project)} kV match the curve.</span> Develop as it was measured to use it as it is.`);
   }
   const resistModel = (rs) => { const p = rs.devParams || {}; return makeResist({ D100: p.D100 || 120, gamma: p.contrast || 3, round: p.soft || 0, tone: rs.type || 'positive', scumNm: p.scum || 0, thicknessNm: p.resistThick || 100 }); };
   function maxDoseOf(maps) { let mx = 0; if (maps) for (const m of maps) for (const v of m) if (v > mx) mx = v; return mx; }
@@ -490,11 +570,44 @@ export function createFabTab(app) {
     e.innerHTML = `Suggested <b>× ${s.k}</b>: the layout's dose ${s.nom} → ${+(s.nom * s.k).toFixed(0)} µC/cm², so pattern edges (½ of it after correction) get ${esc(s.name)}'s D₁₀₀ = ${s.D100}.${Math.abs(k - s.k) > 1e-9 ? ' <a href="#" id="fpUseSug">use it</a>' : ''}${warn}`;
     const u = $('fpUseSug'); if (u) u.onclick = (ev) => { ev.preventDefault(); $('fpScale').value = s.k; updatePendingDose(); };
   }
-  function showParams(type) {
-    $('fabParams').innerHTML = paramsHtml(type);
-    if (type === 'spinresist') {
-      const apply = () => { const p = RESIST_PRESETS[val('fpPreset')]; if (p) { $('fpType').value = p.type; $('fpGamma').value = p.contrast; $('fpSoft').value = Math.round(100 * (p.soft ?? 1)); $('fpD100').value = p.D100; $('fpDark').value = p.darkErosion; $('fpSide').value = p.sidewall; $('fpScum').value = p.scum; $('fpClear').value = p.clearFrac ?? 0.5; } drawCurve(); };
-      $('fpPreset').onchange = apply; apply();
+  function showParams(type, forceLevel = null) {
+    formLevel = forceLevel || level();
+    $('fabParams').innerHTML = paramsHtml(type, formLevel);
+    if (type === 'spinresist' && formLevel === 'advanced') {
+      const applyCurve = () => {
+        const lib = val('fpPreset'), c = curveOf(lib, val('fpCurveSel')), pr = LIBRARY_PRESETS[lib];
+        if (c) { $('fpType').value = c.tone; $('fpD100').value = +c.D100.toPrecision(3); $('fpGamma').value = +c.gamma.toFixed(2); $('fpSoft').value = Math.round(100 * c.round);
+          $('fpRThick').value = c.cond.thicknessNm; $('fpCalDev').value = c.cond.developer; $('fpDevT').value = c.cond.timeS; $('fpCalT').value = c.cond.tempC; $('fpCalTh').value = c.cond.thicknessNm; $('fpCalKV').value = c.cond.kV; }
+        if (pr) { $('fpDark').value = pr.darkErosion; $('fpSide').value = pr.sidewall; $('fpScum').value = pr.scum; }
+        if (c) extrasForm(lib, c.cond, c.cond);
+        curveNote(); drawCurve();
+      };
+      const pickResist = () => { $('fpCurveSel').innerHTML = curveOptions(val('fpPreset')); const e = app.resists?.entryOf(val('fpPreset')); const mine = e?.datasets?.find((d) => d.quality === 'measured' && d.fit && !d.superseded); $('fpCurveSel').value = mine ? mine.id : 'model'; applyCurve(); };
+      $('fpPreset').onchange = pickResist; $('fpCurveSel').onchange = applyCurve;
+      const fr = app.project.settings?.fabResist, P = fr && LIBRARY_PRESETS[fr.id] && app.resists?.predictFor(fr.id, fr.cond);
+      if (P) {
+        // handed over from the Resists tab: that resist, with the library's prediction for those conditions
+        $('fpPreset').value = fr.id; pickResist(); $('fpCurveSel').value = 'model';
+        const c = fr.cond; $('fpRThick').value = c.thicknessNm; $('fpD100').value = +P.D100.toPrecision(3); $('fpGamma').value = +P.gamma.toFixed(2); $('fpSoft').value = Math.round(100 * P.round);
+        $('fpCalDev').value = c.developer; $('fpDevT').value = c.timeS; $('fpCalT').value = c.tempC; $('fpCalTh').value = c.thicknessNm; $('fpCalKV').value = c.kV;
+        $('fabParams').insertAdjacentHTML('beforeend', `<div class="hint" id="fpFromLib" style="margin-top:4px;">From the Resists tab: the library's curve for ${esc(condLabel(c))} — ${esc(P.regime === 'measured' ? 'calibrated' : P.regime === 'window' ? 'inside the process window' : P.regime === 'extrapolated' ? 'EXTRAPOLATED' : 'UNSUPPORTED')}, D₁₀₀ ±${Math.round(100 * (Math.exp(P.sigmaLn) - 1))} %.</div>`);
+        curveNote(); drawCurve();
+      } else pickResist();
+      for (const id of ['fpGamma', 'fpSoft', 'fpD100', 'fpScum', 'fpRThick', 'fpCalTh', 'fpCalKV', 'fpDevT', 'fpCalT']) $(id).oninput = () => { curveNote(); drawCurve(); };
+      $('fpCalDev').onchange = curveNote;
+    } else if (type === 'spinresist') {
+      const apply = () => { const p = RESIST_PRESETS[val('fpPreset')]; if (p) { $('fpType').value = p.type; $('fpGamma').value = p.contrast; $('fpSoft').value = Math.round(100 * (p.soft ?? 1)); $('fpD100').value = p.D100; $('fpDark').value = p.darkErosion; $('fpSide').value = p.sidewall; $('fpScum').value = p.scum; $('fpClear').value = p.clearFrac ?? 0.5; const c = calibrationOf({}, p); $('fpCalDev').value = c.developer; $('fpDevT').value = c.timeS; $('fpCalT').value = c.tempC; } drawCurve(); };
+      $('fpPreset').onchange = apply;
+      // handed over from the Resists tab ("Use in Fab Studio"): that resist, film and development, with
+      // the library's curve for them — once, for this spin step
+      const fr = app.project.settings?.fabResist, P = fr && RESIST_PRESETS[fr.id] && app.resists?.predictFor(fr.id, fr.cond);
+      if (P) {
+        $('fpPreset').value = fr.id; apply();
+        const c = fr.cond; $('fpRThick').value = c.thicknessNm; $('fpD100').value = +P.D100.toPrecision(3); $('fpGamma').value = +P.gamma.toFixed(2); $('fpSoft').value = Math.round(100 * P.round);
+        $('fpCalDev').value = c.developer; $('fpDevT').value = c.timeS; $('fpCalT').value = c.tempC;
+        $('fabParams').insertAdjacentHTML('beforeend', `<div class="hint" id="fpFromLib" style="margin-top:4px;">From the resist library: ${esc(c.kV + ' kV, ' + c.thicknessNm + ' nm, ' + (DEVELOPERS[c.developer] || c.developer) + ' ' + c.timeS + ' s at ' + c.tempC + ' °C')} — ${esc(P.regime === 'measured' ? 'calibrated' : P.regime === 'window' ? 'inside the process window' : P.regime === 'extrapolated' ? 'EXTRAPOLATED' : 'UNSUPPORTED')}, D₁₀₀ ±${Math.round(100 * (Math.exp(P.sigmaLn) - 1))} %.</div>`);
+        drawCurve();
+      } else apply();
       for (const id of ['fpGamma', 'fpSoft', 'fpD100', 'fpScum', 'fpRThick', 'fpType']) $(id).oninput = drawCurve;
       $('fpType').onchange = drawCurve;
     }
@@ -506,7 +619,14 @@ export function createFabTab(app) {
       if (sug && type === 'expose' && st.editIdx < 0) $('fpScale').value = sug.k;
       syncExposeRows();
     } else { st.pendingMaps = null; render(); }
-    if (type === 'develop') { $('fpTarget').onchange = () => { devHint(); drawCurve(); }; $('fpChem').onchange = devHint; const rs = eng.state.resistStates; if (rs.length) { $('fpTarget').value = rs[rs.length - 1].name; const p = RESIST_PRESETS[rs[rs.length - 1].name]; if (p) $('fpChem').value = p.developers[0]; } devHint(); requestAnimationFrame(drawCurve); }
+    if (type === 'develop') {
+      // a new develop step starts at the conditions the resist's curve was measured for
+      const toCal = () => { const c = calOfTarget(val('fpTarget')); $('fpChem').innerHTML = developerOptionsFor(val('fpTarget')); if (c.developer) $('fpChem').value = c.developer; $('fpTime').value = c.timeS; $('fpTemp').value = c.tempC; };
+      $('fpTarget').onchange = () => { if (st.editIdx < 0) toCal(); else $('fpChem').innerHTML = developerOptionsFor(val('fpTarget')); devHint(); drawCurve(); };
+      for (const id of ['fpChem', 'fpTime', 'fpTemp']) { $(id).oninput = devHint; $(id).onchange = devHint; }
+      const rs = eng.state.resistStates; if (rs.length) { $('fpTarget').value = rs[rs.length - 1].name; toCal(); }
+      devHint(); requestAnimationFrame(drawCurve);
+    }
     if (type === 'descum') { for (const id of ['fpDTime', 'fpDRate', 'fpDGr']) $(id).oninput = descumSummary; descumSummary(); }
     if (type === 'etch_koh') { for (const id of ['fpKConc', 'fpKTemp', 'fpKTime', 'fpKOx']) { $(id).oninput = kohHint; $(id).onchange = kohHint; } kohHint(); }
   }
@@ -519,6 +639,16 @@ export function createFabTab(app) {
     $('fpKHint').innerHTML = `Rates at ${conc} %, ${temp} °C: (100) <b>${um(m.nmPerS['100'])}</b>, (110) ${um(m.nmPerS['110'])}, (111) ${um(m.nmPerS['111'])} µm/min → ${time} s etches <b>${Math.round(m.nmPerS['100'] * time)} nm</b> of (100); SiO₂ mask loses ${((oxR * time) / 60).toFixed(1)} nm. On this (${w.surface}) sample the cross-section runs along ${dirLabel(b.x)}.`;
   }
   $('fabStep').onchange = () => showParams($('fabStep').value);
+  // Learning / Advanced
+  const syncLevel = () => { for (const b of $('fabLevel').querySelectorAll('button')) b.classList.toggle('on', b.dataset.level === level()); };
+  $('fabLevel').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-level]'); if (!b || b.dataset.level === level()) return;
+    (app.project.settings ??= {}).fabLevel = b.dataset.level; app.markDirty(); syncLevel();
+    if (st.editIdx < 0) showParams($('fabStep').value);
+    toast(b.dataset.level === 'advanced' ? 'Advanced: the resist library\'s resists and measured curves, with their conditions.' : 'Learning: the studio\'s generic teaching resists and developers.', 3500);
+  });
+  syncLevel();
+  app.fabLevel = (l) => { (app.project.settings ??= {}).fabLevel = l; syncLevel(); if (st.editIdx < 0) showParams($('fabStep').value); };
 
   // dose strip preview for the pending exposure
   let pendingTicket = 0;
@@ -546,7 +676,7 @@ export function createFabTab(app) {
       case 'transfer_2d': return `Transfer ${TRANSFER_MATERIALS[p.material] || p.material}, ${p.flakeSize} nm`;
       case 'spinresist': return `Spin ${p.thickness} nm ${p.resist} (${p.type}), γ ${p.contrast}${p.soft ? ' (rounding ' + Math.round(100 * p.soft) + ' %)' : ''}, D₁₀₀ ${p.D100}`;
       case 'expose': case 'uv_expose': return p.source === 'layout' ? `Expose with the layout dose${+p.scale !== 1 ? ` × ${p.scale}` : ''}` : p.pattern === 'custom' ? `Expose ${(p.maskShapes || []).length} drawn shape${(p.maskShapes || []).length === 1 ? '' : 's'}` : `Expose ${p.pattern} at ${p.dose} ${p.doseUnit || 'µC/cm²'}`;
-      case 'develop': return `Develop ${p.targetResist} in ${DEVELOPERS[p.developer] || p.developer || '?'}, ${p.devTime} s`;
+      case 'develop': return `Develop ${p.targetResist} in ${DEVELOPERS[p.developer] || p.developer || '?'}, ${p.devTime} s${p.tempC != null ? `, ${p.tempC} °C` : ''}`;
       case 'descum': return `O₂ plasma ${p.time} s`;
       case 'etch_rie': return `RIE ${p.depth} nm ${ETCH_MATERIALS[p.target] || p.target}, selectivity ${p.selectivity}`;
       case 'etch_sf6': return `SF6 etch ${p.depth} nm`;
@@ -601,7 +731,8 @@ export function createFabTab(app) {
       const r = eng.run(type, params, ctx);
       if (!r.ok) { st.history.pop(); $('fabStatus').innerHTML = `<span style="color:#c00">${esc(r.msg)}</span>`; }
       else {
-        st.flow.push({ type, params: r.params, ok: true }); st.thumbs.push(sliceThumbData(eng.state));
+        st.flow.push({ type, params: r.params, ok: true, uncertain: !!r.uncertain, modelled: r.modelled || null, regime: r.regime || null }); st.thumbs.push(sliceThumbData(eng.state));
+        if (type === 'spinresist' && app.project.settings?.fabResist) { delete app.project.settings.fabResist; app.markDirty(); }   // the hand-over from the Resists tab is used
         $('fabStatus').textContent = r.msg || 'Done.';
         if (type === 'develop' && (params.scum || 0) > 0) {   // E6: lift-off would silently take all the metal
           $('fabStatus').innerHTML += `<br><span style="color:#b45309">${esc(params.targetResist)} leaves ≈ ${params.scum} nm of scum in the cleared openings: add an <b>O₂ plasma (descum)</b> step before depositing metal, or lift-off removes the metal with it.</span>`;
@@ -629,7 +760,7 @@ export function createFabTab(app) {
       if (gen !== st.replayGen) return;     // a newer replay has started: it owns the engine now
       const params = ctx?.error ? { ...step.params, __blocked: ctx.error } : step.params;
       const r = eng.run(step.type, params, ctx);
-      out.push({ type: step.type, params: step.params, ok: r.ok, error: ctx?.error || (r.ok ? null : r.msg) || null });
+      out.push({ type: step.type, params: step.params, ok: r.ok, uncertain: !!r.uncertain, modelled: r.modelled || null, regime: r.regime || null, error: ctx?.error || (r.ok ? null : r.msg) || null });
       thumbs.push(sliceThumbData(eng.state));
     }
     st.flow = out; st.thumb0 = thumb0; st.thumbs = thumbs;
@@ -665,7 +796,7 @@ export function createFabTab(app) {
     switch (s.type) {
       case 'deposit': return `${MAT_NAMES[MAT_MAP[p.material]] || p.material}, ${nm(p.thickness)}, ${p.method === 'conformal' ? 'conformal' : 'directional'}`;
       case 'transfer_2d': return `${TRANSFER_MATERIALS[p.material] || p.material}, flake ${nm(p.flakeSize)}, layer ${nm(p.layerThick)}`;
-      case 'spinresist': return `${RESIST_LABELS[p.resist] || p.resist}, ${nm(p.thickness)}<br>γ ${p.contrast}${p.soft ? ', rounding ' + Math.round(100 * p.soft) + ' %' : ''}, D₁₀₀ ${p.D100} µC/cm², clear ${p.clearFrac ?? 0.5}<br>dark ${p.darkErosion} nm/min, ${p.sidewall}°, scum ${nm(p.scum)}`;
+      case 'spinresist': return `${p.lib ? `${esc(app.resists?.entryOf(p.lib)?.name || p.lib)} <span class="fab-adv">library</span>` : RESIST_LABELS[p.resist] || p.resist}, ${nm(p.thickness)}${p.lib && p.curveId ? `<br>curve: ${esc(p.curveId === 'model' ? 'library reference' : p.curveId)}${p.calThicknessNm ? ` (${p.calThicknessNm} nm, ${p.calKV} kV)` : ''}` : ''}<br>γ ${p.contrast}${p.soft ? ', rounding ' + Math.round(100 * p.soft) + ' %' : ''}, D₁₀₀ ${p.D100} µC/cm²<br>dark ${p.darkErosion} nm/min, ${p.sidewall}°, scum ${nm(p.scum)}<br>curve for ${describeCal(calibrationOf(p, RESIST_PRESETS[p.resist]))}`;
       case 'expose': case 'uv_expose': {
         if (p.source === 'layout') { const nom = layoutDose(); return `layout dose × ${p.scale}<br>${nom} → ${+(nom * p.scale).toFixed(0)} µC/cm²`; }
         const unit = p.doseUnit || 'µC/cm²';
@@ -673,7 +804,7 @@ export function createFabTab(app) {
         const geo = p.pattern === 'dots' ? `Ø ${nm(p.dotDiam)}, pitch ${nm(p.dotPitch)}` : p.pattern === 'grating' ? `pitch ${nm(p.pitch)}, duty ${p.duty} %` : p.pattern === 'blanket' ? 'whole area' : `opening ${nm(p.lineW)}`;
         return `${p.pattern}, ${p.dose} ${unit}<br>${geo}`;
       }
-      case 'develop': return `${p.targetResist} in ${DEVELOPERS[p.developer] || p.developer}, ${p.devTime} s`;
+      case 'develop': return `${p.targetResist} in ${DEVELOPERS[p.developer] || p.developer}, ${p.devTime} s${p.tempC != null ? `, ${p.tempC} °C` : ''}`;
       case 'descum': return `${p.time} s × ${p.rate} nm/s = ${+(p.time * p.rate).toFixed(1)} nm of resist`;
       case 'etch_rie': return `${ETCH_MATERIALS[p.target] || p.target}, ${nm(p.depth)}, selectivity ${p.selectivity}`;
       case 'etch_sf6': return `${nm(p.depth)}`;
@@ -707,7 +838,7 @@ export function createFabTab(app) {
       if (st.insertIdx === i) html += placeholder(i + 1);
       const n = st.insertIdx >= 0 && i >= st.insertIdx ? i + 1 : i;
       const editing = i === st.editIdx, bad = s.ok === false;
-      html += '<div class="fconn"></div>' + card(n, STEP_LABELS[s.type] || s.type, STEP_ICONS[s.type] || '•', stepDetails(s) + (bad ? `<div class="ferr">⚠ ${esc(s.error || 'could not run')}</div>` : ''), st.thumbs[i],
+      html += '<div class="fconn"></div>' + card(n, STEP_LABELS[s.type] || s.type, STEP_ICONS[s.type] || '•', stepDetails(s) + (bad ? `<div class="ferr">⚠ ${esc(s.error || 'could not run')}</div>` : '') + (!bad && s.uncertain ? `<div class="fwarn" title="This development differs from the one the resist&#39;s contrast curve was measured for: the result is less certain.">⚠ ${s.regime === 'extrapolated' ? 'EXTRAPOLATED outside the process window' : 'outside the contrast curve&#39;s calibration'}</div>` : '') + (!bad && !s.uncertain && s.modelled ? `<div class="finfo" title="${esc(s.modelled)}">ℹ curve moved by the resist library — inside the process window</div>` : ''), st.thumbs[i],
         `${editing ? ' editing' : ''}${bad ? ' bad' : ''}${st.editIdx >= 0 && i > st.editIdx ? ' downstream' : ''}`, editing ? '<span class="fbadge">editing</span>' : '').replace(`data-i="${n}"`, `data-i="${i}"`);
     });
     if (st.insertIdx >= st.flow.length) html += placeholder(st.flow.length + 1);
@@ -732,7 +863,7 @@ export function createFabTab(app) {
       if (i < 0) return;
       if (st.editIdx === i) { cancelEdit(); return; }
       exitInsert(false);
-      st.editIdx = i; $('fabStep').value = st.flow[i].type; showParams(st.flow[i].type); fillParams(st.flow[i].type, st.flow[i].params);
+      st.editIdx = i; $('fabStep').value = st.flow[i].type; showParams(st.flow[i].type, st.flow[i].type === 'spinresist' ? (st.flow[i].params?.lib ? 'advanced' : 'learning') : null); fillParams(st.flow[i].type, st.flow[i].params);
       $('fabRun').style.display = 'none'; $('fabApplyEdit').style.display = ''; $('fabCancelEdit').style.display = '';
       $('fabStatus').innerHTML = `Editing step ${i + 1}: change the parameters, then <b>Apply edit</b> (the steps after it are replayed).`;
       renderFlow(); return;
@@ -904,6 +1035,7 @@ export function createFabTab(app) {
   window.addEventListener('mouseup', () => { panDrag = null; });
   let layout2d = null;
   function render() {
+    legend();
     if (!st.built) { const c = $('fabCanvas2d'); c.getContext('2d').clearRect(0, 0, c.width, c.height); return; }
     const z = Math.min(eng.state.D - 1, Math.round((st.zSlice / 100) * (eng.state.D - 1)));
     const g0 = st.sample?.grid;

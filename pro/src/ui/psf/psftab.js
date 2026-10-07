@@ -7,6 +7,7 @@ import { psfFromSettings, psfLabel } from '../../core/psf/settings.js';
 import { makeAnalyticFor, MODELS, modelOf } from '../../core/psf/analytic.js';
 import { psfAt, cumulative, gaussAt, makePSF } from '../../core/psf/psf.js';
 import { importTableText } from '../../core/psf/table.js';
+import { importBeamerPsf, looksLikeBeamerPsf, beamerPsfLabel } from '../../core/psf/beamer.js';
 import { fitGaussians, fitAllModels } from '../../core/psf/fit.js';
 import { splitPSF } from '../../core/psf/split.js';
 import { SUBSTRATES, psfParamsFor } from '../../core/physics/scaling.js';
@@ -72,7 +73,7 @@ export function createPsfTab(app) {
           </div>
         </div>
         <div id="psfTable" style="margin-top:8px; display:none;">
-          <div class="row"><button class="btn small" id="psfImport">Import table…</button><span class="hint" id="psfFile">no file</span></div>
+          <div class="row"><button class="btn small" id="psfImport" title="A two-column table (radius, value) from any program, or a BEAMER / TRACER PSF file (.lpsf)">Import table / BEAMER PSF…</button><span class="hint" id="psfFile">no file</span></div>
           <div class="three" style="margin-top:6px;">
             <div><div class="label">Radius in</div><select class="field" id="psfRUnit">${['nm', 'um', 'A', 'mm'].map((u) => `<option value="${u}">${u === 'um' ? 'µm' : u === 'A' ? 'Å' : u}</option>`).join('')}</select></div>
             <div><div class="label">Values are <span class="q" data-tip="<b>per area</b>: energy per unit area f(r) — use as is.<br><b>per radius</b>: dE/dr = 2πr f(r).<br><b>per annulus</b>: energy in each radial bin (histogram counts), as most Monte Carlo codes write them.<br><br>Getting this wrong is the commonest PSF import mistake — compare the plot with the notes' curve.">?</span></div><select class="field" id="psfVMode"><option value="per-area">per area</option><option value="per-radius">per radius</option><option value="per-annulus">per annulus</option></select></div>
@@ -158,8 +159,12 @@ export function createPsfTab(app) {
     $('psfModel').value = model;
     $('psfMidRow').style.display = MODELS[model].mid ? '' : 'none';
     $('psfGLabel').textContent = MODELS[model].mid === 'exp' ? 'γ (nm, decay length of the exponential)' : 'γ (nm, width of the mid-range Gaussian)';
+    for (const id of ['psfRUnit', 'psfVMode', 'psfBins']) $(id).disabled = false;
     if (s.table?.source) {
-      $('psfFile').textContent = s.table.source.name; $('psfRUnit').value = s.table.source.rUnit; $('psfVMode').value = s.table.source.valueMode; $('psfBins').value = s.table.source.binEdges;
+      const bm = s.table.source.kind === 'beamer';
+      $('psfFile').textContent = bm ? `${s.table.source.name} — ${beamerPsfLabel(s.table.meta || {})}` : s.table.source.name;
+      $('psfRUnit').value = s.table.source.rUnit; $('psfVMode').value = s.table.source.valueMode; $('psfBins').value = s.table.source.binEdges;
+      for (const id of ['psfRUnit', 'psfVMode', 'psfBins']) $(id).disabled = bm;     // fixed by the BEAMER format
       $('psfFitModel').value = MODELS[s.table.model] ? s.table.model : s.table.triple ? 'triple' : 'double';
       $('psfUseFit').checked = !!s.table.useFit;
     }
@@ -215,30 +220,50 @@ export function createPsfTab(app) {
     syncFields(); commit('PSF model');
   };
 
-  function importWith(text, name, opts) {
-    const { psf, guess } = importTableText(text, opts);
-    psf.fit = fitGaussians(psf, { model: opts.model });
+  function storeTable(psf, name, model, source) {
+    psf.fit = fitGaussians(psf, { model });
     const prev = st().table;
     st().table = { r: Array.from(psf.r), f: Array.from(psf.f), meta: { ...psf.meta, file: name }, fit: psf.fit, warnings: psf.warnings,
-      model: opts.model, useFit: prev?.source?.name === name ? !!prev.useFit : false,
-      source: { name, text, rUnit: opts.rUnit, valueMode: psf.meta.valueMode, binEdges: opts.binEdges, model: opts.model } };
+      model, useFit: prev?.source?.name === name ? !!prev.useFit : false, source };
     st().mode = 'table';
+  }
+  function importWith(text, name, opts) {
+    const { psf, guess } = importTableText(text, opts);
+    storeTable(psf, name, opts.model, { name, text, rUnit: opts.rUnit, valueMode: psf.meta.valueMode, binEdges: opts.binEdges, model: opts.model });
     return guess;
   }
+  // a BEAMER .lpsf: its units and value mode are fixed by the format, so only the fit model is a choice
+  function importBeamer(psf, name, model) {
+    storeTable(psf, name, model, { name, kind: 'beamer', rUnit: 'nm', valueMode: 'per-area', binEdges: 'geometric', model });
+  }
   const tableOpts = () => ({ rUnit: $('psfRUnit').value, valueMode: $('psfVMode').value, binEdges: $('psfBins').value, model: $('psfFitModel').value });
-  $('psfImport').onclick = () => pickFile('.csv,.txt,.dat,.tsv,text/plain', (text, name) => {
+  const isBeamerName = (n) => /\.l?psf$/i.test(n);
+  $('psfImport').onclick = () => pickFile('.csv,.txt,.dat,.tsv,.lpsf,.psf,text/plain', async (data, name) => {
     try {
+      if (isBeamerName(name) || (data instanceof Uint8Array && looksLikeBeamerPsf(data))) {
+        const { psf } = await importBeamerPsf(data, { name });
+        importBeamer(psf, name, $('psfFitModel').value);
+        syncFields(); commit('PSF imported');
+        toast(`Imported <b>${esc(name)}</b> — ${esc(beamerPsfLabel(psf.meta))}. Used as a table; the fits are listed below.`, 7000);
+        return;
+      }
+      const text = data instanceof Uint8Array ? new TextDecoder().decode(data) : data;
       const o = tableOpts(); delete o.valueMode;          // a fresh file: let the importer guess the value mode
       const guess = importWith(text, name, o);
       syncFields(); commit('PSF imported');
       toast(`Imported <b>${esc(name)}</b> — values read as <b>${guess.mode}</b>${guess.confident ? '' : ' (a guess: check the plot against the notes curve)'}.`, 5000);
     } catch (e) { alert(`Could not import ${name}:\n${e.message}`); }
-  });
+  }, { binary: isBeamerName });
   for (const id of ['psfRUnit', 'psfVMode', 'psfBins', 'psfFitModel']) $(id).onchange = () => {
-    const src = st().table?.source;
+    const t = st().table, src = t?.source;
     if (!src) return;
-    try { importWith(src.text, src.name, tableOpts()); syncFields(); commit('PSF re-read'); }
-    catch (e) { alert(e.message); }
+    try {
+      if (src.kind === 'beamer') {                         // the table stays; refit with the chosen model
+        const psf = makePSF({ r: t.r, f: t.f, meta: t.meta, warnings: t.warnings || [] });
+        importBeamer(psf, src.name, $('psfFitModel').value);
+      } else importWith(src.text, src.name, tableOpts());
+      syncFields(); commit('PSF re-read');
+    } catch (e) { alert(e.message); }
   };
   $('psfUseFit').onchange = (e) => { if (st().table) { st().table.useFit = e.target.checked; commit('PSF fit/table'); } };
   $('psfKeep').onclick = () => {

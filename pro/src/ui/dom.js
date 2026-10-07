@@ -165,7 +165,8 @@ export async function busyStep(big, msg, fn) {
   return fn();
 }
 
-export function pickFile(accept, cb) {
+// binary: true, or a function of the file name, to get the bytes (Uint8Array) instead of text
+export function pickFile(accept, cb, { binary = false } = {}) {
   const inp = $('fileInput');
   inp.accept = accept;
   inp.value = '';
@@ -173,7 +174,7 @@ export function pickFile(accept, cb) {
     const f = inp.files && inp.files[0];
     if (!f) return;
     let text;
-    try { text = await readFile(f, false); } catch (e) { alert(`Could not read ${f.name}:\n${e.message}`); return; }
+    try { text = await readFile(f, typeof binary === 'function' ? binary(f.name) : binary); } catch (e) { alert(`Could not read ${f.name}:\n${e.message}`); return; }
     try { await busyStep(f.size >= BIG_FILE, `Opening <b>${esc(f.name)}</b> — building the layout…`, () => cb(text, f.name)); }
     finally { busyDone(); }
   };

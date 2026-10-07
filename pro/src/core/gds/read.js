@@ -113,11 +113,18 @@ function mergeOverlaps(cells, report) {
     const size = Math.max(1, 2 * dims[Math.floor(dims.length / 2)]);
     const cellOf = (v, o) => Math.floor((v - o) / size);
     const buckets = new Map();
+    // A shape far larger than the median (a chip frame among 50 nm dots) would sit in millions of
+    // buckets (ShapeMatrix_v2.gds overflowed the Map): such shapes stay out of the grid and are
+    // compared with every shape directly below.
+    const MAX_BUCKETS = 256, big = [];
     bb.forEach((b, i) => {
+      const nx = cellOf(b.x2, X1) - cellOf(b.x1, X1) + 1, ny = cellOf(b.y2, Y1) - cellOf(b.y1, Y1) + 1;
+      if (nx * ny > MAX_BUCKETS) { big.push(i); return; }
       for (let x = cellOf(b.x1, X1); x <= cellOf(b.x2, X1); x++) for (let y = cellOf(b.y1, Y1); y <= cellOf(b.y2, Y1); y++) {
         const k = x * 1048576 + y; let a = buckets.get(k); if (!a) buckets.set(k, (a = [])); a.push(i);
       }
     });
+    const isBig = new Uint8Array(sh.length); for (const i of big) isBig[i] = 1;
     const owner = (i, j) => cellOf(Math.max(bb[i].x1, bb[j].x1), X1) * 1048576 + cellOf(Math.max(bb[i].y1, bb[j].y1), Y1);
     const connected = (i, j) => {
       const a = bb[i], b = bb[j];
@@ -133,6 +140,13 @@ function mergeOverlaps(cells, report) {
       const i = list[u], j = list[v];
       if (sh[i].layer !== sh[j].layer || sh[i].groupId || sh[j].groupId) continue;
       if (owner(i, j) !== key) continue;                                   // compared in one bucket only
+      if (find(i) !== find(j) && connected(i, j)) parent[find(i)] = find(j);
+    }
+    for (const i of big) for (let j = 0; j < sh.length; j++) {
+      if (j === i || (isBig[j] && j < i)) continue;                         // each big pair once
+      if (sh[i].layer !== sh[j].layer || sh[i].groupId || sh[j].groupId) continue;
+      const a = bb[i], b = bb[j];
+      if (a.x2 < b.x1 || b.x2 < a.x1 || a.y2 < b.y1 || b.y2 < a.y1) continue;
       if (find(i) !== find(j) && connected(i, j)) parent[find(i)] = find(j);
     }
     const byRoot = new Map();

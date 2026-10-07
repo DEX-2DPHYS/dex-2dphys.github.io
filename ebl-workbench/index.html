@@ -70,15 +70,15 @@
         <h2>EBL Workbench</h2>
         <p>The whole Workbench in your browser — Chrome, Edge or Firefox, on any computer. Nothing to install; it runs on your machine, and the (AI-generated) tutorial videos stream from this site. For teaching, exercises and the demo patterns.</p>
         <a class="btn primary" href="app.html">Open in the browser</a>
-        <a class="btn" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-HTML.zip">Download for offline use</a>
-        <p class="os" style="margin-top:6px">The download is the same page as one HTML file, with its tutorial videos (about 90 MB): unzip and double-click <i>EBL Workbench.html</i>.</p>
+        <a class="btn" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.1/EBL-Workbench-HTML.zip">Download for offline use</a>
+        <p class="os" style="margin-top:6px">The download is the same page as one HTML file, with its tutorial videos (about 280 MB): unzip and double-click <i>EBL Workbench.html</i>.</p>
       </div>
       <div class="opt">
         <h2>EBL Workbench <span class="pro-tag">PRO</span></h2>
         <p>The same Workbench for real e-beam work. Monte Carlo, the proximity-correction solve and KOH etching run in a native multithreaded core on all processor cores, and whole-chip corrections use the computer's memory instead of a browser tab's — a full chip in minutes. Self-contained: unzip and start, nothing to install. Results are the same as in the browser version.</p>
-        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-Pro-windows-x64.zip">Windows</a>
-        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-Pro-macos-arm64.zip">macOS (Apple Silicon)</a>
-        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.0/EBL-Workbench-Pro-linux-x64.zip">Linux (x64)</a>
+        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.1/EBL-Workbench-Pro-windows-x64.zip">Windows</a>
+        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.1/EBL-Workbench-Pro-macos-arm64.zip">macOS (Apple Silicon)</a>
+        <a class="btn primary" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/download/pro-v1.1/EBL-Workbench-Pro-linux-x64.zip">Linux (x64)</a>
         <div class="os"><b>Windows:</b> double-click <i>Start EBL Workbench Pro.cmd</i>. The first time Windows may warn about an unrecognised app: <i>More info → Run anyway</i>.</div>
         <div class="os"><b>macOS:</b> once, in Terminal: <code>xattr -dr com.apple.quarantine "EBL Workbench Pro"</code> (the package is not notarised), then double-click <i>Start EBL Workbench Pro.command</i>.</div>
         <div class="os"><b>Linux:</b> <code>./start-ebl-workbench-pro.sh</code> in the unzipped folder.</div>
@@ -102,13 +102,17 @@
         <li><b>PSF</b> — double/triple Gaussian and exponential models, or a built-in Monte Carlo of electron scattering in resist and substrate.</li>
         <li><b>Exposure</b> — delivered dose maps and cut-lines; per-shape, raster and fractured proximity correction.</li>
         <li><b>Fab Studio</b> — spin, expose, develop, deposit, lift-off, RIE, isotropic and KOH etching on a voxel sample in 2D or 3D; KOH follows the crystal planes of the wafer.</li>
-        <li>AI-generated tutorial videos for each tab, under the <b>T</b> buttons.</li>
+        <li><b>Resists</b> — a library of the e-beam resists in the DTU Nanolab cleanroom: contrast curves with their conditions and sources, process advice, and a documented model for other conditions. Every number says whether it is calibrated, inside the process window, or extrapolated. Users can add their own curves and share them.</li>
+        <li><b>Analysis</b> — will it print? Developed widths, dose to size, dose windows and the common process window, and calibration from a dose test.</li>
+        <li><b>JEOL 9500</b> — a machine-specific module for the JEOL JBX-9500FS at DTU Nanolab: beam current, write time, dose ranks and the job files.</li>
+        <li>AI-generated tutorial videos for each tab, under the <b>T</b> buttons, with a "Warnings, common mistakes and pitfalls" video at the top of each list.</li>
       </ul>
       <h3>About</h3>
-      <p class="body">The EBL Workbench was programmed by Claude Code (Anthropic's AI coding assistant). It is based on a series of visualisation and simulation programs that Peter Bøggild at 2DPHYS, Department of Physics, Technical University of Denmark (DTU), developed over 20 years of teaching electron-beam lithography.</p>
+      <p class="body">The EBL Workbench was programmed by Claude Code (Anthropic's AI coding assistant). It is based on a series of visualisation and simulation programs that Peter Bøggild at 2DPHYS, Department of Physics, Technical University of Denmark (DTU), developed over 20 years of teaching electron-beam lithography. Francisca D'Rozario, also at 2DPHYS, contributed the JEOL JBX-9500 module.</p>
+      <p class="body">The current version is designed to match the machine (the JEOL JBX-9500FS), the processes and the resists available in the DTU Nanolab cleanroom at DTU.</p>
       <h3>Terms of use</h3>
       <p class="body">The EBL Workbench is free to use for students and staff at DTU. Users outside DTU must ask for permission first, by writing to Peter Bøggild at <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a>. Questions, bug reports and suggestions are welcome at the same address.</p>
-      <p class="os">All downloads: <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/tag/pro-v1.0">release pro-v1.0</a>.</p>
+      <p class="os">All downloads: <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io/releases/tag/pro-v1.1">release pro-v1.1</a>.</p>
     </section>
     <footer>DEX — digital experiments from the 2DPHYS group, Department of Physics, DTU · Free for DTU users; others ask <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a> · <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></footer>
   </main>

@@ -23,9 +23,11 @@ import { nextPow2, kernelSpectrum, convolve } from './fft.js';
 export const FIELDS = ['delivered', 'designed', 'write', 'longrange'];
 
 // scene: a sceneCache() to share between engines on the same library (it holds geometry only).
-export function createEngine(project, { hFactor = 8, maxPolygons = 250000, doseOverride = null, scene: sharedScene = null } = {}) {
+// psfObject: a PSF object to use instead of project.psf's settings (the Analysis tab: a kept PSF, or one
+// term of the PSF for its calibration).
+export function createEngine(project, { hFactor = 8, maxPolygons = 250000, doseOverride = null, scene: sharedScene = null, psfObject = null } = {}) {
   const lib = project.library, top = lib.top;
-  const psf = psfFromSettings(project.psf);
+  const psf = psfObject ?? psfFromSettings(project.psf);
   const exact = !!psf.gauss;
   const terms = psf.gauss ?? psf.fit.terms;
   const betaMax = Math.max(...terms.map((t) => t.s));

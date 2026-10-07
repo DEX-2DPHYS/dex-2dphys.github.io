@@ -16,6 +16,7 @@ import { unpackCells } from '../../core/geom/pack.js';
 import { download } from '../dom.js';
 import { RESIST_PRESETS, RESIST_LABELS } from '../../core/fab/materials.js';
 import { makeResist, remainingFraction } from '../../core/physics/resist.js';
+import { calibrationOf, devDeviation, describeCal } from '../../core/physics/devcal.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const TAU = Math.PI * 2;
@@ -121,7 +122,7 @@ export function createExposureTab(app) {
             <div class="section-title" style="margin:0 0 6px;font-size:13px;">Raster correction (Wiener) <span class="q" data-tip="<b>Wiener deconvolution</b> of the target on a raster over the current view — the old Pattern Studio's correction: the continuous writing-dose map that reproduces the design, with the extra dose at edges and corners. Exact inversion needs <i>negative</i> doses and spikes (clipped here); the regularisation λ trades exactness for realism. Shown as two map fields, as <b>Correction / Corrected → Raster</b> in the 3D view, and as a red curve in the profile.">?</span></div>
             <div class="three">
               <div><div class="label">λ</div><input class="field" id="exLambda" type="number" value="0.01" step="0.005" min="0"></div>
-              <div><div class="label">Raster</div><select class="field" id="exWN"><option>128</option><option selected>256</option><option>512</option><option>1024</option></select></div>
+              <div><div class="label">Raster</div><select class="field" id="exWN"><option>128</option><option>256</option><option>512</option><option selected>1024</option></select></div>
               <div><div class="label">Max dose</div><input class="field" id="exWMax" type="number" value="1000" step="50"></div>
             </div>
             <div class="row" style="margin-top:8px;"><button class="btn" id="exWiener">Compute for this view</button></div>
@@ -154,13 +155,14 @@ export function createExposureTab(app) {
         <div id="ex3DevBox" class="row" style="display:none;gap:10px;align-items:flex-end;margin-top:8px;flex-wrap:wrap;">
           <div><div class="label">Resist</div><select class="field" id="ex3Resist" style="width:auto;">${Object.keys(RESIST_PRESETS).map((k) => `<option value="${k}">${esc(RESIST_LABELS[k] || k)}</option>`).join('')}</select></div>
           <div style="width:90px;"><div class="label">Thickness (nm)</div><input class="field" id="ex3Thick" type="number" value="100" min="5" step="10"></div>
-          <div style="width:90px;"><div class="label">Dev. time (s) <span class="q" data-tip="As in Fab Studio: the contrast curve is the preset's for its standard development; the time adds dark erosion (rate × time) of the unexposed resist.">?</span></div><input class="field" id="ex3DevT" type="number" value="60" min="1" step="5"></div>
+          <div style="width:90px;"><div class="label">Dev. time (s) <span class="q" data-tip="As in Fab Studio: the contrast curve belongs to one development (the preset's: developer, time, temperature). Another time only adds or removes dark erosion (rate × time) of the unexposed resist here; a real resist would also clear at another dose — so a time other than the curve's is flagged as uncertain.">?</span></div><input class="field" id="ex3DevT" type="number" value="60" min="1" step="5"></div>
           <div style="width:70px;"><div class="label">γ</div><input class="field" id="ex3Gamma" type="number" step="0.5" min="0.5"></div>
           <div style="width:90px;"><div class="label">Rounding (%) <span class="q" data-tip="Kink rounding of the contrast curve, as in Fab Studio: softens the corners at D₀ and D₁₀₀ without changing γ.">?</span></div><input class="field" id="ex3Soft" type="number" value="100" min="0" max="100" step="10"></div>
           <div style="width:90px;"><div class="label">D₁₀₀ (µC/cm²)</div><input class="field" id="ex3D100" type="number" step="10" min="1"></div>
           <div style="width:90px;"><div class="label">Dose scale × <span class="q" data-tip="The Exposure tab works in relative doses (nominal 100). The scale turns them into the absolute dose the resist sees; the suggested value puts corrected edges (½ of the nominal) at D₁₀₀ — the same rule as Fab Studio.">?</span></div><input class="field" id="ex3Scale" type="number" step="0.5" min="0.01"></div>
           <div><div class="label">Dose from</div><select class="field" id="ex3DevFrom" style="width:auto;"><option value="delivered">Delivered</option><option value="corrected">Corrected</option></select></div>
           <span class="hint" id="ex3DevHint"></span>
+          <div class="hint" id="ex3DevCal" style="flex-basis:100%;"></div>
         </div>
         <div class="hint" style="margin-top:4px;">Left-drag rotates · right- or Shift-drag pans · wheel zooms. Green skin: the target dose. <b>Developed</b>: the resist that is left (height = remaining thickness), read off the contrast curve point by point — 1D development, as in Fab Studio.</div>
       </div>
@@ -771,7 +773,7 @@ export function createExposureTab(app) {
   function showWiener(r) {
     st.wiener = r; st.wienerStale = false;
     for (const o of $('exField').options) if (o.value.startsWith('wiener')) o.disabled = false;
-    $('exWStatus').innerHTML = `Done (${r.ms.toFixed(0)} ms). The exact solution needs <b>negative dose on ${(100 * r.negativeFraction).toFixed(1)} %</b> of the raster (set to 0) and hits the maximum on ${(100 * r.clippedFraction).toFixed(1)} % — pick <i>Ideal …</i> under Map shows.`;
+    $('exWStatus').innerHTML = `Done (${r.ms.toFixed(0)} ms). The exact solution needs <b>negative dose on ${(100 * r.negativeFraction).toFixed(1)} %</b> of the raster (set to 0) and hits the maximum on ${(100 * r.clippedFraction).toFixed(1)} % — pick <i>Ideal …</i> under Map shows.` + (r.write.length * 8 >= 1.2e6 ? ` <span id="exWNoAuto" style="color:#b45309">At this raster the result is too large for the browser's autosave: <b>Save</b> the project to keep it.</span>` : '');
   }
   $('exWiener').onclick = async () => {
     ensureProject();
@@ -820,8 +822,15 @@ export function createExposureTab(app) {
     }
   }
   for (const id of ['ex3Field', 'ex3Res', 'ex3Src', 'ex3DevFrom']) $(id).onchange = () => { sync3DControls(); viewChanged3D(); };
-  $('ex3Resist').onchange = () => { fillResist(); viewChanged3D(); };
-  for (const id of ['ex3Thick', 'ex3DevT', 'ex3Gamma', 'ex3Soft', 'ex3D100', 'ex3Scale']) $(id).oninput = () => viewChanged3D();
+  // the development the preset's curve was measured for, and whether this view stays inside it
+  function devCalNote() {
+    const p = RESIST_PRESETS[$('ex3Resist').value], cal = calibrationOf({}, p);
+    const dev = devDeviation(cal, { timeS: parseFloat($('ex3DevT').value) || cal.timeS });
+    $('ex3DevCal').innerHTML = dev.outside ? `<span style="color:#b45309">⚠ ${esc(dev.text)}</span>` : `Contrast curve: ${esc(describeCal(cal))} (illustrative preset values).`;
+  }
+  $('ex3Resist').onchange = () => { fillResist(); $('ex3DevT').value = calibrationOf({}, RESIST_PRESETS[$('ex3Resist').value]).timeS; devCalNote(); viewChanged3D(); };
+  for (const id of ['ex3Thick', 'ex3DevT', 'ex3Gamma', 'ex3Soft', 'ex3D100', 'ex3Scale']) $(id).oninput = () => { if (id === 'ex3DevT') devCalNote(); viewChanged3D(); };
+  devCalNote();
   $('ex3H').oninput = (e) => { st.surface?.setOptions({ scale: +e.target.value }); st.surface?.draw(); };
   $('ex3Contour').onchange = (e) => { st.surface?.setOptions({ contour: e.target.checked ? 0.1 : 0 }); st.surface?.draw(); };
   $('ex3Target').onchange = (e) => { st.surface?.setOptions({ target: e.target.checked }); st.surface?.draw(); };

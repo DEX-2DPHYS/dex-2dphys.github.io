@@ -14,14 +14,16 @@
 //              i.e. the Workbench exposure engine evaluated on a device area
 
 import {
-  M, MAT_MAP, RESIST_MAT_MAP, RESIST_PRESETS, GRAPHENE_ML_NM,
+  M, MAT_MAP, RESIST_MAT_MAP, RESIST_PRESETS, GRAPHENE_ML_NM, presetOf,
   isResist, isResistUnexp, toExposed, isSF6Etchable,
 } from './materials.js';
 import { roundedRamp } from '../physics/resist.js';
+import { calibrationOf, devDeviation } from '../physics/devcal.js';
 import { isotropicEtch } from './fmm.js';
 import { kohSetup, kohApply } from './koh.js';
 import { kohResult, kohPrepareResult } from './kohrun.js';
 import { normalizeWafer } from './crystal.js';
+import { developConditions, describeMove, trimCalText } from '../resists/move.js';
 
 export const MAX_SLICES = 150;        // the standalone's cap on D
 
@@ -174,7 +176,12 @@ export function createFabEngine() {
     s.resistStates.push({
       name: preset || 'custom', type, matId, matExpId: toExposed(matId), exposed: false, yTop: resistTop, yBot: maxSurf, doseMap: null, doseMaps: null,
       // `||` fallbacks exactly as the standalone reads its form (a dark erosion of 0 reads as 2 there too)
-      devParams: { contrast: +dp.contrast || 3, soft: +dp.soft || 0, D100: +dp.D100 || 120, darkErosion: +dp.darkErosion || 2, sidewall: +dp.sidewall || 90, scum: +dp.scum || 0, clearFrac: +dp.clearFrac || 0.5, devTime: +dp.devTime || 60, resistThick: thickNm, legacyClearFrac: dp.clearFrac == null },
+      devParams: { contrast: +dp.contrast || 3, soft: +dp.soft || 0, D100: +dp.D100 || 120, darkErosion: +dp.darkErosion || 2, sidewall: +dp.sidewall || 90, scum: +dp.scum || 0, clearFrac: +dp.clearFrac || 0.5, devTime: +dp.devTime || 60, resistThick: thickNm, legacyClearFrac: dp.clearFrac == null,
+        // the development the contrast curve was measured for (devcal.js); older recipes: their dev. time, the preset's developer, room temperature
+        ...(({ developer, timeS, tempC }) => ({ calDeveloper: developer, calTimeS: timeS, calTempC: tempC }))(calibrationOf(dp, presetOf(preset, dp.lib))),
+        // Advanced (a resist-library curve): which resist, and the film and voltage the curve was measured at
+        lib: dp.lib || null, curveId: dp.curveId || null, calThicknessNm: +dp.calThicknessNm || null, calKV: +dp.calKV || null,
+        extras: dp.extras || null, calExtras: dp.calExtras || null },
     });
     return { top: resistTop, clipped: minSurf - resPx < 0 };
   }
@@ -477,10 +484,16 @@ export function createFabEngine() {
   function rederiveDevelop(p) {
     const rs = s.resistStates.find((r) => r.name === (p.targetResist || 'PMMA'));
     if (!rs) return p;
-    const dp = rs.devParams, preset = RESIST_PRESETS[p.targetResist];
-    return { ...p, sidewall: dp.sidewall || 90, contrast: dp.contrast || 3, soft: dp.soft || 0, darkErosion: dp.darkErosion || 2,
+    const dp = rs.devParams, preset = presetOf(p.targetResist, dp.lib);
+    const dev = { developer: p.developer, timeS: +p.devTime || 60, tempC: p.tempC != null ? +p.tempC : null };
+    // the curve's own conditions against this development, film and voltage; a library resist away from
+    // them is moved by the library's model (move.js) — the studio's presets only get the warning
+    const dc = developConditions(dp, preset, dev, +p.kV || null), move = dc.move;
+    const calibration = dc.outside ? { outside: true, text: [dc.calibration.outside ? (move ? trimCalText(dc.calibration.text) : dc.calibration.text) : null, ...dc.other].filter(Boolean).join('; ') } : dc.calibration;
+    return { ...p, sidewall: dp.sidewall || 90, contrast: move ? +move.gamma.toFixed(3) : dp.contrast || 3, soft: dp.soft || 0, darkErosion: dp.darkErosion || 2,
       clearFrac: dp.legacyClearFrac && p.clearFrac != null ? p.clearFrac : dp.clearFrac || 0.5,
-      D100: dp.D100 || 120, scum: dp.scum || 0, developerCompatible: !!(preset && preset.developers && preset.developers.includes(p.developer)) };
+      D100: move ? +move.D100.toPrecision(5) : dp.D100 || 120, scum: dp.scum || 0, developerCompatible: !!(preset && preset.developers && preset.developers.includes(p.developer)),
+      calibration, move: move ? { regime: move.regime, text: describeMove(move), factor: move.factor, pm: move.pm } : null };
   }
 
   // Runs one step; returns {ok, msg, params} (params possibly re-derived). ctx carries layout
@@ -500,7 +513,10 @@ export function createFabEngine() {
       case 'develop': {
         p = rederiveDevelop(p);
         r = develop(p.targetResist || 'PMMA', +p.sidewall || 90, +p.contrast || 3, +p.devTime || 60, p.darkErosion != null ? +p.darkErosion : 2, p.clearFrac != null ? +p.clearFrac : 0.5, +p.D100 || 120, +p.scum || 0, +p.soft || 0);
-        if (r.ok) r.msg = `Developed ${p.targetResist || 'PMMA'}: γ ${p.contrast}${p.soft ? ' (rounding ' + Math.round(100 * p.soft) + ' %)' : ''}, ${p.devTime} s, dark erosion ${p.darkErosion} nm/min, ${p.sidewall}° walls.` + (p.developerCompatible === false ? ' Advisory: uncommon chemistry for this resist.' : '');
+        if (r.ok) r.msg = `Developed ${p.targetResist || 'PMMA'}: γ ${p.contrast}${p.soft ? ' (rounding ' + Math.round(100 * p.soft) + ' %)' : ''}, ${p.devTime} s${p.tempC != null ? `, ${p.tempC} °C` : ''}, dark erosion ${p.darkErosion} nm/min, ${p.sidewall}° walls.` + (p.developerCompatible === false ? ' Advisory: uncommon chemistry for this resist.' : '')
+          + (p.calibration?.outside ? ` ⚠ ${p.calibration.text}` : '') + (p.move ? ` — ${p.move.text}.` : '');
+        // moved by the model inside the process window: less certain, but said so; outside it: uncertain
+        if (r.ok && p.calibration?.outside) { if (p.move && p.move.regime === 'window') r.modelled = p.move.text; else r.uncertain = true; r.regime = p.move?.regime || null; }
         break;
       }
       case 'etch_rie': etchRIE(p.target, +p.depth || 80, +p.selectivity || 10); r.msg = `RIE etched ${+p.depth || 80} nm of ${p.target}.`; break;

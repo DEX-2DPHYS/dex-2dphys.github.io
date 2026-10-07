@@ -7,6 +7,9 @@ import { demoProject, makeProject, projectFromJSON, projectToJSON } from '../cor
 import { createPsfTab } from './psf/psftab.js';
 import { createExposureTab } from './exposure/exposuretab.js';
 import { createFabTab } from './fab/fabtab.js';
+import { createJeolTab, JEOL_CSS } from './jeol/jeoltab.js';
+import { createAnalysisTab, ANALYSIS_CSS } from './analysis/analysistab.js';
+import { createResistsTab, RESISTS_CSS } from './resists/resiststab.js';
 import { applyCorrection, clearCorrection } from '../core/pec/pershape.js';
 import { installShortcutCard } from './shortcuts.js';
 import { installGdsIO } from './gdsio.js';
@@ -44,18 +47,32 @@ function showTab(t) {
   document.querySelectorAll('.tab').forEach((s) => s.classList.toggle('active', s.id === 'tab-' + t));
   if (t === 'layout') { editor.resize(); editor.render(); }
   if (t === 'psf') psfTab.show();
+  if (t === 'resists') resistsTab.show();
   if (t === 'exposure') exposureTab.show();
   if (t === 'fab') fabTab.show();
+  if (t === 'jeol') jeolTab.show();
+  if (t === 'analysis') analysisTab.show();
 }
+app.showTab = showTab;
+
+// ---------------------------------------------------------------- About (click the name in the title bar)
+function showAbout() {
+  openModal({ title: 'About the EBL Workbench', narrow: false, html: `<div class="about">
+    <p>The EBL Workbench is for teaching and learning electron-beam lithography — self-study and experimentation — and for serious pattern design, testing and preparation: pattern, point spread function, resist, proximity correction, fabrication, analysis and the write itself.</p>
+    <p>It was programmed by Claude Code (Anthropic's AI coding assistant). It is based on a series of visualisation and simulation programs that <b>Peter Bøggild</b> at 2DPHYS, Department of Physics, Technical University of Denmark (DTU), developed over 20 years of teaching electron-beam lithography. <b>Francisca D'Rozario</b>, also at 2DPHYS, contributed the JEOL JBX-9500 module.</p>
+    <p><b>The current version is designed to match the machine (the JEOL JBX-9500FS), the processes and the resists available in the DTU Nanolab cleanroom at DTU.</b> Elsewhere, the physics holds, but the machine module, the process presets and the resist library's anchors will not apply as they are.</p>
+    <p>The tutorial videos (the green <b>T</b> beside each tab) are AI-generated.</p>
+    <p>Free to use for students and staff at DTU. Users outside DTU must ask for permission first: Peter Bøggild, <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a>. Questions, bug reports and suggestions are welcome at the same address.</p>
+    <p class="hint">Build ${esc(BUILD)}${document.title.includes('Pro') ? ' · Pro (desktop backend)' : ''} · <a href="https://dex-2dphys.github.io/ebl-workbench/" target="_blank" rel="noopener">dex-2dphys.github.io/ebl-workbench</a></p></div>`,
+    buttons: [{ label: 'Close', primary: true }] });
+}
+$('brand').addEventListener('click', (e) => { if (!e.target.closest('.pro')) showAbout(); });
+$('brand').addEventListener('keydown', (e) => { if (e.key === 'Enter') showAbout(); });
+app.showAbout = showAbout;
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) showTab(b.dataset.tab); });
 
 // ---------------------------------------------------------------- placeholders for tabs not built yet
-const SOON = {
-  analysis: ['Analysis', [
-    'Cut-line dose and developed profile (the EBL Development simulator lives on here)',
-    'Line width versus dose sweeps; comparison of two PSFs on the same pattern; the four correction levels side by side',
-  ]],
-};
+const SOON = {};
 for (const [k, [title, items]] of Object.entries(SOON)) {
   $('soon-' + k).innerHTML = `<h2>${esc(title)}</h2>`
     + `<p class="hint">Not built yet. This tab will hold:</p><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`;
@@ -79,13 +96,15 @@ function applySession(s) {
   if (!s) return;
   try {
     editor.setSession(s.editor); psfTab.setSession(s.psf); exposureTab.setSession(s.exposure); fabTab.setSession(s.fab);
-    if (s.tab && s.tab !== 'analysis') showTab(s.tab);
+    if (s.tab) showTab(s.tab);
   } catch (e) { console.warn('session restore:', e); toast('Part of the saved session could not be restored (the layout and PSF are fine).'); }
 }
 
 function setProject(p, name, { fit = true } = {}) {
   app.project = { library: p.library, psf: p.psf, view: p.view ?? null, settings: p.settings ?? {}, fab: p.fab ?? null, writing: p.writing ?? null };
   fabTab?.reset();
+  jeolTab?.reset();
+  analysisTab?.reset();
   exposureTab?.reset();
   app.fileName = name;
   app.version++;
@@ -128,6 +147,7 @@ function askName(title) {
 $('btnSave').onclick = () => { if (app.fileName && app.fileName !== 'demo') saveAs(app.fileName); else askName('Save project'); };
 $('btnSaveAs').onclick = () => askName('Save project as');
 installGdsIO(app, { setProject });
+app.openProject = (p, name) => setProject(p, name);      // a tab that builds a project (the Analysis example)
 $('btnOpen').onclick = () => pickFile('.json,application/json', (text, name) => {
   try {
     const p = projectFromJSON(text);
@@ -164,9 +184,16 @@ function scheduleAutosave() {
 initTips();
 const editor = createLayoutEditor(app);
 const psfTab = createPsfTab(app);
+{ const css = document.createElement('style'); css.textContent = RESISTS_CSS; document.head.appendChild(css); }
+const resistsTab = createResistsTab(app);       // the resist library (before Fab and Analysis, which read it)
+app.resists = resistsTab;
 const exposureTab = createExposureTab(app);
 app.exposure = exposureTab.client;
 const fabTab = createFabTab(app);
+{ const css = document.createElement('style'); css.textContent = JEOL_CSS; document.head.appendChild(css); }
+const jeolTab = createJeolTab(app);             // machine-specific module (amber tab)
+{ const css = document.createElement('style'); css.textContent = ANALYSIS_CSS; document.head.appendChild(css); }
+const analysisTab = createAnalysisTab(app, { psfTab, jeolTab });
 installShortcutCard(app);                       // hold K: shortcuts of the tab in use
 const tutorials = installTutorials();            // green T beside each tab: that module's video tutorials
 // served by the Pro backend: say so in the title bar (and how many threads its native core has)
@@ -178,7 +205,7 @@ localBackend().then((h) => {
   }
   document.title = 'EBL Workbench Pro';
 }).catch(() => {});
-window.__workbench = { app, editor, psfTab, exposureTab, fabTab, tutorials, BUILD, backend: BACKEND, native: nativeCore,     // inspection hook
+window.__workbench = { app, editor, psfTab, resistsTab, exposureTab, fabTab, jeolTab, analysisTab, tutorials, BUILD, backend: BACKEND, native: nativeCore,     // inspection hook
   saveText: () => snapshot(true), openText: (text, name) => setProject(projectFromJSON(text), name) };
 // session-only changes (views, cut-line, 3D settings) do not trigger an autosave: save on leaving
 const saveNow = () => { try { store.set(AUTOSAVE_KEY, JSON.stringify({ name: app.fileName, json: snapshot(false) })); } catch { /* storage full or blocked */ } };

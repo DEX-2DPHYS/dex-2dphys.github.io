@@ -15,7 +15,8 @@ import { createEngine } from '../core/exposure/engine.js';
 import { sceneCache } from '../core/exposure/scene.js';
 import { correctPerShape } from '../core/pec/pershape.js';
 import { wienerCorrection } from '../core/pec/wiener.js';
-import { psfLabel } from '../core/psf/settings.js';
+import { psfLabel, psfFromSettings } from '../core/psf/settings.js';
+import { termPSF } from '../core/analysis/cd.js';
 import { fractureCorrectAsync } from '../core/pec/fractured.js';
 import { handleHelperMessage } from './helpers.js';
 import { createSrPool } from './srpool.js';
@@ -62,6 +63,26 @@ function engine(kind = 'normal') {
   return e;
 }
 
+// The Analysis tab's engines: the same libraries with another PSF (a kept one, or one term of the PSF
+// for the calibration). key → engine; cleared with the project.
+const altEngines = new Map();
+function engineWith(kind, sc) {
+  if (!sc.psf && !sc.term) return engine(kind);
+  if (kind === 'design' && !project.writing) kind = 'normal';
+  const key = `${kind}|${JSON.stringify(sc.psf || sc.term)}`;
+  let e = altEngines.get(key);
+  if (!e) {
+    const psfObject = sc.term ? termPSF(sc.term, sc.wideNm) : psfFromSettings(sc.psf);
+    if (!designScene) designScene = sceneCache();
+    e = kind === 'uncorrected' ? createEngine(project, { doseOverride: (q) => q.dose || 0, scene: designScene, psfObject })
+      : kind === 'normal' && project.writing ? createEngine({ library: project.writing.library, psf: project.psf }, { psfObject })
+      : createEngine(project, { scene: designScene, psfObject });
+    if (altEngines.size > 24) altEngines.clear();
+    altEngines.set(key, e);
+  }
+  return e;
+}
+
 // field → [engine field, engine kind]
 function route(f) {
   if (f === 'uncorrected') return ['delivered', 'uncorrected'];
@@ -79,7 +100,7 @@ self.onmessage = (ev) => {
   if (m.type === 'project') {
     const p = m.project;
     project = { ...p, library: unpackLibrary(p.library), writing: p.writing ? { ...p.writing, library: unpackLibrary(p.writing.library) } : null };
-    version = m.version; engines.clear(); designScene = null; return;
+    version = m.version; engines.clear(); altEngines.clear(); designScene = null; return;
   }
   // a helper's share of the fracture or the short range (srpool.js; helpers.js does the work)
   if (handleHelperMessage(m, (msg, transfer) => self.postMessage(msg, transfer || []))) return;
@@ -97,6 +118,12 @@ self.onmessage = (ev) => {
       case 'points': {
         const out = {};
         for (const f of m.fields) { const [field, kind] = route(f); out[f] = engine(kind).doseAt(m.points, field); }
+        reply({ values: out, ms: performance.now() - t0 });
+        break;
+      }
+      case 'profiles': {                 // the Analysis tab: {points, scenarios: [{key, field, psf?, term?, wideNm?}]}
+        const out = {};
+        for (const sc of m.scenarios) { const [field, kind] = route(sc.field); out[sc.key] = engineWith(kind, sc).doseAt(m.points, field); }
         reply({ values: out, ms: performance.now() - t0 });
         break;
       }
