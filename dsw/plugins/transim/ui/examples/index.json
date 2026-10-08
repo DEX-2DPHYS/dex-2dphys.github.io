@@ -1,0 +1,76 @@
+{
+ "examples": [
+  {
+   "file": "hall-bar.transim.json",
+   "name": "Hall bar",
+   "group": "Basic devices",
+   "summary": "Four-terminal Hall bar: Hall resistance B/ne from the field model and from ballistic trajectories, swept in field."
+  },
+  {
+   "file": "two-terminal.transim.json",
+   "name": "Two-terminal device (diffusive to ballistic)",
+   "group": "Basic devices",
+   "summary": "A plain two-terminal strip: conductance against mean free path, from Ohm (G grows with l) to the Sharvin/Landauer ceiling."
+  },
+  {
+   "file": "van-der-pauw-square.transim.json",
+   "name": "Quadratic device, four-point (van der Pauw)",
+   "group": "Basic devices",
+   "summary": "A square with a contact in each corner: four-point resistance R = (ln2/pi) rho_s, independent of contact resistance."
+  },
+  {
+   "file": "emr-central-shunt.transim.json",
+   "name": "EMR, four-terminal with central shunt",
+   "group": "Extraordinary magnetoresistance",
+   "summary": "Graphene square with a concentric metal disc: at B = 0 the current runs through the metal, in a field it is pushed around it - a huge geometric magnetoresistance."
+  },
+  {
+   "file": "emr-offcentre-shunt.transim.json",
+   "name": "EMR, four-terminal with off-centre shunt",
+   "group": "Extraordinary magnetoresistance",
+   "summary": "The central-shunt square with the metal disc moved off centre: the left-right mirror symmetry is broken, so R(B) is no longer even in B."
+  },
+  {
+   "file": "emr-side-shunt-bar.transim.json",
+   "name": "EMR bar with side shunt (read-head geometry)",
+   "group": "Extraordinary magnetoresistance",
+   "summary": "Solin's read-head bar: a metal shunt along one long edge, all four contacts on the opposite edge. Several hundred per cent MR at 1 T."
+  },
+  {
+   "file": "hydro-vicinity.transim.json",
+   "name": "Hydrodynamic device: negative vicinity resistance",
+   "group": "Hydrodynamic flow",
+   "summary": "Current injected from a side contact; the probe right next to it reads a NEGATIVE voltage in the viscous regime (Bandurin 2016)."
+  },
+  {
+   "file": "hydro-aperture.transim.json",
+   "name": "Hydrodynamic device: superballistic aperture",
+   "group": "Hydrodynamic flow",
+   "summary": "A slit in a wall: viscous flow through it can conduct MORE than the ballistic (Sharvin) limit, and more as temperature rises."
+  },
+  {
+   "file": "veselago-lens.transim.json",
+   "name": "Veselago lens (flat p-n junction)",
+   "group": "Dirac electron optics",
+   "summary": "A point source in front of a straight n-p junction: negative refraction refocuses the rays at the mirror point behind it."
+  },
+  {
+   "file": "dfm-circular-pn.transim.json",
+   "name": "Dirac fermion microscope: beam onto a circular p-n junction",
+   "group": "Dirac electron optics",
+   "summary": "A collimated Dirac-electron beam aimed at a Veselago dot (a circular p-n junction): transparent at B = 0, a trap for whispering-gallery orbits at a few mT."
+  },
+  {
+   "file": "dfm-reflector-scan.transim.json",
+   "name": "Dirac fermion microscope: imaging a reflecting disc",
+   "group": "Dirac electron optics",
+   "summary": "Fig. 3c: the collimated beam is steered across a small reflecting disc with the magnetic field, and the target shows up as a dip in transmission."
+  },
+  {
+   "file": "klein-magnetometer.transim.json",
+   "name": "KT magnetometer (Klein-tunnelling p-n superlattice)",
+   "group": "Dirac electron optics",
+   "summary": "Alternating p and n stripes across a clean channel: Klein transmission is angle-selective, so a few mT of field changes the resistance strongly."
+  }
+ ]
+}

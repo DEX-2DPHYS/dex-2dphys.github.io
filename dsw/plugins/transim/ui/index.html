@@ -126,9 +126,40 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
 @media(max-width:840px){
   .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
   .drawer{display:none}.side{grid-column:1;grid-row:2}}
+#mapBig{position:fixed;inset:0;z-index:50;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center}#mapBig[hidden]{display:none!important}#mapBig .mapcard{position:relative;width:min(1200px,94vw);height:min(760px,88vh);background:var(--input);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.35);padding:44px 10px 10px;box-sizing:border-box}#mapBigCanvas{width:100%;height:100%;display:block}#mapClose{position:absolute;top:8px;right:10px;z-index:2}</style>
+<style>
+/* 2026-10-08 layout: status line, chart under the view, 2D map panel */
+.stage{grid-template-rows:auto auto auto minmax(0,1fr) auto}
+.statusstrip{padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.statusstrip .hud{position:static;width:auto;pointer-events:auto}
+.statusstrip .hud-card{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;background:transparent;border:0;padding:0;box-shadow:none;backdrop-filter:none}
+.statusstrip .hud-title{margin:0;font-size:12.5px}
+.statusstrip .metrics{display:flex!important;gap:14px;margin:0}
+.statusstrip .metric{border:0;padding:0;display:flex;gap:5px;align-items:baseline}
+.statusstrip .metric span{display:inline;font-size:10px}
+.statusstrip .statusline{margin:0;flex:1 1 auto;text-align:right}
+.linepanel{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:10px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);height:clamp(190px,24vh,300px);min-height:0}
+.linepanel .sweepbox{height:100%!important;min-height:0;margin:0}
+.linepanel .lp-side{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin}
+.linepanel h3{margin:0;font-size:10.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.linepanel .row{margin:0!important}
+.side > [hidden]{display:none!important}
+.side > .panel-detail{flex:0 0 auto;min-height:220px;max-height:60vh}
+.mappanel h3{display:flex;align-items:center;justify-content:space-between}
+.mappanel .h3tools{display:flex;gap:4px;letter-spacing:0;text-transform:none}
+.mappanel .h3tools .btn{padding:2px 8px;font-size:11px}
+.mapbox{height:280px;border:1px solid var(--line);border-radius:9px;background:var(--input);position:relative}
+.mapbox canvas{width:100%;height:100%;display:block}
+.maxis{display:grid;grid-template-columns:14px minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) 46px;gap:4px;align-items:center;margin-top:6px}
+.maxis label{font-weight:700;color:var(--muted)}
+.maxis input,.maxis select{min-width:0;width:100%}
 </style>
+<style>.hint.warn{color:#b45309}</style>
+<style>#detail tr.few td{color:#b45309;font-weight:600}</style>
+<style>.gsrc{font-style:normal;opacity:.7;font-size:.9em}.stale{color:#b45309;font-size:12px;margin-top:2px}#scaleNote{opacity:.75;margin-top:2px}</style>
 </head>
 <body>
+<div id="mapBig" hidden><div class="mapcard"><button class="btn" id="mapClose" type="button">Close</button><canvas id="mapBigCanvas"></canvas></div></div>
 <div class="app">
   <header class="topbar">
     <a class="back" href="/">← DSW</a>
@@ -142,26 +173,67 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
         <!-- left: every technical control, docked instead of sliding -->
     <aside class="drawer" id="drawer">
       <div class="drawer-head"><div><h2>Experiment controls</h2><small>Technical controls stay tucked away here</small></div><button class="btn iconbtn" id="closeSettings">×</button></div>
-      <div class="action-grid"><button class="btn" data-run="fem">FEM</button><button class="btn" data-run="ballistic">Ballistic</button><button class="btn" data-run="quasi">Quasi</button><button class="btn primary" data-run="hybrid">Hybrid</button></div>
+      
       <div class="drawer-scroll">
+        <details class="group" id="projGroup" open><summary>Projects &amp; examples</summary><div class="body">
+          <div class="field"><label>Example</label><select id="exampleSel"><option value="">— loading the list —</option></select></div>
+          <div class="inline"><button class="btn primary" id="exampleLoad">Load example</button></div>
+          <style>#projNotes{max-height:340px;overflow:auto;line-height:1.4}#projNotes .pnTitle{font-weight:700;margin-bottom:2px}#projNotes .pnHead{font-weight:700;margin-top:6px;text-transform:uppercase;font-size:.85em;letter-spacing:.04em;opacity:.85}#projNotes .pnRefs{margin:2px 0 0 1.1em;padding:0}#projNotes .pnRefs li{margin-bottom:2px}</style><div class="hint" id="projNotes">Load a ready-made device, change it, then keep your version under My projects or as a file.</div>
+          <div class="field" style="margin-top:8px"><label>My projects (kept in this browser)</label><select id="myProjSel"><option value="">—</option></select></div>
+          <div class="inline"><button class="btn" id="myProjLoad">Load</button><button class="btn danger" id="myProjDel">Delete</button></div>
+          <div class="field"><label>Name</label><input id="projName" type="text" placeholder="my device"></div><div class="inline"><button class="btn" id="myProjSave">Save to My projects</button></div>
+          <div class="inline"><button class="btn" id="projSaveFile">Save project file</button><button class="btn" id="projOpenFile">Open project file…</button><input type="file" id="projFile" accept=".json,application/json" hidden></div>
+        </div></details>
         <details class="group" open><summary>Device & material</summary><div class="body">
-          <div class="row2"><div class="field"><label>Width (µm)</label><input id="W_um" type="number" min=".2" step=".5" value="4"></div><div class="field"><label>Height (µm)</label><input id="H_um" type="number" min=".2" step=".5" value="2"></div></div>
+          <div class="row2"><div class="field"><label title="Along x: the source-to-drain direction in the presets">Length L along x (µm)</label><input id="W_um" type="number" min=".2" step=".5" value="4"></div><div class="field"><label title="Along y: across the channel; the contact width and the mode count use this">Width W along y (µm)</label><input id="H_um" type="number" min=".2" step=".5" value="2"></div></div>
           <div class="field"><label>Carrier density n (cm⁻²) <button class="help" data-help="density">?</button></label><input id="n_cm2" type="number" step="1e11" value="1e12"></div>
           <div class="field"><label>Mobility µ (cm²/Vs)</label><input id="mu_cm" type="number" step="1000" value="50000"></div>
           <label class="check field"><input id="mfpFromMobility" type="checkbox" checked> Derive mean free path from µ and n</label>
-          <div class="field"><label>Mean free path ℓ (µm)</label><input id="mfp_um" type="number" min="0" step=".1" value=".5"></div>
-          <div class="field"><label>Magnetic field B (T) <output id="B_val">0.00 T</output></label><input id="B" type="range" min="-2" max="2" step=".01" value="0"></div>
+          <div class="field"><label>Mean free path ℓ (µm)</label><input id="mfp_um" type="number" min="0" step=".1" value=".5"></div><p class="hint warn" id="mfpSplitNote" hidden>ℓ set by hand reaches the TRAJECTORIES and the viscous model; the Ohmic FEM still uses the mobility µ. If they do not match, the models describe different samples.</p>
+          <div class="field"><label>Magnetic field B (T) <output id="B_val">0.00 T</output></label><input id="B" type="range" min="-2" max="2" step=".0005" value="0"></div><div class="field"><label>Temperature (K)</label><input id="tempK" type="number" min="0" max="2000" step="10" value="300" title="Used by phonon scattering (Scattering &amp; tracer) and by the viscous model when l_ee comes from T"></div>
           <div class="row2"><div class="field"><label>Source V</label><input id="Vsource" type="number" step=".001" value=".001"></div><div class="field"><label>Drain V</label><input id="Vdrain" type="number" step=".001" value="0"></div></div>
-          <div class="row2"><div class="field"><label>Bulk scattering</label><select id="scattering"><option value="isotropic">Isotropic</option><option value="smallangle">Small-angle</option><option value="forward">Forward-biased</option><option value="none">None / ballistic</option></select></div><div class="field"><label>Edge scattering</label><select id="edge"><option value="specular">Specular</option><option value="diffuse">Diffuse</option><option value="mixed">Mixed</option><option value="absorbing">Absorbing</option></select></div></div>
+          <div class="row2"><div class="field"><label>Bulk scattering</label><select id="scattering"><option value="isotropic">Isotropic</option><option value="gaussian">Small-angle, Gaussian σ</option><option value="smallangle">Small-angle (uniform ±17°)</option><option value="forward">Forward-biased (uniform ±45°)</option><option value="none">None / ballistic</option></select></div><div class="field"><label>Edge scattering</label><select id="edge"><option value="specular">Specular</option><option value="partial">Partly specular, p</option><option value="diffuse">Diffuse (Lambert)</option><option value="mixed">Mixed (p = 0.5)</option><option value="absorbing">Absorbing</option></select></div></div>
           <div class="derived" id="derived">Waiting for native core…</div>
+        </div></details>
+        <details class="group"><summary>Scattering & tracer</summary><div class="body">
+          <div class="row2"><div class="field"><label>Impurity kick σ (°)</label><input id="fwdSigmaDeg" type="number" min=".1" max="180" step="1" value="10"></div><div class="field"><label>Edge specularity p</label><input id="specularity" type="number" min="0" max="1" step=".05" value="1"></div></div>
+          <p class="hint">ℓ (given, or from µ and n) is the TRANSPORT mean free path for every angular law, so a given mobility means the same thing whichever law you pick: a small-angle law scatters more often, every ℓ·(1−⟨cos Δθ⟩), to relax momentum as fast. σ is used by the Gaussian law, p by the partly specular edge. Diffuse reflection follows Lambert's cosine law.</p>
+          <div class="row2"><div class="field"><label>Phonon ℓ at 300 K (µm, 0 = off)</label><input id="phMfp300_um" type="number" min="0" step=".5" value="0"></div></div>
+          <p class="hint">Acoustic phonons: an isotropic channel of length ℓ_ph(300 K)·300/T, added by Matthiessen's rule to the trajectories AND to the FEM mobility, so the two models stay comparable. µ above is then the impurity-limited (low-temperature) mobility.</p>
+          <div class="row2"><div class="field"><label>e–e ℓ (µm, 0 = off)</label><input id="eeMfp_um" type="number" min="0" step=".5" value="0"></div><div class="field"><label>e–e kick σ (°)</label><input id="eeSigmaDeg" type="number" min=".1" max="180" step="1" value="15"></div></div>
+          <p class="hint">Electron–electron collisions as one-body small-angle kicks (the Klein magnetometer model). Real e–e collisions conserve total momentum, so this channel is not counted in the mobility and is not given to the FEM; treat it as an indication, not a hydrodynamic model.</p>
+          <div class="row2"><div class="field"><label>Trajectory tracer</label><select id="tracer"><option value="step">Stepped (any density map)</option><option value="arc">Exact arcs (uniform density)</option></select></div><label class="check field"><input id="refract" type="checkbox"> Refraction in density gradients</label></div><div class="field"><label>p–n junctions (sign change of n)</label><select id="pnMode"><option value="klein">Klein tunnelling + negative refraction</option><option value="pass">Pass straight through (old)</option></select></div><div class="field"><label>p–n junction width d (nm), 0 = abrupt</label><input id="pnWidth_nm" type="number" min="0" max="1000" step="1" value="0"></div>
+          <p class="hint">Exact arcs solve every wall, contact and scattering event analytically (no step error) and need a uniform density; with a density map loaded the stepped tracer runs instead, and the result says which one ran. Refraction (stepped tracer, density map) bends rays toward higher |n| as Snell's law requires, so a density step totally reflects rays beyond the critical angle. Where the density map changes sign (a p–n junction, e.g. a map from −2e12 to +2e12) a carrier tunnels with the abrupt-junction Klein probability T = cos θ₁ cos θ₂ / cos²((θ₁+θ₂)/2) and leaves on the same side of the normal (negative refraction), or is reflected. A symmetric junction (equal |n| on both sides) refocuses a point source at the mirror distance: a Veselago lens. A junction width d > 0 uses the smooth-step law of Cayssol, Huard &amp; Goldhaber-Gordon (PRB 79, 075428), which filters oblique rays more and more strongly as d grows (k_F d ≈ 1 at d ≈ 5.6 nm for 10¹² cm⁻²). The width is a physical parameter; the drawn map only sets where the junction is. Density maps are read at up to 256 pixels.</p>
+        </div></details>
+        <details class="group" id="hydroGroup"><summary>Viscous (hydrodynamic) flow</summary><div class="body">
+          <p class="hint">In clean graphene electron-electron collisions conserve momentum and the electrons flow like a viscous fluid (Stokes-Ohm model). Choose it here; the FEM and Hybrid buttons then solve it instead of Ohm's law.</p>
+          <div class="field"><label>Field model</label><select id="fieldModel"><option value="ohmic">Ohmic (local, diffusive)</option><option value="hydro">Hydrodynamic (viscous electron fluid)</option></select></div>
+          <div class="row2"><div class="field"><label>e-e length l<sub>ee</sub> (µm) <span class="q" data-tip="0 = from the temperature (Scattering &amp; tracer): tau_ee = C hbar E_F / (k_B T)^2. Typical graphene at 1e12 cm^-2: 0.1-0.3 µm at 200 K.">?</span></label><input id="hydroLee_um" type="number" min="0" step="0.05" value="0"></div>
+          <div class="field"><label>C in tau<sub>ee</sub></label><input id="hydroCee" type="number" min="0.001" step="0.1" value="1"></div></div>
+          <div class="row2"><div class="field"><label>Walls</label><select id="hydroSlipMode"><option value="noslip">No-slip</option><option value="partial">Partial slip</option><option value="free">Free slip</option></select></div>
+          <div class="field"><label>Slip length (µm)</label><input id="hydroSlip_um" type="number" min="0" step="0.05" value="0.1"></div></div>
+          <label class="check field"><input id="hydroHallVisc" type="checkbox" checked> Magnetic field reduces the viscosity, and adds Hall viscosity</label>
+          <div class="hint" id="hydroInfo">—</div>
         </div></details>
         <details class="group"><summary>Contacts</summary><div class="body">
           <div class="field"><label>Preset layout</label><select id="contactPreset"><option value="hall_bar">Hall bar</option><option value="two_terminal">Two-terminal bar</option><option value="four_probe">Four-probe inline</option><option value="hall_cross">Hall cross</option></select></div>
           <div class="field"><label>Contact depth (µm) <output id="dxNote"></output></label>
             <input id="contactDepthUm" type="number" min="0.001" step="0.01" value="0.08"></div>
           <div class="legend">How far the default electrodes reach in from their edge. They are boundary conditions, not sample, so this wants to be small — but keep it above the grid spacing dx, shown above. Drawn and imported contacts are unaffected.</div>
-          <div class="row2"><div class="field"><label>Draw role</label><select id="drawRole"><option value="source">Source</option><option value="drain">Drain</option><option value="probe">Probe</option><option value="absorber">Absorber</option></select></div><div class="field"><label>&nbsp;</label><button class="btn" id="drawContact">✎ Draw on map</button></div></div>
+          <div class="row2"><div class="field"><label>Draw role</label><select id="drawRole"><option value="source">Source</option><option value="drain">Drain</option><option value="probe">Probe</option><option value="absorber">Absorber</option><option value="reflector">Reflecting target (hard-wall ellipse)</option></select></div><div class="field"><label>&nbsp;</label><button class="btn" id="drawContact">✎ Draw on map</button></div></div>
           <div class="inline"><button class="btn" id="clearContacts">Clear</button><button class="btn" id="resetContacts">Restore preset</button></div><div class="contact-list" id="contactList"></div>
+        </div></details>
+        <details class="group" id="dispGroup"><summary>Display &amp; colours</summary><div class="body">
+          <p class="hint">How the maps are coloured. Display only: nothing is re-run. The exported PNG carries the colour bar and its range.</p>
+          <div class="row2"><div class="field"><label>Colour map</label><select id="dSeq"><option value="viridis">Viridis</option><option value="magma">Magma</option><option value="inferno">Inferno</option><option value="plasma">Plasma</option><option value="cividis">Cividis</option><option value="turbo">Turbo</option><option value="hot">Hot</option><option value="blues">Blues</option><option value="gray">Grey</option><option value="grayinv">Grey, inverted</option></select></div>
+          <div class="field"><label>Potential map</label><select id="dDiv"><option value="rdbu">Red–blue</option><option value="coolwarm">Cool–warm</option><option value="puor">Orange–purple</option><option value="bwr">Blue–white–red</option></select></div></div>
+          <div class="row2"><div class="field"><label>Scale</label><select id="dScale"><option value="auto">Auto (log for densities)</option><option value="linear">Linear</option><option value="sqrt">Square root</option><option value="log">Log</option></select></div>
+          <div class="field"><label>Top of range</label><select id="dClip"><option value="100">Maximum</option><option value="99.9">99.9th percentile</option><option value="99.5">99.5th percentile</option><option value="99">99th percentile</option><option value="98">98th percentile</option><option value="95">95th percentile</option></select></div></div>
+          <div class="row2"><div class="field"><label>Smoothing</label><select id="dSmooth"><option value="0">Off</option><option value="1">Light</option><option value="2">Medium</option><option value="4">Strong</option></select></div>
+          <div class="field"><label>Trajectory paths</label><select id="dPaths"><option value="0.72">Shown</option><option value="0.3">Faint</option><option value="0">Hidden</option></select></div></div>
+          <div class="row2"><label class="check field"><input id="dInterp" type="checkbox"> Smooth pixels</label><label class="check field"><input id="dInvert" type="checkbox"> Reverse map</label></div>
+          <label class="check field"><input id="dBar" type="checkbox" checked> Colour bar</label>
+          <div class="hint" id="dRange">Colour range: run a model to see it.</div>
         </div></details>
         <details class="group"><summary>Spatial image maps</summary><div class="body">
           <p class="hint">Images are reduced locally and sent to the native core. Luminance maps from the chosen minimum to maximum.</p>
@@ -171,25 +243,20 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
           <div class="row2"><label class="check field"><input id="mapInvert" type="checkbox"> Invert</label><div class="field"><label>Smooth radius</label><input id="mapSmooth" type="number" min="0" max="6" value="0"></div></div>
           <div class="field"><label>Contact map</label><input type="file" id="contactFile" accept="image/*"></div><div class="inline"><button class="btn" data-clear-map="density">Clear density</button><button class="btn" data-clear-map="mobility">Clear mobility</button></div>
         </div></details>
-        <details class="group"><summary>Model assumptions</summary><div class="body"><p class="hint">Semiclassical model: no Dirac-equation solution, quantum interference, weak localization, universal conductance fluctuations, tunnelling, or edge-state quantization. FEM is a local drift–diffusion model. Trajectories are semiclassical and phase-incoherent. The crossover adds Sharvin and Drude resistances in series.</p><button class="btn" data-help="assumptions">Read model guidance</button></div></details>
-        <div class="inline"><button class="btn" id="exportJson2">Export JSON</button><button class="btn" id="exportPng2">Export PNG</button><button class="btn danger" id="resetAll">Reset</button></div>
+        <details class="group"><summary>Model assumptions</summary><div class="body"><p class="hint">Trajectories are semiclassical and phase-incoherent; p–n junctions use the Dirac (Klein) transmission per angle. The field model is either local drift–diffusion (FEM) or a viscous electron fluid (hydro). The crossover sweep model adds Sharvin and Drude resistances in series. Not included: quantum interference, Landau quantisation, the Dirac-point minimum conductivity, contact resistance.</p><button class="btn" data-help="assumptions">Read model guidance</button></div></details>
+        <div class="inline"><button class="btn danger" id="resetAll">Reset all settings</button></div>
       </div>
     </aside>
         <main class="stage">
-            <div class="viewbar"><nav class="tabs" id="tabs"><button class="tab on" data-view="device">Device</button><button class="tab" data-view="potential">Potential</button><button class="tab" data-view="current">Current</button><button class="tab" data-view="trajectories">Trajectories</button><button class="tab" data-view="transmission">Transmission</button><button class="tab" data-view="validity">Validity</button></nav><i class="dock-sep"></i><div class="runmini"><button class="btn primary" data-run="hybrid">Run hybrid</button><button class="btn secondary" data-run="fem">FEM</button><button class="btn secondary" id="runSweepTop">Run sweep</button><button class="btn danger" id="stop">Stop</button></div></div>
-            <div class="sweepbar" id="sweepBar"><span class="sb-main" id="sweepBarMain"></span><span class="sb-prog" id="sweepBarProg"></span><span class="sb-warn" id="sweepBarWarn"></span></div>
-            <div class="viewwrap"><div class="frame-shell"><canvas id="view"></canvas><canvas id="drawLayer"></canvas><div class="axis-x">x / source → drain</div><div class="axis-y">y / transverse</div></div></div>
-        </main>
-        <aside class="side">
-            <section class="panel"><h3>Readout</h3><div class="hud"><div class="hud-card"><div class="eyebrow" id="regime">hybrid regime</div><div class="hud-title" id="headline">4.00 × 2.00 µm · B = 0.00 T</div><div class="metrics"><div class="metric"><span>mean free path</span><b id="mfpHud">—</b></div><div class="metric"><span>cyclotron radius</span><b id="rcHud">∞</b></div><div class="metric"><span>conductance</span><b id="gHud">—</b></div></div><div class="statusline" id="status"><span class="live">●</span> connecting…</div></div></div></section>
-            <section class="panel"><h3>Parameter sweep</h3><div class="sweepbox"><canvas id="sweepCanvas"></canvas></div><div class="tiny" id="sweepInfo">No sweep yet.</div>
-          <div class="row" style="margin-top:8px;align-items:end;gap:8px">
+            <div class="viewbar"><nav class="tabs" id="tabs"><button class="tab on" data-view="device">Device</button><button class="tab" data-view="potential">Potential</button><button class="tab" data-view="current">Current</button><button class="tab" data-view="vorticity">Vorticity</button><button class="tab" data-view="trajectories">Trajectories</button><button class="tab" data-view="transmission">Transmission</button><button class="tab" data-view="validity">Validity</button></nav><i class="dock-sep"></i><div class="runmini"><button class="btn secondary" data-run="fem" title="Field model: Ohmic FEM, or the viscous solver when Field model = Hydrodynamic">FEM</button><button class="btn secondary" data-run="ballistic" title="Trajectories with no scattering">Ballistic</button><button class="btn secondary" data-run="quasi" title="Trajectories with the configured scattering">Quasi</button><button class="btn primary" data-run="hybrid" title="Field model and trajectories together">Hybrid</button><button class="btn danger" id="stop">Stop</button></div></div>
+            <div class="statusstrip" id="statusStrip"><div class="hud"><div class="hud-card"><div class="eyebrow" id="regime">hybrid regime</div><div class="hud-title" id="headline">4.00 × 2.00 µm · B = 0.00 T</div><div class="metrics"><div class="metric"><span>mean free path</span><b id="mfpHud">—</b></div><div class="metric"><span>cyclotron radius</span><b id="rcHud">∞</b></div><div class="metric"><span>conductance <i id="gSrc" class="gsrc"></i></span><b id="gHud">—</b></div></div><div class="statusline" id="status"><span class="live">●</span> connecting…</div><div class="stale" id="staleNote" hidden>Settings changed since the last run: the views, tables and chart show the previous run.</div><div class="tiny" id="scaleNote"></div></div></div></div><div class="sweepbar" id="sweepBar"><span class="sb-main" id="sweepBarMain"></span><span class="sb-prog" id="sweepBarProg"></span><span class="sb-warn" id="sweepBarWarn"></span></div>
+            <div class="viewwrap"><div class="frame-shell"><canvas id="view"></canvas><canvas id="drawLayer"></canvas><div class="axis-x">x / source → drain</div><div class="axis-y">y / transverse</div></div></div><section class="linepanel" id="linePanel"><div class="sweepbox"><canvas id="sweepCanvas"></canvas></div><div class="lp-side"><h3>Line sweep</h3><div class="tiny" id="sweepInfo">No sweep yet.</div><div class="row" style="margin-top:8px;align-items:end;gap:8px">
             <div class="field" style="flex:0 0 auto;min-width:118px">
               <label>Axis scale</label>
-              <select id="sweepScale">
-                <option value="auto">Auto — full range</option>
-                <option selected value="robust">Robust — quartile range</option>
-                <option value="fixed">Fixed — locked below</option>
+              <select id="sweepScale" title="A resistance sweep through the Dirac point diverges, so the full range is set by two or three points. Robust keeps the inter-quartile range with 1.5×IQR whiskers, which survives a peak several points wide where a 2–98 percentile clip does not; Fixed uses the numbers above, and From view fills them from what is on screen. Curves are clipped to the axes and anything outside is counted on the chart.">
+                <option value="auto">Full range</option>
+                <option selected value="robust">Robust</option>
+                <option value="fixed">Fixed (below)</option>
               </select></div>
             <button class="btn" id="lockFromView" type="button">From view</button>
           </div>
@@ -201,27 +268,28 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
             <div class="field"><label>y min</label><input id="syMin" type="number" step="any"></div>
             <div class="field"><label>y max</label><input id="syMax" type="number" step="any"></div>
           </div>
-          <div class="legend">A resistance sweep through the Dirac point diverges, so the full range is set by two or three points. <b>Robust</b> keeps the inter-quartile range with 1.5×IQR whiskers, which survives a peak several points wide where a 2–98 percentile clip does not; <b>Fixed</b> uses the numbers above, and <b>From view</b> fills them from what is on screen. Curves are clipped to the axes and anything outside is counted on the chart.</div>
-        <details class="group"><summary>Sweep settings</summary><div class="body">
-          <div class="field"><label>Sweep</label><select id="sweepType"><option value="vg">G vs Vg</option><option value="b">G vs B</option><option value="mfp">G vs ℓ</option><option value="vgb">G vs Vg & B (2D)</option></select></div>
-          <div class="row2"><label class="check"><input id="wantFem" type="checkbox" checked> FEM / Drude</label><label class="check"><input id="wantBal" type="checkbox"> Landauer / MC</label></div><label class="check field"><input id="snapshots" type="checkbox"> Store field snapshots</label>
-          <div class="row2"><div class="field"><label>Trajectory model</label><select id="balMode"><option value="crossover">Sharvin + Drude</option><option value="mc">Pure trajectory MC</option></select></div><div class="field"><label>Sweep quality</label><select id="quality"><option value="fast">Fast preview (caps trajectories)</option><option value="accurate">Configured trajectories</option></select></div></div>
+          <div class="inline"><button class="btn primary" id="runSweep">Run sweep</button><button class="btn" id="exportCsv">Export CSV</button></div><p class="hint">Sweep type, ranges, measure and model: <b>Line sweep settings</b> in the right column.</p></div></section>
+        </main>
+        <aside class="side"><section class="panel panel-detail" hidden><h3>Detail</h3><section class="detail" id="detail"></section></section>
+        <section class="panel mappanel" id="mapPanel"><h3>2D map <span class="h3tools"><button class="btn" id="mapExpand" type="button">Enlarge</button><button class="btn" id="mapCsv" type="button">CSV</button></span></h3><div class="mapbox"><canvas id="mapCanvas"></canvas></div><div class="tiny" id="mapInfo">No map yet: choose two axes and press Run map.</div><div class="progress" id="mapProgress"><i></i></div><div class="maxis"><label>x</label><select id="mapXParam"><option value="vg">Gate voltage Vg</option><option value="n">Carrier density n</option><option value="b">Magnetic field B</option><option value="T">Temperature T</option><option value="mfp">Mean free path ℓ</option><option value="mu">Mobility µ</option></select><input id="mxFrom" type="number" step="any" value="-40" title="from"><input id="mxTo" type="number" step="any" value="40" title="to"><input id="mxN" type="number" min="2" max="101" value="21" title="points"></div><div class="maxis"><label>y</label><select id="mapYParam"><option value="vg">Gate voltage Vg</option><option value="n">Carrier density n</option><option value="b" selected>Magnetic field B</option><option value="T">Temperature T</option><option value="mfp">Mean free path ℓ</option><option value="mu">Mobility µ</option></select><input id="myFrom" type="number" step="any" value="-1" title="from"><input id="myTo" type="number" step="any" value="1" title="to"><input id="myN" type="number" min="2" max="101" value="21" title="points"></div><div class="row2"><div class="field"><label>Measure</label><select id="mapMeasure"><option value="2t">Two-terminal</option><option value="hall">Hall Rxy</option><option value="rxx">Longitudinal Rxx</option></select></div><div class="field"><label>Shows</label><select id="mapQuantity"><option value="G">Conductance G</option><option value="R">Resistance R</option></select></div></div><div class="row2"><div class="field"><label>Model</label><select id="mapSource"><option value="fem">Field model (FEM / Hydro)</option><option value="bal">Trajectories</option></select></div><div class="field"><label>Colour range</label><select id="mapScale"><option value="robust" selected>Robust</option><option value="auto">Full range</option></select></div></div><div class="inline"><label class="check"><input id="mapLog" type="checkbox"> Log colours</label><button class="btn primary" id="runMap" type="button">Run map</button></div><p class="hint">x and y are any two different kinds of parameter (Vg and n both set the density; ℓ and µ both set the scattering). ℓ and µ are spaced logarithmically. The trajectory model and gate model come from Line sweep settings. Hover a cell for its values.</p></section>
+            <section class="panel"><details class="group" open><summary>Line sweep settings</summary><div class="body">
+          <div class="field"><label>Sweep</label><select id="sweepType"><option value="vg">versus gate voltage Vg</option><option value="b">versus field B</option><option value="mfp">versus mean free path ℓ</option><option value="T">versus temperature T</option></select></div><div class="row2"><label class="check"><input id="wantFem" type="checkbox" checked> Field model (FEM / Hydro)</label><label class="check"><input id="wantBal" type="checkbox"> Trajectories</label></div><label class="check field"><input id="snapshots" type="checkbox"> Store field snapshots</label>
+          <div class="row2"><div class="field"><label>Trajectory model</label><select id="balMode"><option value="crossover">Sharvin + Drude</option><option value="mc">Pure trajectory MC</option></select></div><div class="field"><label>Sweep quality</label><select id="quality"><option value="accurate" selected>Configured trajectories</option><option value="fast">Fast preview (caps trajectories)</option></select></div></div>
           <div id="vgRange"><div class="row2"><div class="field"><label>Vg from</label><input id="vgFrom" type="number" value="-40"></div><div class="field"><label>Vg to</label><input id="vgTo" type="number" value="40"></div></div><div class="row"><label>Vg points</label><input id="vgN" type="number" min="2" max="201" value="41"></div></div>
           <div id="bRange" hidden><div class="row2"><div class="field"><label>B from</label><input id="bFrom" type="number" value="-1"></div><div class="field"><label>B to</label><input id="bTo" type="number" value="1"></div></div><div class="row"><label>B points</label><input id="bN" type="number" min="2" max="201" value="41"></div></div>
-          <div id="lRange" hidden><div class="row2"><div class="field"><label>ℓ from (nm)</label><input id="lFrom" type="number" min=".1" value="1"></div><div class="field"><label>ℓ to (nm)</label><input id="lTo" type="number" min="1" value="10000"></div></div><div class="row"><label>ℓ points</label><input id="lN" type="number" min="2" max="201" value="41"></div></div>
+          <div id="lRange" hidden><div class="row2"><div class="field"><label>ℓ from (nm)</label><input id="lFrom" type="number" min=".1" value="1"></div><div class="field"><label>ℓ to (nm)</label><input id="lTo" type="number" min="1" value="10000"></div></div><div class="row"><label>ℓ points</label><input id="lN" type="number" min="2" max="201" value="41"></div></div><div id="tRange" hidden><div class="row2"><div class="field"><label>T from (K)</label><input id="tFrom" type="number" min="1" value="4"></div><div class="field"><label>T to (K)</label><input id="tTo" type="number" min="1" value="300"></div></div><div class="row"><label>T points</label><input id="tN" type="number" min="2" max="201" value="41"></div><p class="hint">Temperature acts through the hydrodynamic model (l_ee from T) and through phonon scattering (Scattering &amp; tracer). With neither on, G vs T is flat.</p></div>
           <div class="row2"><div class="field"><label>Measure</label><select id="measure"><option value="2t">Two-terminal</option><option value="hall">Hall Rxy</option><option value="rxx">Longitudinal Rxx</option></select></div><div class="field"><label>Plot quantity</label><select id="quantity"><option value="G">Conductance G</option><option value="R">Resistance R</option></select></div></div>
           <details><summary class="tiny">Gate model n(Vg)</summary><div class="row2"><div class="field"><label>tox (nm)</label><input id="tox" type="number" value="300"></div><div class="field"><label>εr</label><input id="epsr" type="number" step=".1" value="3.9"></div></div><div class="field"><label>Dirac voltage V₀</label><input id="vdirac" type="number" step=".5" value="0"></div></details>
-          <div class="inline"><button class="btn primary" id="runSweep">Run sweep</button><button class="btn" id="exportCsv">Export CSV</button></div><div class="progress" id="progress"><i></i></div><div id="snapshotHost"></div>
+          <div class="progress" id="progress"><i></i></div><div id="snapshotHost"></div>
         </div></details>
         </section>
             <section class="panel">
         <details class="group"><summary>Numerical settings</summary><div class="body">
-          <div class="row"><label>Grid resolution</label><input id="res" type="number" min="16" max="300" step="10" value="100"></div><div class="row"><label>Trajectories</label><input id="nTraj" type="number" min="100" max="1000000" step="500" value="2000"></div><div class="row"><label>Random seed</label><input id="seed" type="number" step="1" value="7"></div>
-          <div class="row"><label>FEM max iterations</label><input id="femIter" type="number" step="500" value="3000"></div><div class="row"><label>FEM tolerance</label><input id="femTol" type="number" step="1e-8" value="1e-7"></div><div class="row"><label>Max path (µm)</label><input id="maxPath_um" type="number" min="1" step="20" value="240"></div><div class="row"><label>Step safety cap</label><input id="maxSteps" type="number" min="100" step="1000" value="8000"></div><div class="row"><label>CPU threads (0 = all)</label><input id="threads" type="number" min="0" max="256" value="0"></div>
+          <div class="row"><label>Grid resolution</label><input id="res" type="number" min="16" max="300" step="10" value="100"></div><div class="row"><label>Trajectory map cells</label><select id="trajRes"><option value="160" selected>160 (standard)</option><option value="320">320</option><option value="480">480</option><option value="640">640</option></select></div><p class="hint">Cells across the trajectory heat map. Finer cells each collect fewer paths, so raise Trajectories with it (twice the cells each way needs about four times the paths for the same noise). The view is about 890 pixels wide, so more than 640 adds nothing on screen.</p><div class="row"><label>Trajectories</label><input id="nTraj" type="number" min="100" max="1000000" step="500" value="2000"></div><div class="row"><label>Random seed</label><input id="seed" type="number" step="1" value="7"></div>
+          <div class="row"><label>FEM max iterations</label><input id="femIter" type="number" step="500" value="3000"></div><div class="row"><label>FEM tolerance</label><input id="femTol" type="number" step="1e-10" value="1e-9"></div><div class="row"><label>Max path (µm)</label><input id="maxPath_um" type="number" min="1" step="20" value="240"></div><div class="row"><label>Step safety cap</label><input id="maxSteps" type="number" min="100" step="1000" value="8000"></div><div class="row"><label>CPU threads (0 = all)</label><input id="threads" type="number" min="0" max="256" value="0"></div>
           <p class="hint">Adaptive ds resolves scattering events exactly and caps angular advance near tight cyclotron arcs. The core automatically raises the step cap when needed to reach the selected path length.</p>
         </div></details>
         </section>
-        <section class="panel panel-detail"><h3>Detail</h3><section class="detail" id="detail"></section><p class="hint detail-empty">Choose the <b>Transmission</b> or <b>Validity</b> view to fill this panel.</p></section>
         </aside>
     <div class="toast" id="toast"></div>
     </div>
@@ -231,7 +299,7 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
 (() => {
 "use strict";
 const $=id=>document.getElementById(id), num=id=>+$ (id).value;
-const ROLE_COLOR={source:'#23b978',drain:'#f65b5c',probe:'#4096ff',absorber:'#f5b041'};
+const ROLE_COLOR={source:'#23b978',drain:'#f65b5c',probe:'#4096ff',absorber:'#f5b041',reflector:'#96a0ac',wall:'#5d6b7a'};
 const PRESETS={
  hall_bar:[['source','source',0,.1,.04,.9],['drain','drain',.96,.1,1,.9],['probe_top','probe',.4,.94,.6,1],['probe_bottom','probe',.4,0,.6,.06]],
  two_terminal:[['source','source',0,.05,.04,.95],['drain','drain',.96,.05,1,.95]],
@@ -240,7 +308,7 @@ const PRESETS={
 };
 let lastSweepRange=null;
 let contacts=[], activeView='device', fem=null, traj=null, derived=null, drawMode=false, drawStart=null, sweep=null, toastTimer;
-const stateIds=['W_um','H_um','n_cm2','mu_cm','mfp_um','Vsource','Vdrain','B','res','nTraj','seed','femIter','femTol','maxSteps','maxPath_um','threads'];
+const stateIds=['trajRes','W_um','H_um','n_cm2','mu_cm','mfp_um','Vsource','Vdrain','B','res','nTraj','seed','femIter','femTol','maxSteps','maxPath_um','threads','fwdSigmaDeg','phMfp300_um','tempK','eeMfp_um','eeSigmaDeg','specularity','pnWidth_nm','hydroLee_um','hydroCee'];
 const HELP={
  density:['Carrier density','The signed areal carrier concentration in graphene.','It sets kF = √(π|n|), Drude conductivity, cyclotron radius, mode count and the mobility-derived mean free path. Negative values represent holes.','Use cm⁻². A gate sweep derives this value from the oxide capacitance.'],
  assumptions:['What this model can tell you','This workbench compares local drift–diffusion with phase-incoherent semiclassical trajectories.','The Hall finite-volume tensor is quantitative within the model; ballistic paths include magnetic curvature, bulk scattering and edge reflection. It does not include coherent quantum transport, Landau quantization, tunnelling or self-consistent electrostatics.','Use the Validity tab before interpreting a result. Treat ℓ/L and rc/W near unity as the interesting crossover region.']
@@ -266,31 +334,39 @@ function updateDxNote(){const e=$('dxNote'); if(!e) return;
   e.textContent='dx = '+dx.toFixed(3)+' \u00b5m'+(d<dx?'  \u2014 below dx':'');
   e.style.color = d<dx ? 'var(--danger,#f65b5c)' : '';}
 contacts=clonePreset('hall_bar');
-function payload(){const o={t:'configure'};stateIds.forEach(id=>o[id]=num(id));o.mfpFromMobility=$('mfpFromMobility').checked?1:0;o.scattering=$('scattering').value;o.edge=$('edge').value;o.mobScope=$('mobScope').value;return o}
+function payload(){const o={t:'configure'};stateIds.forEach(id=>o[id]=num(id));o.fieldModel=$('fieldModel').value;o.hydroSlip_um=$('hydroSlipMode').value==='noslip'?0:$('hydroSlipMode').value==='free'?-1:num('hydroSlip_um');o.hydroHallVisc=$('hydroHallVisc').checked?1:0;o.mfpFromMobility=$('mfpFromMobility').checked?1:0;o.scattering=$('scattering').value;o.edge=$('edge').value;o.mobScope=$('mobScope').value;o.tracer=$('tracer').value;o.refract=$('refract').checked?1:0;o.pnMode=$('pnMode').value;return o}
 function contactString(){return contacts.map(c=>[c.id,c.role,c.x0,c.y0,c.x1,c.y1].join('|')).join(';')}
-function sync(){dex.send(payload());dex.send({t:'contacts',data:contactString()});updateHud()}
+function sanitize(){const fix=(id,lo,why)=>{const e=$(id);if(!e)return;const v=Number(e.value);if(!(v>=lo)){e.value=lo;toast(why)}};fix('W_um',0.2,'Length must be at least 0.2 µm');fix('H_um',0.2,'Width must be at least 0.2 µm');fix('mu_cm',1,'Mobility must be positive');fix('nTraj',100,'At least 100 trajectories');fix('res',20,'Resolution of at least 20 cells');const e=$('n_cm2');if(e&&Math.abs(+e.value)>=1e5&&!/e/i.test(e.value))e.value=(+e.value).toExponential().replace(/\.?0+e/,'e').replace('e+','e')}
+function sync(){sanitize();dex.send(payload());dex.send({t:'contacts',data:contactString()});updateHud()}
 let syncTimer;function deferSync(){clearTimeout(syncTimer);syncTimer=setTimeout(sync,90)}
 function toast(s){const e=$('toast');e.textContent=s;e.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('on'),2600)}
-function fmt(v,unit=''){if(v==null||!isFinite(v))return '—';const a=Math.abs(v);return (a&& (a>=1e4||a<.001)?v.toExponential(2):v.toFixed(a<10?3:1))+unit}
-function updateHud(){const B=num('B'),W=num('W_um'),H=num('H_um');$('B_val').textContent=B.toFixed(2)+' T';$('headline').textContent=`${W.toFixed(2)} × ${H.toFixed(2)} µm · B = ${B.toFixed(2)} T`;$('mfp_um').disabled=$('mfpFromMobility').checked;if(derived){$('mfpHud').textContent=fmt(derived.mfp_um,' µm');$('rcHud').textContent=derived.rc_um<0?'∞':fmt(derived.rc_um,' µm');const r=derived.mfp_um/W;$('regime').textContent=r<.2?'diffusive regime':r<3?'quasi-ballistic crossover':'ballistic regime';$('derived').textContent=`ℓ = ${fmt(derived.mfp_um,' µm')}\nrc = ${derived.rc_um<0?'∞':fmt(derived.rc_um,' µm')}\nkF = ${fmt(derived.kf,' m⁻¹')}\nmodes ≈ ${fmt(derived.modes)} · ${derived.threads} CPU threads`;}}
+function fmt(v,unit=''){if(v==null||!isFinite(v))return '—';const a=Math.abs(v);return (a&& (a>=1e4||a<.001)?v.toExponential(2):a<1?v.toPrecision(3):v.toFixed(a<10?3:1))+unit}
+function fmtB(B){return Math.abs(B)<0.1?(B*1000).toFixed(1)+' mT':B.toFixed(3)+' T'}
+function updateHud(){{const nt=document.getElementById('mfpSplitNote');if(nt)nt.hidden=$('mfpFromMobility').checked}const B=num('B'),W=num('W_um'),H=num('H_um');$('B_val').textContent=fmtB(B);$('headline').textContent=`${W.toFixed(2)} × ${H.toFixed(2)} µm · B = ${fmtB(B)}`;$('mfp_um').disabled=$('mfpFromMobility').checked;if($('mfpFromMobility').checked&&derived&&derived.mfpImp_um>0)$('mfp_um').value=(+derived.mfpImp_um).toPrecision(3);if(derived){$('mfpHud').textContent=fmt(derived.mfp_um,' µm');$('rcHud').textContent=derived.rc_um<0?'∞':fmt(derived.rc_um,' µm');const r=derived.mfp_um/W;$('regime').textContent=r<.2?'diffusive regime':r<3?'quasi-ballistic crossover':'ballistic regime';$('derived').textContent=`ℓ = ${fmt(derived.mfp_um,' µm')} (transport${derived.mfpPh_um>0?', impurity '+fmt(derived.mfpImp_um,' µm')+' + phonon '+fmt(derived.mfpPh_um,' µm'):''})\n${derived.mfpImpEvent_um>0&&Math.abs(derived.mfpImpEvent_um-derived.mfpImp_um)>1e-9?'impurity event every '+fmt(derived.mfpImpEvent_um,' µm')+'\n':''}${derived.eeMfp_um>0?'e–e kick every '+fmt(derived.eeMfp_um,' µm')+'\n':''}µ_eff = ${fmt(derived.muEff_cm,' cm²/Vs')}\nrc = ${derived.rc_um<0?'∞':fmt(derived.rc_um,' µm')}\nkF = ${fmt(derived.kf,' m⁻¹')}\nmodes ≈ ${fmt(derived.modes)} · ${derived.threads} CPU threads`;}}
 function setStatus(s,busy=false){$('status').innerHTML=`<span class="${busy?'':'live'}">●</span> ${s}`}
-function renderContacts(){const h=$('contactList');h.innerHTML='';contacts.forEach((c,i)=>{const r=document.createElement('div');r.className='contact';r.innerHTML=`<i class="dot" style="background:${ROLE_COLOR[c.role]}"></i><span>${c.id}</span><select><option>source</option><option>drain</option><option>probe</option><option>absorber</option></select><button class="btn danger">×</button>`;const sel=r.querySelector('select');sel.value=c.role;sel.onchange=()=>{c.role=sel.value;sync()};r.querySelector('button').onclick=()=>{contacts.splice(i,1);renderContacts();sync()};h.appendChild(r)})}
-function setView(v){activeView=v;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));dex.send({t:'view',name:v});renderDetail()}
-function renderDetail(){const d=$('detail');if(activeView==='transmission'){d.classList.add('on');let html='<h3>Landauer transmission matrix</h3>';if(!traj)html+='<p>Run ballistic, quasi-ballistic, or hybrid transport to populate terminal statistics.</p>';else{html+=`<p>${traj.n.toLocaleString()} trajectories · ${fmt(traj.meanPath_um,' µm')} mean path · ${fmt(traj.meanScatters)} mean scattering events</p><table><tr><th>from → to</th><th>T</th><th>G</th></tr>`;traj.transmission.forEach(r=>html+=`<tr><td>${r.source} → ${r.target}</td><td>${r.T.toFixed(4)}</td><td>${fmt(r.G,' S')}</td></tr>`);html+='</table>'}d.innerHTML=html}else if(activeView==='validity'){d.classList.add('on');const W=num('W_um'),m=derived?derived.mfp_um:0,rc=derived?derived.rc_um:-1,r=m/W;let notes=r<.2?'<div class="valid-note ok">ℓ ≪ L: drift–diffusion FEM is likely appropriate.</div>':r<3?'<div class="valid-note warn">ℓ ~ L: this is the crossover regime; compare FEM and trajectories.</div>':'<div class="valid-note warn">ℓ ≫ L: ballistic transmission dominates and local FEM is outside its best regime.</div>';if(rc>0&&rc/num('H_um')>.3&&rc/num('H_um')<3)notes+='<div class="valid-note warn">rc ~ W: magnetic focusing and geometry should be visible.</div>';d.innerHTML=`<h3>Model validity</h3><table><tr><th>ratio</th><th>value</th></tr><tr><td>ℓ / L</td><td>${fmt(r)}</td></tr><tr><td>ℓ / W</td><td>${fmt(m/num('H_um'))}</td></tr><tr><td>rc / W</td><td>${rc<0?'∞':fmt(rc/num('H_um'))}</td></tr></table>${notes}<p>No phase coherence, quantum interference, Landau quantization, tunnelling, or edge-state quantization is included.</p>`}else d.classList.remove('on')}
-function run(mode){sync();dex.send({t:'run',mode});setStatus(`running ${mode}…`,true);if(mode==='fem')setView('potential');else if(mode!=='hybrid')setView('trajectories')}
+function renderContacts(){const h=$('contactList');h.innerHTML='';contacts.forEach((c,i)=>{const r=document.createElement('div');r.className='contact';r.innerHTML=`<i class="dot" style="background:${ROLE_COLOR[c.role]}"></i><span>${c.id}</span><select><option>source</option><option>drain</option><option>probe</option><option>absorber</option><option>reflector</option><option>wall</option></select><button class="btn danger">×</button>`;const sel=r.querySelector('select');sel.value=c.role;sel.onchange=()=>{c.role=sel.value;sync()};r.querySelector('button').onclick=()=>{contacts.splice(i,1);renderContacts();sync()};h.appendChild(r)})}
+function setView(v){activeView=v;{const pd=document.querySelector(".panel-detail");if(pd)pd.hidden=!(v==="transmission"||v==="validity")}document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));dex.send({t:'view',name:v});renderDetail()}
+function renderDetail(){const d=$('detail');if(activeView==='transmission'){d.classList.add('on');let html='<h3>Landauer transmission matrix</h3>';if(!traj)html+='<p>Run ballistic, quasi-ballistic, or hybrid transport to populate terminal statistics.</p>';else{html+=`<p>${traj.n.toLocaleString()} trajectories · ${fmt(traj.meanPath_um,' µm')} mean path · ${fmt(traj.meanScatters)} mean scattering events · ${traj.tracer==='arc'?'exact arcs':'stepped tracer'}</p>${traj.signCrossings>0&&traj.pnMode==='pass'?`<div class="valid-note warn">${traj.signCrossings.toLocaleString()} crossings of n = 0 were passed straight through (p–n junction mode: pass).</div>`:''}${(traj.pnTransmitted||traj.pnReflected)?`<div class="valid-note">p–n junction: ${traj.pnTransmitted.toLocaleString()} crossings tunnelled, ${traj.pnReflected.toLocaleString()} reflected (${(100*traj.pnTransmitted/(traj.pnTransmitted+traj.pnReflected)).toFixed(1)} % transmitted).</div>`:''}<table><tr><th>from → to</th><th>T ± σ</th><th>G</th><th>carriers</th></tr>`;let thin=0;traj.transmission.forEach(r=>{const few=r.hits!=null&&r.hits<100&&r.T>0;if(few)thin++;html+=`<tr${few?' class="few"':''}><td>${r.source} → ${r.target}</td><td>${r.T.toFixed(4)}${r.dT!=null?' ± '+r.dT.toFixed(4):''}</td><td>${fmt(r.G,' S')}</td><td>${r.hits!=null?r.hits.toLocaleString()+' / '+r.N.toLocaleString():''}</td></tr>`});html+='</table>';{const ms=traj.statuses&&traj.statuses.max_steps||0;if(ms/traj.n>0.01)html+=`<div class="valid-note warn">${(100*ms/traj.n).toFixed(1)} % of the carriers ran out of path budget before reaching a contact: transmissions are biased low. Raise Max path under Numerical settings.</div>`}if(thin)html+=`<div class="valid-note warn">${thin} transmission${thin>1?'s rest':' rests'} on fewer than 100 carriers (marked): its relative error is above 10 %. Raise Trajectories, or use the field model where ℓ ≪ L.</div>`}if(fem&&fem.probes&&fem.probes.length){html+=`<h3>Field model probe potentials</h3><table><tr><th>probe</th><th>V (relative to drain)</th></tr>${fem.probes.map(q=>`<tr><td>${q.id}</td><td>${fmt(q.V," V")}</td></tr>`).join("")}</table>`}d.innerHTML=html}else if(activeView==='validity'){d.classList.add('on');const W=num('W_um'),m=derived?derived.mfp_um:0,rc=derived?derived.rc_um:-1,r=m/W;let notes=r<.2?'<div class="valid-note ok">ℓ ≪ L: drift–diffusion FEM is likely appropriate.</div>':r<3?'<div class="valid-note warn">ℓ ~ L: this is the crossover regime; compare FEM and trajectories.</div>':'<div class="valid-note warn">ℓ ≫ L: ballistic transmission dominates and local FEM is outside its best regime.</div>';if(fem&&derived&&derived.modes>0&&fem.G>1.5498e-4*derived.modes)notes+=`<div class="valid-note warn">The field-model conductance (${fmt(fem.G," S")}) exceeds the ballistic Sharvin limit of this width (${fmt(1.5498e-4*derived.modes," S")}): a local model has no such limit, so here it overestimates. Use the trajectories.</div>`;if(rc>0&&rc/num('H_um')>.3&&rc/num('H_um')<3)notes+='<div class="valid-note warn">rc ~ W: magnetic focusing and geometry should be visible.</div>';d.innerHTML=`<h3>Model validity</h3><table><tr><th>ratio</th><th>value</th></tr><tr><td>ℓ / L</td><td>${fmt(r)}</td></tr><tr><td>ℓ / W</td><td>${fmt(m/num('H_um'))}</td></tr><tr><td>rc / W</td><td>${rc<0?'∞':fmt(rc/num('H_um'))}</td></tr></table>${notes}<p><b>Included:</b> semiclassical trajectories with scattering, magnetic bending, specular/diffuse edges and Klein tunnelling at p–n junctions (abrupt or smooth, angle-resolved); local Ohmic transport (FEM) and a viscous electron fluid (hydrodynamic Stokes–Ohm model).</p><p><b>Not included:</b> phase coherence and quantum interference (weak localisation, conductance fluctuations), Landau quantisation and quantum Hall plateaus, the Dirac point itself (no minimum conductivity, electron–hole puddles or thermal smearing: at n = 0 the conductance is reported as 0), contact resistance (contacts are ideal equipotentials), and Coulomb drag. The electron–electron length in the viscous model uses an uncalibrated prefactor C (default 1, no logarithmic factor): calibrate it against data before quoting a viscosity.</p>`}else d.classList.remove('on')}
+let lastRunMode='',jobError='';
+// Results belong to the settings they were run with: any change marks them stale until the next run.
+function markStale(){if(fem||traj){$('staleNote').hidden=false}}
+function markFresh(){$('staleNote').hidden=true}
+document.addEventListener('change',e=>{const id=e.target&&e.target.id;if(id&&Object.prototype.hasOwnProperty.call(payload(),id))markStale()});
+function clearResults(){fem=null;traj=null;sweep=null;smap=null;liveSweep=null;$('gHud').textContent='—';$('gSrc').textContent='';markFresh();$('sweepBarProg').textContent='';$('progress').classList.remove('on');$('mapProgress').classList.remove('on');$('mapInfo').textContent='No map yet: choose two axes and press Run map.';$('sweepInfo').textContent='';drawSweep();drawMapPanel();renderDetail()}
+function run(mode){lastRunMode=mode;jobError='';sync();dex.send({t:'run',mode});setStatus(`running ${mode}…`,true);if(mode==='fem')setView('potential');else if(mode!=='hybrid')setView('trajectories')}
 const dex=DEX.connect({canvas:$('view'),onStatus:s=>setStatus(s==='open'?'native core ready':s),onMessage:m=>{
- if(m.t==='ready'){setStatus(`${m.backend} · ${m.threads} threads`);return}if(m.t==='derived'){derived=m;updateHud();renderDetail();return}
- if(m.t==='fem'){fem=m;$('gHud').textContent=fmt(m.G,' S');setStatus(`FEM ${m.nx}×${m.ny} · ${m.iters} iterations · ${fmt(m.ms,' ms')}`);if(!m.converged)toast(`FEM residual ${m.residual.toExponential(2)} — inspect numerical settings`);return}
- if(m.t==='traj'){traj=m;setStatus(`${m.n.toLocaleString()} adaptive trajectories · ${fmt(m.ms,' ms')} · ${m.threads} threads`);const src=m.transmission.find(x=>x.source==='source'&&x.target==='drain');if(src)$('gHud').textContent=fmt(src.G,' S');renderDetail();return}
+ if(m.t==='scale'){window.__txScale=m;if(window.__onScale)window.__onScale(m);return}if(m.t==='ready'){setStatus(`${m.backend} · ${m.threads} threads`);return}if(m.t==='derived'){derived=m;if(window.__onDerived)window.__onDerived(m);updateHud();renderDetail();return}
+ if(m.t==='fem'){fem=m;$('gHud').textContent=fmt(m.G,' S');$('gSrc').textContent=m.model==='hydro'?'(hydro, contact to contact)':'(FEM, contact to contact)';markFresh();setStatus(m.model==='hydro'?`hydrodynamic ${m.nx}×${m.ny} · Gurzhi length ${(+m.Dnu_um).toPrecision(3)} µm · ${fmt(m.ms,' ms')}`:`FEM ${m.nx}×${m.ny} · ${m.iters} iterations · ${fmt(m.ms,' ms')}`);if(m.note)toast(m.note);if(!m.converged){toast(`FEM did NOT converge (residual ${m.residual.toExponential(2)}): the numbers are unreliable. Raise FEM max iterations or relax the tolerance.`);setStatus('FEM did not converge: result unreliable')}return}
+ if(m.t==='traj'){traj=m;markFresh();const ms=m.statuses&&m.statuses.max_steps||0;setStatus(`${m.n.toLocaleString()} trajectories (${m.ballistic?'ballistic':'with scattering'}) · ${fmt(m.ms,' ms')} · ${m.threads} threads${ms/m.n>0.01?' · '+(100*ms/m.n).toFixed(1)+' % ran out of path budget':''}`);const src=m.transmission.find(x=>x.source==='source'&&x.target==='drain');if(src){$('gHud').textContent=fmt(src.G,' S')+(src.dT!=null&&src.T>0?' ± '+(100*src.dT/src.T).toFixed(1)+' %':'');$('gSrc').textContent=m.ballistic?'(trajectories, ballistic Landauer)':'(trajectories, Landauer)'}renderDetail();return}
  if(m.t==='progress'){const q=Math.round(100*m.done/m.total);setStatus(`trajectories ${q}% · ${m.done.toLocaleString()}/${m.total.toLocaleString()}`,true);return}
- if(m.t==='job'&&m.state==='done'){setStatus('complete');return}if(m.t==='error'){toast(m.message);setStatus('error');return}if(m.t==='notice'){toast(m.message);return}
+ if(m.t==='job'&&m.state==='done'){if(jobError){setStatus('stopped with an error: '+jobError);jobError='';return}setStatus(fem&&fem.model==='hydro'&&(lastRunMode==='fem'||lastRunMode==='hybrid')?`complete · hydrodynamic, Gurzhi length ${(+fem.Dnu_um).toPrecision(3)} µm`:'complete');return}if(m.t==='error'){jobError=m.message||'error';toast(m.message);setStatus('error: '+(m.message||''));if(m.where!=='sweep')return}if(m.t==='notice'){toast(m.message);return}
  if(m.t==='reset_done'){resetControls(false);toast('Defaults restored');return}handleSweepMessage(m)
 }});
-document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>run(b.dataset.run));$('stop').onclick=()=>{dex.send({t:'stop'});setStatus('stopped')};
+document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>run(b.dataset.run));$('stop').onclick=()=>{dex.send({t:'stop'});setStatus('stopped');if(liveSweep){liveSweep.stopped=true;$('sweepBarProg').textContent='stopped';$('progress').classList.remove('on');$('mapProgress').classList.remove('on')}};
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 $('settings').onclick=()=>$('drawer').classList.add('open');$('closeSettings').onclick=()=>$('drawer').classList.remove('open');
 $('theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';drawSweep()};
-stateIds.forEach(id=>$(id).addEventListener(id==='B'?'input':'change',deferSync));['mfpFromMobility','scattering','edge','mobScope'].forEach(id=>$(id).addEventListener('change',deferSync));
+stateIds.forEach(id=>$(id).addEventListener(id==='B'?'input':'change',deferSync));['mfpFromMobility','scattering','edge','mobScope','tracer','refract','pnMode'].forEach(id=>$(id).addEventListener('change',deferSync));
 $('contactPreset').onchange=()=>{contacts=clonePreset($('contactPreset').value);renderContacts();sync()};
 // The depth is a fraction of the device, so a size change moves it too, and
 // dx moves with the resolution. Re-clone on any of them.
@@ -304,15 +380,15 @@ function nativeDeviceRect(){const aw=960-72,ah=540-60,asp=num('W_um')/num('H_um'
 function eventFrac(e){const r=$('drawLayer').getBoundingClientRect(),d=nativeDeviceRect(),px=(e.clientX-r.left)/r.width*960,py=(e.clientY-r.top)/r.height*540;return[Math.max(0,Math.min(1,(px-d.x)/d.w)),Math.max(0,Math.min(1,1-(py-d.y)/d.h))]}
 function drawPreview(a,b){const c=$('drawLayer'),r=c.getBoundingClientRect(),scale=devicePixelRatio||1;c.width=r.width*scale;c.height=r.height*scale;const x0=Math.min(a[0],b[0])*r.width,y0=(1-Math.max(a[1],b[1]))*r.height,x1=Math.max(a[0],b[0])*r.width,y1=(1-Math.min(a[1],b[1]))*r.height,ctx=c.getContext('2d');ctx.scale(scale,scale);ctx.strokeStyle=ROLE_COLOR[$('drawRole').value];ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.strokeRect(x0,y0,x1-x0,y1-y0)}
 const dl=$('drawLayer');dl.onpointerdown=e=>{if(!drawMode)return;drawStart=eventFrac(e);dl.setPointerCapture(e.pointerId)};dl.onpointermove=e=>{if(drawStart)drawPreview(drawStart,eventFrac(e))};dl.onpointerup=e=>{if(!drawStart)return;const b=eventFrac(e),a=drawStart;drawStart=null;dl.getContext('2d').clearRect(0,0,dl.width,dl.height);if(Math.abs(a[0]-b[0])<.008||Math.abs(a[1]-b[1])<.008)return;const role=$('drawRole').value,n=contacts.filter(c=>c.role===role).length+1;contacts.push({id:`${role}_${n}`,role,x0:Math.min(a[0],b[0]),y0:Math.min(a[1],b[1]),x1:Math.max(a[0],b[0]),y1:Math.max(a[1],b[1])});renderContacts();sync()};
-function loadImage(file,max=64){return new Promise((ok,no)=>{const im=new Image,u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.getContext('2d').getImageData(0,0,c.width,c.height))};im.onerror=no;im.src=u})}
+function loadImage(file,max=256){return new Promise((ok,no)=>{const im=new Image,u=URL.createObjectURL(file);im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.getContext('2d').getImageData(0,0,c.width,c.height))};im.onerror=no;im.src=u})}
 function smooth(v,w,h,r){if(!r)return v;const o=new Float32Array(v.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let s=0,n=0;for(let j=-r;j<=r;j++)for(let i=-r;i<=r;i++){const xx=x+i,yy=y+j;if(xx>=0&&xx<w&&yy>=0&&yy<h){s+=v[yy*w+xx];n++}}o[y*w+x]=s/n}return o}
-async function fieldMap(kind,file){const im=await loadImage(file),ch=$('mapChannel').value,inv=$('mapInvert').checked,d=im.data,v=new Float32Array(im.width*im.height),lo=num(kind==='density'?'dmin':'mmin'),hi=num(kind==='density'?'dmax':'mmax');for(let k=0;k<v.length;k++){let t=ch==='r'?d[k*4]/255:ch==='g'?d[k*4+1]/255:ch==='b'?d[k*4+2]/255:(.299*d[k*4]+.587*d[k*4+1]+.114*d[k*4+2])/255;if(inv)t=1-t;v[k]=lo+(hi-lo)*t}const z=smooth(v,im.width,im.height,Math.max(0,Math.min(6,num('mapSmooth')|0)));dex.send({t:'map',kind,w:im.width,h:im.height,data:Array.from(z)});toast(`${kind} map ${im.width}×${im.height} loaded`)}
-$('densityFile').onchange=e=>e.target.files[0]&&fieldMap('density',e.target.files[0]);$('mobilityFile').onchange=e=>e.target.files[0]&&fieldMap('mobility',e.target.files[0]);document.querySelectorAll('[data-clear-map]').forEach(b=>b.onclick=()=>{dex.send({t:'clear_map',kind:b.dataset.clearMap});toast(`${b.dataset.clearMap} map cleared`)});
+async function fieldMap(kind,file){const im=await loadImage(file),ch=$('mapChannel').value,inv=$('mapInvert').checked,d=im.data,v=new Float32Array(im.width*im.height),lo=num(kind==='density'?'dmin':'mmin'),hi=num(kind==='density'?'dmax':'mmax');for(let k=0;k<v.length;k++){let t=ch==='r'?d[k*4]/255:ch==='g'?d[k*4+1]/255:ch==='b'?d[k*4+2]/255:(.299*d[k*4]+.587*d[k*4+1]+.114*d[k*4+2])/255;if(inv)t=1-t;v[k]=lo+(hi-lo)*t}const z=smooth(v,im.width,im.height,Math.max(0,Math.min(6,num('mapSmooth')|0)));(window.__txMaps=window.__txMaps||{})[kind]={w:im.width,h:im.height,data:Array.from(z),min:lo,max:hi};dex.send({t:'map',kind,w:im.width,h:im.height,data:Array.from(z)});toast(`${kind} map ${im.width}×${im.height} loaded`);try{sweepSummary()}catch(e){}}
+$('densityFile').onchange=e=>e.target.files[0]&&fieldMap('density',e.target.files[0]);$('mobilityFile').onchange=e=>e.target.files[0]&&fieldMap('mobility',e.target.files[0]);document.querySelectorAll('[data-clear-map]').forEach(b=>b.onclick=()=>{dex.send({t:'clear_map',kind:b.dataset.clearMap}),(window.__txMaps&&delete window.__txMaps[b.dataset.clearMap]);toast(`${b.dataset.clearMap} map cleared`)});
 async function contactMap(file){const im=await loadImage(file,96),{width:w,height:h,data:d}=im,role=new Int8Array(w*h).fill(-1);for(let k=0;k<w*h;k++){const r=d[k*4],g=d[k*4+1],b=d[k*4+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);if(mx-mn<45||mx<85)continue;role[k]=r>g*1.18&&r>b*1.18?0:g>r*1.12&&g>b*1.12?1:b>r*1.12&&b>g*1.12?2:3}const seen=new Uint8Array(w*h),out=[],names=['source','drain','probe','absorber'];for(let k=0;k<role.length;k++){if(role[k]<0||seen[k])continue;const rr=role[k],q=[k];seen[k]=1;let minx=w,maxx=0,miny=h,maxy=0,n=0;for(let qi=0;qi<q.length;qi++){const p=q[qi],x=p%w,y=(p/w)|0;minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y);n++;for(const z of [p-1,p+1,p-w,p+w])if(z>=0&&z<role.length&&!seen[z]&&role[z]===rr&&Math.abs(z%w-x)<=1){seen[z]=1;q.push(z)}}if(n>=3){const ro=names[rr],i=out.filter(c=>c.role===ro).length+1;out.push({id:`${ro}_${i}`,role:ro,x0:minx/w,x1:(maxx+1)/w,y0:1-(maxy+1)/h,y1:1-miny/h})}}if(out.length){contacts=out;renderContacts();sync();toast(`${out.length} contacts extracted`)}else toast('No saturated contact regions found')}
 $('contactFile').onchange=e=>e.target.files[0]&&contactMap(e.target.files[0]);
-function sweepRanges(){const t=$('sweepType').value;$('vgRange').hidden=!(t==='vg'||t==='vgb');$('bRange').hidden=!(t==='b'||t==='vgb');$('lRange').hidden=t!=='mfp'}$('sweepType').onchange=sweepRanges;
-function startSweep(){sync();const keys=['vgFrom','vgTo','vgN','bFrom','bTo','bN','lFrom','lTo','lN','tox','epsr','vdirac'],m={t:'sweep',sweepType:$('sweepType').value,measure:$('measure').value,quantity:$('quantity').value,balMode:$('balMode').value,quality:$('quality').value,wantFem:$('wantFem').checked?1:0,wantBal:$('wantBal').checked?1:0,snapshots:$('snapshots').checked?1:0};keys.forEach(k=>m[k]=num(k));dex.send(m);setStatus('preparing sweep…',true)}
-$('runSweep').onclick=startSweep;$('runSweepTop').onclick=startSweep;
+function sweepRanges(){const t=$('sweepType').value;$('vgRange').hidden=t!=='vg';$('bRange').hidden=t!=='b';$('lRange').hidden=t!=='mfp';$('tRange').hidden=t!=='T'}$('sweepType').onchange=sweepRanges;
+function startSweep(){sync();const keys=['vgFrom','vgTo','vgN','bFrom','bTo','bN','lFrom','lTo','lN','tFrom','tTo','tN','tox','epsr','vdirac'],m={t:'sweep',sweepType:$('sweepType').value,measure:$('measure').value,quantity:$('quantity').value,balMode:$('balMode').value,quality:$('quality').value,wantFem:$('wantFem').checked?1:0,wantBal:$('wantBal').checked?1:0,snapshots:$('snapshots').checked?1:0};keys.forEach(k=>m[k]=num(k));dex.send(m);setStatus('preparing sweep…',true)}
+$('runSweep').onclick=startSweep;
 /* ---- sweep reminder strip -------------------------------------------- */
 /* The trajectory budget is NOT recomputed here: the core reports what it
    spent in sweep_start, and before a run the strip says which mode is set
@@ -325,10 +401,12 @@ function sweepSummary(){
   const rng = t==='vg'  ? 'Vg '+num('vgFrom')+' to '+num('vgTo')+' V, '+num('vgN')+' points'
             : t==='b'   ? 'B '+num('bFrom')+' to '+num('bTo')+' T, '+num('bN')+' points'
             : t==='mfp' ? 'mfp '+num('lFrom')+' to '+num('lTo')+' nm, '+num('lN')+' points'
+            : t==='T'   ? 'T '+num('tFrom')+' to '+num('tTo')+' K, '+num('tN')+' points'
             : 'Vg '+num('vgFrom')+' to '+num('vgTo')+' V x B '+num('bFrom')+' to '+num('bTo')+' T, '+num('vgN')+'x'+num('bN');
   const models=[];
-  if($('wantFem').checked)models.push('FEM/Drude');
-  if($('wantBal').checked)models.push('MC ('+opt('balMode')+')');
+  if($('wantFem').checked)models.push($('fieldModel').value==='hydro'?'hydro':'FEM');
+  // a four-probe measure always uses the Buttiker trajectories, whatever the two-terminal model says
+  if($('wantBal').checked)models.push($('measure').value!=='2t'?'trajectories (Büttiker)':'trajectories ('+opt('balMode')+')');
   const parts=['<b>'+opt('measure')+'</b>',opt('quantity'),rng,
     models.length?models.join(' + '):'<span class="sb-warn">no model selected</span>'];
   let warn='';
@@ -343,6 +421,7 @@ function sweepSummary(){
         warn='A four-probe reading is a small difference between two probe potentials. "Fast preview" caps the trajectories and leaves it as noise.';
     }
   }
+  if(window.__txMaps&&window.__txMaps.density&&t==='vg')warn=(warn?warn+' ':'')+'A density map is loaded and fixes n everywhere, so a Vg sweep changes nothing. Clear it under Spatial image maps to sweep the gate.';
   $('sweepBarMain').innerHTML=parts.join(' &middot; ');
   $('sweepBarWarn').textContent=warn;
 }
@@ -351,19 +430,157 @@ $('measure').addEventListener('change',()=>{
     $('quality').value='accurate';
     toast('Sweep quality set to Configured trajectories: Rxy and Rxx need them');}});
 ['sweepType','measure','quantity','balMode','quality','wantFem','wantBal','nTraj',
- 'vgFrom','vgTo','vgN','bFrom','bTo','bN','lFrom','lTo','lN'].forEach(id=>{
+ 'vgFrom','vgTo','vgN','bFrom','bTo','bN','lFrom','lTo','lN','tFrom','tTo','tN'].forEach(id=>{
   const e=$(id); if(!e)return;
   const h=()=>{sweepBudget=null;$('sweepBarProg').textContent='';sweepSummary();};
   e.addEventListener('input',h); e.addEventListener('change',h);});
 sweepSummary();
 
-function handleSweepMessage(m){if(m.t==='sweep_start'){sweep={type:m.type,nx:m.nx,ny:m.ny,total:m.total,snapshots:m.snapshots,x:new Array(m.total),y:new Array(m.total),fem:new Array(m.total),bal:new Array(m.total)};$('progress').classList.add('on');$('progress').querySelector('i').style.width='0%';sweepBudget=Number.isFinite(m.traj)?{traj:m.traj,perTerminal:m.trajPerTerminal,capped:!!m.trajCapped}:null;sweepSummary();drawSweep()}else if(m.t==='sweep_point'&&sweep){sweep.x[m.i]=m.x;sweep.y[m.i]=m.y;sweep.fem[m.i]=m.fem;sweep.bal[m.i]=m.bal;$('progress').querySelector('i').style.width=(100*(m.i+1)/m.total)+'%';$('sweepInfo').textContent=`${m.i+1}/${m.total} points`;$('sweepBarProg').textContent=`${m.i+1}/${m.total}`;if(m.i%2===0||m.i+1===m.total)drawSweep()}else if(m.t==='sweep_done'){$('progress').classList.remove('on');$('sweepInfo').textContent=`Complete · ${sweep.total} native points`;$('sweepBarProg').textContent='complete';setStatus('sweep complete');if(sweep.snapshots){$('snapshotHost').innerHTML=`<div class="field"><label>Field snapshot <output id="snapshotVal">1 / ${sweep.total}</output></label><input id="snapshot" type="range" min="0" max="${sweep.total-1}" value="0"></div>`;$('snapshot').oninput=e=>{$('snapshotVal').textContent=`${+e.target.value+1} / ${sweep.total}`;dex.send({t:'sweep_snapshot',i:+e.target.value})}}}}
-function drawSweep(){const c=$('sweepCanvas'),r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);const W=r.width,H=r.height,css=getComputedStyle(document.documentElement);x.fillStyle=css.getPropertyValue('--input');x.fillRect(0,0,W,H);if(!sweep){x.fillStyle=css.getPropertyValue('--muted');x.font='11px Segoe UI';x.fillText('Run a parameter sweep',14,H/2);return}const vals=$('wantFem').checked?sweep.fem:sweep.bal;if(sweep.type==='vgb'){const finite=vals.filter(Number.isFinite),lo=Math.min(...finite),hi=Math.max(...finite);for(let j=0;j<sweep.ny;j++)for(let i=0;i<sweep.nx;i++){const v=vals[j*sweep.nx+i],t=isFinite(v)&&hi>lo?(v-lo)/(hi-lo):0;x.fillStyle=`hsl(${255-210*t} 76% ${30+28*t}%)`;x.fillRect(42+i*(W-54)/sweep.nx,10+j*(H-33)/sweep.ny,(W-54)/sweep.nx+1,(H-33)/sweep.ny+1)}}else{
+// ---- 2D map: G or R over any two parameters ----------------------------------
+// The core sends every point with its own axis values, so the map never repeats the
+// gate model or the log spacing. Line sweeps (sweep) and maps (smap) are kept apart,
+// so running one never wipes the other.
+let mapHover=null, smap=null, liveSweep=null;
+const VIRIDIS=[[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[110,206,88],[181,222,43],[253,231,37]];
+function cmapSeq(t){t=Math.max(0,Math.min(1,t));const f=t*(VIRIDIS.length-1),i=Math.min(VIRIDIS.length-2,Math.floor(f)),u=f-i,a=VIRIDIS[i],b=VIRIDIS[i+1];return 'rgb('+Math.round(a[0]+(b[0]-a[0])*u)+','+Math.round(a[1]+(b[1]-a[1])*u)+','+Math.round(a[2]+(b[2]-a[2])*u)+')'}
+// signed data (Hall Rxy changes sign with B and with the carrier type): blue, white, red, centred on zero
+function cmapDiv(t){t=Math.max(-1,Math.min(1,t));const a=Math.pow(Math.abs(t),0.85),w=[247,247,247],c=t<0?[33,102,172]:[178,24,43];return 'rgb('+Math.round(w[0]+(c[0]-w[0])*a)+','+Math.round(w[1]+(c[1]-w[1])*a)+','+Math.round(w[2]+(c[2]-w[2])*a)+')'}
+function mapTicks(lo,hi,n){if(!(hi>lo))return [lo];const raw=(hi-lo)/n,p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p,st=(m<1.5?1:m<3.5?2:m<7.5?5:10)*p,out=[];for(let v=Math.ceil(lo/st-1e-9)*st;v<=hi+st*1e-9;v+=st)out.push(Math.abs(v)<st*1e-9?0:v);return out}
+function mapTickLabel(v,span){const a=Math.abs(v);if(v===0)return '0';if(a>=1e4||a<1e-3)return v.toExponential(span>0&&Math.abs(span/a)<0.1?2:1).replace('e+','e');return (+v.toPrecision(4)).toString()}
+// the parameters a map axis can be: name, unit, default range, log spacing
+const MAPP={vg:{name:'Vg',unit:'V',from:-40,to:40,n:21},n:{name:'n',unit:'cm⁻²',from:-3e12,to:3e12,n:21},b:{name:'B',unit:'T',from:-1,to:1,n:21},
+  T:{name:'T',unit:'K',from:4,to:300,n:16},mfp:{name:'ℓ',unit:'nm',from:10,to:10000,n:16,log:1},mu:{name:'µ',unit:'cm²/Vs',from:1e3,to:1e6,n:16,log:1}};
+const MAPGROUP={vg:1,n:1,mfp:2,mu:2,b:3,T:4};
+function mapQuantity(){const S=smap;if(!S)return {name:'G',unit:'S'};if(S.measure==='hall')return {name:'Rxy',unit:'Ω'};if(S.measure==='rxx')return {name:'Rxx',unit:'Ω'};return S.quantity==='R'?{name:'R',unit:'Ω'}:{name:'G',unit:'S'}}
+function mapSeries(){const want=$('mapSource').value;let v=want==='bal'?smap.bal:smap.fem,which=want;if(!v.some(Number.isFinite)){v=want==='bal'?smap.fem:smap.bal;which=want==='bal'?'fem':'bal'}return {vals:v,which}}
+function mapRange(finite){
+  let lo=Math.min(...finite),hi=Math.max(...finite);
+  if($('mapScale').value==='robust'&&finite.length>=8){const s=[...finite].sort((p,q)=>p-q),q=f=>{const k=(s.length-1)*f,i=Math.floor(k);return s[i]+(s[Math.min(i+1,s.length-1)]-s[i])*(k-i)},q1=q(.25),q3=q(.75),iq=q3-q1;lo=Math.max(lo,q1-1.5*iq);hi=Math.min(hi,q3+1.5*iq)}
+  return {lo,hi};
+}
+function mapLayout(W,H){return {L:58,T:22,R:W-70,B:H-36}}
+function mapAxisInfo(S,which){const par=which==='x'?S.xParam:S.yParam,d=MAPP[par]||{name:par,unit:''},r=which==='x'?S.xr:S.yr;return {par,d,log:!!d.log,r}}
+function drawMap(x,W,H,css,tag){
+  const S=smap,nx=S.nx,ny=S.ny,{vals,which}=mapSeries(),q=mapQuantity();
+  const P=mapLayout(W,H),pw=P.R-P.L,ph=P.B-P.T,ink=css.getPropertyValue('--ink')||'#222',muted=css.getPropertyValue('--muted')||'#777';
+  const finite=vals.filter(Number.isFinite);
+  x.font='11px Segoe UI';x.textBaseline='middle';
+  if(!finite.length){x.fillStyle=muted;x.fillText('Waiting for the first points…',P.L+10,P.T+ph/2);return}
+  let {lo,hi}=mapRange(finite);
+  const signed=lo<0&&hi>0,logWanted=$('mapLog').checked,logOK=!signed&&lo>0&&logWanted;
+  let zf;
+  if(signed){const m=Math.max(Math.abs(lo),Math.abs(hi));lo=-m;hi=m;zf=v=>cmapDiv(v/m)}
+  else if(logOK){const a=Math.log10(lo),b=Math.log10(hi);zf=v=>cmapSeq(b>a?(Math.log10(Math.max(v,lo))-a)/(b-a):.5)}
+  else zf=v=>cmapSeq(hi>lo?(v-lo)/(hi-lo):.5);
+  // cells: column i = x index, row j = y index, y increasing upward; a log axis is uniform in log10
+  const cw=pw/nx,chh=ph/ny;
+  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const v=vals[j*nx+i];if(v==null||!isFinite(v))continue;x.fillStyle=zf(v);x.fillRect(P.L+i*cw,P.B-(j+1)*chh,cw+.6,chh+.6)}
+  x.strokeStyle=muted;x.lineWidth=1;x.strokeRect(P.L+.5,P.T+.5,pw,ph);
+  const ax=mapAxisInfo(S,'x'),ay=mapAxisInfo(S,'y');
+  const tr=(a,v)=>a.log?Math.log10(v):v,un=(a,t)=>a.log?Math.pow(10,t):t;
+  const span=(a,n)=>{const r0=tr(a,a.r[0]),r1=tr(a,a.r[1]),h=(r1-r0)/(2*Math.max(1,n-1));return [r0-h,r1+h]};
+  const [xLo,xHi]=span(ax,nx),[yLo,yHi]=span(ay,ny);
+  const X=t=>P.L+(t-xLo)/(xHi-xLo)*pw,Y=t=>P.B-(t-yLo)/(yHi-yLo)*ph;
+  x.fillStyle=ink;x.textAlign='center';
+  const xmin=Math.min(xLo,xHi),xmax=Math.max(xLo,xHi);
+  const ticksFor=(a,mn,mx,n)=>a.log?mapTicks(Math.ceil(mn),Math.floor(mx),Math.max(1,Math.min(n,Math.floor(mx)-Math.ceil(mn)))):mapTicks(mn,mx,n);
+  for(const t of ticksFor(ax,xmin,xmax,Math.max(2,Math.floor(pw/70)))){const px=X(t);if(px<P.L-1||px>P.R+1)continue;x.beginPath();x.moveTo(px,P.B);x.lineTo(px,P.B+4);x.stroke();x.fillText(mapTickLabel(un(ax,t),ax.log?0:xmax-xmin),px,P.B+12)}
+  x.fillText(ax.d.name+' ('+ax.d.unit+')'+(ax.log?' log':''),P.L+pw/2,P.B+26);
+  x.textAlign='right';
+  const ymin=Math.min(yLo,yHi),ymax=Math.max(yLo,yHi);
+  for(const t of ticksFor(ay,ymin,ymax,Math.max(2,Math.floor(ph/34)))){const py=Y(t);if(py<P.T-1||py>P.B+1)continue;x.beginPath();x.moveTo(P.L-4,py);x.lineTo(P.L,py);x.stroke();x.fillText(mapTickLabel(un(ay,t),ay.log?0:ymax-ymin),P.L-6,py)}
+  x.save();x.translate(13,P.T+ph/2);x.rotate(-Math.PI/2);x.textAlign='center';x.fillText(ay.d.name+' ('+ay.d.unit+')'+(ay.log?' log':''),0,0);x.restore();
+  // colour bar
+  const bx=P.R+10,bw=12;
+  for(let k=0;k<ph;k++){const t=1-k/ph;x.fillStyle=signed?cmapDiv(2*t-1):cmapSeq(t);x.fillRect(bx,P.T+k,bw,1.5)}
+  x.strokeStyle=muted;x.strokeRect(bx+.5,P.T+.5,bw,ph);
+  x.textAlign='left';x.fillStyle=ink;
+  if(logOK){const a=Math.log10(lo),b=Math.log10(hi);for(const e of mapTicks(a,b,4)){const py=P.B-(e-a)/(b-a)*ph;x.fillText(mapTickLabel(Math.pow(10,e),0),bx+bw+3,py)}}
+  else for(const t of mapTicks(lo,hi,4)){const py=P.B-(t-lo)/(hi-lo)*ph;x.fillText(mapTickLabel(t,hi-lo),bx+bw+3,py)}
+  x.textAlign='center';x.fillText(q.name+' ('+q.unit+')'+(logOK?' log':''),bx+bw/2+8,P.T-11);
+  x.textAlign='left';x.fillStyle=muted;
+  x.fillText((which==='fem'?'FEM / Drude':'trajectories')+(logWanted&&!logOK?' · log needs positive data':''),P.L,P.T-11);
+  // hover readout, from the point's own values
+  if(mapHover&&mapHover.tag===tag){const {i,j}=mapHover,k=j*nx+i,v=vals[k];
+    x.strokeStyle=ink;x.lineWidth=1.5;x.strokeRect(P.L+i*cw,P.B-(j+1)*chh,cw,chh);
+    const xv=S.x[k],yv=S.y[k],nn=S.n[k];
+    let txt=ax.d.name+' '+(xv!=null?mapTickLabel(xv,1):'—')+' '+ax.d.unit+' · '+ay.d.name+' '+(yv!=null?mapTickLabel(yv,1):'—')+' '+ay.d.unit;
+    if(nn!=null&&ax.par!=='n'&&ay.par!=='n')txt+=' · n '+(+nn).toExponential(2);
+    txt+=' · '+q.name+' '+(v!=null&&isFinite(v)?fmt(v,' '+q.unit):'—');
+    x.font='11px Segoe UI';const tw=x.measureText(txt).width+12;let tx=Math.min(P.R-tw,Math.max(P.L,P.L+i*cw));
+    x.fillStyle='rgba(255,255,255,.92)';x.fillRect(tx,P.T+4,tw,18);x.fillStyle='#111';x.fillText(txt,tx+6,P.T+13)}
+}
+function drawMapPanel(){const c=$('mapCanvas');if(!c)return;const r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);const css=getComputedStyle(document.documentElement);x.fillStyle=css.getPropertyValue('--input');x.fillRect(0,0,r.width,r.height);
+  if(!smap){x.fillStyle=css.getPropertyValue('--muted');x.font='11px Segoe UI';x.fillText('Run a map',14,r.height/2);return}drawMap(x,r.width,r.height,css,'small')}
+function mapPick(ev,canvas,tag){if(!smap)return;const r=canvas.getBoundingClientRect(),P=mapLayout(r.width,r.height),px=ev.clientX-r.left,py=ev.clientY-r.top;
+  const i=Math.floor((px-P.L)/((P.R-P.L)/smap.nx)),j=Math.floor((P.B-py)/((P.B-P.T)/smap.ny));
+  const nh=(i>=0&&i<smap.nx&&j>=0&&j<smap.ny)?{tag,i,j}:null;
+  if(JSON.stringify(nh)!==JSON.stringify(mapHover)){mapHover=nh;drawMapPanel();drawBigMap()}}
+function drawBigMap(){const o=$('mapBig');if(!o||o.hidden||!smap)return;const c=$('mapBigCanvas'),r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);const css=getComputedStyle(document.documentElement);x.fillStyle=css.getPropertyValue('--input');x.fillRect(0,0,r.width,r.height);drawMap(x,r.width,r.height,css,'big')}
+function mapAxisDefaults(which){const par=$(which==='x'?'mapXParam':'mapYParam').value,d=MAPP[par],k=which==='x'?'mx':'my';$(k+'From').value=d.from;$(k+'To').value=d.to;$(k+'N').value=d.n}
+function startMap(){
+  const xp=$('mapXParam').value,yp=$('mapYParam').value;
+  if(MAPGROUP[xp]===MAPGROUP[yp]){toast('Choose two different kinds of axis: '+MAPP[xp].name+' and '+MAPP[yp].name+' set the same thing');return}
+  sync();const src=$('mapSource').value;
+  const m={t:'sweep',sweepType:'map2',mapXParam:xp,mapYParam:yp,measure:$('mapMeasure').value,quantity:$('mapQuantity').value,balMode:$('balMode').value,quality:$('quality').value,
+    wantFem:src==='fem'?1:0,wantBal:src==='bal'?1:0,snapshots:0};
+  ['mxFrom','mxTo','mxN','myFrom','myTo','myN','tox','epsr','vdirac'].forEach(k=>m[k]=num(k));
+  dex.send(m);setStatus('preparing map…',true)}
+function mapWire(){
+  $('mapCanvas').addEventListener('mousemove',e=>mapPick(e,$('mapCanvas'),'small'));
+  $('mapCanvas').addEventListener('mouseleave',()=>{if(mapHover&&mapHover.tag==='small'){mapHover=null;drawMapPanel()}});
+  $('mapBigCanvas').addEventListener('mousemove',e=>mapPick(e,$('mapBigCanvas'),'big'));
+  $('mapBigCanvas').addEventListener('mouseleave',()=>{if(mapHover&&mapHover.tag==='big'){mapHover=null;drawBigMap()}});
+  ['mapSource','mapLog','mapScale'].forEach(id=>$(id).addEventListener('change',()=>{drawMapPanel();drawBigMap()}));
+  $('mapXParam').addEventListener('change',()=>mapAxisDefaults('x'));
+  $('mapYParam').addEventListener('change',()=>mapAxisDefaults('y'));
+  $('runMap').onclick=startMap;
+  $('mapExpand').onclick=()=>{$('mapBig').hidden=false;drawBigMap()};
+  $('mapClose').onclick=()=>{$('mapBig').hidden=true};
+  $('mapCsv').onclick=()=>{if(!smap)return;const ax=MAPP[smap.xParam]||{name:'x'},ay=MAPP[smap.yParam]||{name:'y'},q=mapQuantity();
+    const U=s=>s.replace(/[^\w]+/g,'');let t=`# transim 2D map export ${smap.stamp||''}, measure ${smap.measure}, field model ${smap.fieldModel||'ohmic'}\n${ax.name}_${U(ax.unit||'')},${ay.name}_${U(ay.unit||'')},${q.name}_${q.unit==='Ω'?'ohm':'S'}_field,${q.name}_${q.unit==='Ω'?'ohm':'S'}_traj,${q.name}_traj_err,n_cm2\n`;for(let i=0;i<smap.total;i++)t+=`${smap.x[i]},${smap.y[i]},${smap.fem[i]??''},${smap.bal[i]??''},${(smap.balErr&&smap.balErr[i])??''},${smap.n[i]??''}\n`;
+    download(new Blob([t],{type:'text/csv'}),'transim-map.csv')};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('mapBig').hidden)$('mapBig').hidden=true});
+  window.addEventListener('resize',drawBigMap);
+  if(typeof ResizeObserver!=='undefined'){new ResizeObserver(()=>drawMapPanel()).observe($('mapCanvas'));new ResizeObserver(()=>drawSweep()).observe($('sweepCanvas'))}
+  drawMapPanel();
+  // probe hook: the map state lives inside the page's closure
+  window.__TXMAP={hover:()=>mapHover,sweep:()=>smap,map:()=>smap,line:()=>sweep,pick:(e,tag)=>mapPick(e,tag==='big'?$('mapBigCanvas'):$('mapCanvas'),tag),start:startMap};
+}
+
+function handleSweepMessage(m){
+  if(m.t==='sweep_start'){
+    const isMap=m.type==='vgb'||m.type==='map2';
+    const S={type:m.type,isMap,nx:m.nx,ny:m.ny,total:m.total,snapshots:m.snapshots,x:new Array(m.total),y:new Array(m.total),fem:new Array(m.total),bal:new Array(m.total),n:new Array(m.total),
+      xr:[m.xFrom,m.xTo],nr:[m.nFrom,m.nTo],yr:[m.yFrom,m.yTo],xParam:m.xParam||'vg',yParam:m.yParam||'b',
+      measure:isMap?$('mapMeasure').value:$('measure').value,quantity:isMap?$('mapQuantity').value:$('quantity').value,
+      balErr:new Array(m.total),trunc:new Array(m.total),launched:new Array(m.total),t0:performance.now(),
+      fieldModel:$('fieldModel').value,balMode:$('balMode').value,nTraj:num('nTraj'),seed:num('seed'),quality:$('quality').value,
+      params:payload(),stamp:new Date().toISOString()};
+    liveSweep=S;
+    if(isMap){smap=S;mapHover=null;$('mapProgress').classList.add('on');$('mapProgress').querySelector('i').style.width='0%';$('mapInfo').textContent=`0/${m.total} points`;drawMapPanel()}
+    else{sweep=S;$('progress').classList.add('on');$('progress').querySelector('i').style.width='0%';sweepBudget=Number.isFinite(m.traj)?{traj:m.traj,perTerminal:m.trajPerTerminal,capped:!!m.trajCapped}:null;sweepSummary();drawSweep()}
+  }else if(m.t==='sweep_point'&&liveSweep){
+    const S=liveSweep;S.x[m.i]=m.x;S.y[m.i]=m.y;S.fem[m.i]=m.fem;S.bal[m.i]=m.bal;S.n[m.i]=m.n;S.balErr[m.i]=m.balErr;S.trunc[m.i]=m.trunc;S.launched[m.i]=m.launched;
+    const pct=(100*(m.i+1)/m.total)+'%';const el=(performance.now()-S.t0)/1000,left=el/(m.i+1)*(m.total-m.i-1);
+    $('sweepBarProg').textContent=`${m.i+1}/${m.total}${m.i+1<m.total&&el>3?' · about '+(left<90?Math.round(left)+' s':Math.round(left/60)+' min')+' left':''}`;
+    if(S.isMap){$('mapProgress').querySelector('i').style.width=pct;$('mapInfo').textContent=`${m.i+1}/${m.total} points`;if(m.i%2===0||m.i+1===m.total){drawMapPanel();drawBigMap()}}
+    else{$('progress').querySelector('i').style.width=pct;$('sweepInfo').textContent=`${m.i+1}/${m.total} points`;if(m.i%2===0||m.i+1===m.total)drawSweep()}
+  }else if(m.t==='sweep_done'&&liveSweep){
+    const S=liveSweep;$('sweepBarProg').textContent=S.stopped?'stopped':'complete';{let tr=0,la=0;for(let i=0;i<S.total;i++){tr+=S.trunc[i]||0;la+=S.launched[i]||0}if(la&&tr/la>0.01)toast((100*tr/la).toFixed(1)+' % of the trajectories ran out of path budget: the trajectory values are biased low. Raise Max path.')}
+    if(S.isMap){$('mapProgress').classList.remove('on');const ax=MAPP[S.xParam]||{name:'x'},ay=MAPP[S.yParam]||{name:'y'};$('mapInfo').textContent=`Complete · ${S.nx} × ${S.ny} points, ${ax.name} × ${ay.name}`;setStatus('map complete');drawMapPanel();drawBigMap()}
+    else{$('progress').classList.remove('on');$('sweepInfo').textContent=`Complete · ${S.total} native points`;setStatus('sweep complete');
+      if(S.snapshots){$('snapshotHost').innerHTML=`<div class="field"><label>Field snapshot <output id="snapshotVal">1 / ${S.total}</output></label><input id="snapshot" type="range" min="0" max="${S.total-1}" value="0"></div>`;$('snapshot').oninput=e=>{$('snapshotVal').textContent=`${+e.target.value+1} / ${S.total}`;dex.send({t:'sweep_snapshot',i:+e.target.value})}}}
+  }else if(m.t==='error'&&m.where==='sweep'){toast(m.message);setStatus(m.message)}
+}
+
+function drawSweep(){const c=$('sweepCanvas'),r=c.getBoundingClientRect(),dpr=devicePixelRatio||1;c.width=Math.max(1,r.width*dpr);c.height=Math.max(1,r.height*dpr);const x=c.getContext('2d');x.scale(dpr,dpr);const W=r.width,H=r.height,css=getComputedStyle(document.documentElement);x.fillStyle=css.getPropertyValue('--input');x.fillRect(0,0,W,H);if(!sweep){x.fillStyle=css.getPropertyValue('--muted');x.font='11px Segoe UI';x.fillText('Run a parameter sweep',14,H/2);return}{
  // ---- autoscale over EVERY series drawn, not just the selected one --------
- const SERIES=[['fem','FEM','#4aa3ff'],['bal','ballistic','#4ae3d2']];
+ const balName=sweep.measure!=='2t'?'trajectories (Büttiker)':sweep.balMode==='mc'?'trajectories (Landauer)':'Sharvin + Drude series';
+ const SERIES=[['fem',sweep.fieldModel==='hydro'?'hydro':'FEM','#4aa3ff'],['bal',balName,'#4ae3d2']];
  const pts={};let any=false;
  for(const [k] of SERIES){
-  const a=(sweep[k]||[]).map((v,i)=>(isFinite(v)&&sweep.x[i]!=null)?[sweep.x[i],v]:null).filter(Boolean);
+  const a=(sweep[k]||[]).map((v,i)=>(Number.isFinite(v)&&sweep.x[i]!=null)?[sweep.x[i],v]:null).filter(Boolean);
   pts[k]=a;if(a.length)any=true;
  }
  if(!any){x.fillStyle=css.getPropertyValue('--muted');x.font='11px Segoe UI';
@@ -445,7 +662,9 @@ function drawSweep(){const c=$('sweepCanvas'),r=c.getBoundingClientRect(),dpr=de
  SERIES.forEach(([k,,col])=>{const a=pts[k];if(!a.length)return;
   x.strokeStyle=col;x.lineWidth=2;x.beginPath();
   a.forEach((p,i)=>i?x.lineTo(px(p[0]),py(p[1])):x.moveTo(px(p[0]),py(p[1])));
-  x.stroke()});
+  x.stroke();
+  // error bars on the trajectory series: the jackknife error the core sends with each point
+  if(k==='bal'&&sweep.balErr){x.lineWidth=1;for(let i=0;i<sweep.total;i++){const v=sweep.bal[i],e=sweep.balErr[i];if(!Number.isFinite(v)||!Number.isFinite(e)||sweep.x[i]==null)continue;const X=px(sweep.x[i]);x.beginPath();x.moveTo(X,py(v-e));x.lineTo(X,py(v+e));x.moveTo(X-3,py(v-e));x.lineTo(X+3,py(v-e));x.moveTo(X-3,py(v+e));x.lineTo(X+3,py(v+e));x.stroke()}}});
  x.restore();
  // A plot that silently hides data is worse than one that rescales, so count it.
  let nOff=0;
@@ -460,11 +679,28 @@ function drawSweep(){const c=$('sweepCanvas'),r=c.getBoundingClientRect(),dpr=de
   x.strokeStyle=col;x.lineWidth=2;x.beginPath();x.moveTo(lx,T+7);x.lineTo(lx+14,T+7);x.stroke();
   x.fillStyle=css.getPropertyValue('--muted');x.fillText(name,lx+18,T+7);
   lx+=26+x.measureText(name).width});
+ // axis names: what was swept and what is plotted
+ const XN={vg:'Vg (V)',b:'B (T)',mfp:'ℓ (nm)',T:'T (K)'}[sweep.type]||'x';
+ const qn=sweep.measure==='hall'?'Rxy (Ω)':sweep.measure==='rxx'?'Rxx (Ω)':sweep.quantity==='R'?'R (Ω)':'G (S)';
+ x.fillStyle=css.getPropertyValue('--muted');x.textAlign='right';x.textBaseline='bottom';x.fillText(qn+' vs '+XN,L+PW,T+PH-3);
 }}
-window.addEventListener('resize',drawSweep);$('exportCsv').onclick=()=>{if(!sweep)return;let s='x,y,fem,ballistic\n';for(let i=0;i<sweep.total;i++)s+=`${sweep.x[i]},${sweep.y[i]},${sweep.fem[i]??''},${sweep.bal[i]??''}\n`;download(new Blob([s],{type:'text/csv'}),'transim-sweep.csv')};
-function exportJSON(){const data={plugin:'transim',exported:new Date().toISOString(),parameters:payload(),contacts,fem,traj,sweep};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'transim-results.json')}function exportPNG(){const a=document.createElement('a');a.download='transim-view.png';a.href=$('view').toDataURL('image/png');a.click()}function download(blob,name){const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-$('exportJson').onclick=$('exportJson2').onclick=exportJSON;$('exportPng').onclick=$('exportPng2').onclick=exportPNG;
-function resetControls(send=true){const d={W_um:4,H_um:2,n_cm2:1e12,mu_cm:50000,mfp_um:.5,Vsource:.001,Vdrain:0,B:0,res:100,nTraj:2000,seed:7,femIter:3000,femTol:1e-7,maxSteps:8000,maxPath_um:240,threads:0};Object.entries(d).forEach(([k,v])=>$(k).value=v);$('mfpFromMobility').checked=true;$('scattering').value='isotropic';$('edge').value='specular';contacts=clonePreset('hall_bar');$('contactPreset').value='hall_bar';renderContacts();fem=traj=sweep=null;setView('device');if(send){dex.send({t:'reset'});sync()}updateHud();drawSweep()}
+window.addEventListener('resize',()=>{drawSweep();drawMapPanel()});mapWire();$('exportCsv').onclick=()=>{if(!sweep)return;
+  // Units, model and run settings travel with the numbers, so the file stands on its own.
+  const XN={vg:'Vg_V',b:'B_T',mfp:'mfp_nm',T:'T_K'}[sweep.type]||'x';
+  const q=sweep.measure==='hall'?'Rxy_ohm':sweep.measure==='rxx'?'Rxx_ohm':sweep.quantity==='R'?'R_ohm':'G_S';
+  const bal=sweep.measure!=='2t'?'trajectories_buttiker':sweep.balMode==='mc'?'trajectories_landauer':'sharvin_plus_drude';
+  const P=sweep.params||{};
+  let s='# transim sweep export '+(sweep.stamp||'')+' (Graphene Transport Explorer, DSW plugin)\n'
+   +'# measure '+sweep.measure+', quantity '+q+', field model '+(sweep.fieldModel||'ohmic')+', trajectory series '+bal+'\n'
+   +'# trajectories per point '+(sweepBudget?sweepBudget.traj:sweep.nTraj)+', seed '+sweep.seed+', sweep quality '+sweep.quality+'\n'
+   +'# device '+P.W_um+' x '+P.H_um+' um, n '+P.n_cm2+' cm^-2, mu '+P.mu_cm+' cm^2/Vs, B '+P.B+' T, T '+P.tempK+' K, FEM res '+P.res+'\n'
+   +'# '+q+'_traj_err is the jackknife standard error over 10 trajectory batches; truncated = carriers that ran out of path budget\n';
+  s+=XN+',y,'+q+'_field,'+q+'_traj,'+q+'_traj_err,n_cm2,truncated,launched\n';
+  for(let i=0;i<sweep.total;i++)s+=`${sweep.x[i]},${sweep.y[i]},${sweep.fem[i]??''},${sweep.bal[i]??''},${(sweep.balErr&&sweep.balErr[i])??''},${(sweep.n&&sweep.n[i])??''},${(sweep.trunc&&sweep.trunc[i])??''},${(sweep.launched&&sweep.launched[i])??''}\n`;
+  download(new Blob([s],{type:'text/csv'}),'transim-sweep.csv')};
+function exportJSON(){const data={plugin:'transim',exported:new Date().toISOString(),units:{G:'S',R:'ohm',lengths:'um (keys *_um), m in the core messages unless named',density:'cm^-2',mobility:'cm^2/Vs',B:'T',T:'K',V:'V'},parameters:payload(),contacts,fem,traj,sweep};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'transim-results.json')}function exportPNG(){const a=document.createElement('a');a.download='transim-view.png';a.href=(window.__txExportCanvas?window.__txExportCanvas($('view')):$('view')).toDataURL('image/png');a.click()}function download(blob,name){const a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+$('exportJson').onclick=exportJSON;$('exportPng').onclick=exportPNG;
+function resetControls(send=true){const d={trajRes:160,W_um:4,H_um:2,n_cm2:1e12,mu_cm:50000,mfp_um:.5,Vsource:.001,Vdrain:0,B:0,res:100,nTraj:2000,seed:7,femIter:3000,femTol:1e-9,maxSteps:8000,maxPath_um:240,threads:0,fwdSigmaDeg:10,phMfp300_um:0,tempK:300,eeMfp_um:0,eeSigmaDeg:15,specularity:1,pnWidth_nm:0,hydroLee_um:0,hydroCee:1,hydroSlip_um:0.1};Object.entries(d).forEach(([k,v])=>$(k).value=v);$('mfpFromMobility').checked=true;$('scattering').value='isotropic';$('edge').value='specular';$('tracer').value='step';$('refract').checked=false;$('pnMode').value='klein';$('fieldModel').value='ohmic';$('hydroSlipMode').value='noslip';$('hydroHallVisc').checked=true;contacts=clonePreset('hall_bar');$('contactPreset').value='hall_bar';renderContacts();fem=traj=sweep=null;setView('device');if(send){dex.send({t:'reset'});sync()}updateHud();drawSweep()}
 $('resetAll').onclick=()=>resetControls(true);
 document.querySelectorAll('[data-help]').forEach(b=>b.onclick=e=>{e.preventDefault();const q=HELP[b.dataset.help]||HELP.assumptions;$('modalTitle').textContent=q[0];$('modalBody').innerHTML=`<h4>What is this?</h4><p>${q[1]}</p><h4>Physics</h4><p>${q[2]}</p><h4>How to use it</h4><p>${q[3]}</p>`;$('modal').classList.add('on')});$('modalClose').onclick=()=>$('modal').classList.remove('on');$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('on')};
 renderContacts();sweepRanges();updateHud();drawSweep();dex.send({t:'hello'});sync();
@@ -482,7 +718,13 @@ if($('lockFromView')) $('lockFromView').onclick=()=>{
   $('sxMin').value=sig(r.xmin); $('sxMax').value=sig(r.xmax);
   $('syMin').value=sig(r.ymin); $('syMax').value=sig(r.ymax);
   $('sweepScale').value='fixed'; drawSweep();};
-window.__TX = { redraw: drawSweep,
+window.__TX = { redraw: drawSweep, clearResults(){ clearResults(); }, markStale(){ markStale(); },
+  // the socket lives in this closure: the later script blocks (theme, display) send through this
+  send(m){ dex.send(m); },
+  sync(){ deferSync(); },
+  syncNow(){ sync(); },
+  getPayload(){ return payload(); },
+  setContacts(a){ contacts = a.map(c => ({ ...c })); renderContacts(); },
   setSweep(o){ sweep = o; drawSweep(); },
   getSweep(){ return sweep; },
   // contact geometry lives in here too, and a check that cannot reach it can
@@ -510,6 +752,173 @@ window.__TX = { redraw: drawSweep,
 })();
 </script>
 <script>
+// Projects: a .transim.json holds every setting, the contacts, the maps (as numbers), the
+// sweep and display settings and the view. Examples are such files in ui/examples/.
+(() => {
+  const g = (id) => document.getElementById(id);
+  const SWEEP = ['sweepType', 'measure', 'quantity', 'balMode', 'quality', 'wantFem', 'wantBal', 'snapshots', 'vgFrom', 'vgTo', 'vgN', 'bFrom', 'bTo', 'bN', 'lFrom', 'lTo', 'lN', 'tFrom', 'tTo', 'tN', 'tox', 'epsr', 'vdirac',
+    'mapXParam', 'mxFrom', 'mxTo', 'mxN', 'mapYParam', 'myFrom', 'myTo', 'myN', 'mapMeasure', 'mapQuantity', 'mapSource', 'mapScale', 'mapLog'];
+  const DISPLAY = ['dSeq', 'dDiv', 'dScale', 'dClip', 'dSmooth', 'dPaths', 'dInterp', 'dInvert', 'dBar'];
+  const KEY = 'transim.projects';
+  let meta = {};   // the loaded project's notes, kept when it is saved again
+  const read = (ids) => { const o = {}; for (const id of ids) { const e = g(id); if (e) o[id] = e.type === 'checkbox' ? e.checked : e.value; } return o; };
+  const write = (o) => { for (const [id, v] of Object.entries(o || {})) { const e = g(id); if (!e) continue; if (e.type === 'checkbox') e.checked = !!v; else e.value = v; e.dispatchEvent(new Event('change', { bubbles: true })); } };
+  const toastMsg = (t) => { try { const el = document.getElementById('toast'); if (el) { el.textContent = t; el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 3500); } } catch {} };
+  function collect(name) {
+    const P = window.__TX.getPayload(); delete P.t;
+    const maps = window.__txMaps || {};
+    const view = (document.querySelector('[data-view].on') || {}).dataset?.view || 'device';
+    return { format: 'transim-project', version: 1, name: name || 'project', description: meta.description || '', tryThis: meta.tryThis || '', refs: meta.refs || [], saved: new Date().toISOString(),
+      params: P, contacts: window.__TX.getContacts().map((c) => ({ id: c.id, role: c.role, x0: +c.x0, y0: +c.y0, x1: +c.x1, y1: +c.y1 })),
+      maps: { density: maps.density || null, mobility: maps.mobility || null }, sweep: read(SWEEP), display: read(DISPLAY), view };
+  }
+  function apply(pr) {
+    if (!pr || pr.format !== 'transim-project') throw new Error('not a transim project file');
+    // a running job or sweep belongs to the previous device: stop it and clear its results
+    window.__TX.send({ t: 'stop' }); window.__TX.clearResults();
+    meta = { description: pr.description, tryThis: pr.tryThis, refs: pr.refs };
+    const P = { ...(pr.params || {}) };
+    const slip = P.hydroSlip_um; delete P.hydroSlip_um;
+    for (const [k, v] of Object.entries(P)) { const e = g(k); if (!e) continue; if (e.type === 'checkbox') e.checked = !!+v; else e.value = (typeof v === 'number' && v !== 0 && (Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3)) ? v.toExponential().replace(/\.?0+e/, 'e').replace('e+', 'e') : v; }
+    if (slip !== undefined) { g('hydroSlipMode').value = +slip === 0 ? 'noslip' : +slip < 0 ? 'free' : 'partial'; if (+slip > 0) g('hydroSlip_um').value = slip; }
+    for (const id of ['fieldModel', 'hydroSlipMode', 'hydroHallVisc', 'mfpFromMobility']) { const e = g(id); if (e) e.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (Array.isArray(pr.contacts)) window.__TX.setContacts(pr.contacts);
+    window.__txMaps = window.__txMaps || {};
+    for (const kind of ['density', 'mobility']) {
+      const m = pr.maps && pr.maps[kind];
+      if (m && m.w && m.h && Array.isArray(m.data) && m.data.length === m.w * m.h) {
+        window.__txMaps[kind] = m; window.__TX.send({ t: 'map', kind, w: m.w, h: m.h, data: m.data });
+        const lo = kind === 'density' ? 'dmin' : 'mmin', hi = kind === 'density' ? 'dmax' : 'mmax';
+        if (m.min !== undefined && g(lo)) g(lo).value = m.min; if (m.max !== undefined && g(hi)) g(hi).value = m.max;
+      } else { delete window.__txMaps[kind]; window.__TX.send({ t: 'clear_map', kind }); }
+    }
+    const sw = { ...(pr.sweep || {}) };
+    if (sw.sweepType === 'vgb') {          // a project saved before the map had its own panel
+      Object.assign(sw, { sweepType: 'vg', mapXParam: sw.mapX === 'n' ? 'n' : 'vg', mxFrom: sw.vgFrom, mxTo: sw.vgTo, mxN: sw.vgN, mapYParam: 'b', myFrom: sw.bFrom, myTo: sw.bTo, myN: sw.bN, mapMeasure: sw.measure, mapQuantity: sw.quantity });
+      if (sw.mapX === 'n') { sw.mxFrom = -5e12; sw.mxTo = 5e12; }
+    }
+    if (sw.sweepType === 'vgb') sw.sweepType = 'vg';
+    write(sw); write(pr.display);
+    window.__TX.syncNow();
+    const tab = document.querySelector('[data-view=' + (pr.view || 'device') + ']'); if (tab) tab.click();
+    g('projName').value = pr.name || '';
+    g('projNotes').innerHTML = notesHtml(pr);
+  }
+  // the three fields every example carries: physics and setup, what to try, references
+  function notesHtml(pr) {
+    let h = '<div class="pnTitle">' + esc(pr.name || '') + '</div>';
+    if (pr.description) h += '<div class="pnHead">Physics and set-up</div><div>' + esc(pr.description) + '</div>';
+    if (pr.tryThis) h += '<div class="pnHead">Things to try</div><div>' + esc(pr.tryThis) + '</div>';
+    if (Array.isArray(pr.refs) && pr.refs.length) h += '<div class="pnHead">References</div><ol class="pnRefs">' + pr.refs.map((r) => '<li>' + esc(r) + '</li>').join('') + '</ol>';
+    return h;
+  }
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // ---- examples (ui/examples/index.json)
+  let EX = [];
+  fetch('examples/index.json').then((r) => r.json()).then((list) => {
+    EX = list.examples || [];
+    const sel = g('exampleSel'); sel.innerHTML = '<option value="">— choose an example —</option>';
+    let grp = null;
+    for (const e of EX) {
+      if (!grp || grp.label !== e.group) { grp = document.createElement('optgroup'); grp.label = e.group; sel.appendChild(grp); }
+      const o = document.createElement('option'); o.value = e.file; o.textContent = e.name; o.title = e.summary || ''; grp.appendChild(o);
+    }
+  }).catch(() => { g('exampleSel').innerHTML = '<option value="">(no examples found)</option>'; });
+  g('exampleSel').addEventListener('change', () => { const e = EX.find((x) => x.file === g('exampleSel').value); if (e) g('projNotes').innerHTML = '<div class="pnTitle">' + esc(e.name) + '</div>' + esc(e.summary || '') + '<div class="pnHead">Load it to see the physics, what to try and the references.</div>'; });
+  g('exampleLoad').onclick = async () => {
+    const f = g('exampleSel').value; if (!f) { toastMsg('Choose an example first'); return; }
+    try { const pr = await (await fetch('examples/' + f)).json(); apply(pr); toastMsg('Loaded example: ' + pr.name + (pr.run ? ' - running it' : ''));
+      if (pr.run) setTimeout(() => { const b = document.querySelector('[data-run=' + pr.run + ']'); if (b) b.click(); }, 700); }
+    catch (e) { toastMsg('Could not load the example: ' + e.message); }
+  };
+  // ---- my projects (localStorage)
+  const lib = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } };
+  const fill = () => { const L = lib(), sel = g('myProjSel'); sel.innerHTML = '<option value="">—</option>' + Object.keys(L).sort().map((k) => '<option>' + esc(k) + '</option>').join(''); };
+  fill();
+  g('myProjSave').onclick = () => {
+    const name = (g('projName').value || '').trim(); if (!name) { toastMsg('Give the project a name first'); return; }
+    const L = lib(); L[name] = collect(name);
+    try { localStorage.setItem(KEY, JSON.stringify(L)); fill(); g('myProjSel').value = name; toastMsg('Saved to My projects: ' + name); }
+    catch (e) { toastMsg('The browser storage is full (large maps): use Save project file instead'); }
+  };
+  g('myProjLoad').onclick = () => { const k = g('myProjSel').value, L = lib(); if (!k || !L[k]) { toastMsg('Choose one of My projects'); return; } apply(L[k]); toastMsg('Loaded: ' + k); };
+  g('myProjDel').onclick = () => { const k = g('myProjSel').value, L = lib(); if (!k || !L[k]) return; delete L[k]; localStorage.setItem(KEY, JSON.stringify(L)); fill(); toastMsg('Deleted: ' + k); };
+  // ---- files
+  g('projSaveFile').onclick = () => {
+    const name = (g('projName').value || '').trim() || 'transim-project';
+    const blob = new Blob([JSON.stringify(collect(name), null, 1)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name.replace(/[^\w.-]+/g, '_') + '.transim.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  g('projOpenFile').onclick = () => g('projFile').click();
+  g('projFile').onchange = async () => { const f = g('projFile').files[0]; if (!f) return; try { apply(JSON.parse(await f.text())); toastMsg('Opened ' + f.name); } catch (e) { toastMsg('Could not open ' + f.name + ': ' + e.message); } g('projFile').value = ''; };
+  window.__TXP = { collect, apply };   // for the probe
+})();
+</script>
+<script>
+// Viscous flow: the selects re-send the parameters, the live lengths come back in the
+// derived message, and the FEM button says which model it will solve.
+(() => {
+  const g = (id) => document.getElementById(id);
+  const upd = () => { const h = g('fieldModel').value === 'hydro'; document.querySelectorAll('[data-run=fem]').forEach((b) => { b.textContent = h ? 'Hydro' : 'FEM'; });
+    g('hydroSlip_um').disabled = g('hydroSlipMode').value !== 'partial'; };
+  for (const id of ['fieldModel', 'hydroSlipMode', 'hydroHallVisc']) g(id).addEventListener('change', () => { upd(); try { window.__TX.sync(); } catch {} });
+  g('hydroSlip_um').addEventListener('change', () => { try { window.__TX.sync(); } catch {} });
+  const f = (x) => (+x).toPrecision(3);
+  window.__onDerived = (m) => {
+    const el = g('hydroInfo'); if (!el) return;
+    if (!m.hOk) { el.textContent = m.hWhy || '—'; return; }
+    let regime = '';
+    const W = Math.min(+g('W_um').value, +g('H_um').value);
+    if (m.hLee_um > m.hLmr_um) regime = 'l_ee > l_mr: not hydrodynamic (momentum is lost before it is shared) — the Ohmic model is the right one.';
+    else if (m.hLee_um > 0.3 * W) regime = 'l_ee is not small against the device width: the ballistic correction matters; trust trends, not numbers.';
+    else if (m.hDnu_um > 0.2 * W) regime = 'Viscous regime: the Gurzhi length is comparable to the width.';
+    else regime = 'Weakly viscous: the Gurzhi length is small against the width, so the flow is nearly Ohmic.';
+    el.innerHTML = 'l<sub>ee</sub> = ' + f(m.hLee_um) + ' µm, l<sub>mr</sub> = ' + f(m.hLmr_um) + ' µm, Gurzhi length D<sub>ν</sub> = ' + f(m.hDnu_um) + ' µm, ν = ' + f(m.hNu_cm2s) + ' cm²/s. ' + regime;
+  };
+  upd();
+})();
+</script>
+<script>
+// Display & colours: sent to the core as {t:"display"} (it repaints at once, nothing re-runs),
+// remembered in localStorage, and the core's colour range is shown and burnt into the PNG export.
+(() => {
+  const KEY = 'transim.display', ids = ['dSeq', 'dDiv', 'dScale', 'dClip', 'dSmooth', 'dPaths', 'dInterp', 'dInvert', 'dBar'];
+  const g = (id) => document.getElementById(id);
+  try { const v = JSON.parse(localStorage.getItem(KEY) || '{}'); for (const id of ids) if (id in v && g(id)) { if (g(id).type === 'checkbox') g(id).checked = !!v[id]; else g(id).value = v[id]; } } catch {}
+  const msg = () => ({ t: 'display', seq: g('dSeq').value, div: g('dDiv').value, scale: g('dScale').value, clip: +g('dClip').value, smooth: +g('dSmooth').value,
+    paths: +g('dPaths').value > 0 ? 1 : 0, pathAlpha: +g('dPaths').value || 0.72, interp: g('dInterp').checked ? 1 : 0, invert: g('dInvert').checked ? 1 : 0, bar: g('dBar').checked ? 1 : 0 });
+  const push = () => {
+    try { window.__TX.send(msg()); } catch {}
+    const v = {}; for (const id of ids) v[id] = g(id).type === 'checkbox' ? g(id).checked : g(id).value;
+    try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {}
+  };
+  for (const id of ids) if (g(id)) { g(id).addEventListener('change', push); g(id).addEventListener('input', push); }
+  const fmtV = (x) => { if (!isFinite(x)) return '–'; const a = Math.abs(x); return a !== 0 && (a < 1e-2 || a >= 1e4) ? x.toExponential(2) : (+x.toPrecision(3)).toString(); };
+  window.__onScale = (m) => { const sn = g('scaleNote'); if (sn) sn.textContent = 'colour: ' + m.what + ' ' + fmtV(m.lo) + ' to ' + fmtV(m.hi) + ' ' + m.unit + ' (' + m.scale + ')'; const el = g('dRange'); if (el) el.textContent = 'Colour range (' + m.what + '): ' + fmtV(m.lo) + ' to ' + fmtV(m.hi) + ' ' + m.unit + ', ' + m.scale + (m.clip < 100 ? ', top at the ' + m.clip + 'th percentile' : '') + '.'; };
+  // The PNG: the frame, plus the colour bar's range and what it shows, written beside the bar.
+  window.__txExportCanvas = (view) => {
+    const m = window.__txScale; if (!m || !m.bar) return view;
+    const c = document.createElement('canvas'); c.width = view.width + 150; c.height = view.height;
+    const x = c.getContext('2d'), dark = document.documentElement.dataset.theme === 'dark';
+    x.fillStyle = dark ? '#0a0f17' : '#f7f9fc'; x.fillRect(0, 0, c.width, c.height); x.drawImage(view, 0, 0);
+    // find the bar: the first column right of the device whose colour is not the background
+    const W = view.width, H = view.height, px = view.getContext ? null : null;
+    const tmp = document.createElement('canvas'); tmp.width = W; tmp.height = H; const tx = tmp.getContext('2d'); tx.drawImage(view, 0, 0);
+    const d = tx.getImageData(0, 0, W, H).data, bg = [d[0], d[1], d[2]], mid = Math.floor(H / 2);
+    let bx = -1; for (let i = W - 1; i > W / 2; i--) { const k = (mid * W + i) * 4; if (Math.abs(d[k] - bg[0]) + Math.abs(d[k + 1] - bg[1]) + Math.abs(d[k + 2] - bg[2]) > 30) { bx = i; break; } }
+    let top = 0, bot = H - 1; if (bx > 0) { const col = (y) => { const k = (y * W + bx) * 4; return Math.abs(d[k] - bg[0]) + Math.abs(d[k + 1] - bg[1]) + Math.abs(d[k + 2] - bg[2]) > 30; };
+      while (top < mid && !col(top)) top++; while (bot > mid && !col(bot)) bot--; }
+    const lx = (bx > 0 ? bx : W - 10) + 6;
+    x.fillStyle = dark ? '#e7edf6' : '#1d2633'; x.font = '12px system-ui, sans-serif'; x.textBaseline = 'middle';
+    x.fillText(fmtV(m.hi), lx, top + 6); x.fillText(fmtV(m.lo), lx, bot - 6);
+    x.save(); x.translate(lx + 54, (top + bot) / 2); x.rotate(-Math.PI / 2); x.textAlign = 'center';
+    x.fillText(m.what + (m.unit ? ' (' + m.unit + ')' : '') + (m.scale !== 'linear' ? ', ' + m.scale : ''), 0, 0); x.restore();
+    return c;
+  };
+  push(); setTimeout(push, 800);   // once more after the socket has had time to open
+})();
+</script>
+<script>
 // The core paints its own background, so the theme is not a page-only concern:
 // without telling it, a white panel still showed a near-black device rectangle.
 // Bound after the main script, which has already wired the toggle.
@@ -517,7 +926,7 @@ window.__TX = { redraw: drawSweep,
   const root = document.documentElement, KEY = "transim.theme";
   try { const v = localStorage.getItem(KEY); if (v) root.dataset.theme = v; } catch {}
   const push = () => { const light = root.dataset.theme !== "dark";
-    try { dex.send({ t: "theme", light: light ? 1 : 0 }); } catch {}
+    try { window.__TX.send({ t: "theme", light: light ? 1 : 0 }); } catch {}
     try { localStorage.setItem(KEY, root.dataset.theme || "light"); } catch {}
     if (typeof drawSweep === "function") drawSweep(); };
   const btn = document.getElementById("theme");
