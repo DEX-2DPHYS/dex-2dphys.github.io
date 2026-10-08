@@ -35,7 +35,9 @@ export function createFabTab(app) {
   <div class="grid fab3">
     <div class="col">
       <div class="panel">
-        <div class="section-title">Sample <span class="q" data-tip="<b>What Fab Studio simulates.</b><br><b>Device area</b> — a gold rectangle drawn in Pattern Studio (tool 5). In <b>3D</b> the whole area is a voxel block; as a <b>2D cut</b> only a cross-section along its long side, which is far cheaper and answers most questions (undercut, lift-off, sidewalls).<br><b>Exposure cut-line</b> — the line of the Exposure tab's profile, as a 2D cut.<br><b>Free sample</b> — no layout: the studio's own patterns, as before.<br><br>The lateral voxel size follows a fixed column budget, so a 2 µm gate and a 200 µm pad are simulated with the same number of columns and the voxel size tells you what the simulation can resolve.">?</span></div>
+        <div class="section-title fab-fold-head"><button type="button" class="fab-tw" id="fabSampleToggle" title="Fold or unfold the sample settings">▾</button> Sample <span class="q" data-tip="<b>What Fab Studio simulates.</b><br><b>Device area</b> — a gold rectangle drawn in Pattern Studio (tool 5). In <b>3D</b> the whole area is a voxel block; as a <b>2D cut</b> only a cross-section along its long side, which is far cheaper and answers most questions (undercut, lift-off, sidewalls).<br><b>Exposure cut-line</b> — the line of the Exposure tab's profile, as a 2D cut.<br><b>Free sample</b> — no layout: the studio's own patterns, as before.<br><br>The lateral voxel size follows a fixed column budget, so a 2 µm gate and a 200 µm pad are simulated with the same number of columns and the voxel size tells you what the simulation can resolve.">?</span></div>
+        <div class="row fab-exec"><button class="btn primary" id="fabBuild">Build sample</button><span class="hint" id="fabSampleSum"></span></div>
+        <div id="fabSampleBody">
         <div class="label">Simulate</div>
         <select class="field" id="fabSource"></select>
         <div class="two" style="margin-top:6px;">
@@ -56,7 +58,6 @@ export function createFabTab(app) {
           <div><div class="label">Poly-Si</div><input class="field" id="fabPoly" type="number" value="0" min="0" step="5"></div>
           <div><div class="label">Au</div><input class="field" id="fabMet" type="number" value="0" min="0" step="5"></div>
           <div><div class="label">Head-room <span class="q" data-tip="Air above the stack for resist and films. Make it larger than the thickest resist you will spin.">?</span></div><input class="field" id="fabHead" type="number" value="300" min="100" step="50"></div>
-          <div style="display:flex;align-items:flex-end;"><button class="btn primary" id="fabBuild" style="width:100%;">Build sample</button></div>
         </div>
         <div class="section-title" style="margin-top:10px;">Wafer orientation <span class="q" data-tip="The silicon wafer's crystal orientation, for the <b>whole project</b> (every flow is on the same wafer). It matters for <b>KOH</b>, whose rate depends on the crystal plane being etched: {111} planes etch about 150× slower than {100}.<br><br><b>Surface</b> — the wafer's surface plane.<br><b>Primary flat along</b> — the crystal direction of the wafer flat.<br><b>Flat ∠ layout x</b> — the angle from the layout's x axis to the flat, counter-clockwise seen from above. 0 means mask edges drawn along x are parallel to the flat, as in normal practice.<br><br>Each sample then has its own crystal directions: a 2D cut along the layout y axis, or the Exposure tab's cut-line, runs in a different direction from a 3D block. The line below names them.">?</span></div>
         <div class="three">
@@ -66,20 +67,21 @@ export function createFabTab(app) {
         </div>
         <div class="hint" id="fabWInfo" style="margin-top:4px;"></div>
         <div class="hint" id="fabBuildInfo" style="margin-top:6px;">Press <b>Build sample</b> to start (this clears the process flow).</div>
+        </div>
       </div>
 
       <div class="panel">
         <div class="section-title">Add a process step <span class="fab-level" id="fabLevel" data-tip="<b>Learning</b> — the studio's generic teaching resists and developers: simple, illustrative numbers.<br><b>Advanced</b> — the resists of the resist library (the DTU Nanolab cleanroom), each with its contrast curves and the conditions they were measured at (kV, film thickness, developer, time, temperature). A film, voltage or development away from a curve's conditions is moved by the library's model, and every step says whether that is inside the process window or extrapolated."><button type="button" data-level="learning">Learning</button><button type="button" data-level="advanced">Advanced</button></span></div>
-        <select class="field" id="fabStep">${opt(STEP_LABELS)}</select>
-        <div id="fabParams" style="margin-top:8px;"></div>
-        <div class="row" style="margin-top:8px;">
+        <div class="row fab-exec">
           <button class="btn primary" id="fabRun">Run step</button>
-          <button class="btn" id="fabUndo2" disabled title="Undo the last step of the flow (Ctrl+Z)">← Undo</button>
-          <button class="btn" id="fabRedo2" disabled title="Redo the step just undone (Ctrl+Y or Ctrl+Shift+Z)">Redo →</button>
           <button class="btn" id="fabApplyEdit" style="display:none;">Apply edit</button>
           <button class="btn" id="fabCancelEdit" style="display:none;">Cancel</button>
+          <button class="btn" id="fabUndo2" disabled title="Undo the last step of the flow (Ctrl+Z)">← Undo</button>
+          <button class="btn" id="fabRedo2" disabled title="Redo the step just undone (Ctrl+Y or Ctrl+Shift+Z)">Redo →</button>
         </div>
-        <div class="hint" id="fabStatus" style="margin-top:6px;"></div>
+        <div class="hint" id="fabStatus" style="margin:2px 0 8px;"></div>
+        <select class="field" id="fabStep">${opt(STEP_LABELS)}</select>
+        <div id="fabParams" style="margin-top:8px;"></div>
       </div>
 
     </div>
@@ -150,6 +152,24 @@ export function createFabTab(app) {
   const staleFab = staleOverlay($('fabWrap'), () => { staleFab.busy('Rebuilding and replaying…'); $('fabReplay').click(); });
   const iso = createIso($('fabCanvas3d'), { onFrame: (f) => { if (st.view === '3d') $('fabViewInfo').textContent = `${f.quads.toLocaleString()} quads · ${f.ms.toFixed(0)} ms${f.q > 1 ? ' · ÷' + f.q : ''}`; } });
   iso.setState(eng.state);
+
+  // the Sample panel folds away (remembered in this browser); folded, one line says what is set up
+  const FOLD_KEY = 'ebw-fab-sample-folded';
+  function sampleSummary() {
+    const src = $('fabSource'), o = src?.options[src.selectedIndex];
+    const stack = [['Si', 'fabSi'], ['SiO₂', 'fabOx'], ['Poly-Si', 'fabPoly'], ['Au', 'fabMet']].filter(([, id]) => +$(id).value > 0).map(([n, id]) => `${n} ${+$(id).value} nm`).join(', ');
+    const built = eng.state.W > 0;
+    $('fabSampleSum').textContent = $('fabSampleBody').hidden ? [o ? o.textContent.replace(/\s*\(.*$/, '') : '', $('fabMode').value === '3d' ? '3D' : '2D cut', stack, `(${$('fabWSurf').value}) flat [${$('fabWFlat').value}]`, built ? 'built' : 'not built yet'].filter(Boolean).join(' · ') : '';
+  }
+  function setFolded(f) {
+    $('fabSampleBody').hidden = f; $('fabSampleToggle').textContent = f ? '▸' : '▾';
+    try { localStorage.setItem(FOLD_KEY, f ? '1' : '0'); } catch { /* storage blocked */ }
+    sampleSummary();
+  }
+  $('fabSampleToggle').onclick = () => setFolded(!$('fabSampleBody').hidden);
+  for (const ev of ['input', 'change']) $('fabSampleBody').addEventListener(ev, () => sampleSummary());
+  $('fabBuild').addEventListener('click', () => setTimeout(sampleSummary, 50));
+  try { if (localStorage.getItem(FOLD_KEY) === '1') setFolded(true); } catch { /* storage blocked */ }
 
   // legend: the resists on the sample (unexposed and exposed), else the studio's usual ones, then the rest
   let legendKey = '';
@@ -1035,7 +1055,7 @@ export function createFabTab(app) {
   window.addEventListener('mouseup', () => { panDrag = null; });
   let layout2d = null;
   function render() {
-    legend();
+    legend(); sampleSummary();
     if (!st.built) { const c = $('fabCanvas2d'); c.getContext('2d').clearRect(0, 0, c.width, c.height); return; }
     const z = Math.min(eng.state.D - 1, Math.round((st.zSlice / 100) * (eng.state.D - 1)));
     const g0 = st.sample?.grid;

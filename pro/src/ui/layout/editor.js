@@ -1509,10 +1509,31 @@ export function createLayoutEditor(app) {
     scheduleRender();
   });
 
+  // Δx, Δy of the rectangle or circle being drawn or resized: beside the cursor and in the status bar
+  const sizeTag = (() => { const t = document.createElement('div'); t.id = 'drawSize'; t.style.cssText = 'position:fixed;z-index:50;pointer-events:none;background:rgba(17,24,39,.88);color:#fff;font:600 12px system-ui;padding:3px 7px;border-radius:6px;white-space:nowrap;display:none;'; document.body.appendChild(t); return t; })();
+  const lenTxt = (nm) => (nm >= 1000 ? `${umTxt(nm)} µm` : `${nm.toFixed(1)} nm`);
+  function drawSizeText() {
+    const d = ed.drag; if (!d) return null;
+    const sh = d.kind === 'drawRect' || d.kind === 'drawCircle' || d.kind === 'stamp' ? ed.draft : d.kind === 'corner' ? d.shape : null;
+    if (!sh) return null;
+    if (sh.kind === 'rect') return `Δx ${lenTxt(2 * sh.hw)} · Δy ${lenTxt(2 * sh.hh)}${sh.rot ? ` (rotated ${(+sh.rot).toFixed(0)}°)` : ''}`;
+    if (sh.kind === 'circle') return `Δx = Δy = Ø ${lenTxt(2 * sh.r)}`;
+    return null;
+  }
+  function showDrawSize(e) {
+    const t = drawSizeText();
+    if (!t) { sizeTag.style.display = 'none'; return; }
+    sizeTag.textContent = t; sizeTag.style.display = 'block';
+    sizeTag.style.left = `${e.clientX + 16}px`; sizeTag.style.top = `${e.clientY + 18}px`;
+    $('stCursor').innerHTML += ` · <b>${t}</b>`;
+  }
+  window.addEventListener('pointerup', () => { sizeTag.style.display = 'none'; });
+
   function onPointerMove(e) {
     const { sx, sy } = evPt(e), w = s2w(sx, sy);
     ed.hover = w;
     $('stCursor').innerHTML = `x <b>${umTxt(w.x)}</b> µm, y <b>${umTxt(w.y)}</b> µm`;
+    queueMicrotask(() => showDrawSize(e));
     const d = ed.drag;
     if (!d) {
       if (ed.pendingPoly) { ed.pendingPoly.cursor = w; scheduleRender(); }
