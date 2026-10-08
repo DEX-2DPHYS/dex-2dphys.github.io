@@ -1,6 +1,6 @@
 {
   "name": "Graphene Transport Explorer",
-  "description": "A native multicore hybrid FEM and semiclassical ballistic transport workbench for graphene devices: Hall and four-probe measurements, adaptive trajectories, editable contacts, spatial density/mobility maps, magnetic focusing, parameter sweeps and reproducible exports.",
+  "description": "A native multicore transport workbench for graphene devices: a field model (Ohmic FEM or viscous electron fluid) beside a semiclassical trajectory Monte Carlo with Klein tunnelling at p-n junctions, scattering laws, phonons and error bars. Hall, four-probe and EMR geometries, magnetic focusing, Veselago lenses, hydrodynamic devices, line sweeps and 2D maps, twelve worked examples with notes and references, and self-describing exports.",
   "accent": "#0b57d0",
-  "version": "1.0"
+  "version": "1.1"
 }
