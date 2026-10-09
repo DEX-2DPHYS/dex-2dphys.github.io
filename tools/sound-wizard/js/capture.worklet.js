@@ -20,6 +20,9 @@ class SoundWizardCapture extends AudioWorkletProcessor {
       this.n += take; i += take;
       if (this.n === this.size) {
         this.out.postMessage(this.buf, [this.buf.buffer]);
+        // where this block ends on the audio clock (frames): lets the analysis relate its samples to the
+        // times the page schedules sounds at (the metronome in practice mode)
+        this.out.postMessage({ clock: currentFrame + ch.length });
         this.buf = new Float32Array(this.size);
         this.n = 0;
       }

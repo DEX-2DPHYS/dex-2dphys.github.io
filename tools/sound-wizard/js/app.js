@@ -1,8 +1,11 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2239';
-import { CMAP_NAMES } from './dsp.js?v=20261009.2239';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2302';
+import { CMAP_NAMES } from './dsp.js?v=20261009.2302';
+import { Metronome } from './metronome.js?v=20261009.2302';
+import { POLY_PRESETS } from './practice.js?v=20261009.2302';
+import { sweepSignal } from './room.js?v=20261009.2302';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -43,6 +46,17 @@ const CONTROLS = {
     { key: 'win', label: 'Window', type: 'select', num: true, options: [1, 2, 5, 10, 20, 50, 100, 200, 500].map(ms => [ms, `${ms} ms`]) },
     { key: 'sgain', label: 'Gain', type: 'select', options: [['auto', 'Auto'], ['1', '×1'], ['2', '×2'], ['4', '×4'], ['8', '×8'], ['16', '×16'], ['64', '×64']] },
     { key: 'trig', label: 'Trigger', type: 'seg', options: [['auto', 'Rising edge'], ['free', 'Free run']] },
+  ],
+  room: [
+    { key: 'rT', label: 'Sweep length', type: 'seg', num: true, options: [['4', '4 s'], ['6', '6 s'], ['10', '10 s']] },
+    { key: 'rAmp', label: 'Sweep level', type: 'range', min: -30, max: -3, step: 1, fmt: v => `${v} dBFS` },
+    { type: 'note', text: 'Sweep: the phone plays a rising tone from 30 Hz to 18 kHz and records it. A longer sweep is quieter in the noise (cleaner, especially in the lows). Use the media volume (about half) and this level to get a clear but comfortable sound; the result says how far the decay stands above the noise. Without headphones, in a quiet room, with the phone where you listen or play. The response is speaker + room + microphone together: compare places and changes, not absolute values. Reverberation (RT60) is read from the decay per octave band (T20 or T30); the amber marks are low resonances (room modes).' },
+  ],
+  practice: [
+    { key: 'mVol', label: 'Click level', type: 'range', min: -40, max: 0, step: 1, fmt: v => `${v} dB` },
+    { key: 'mLat', label: 'Latency', type: 'range', min: 0, max: 300, step: 1, fmt: v => `${v} ms` },
+    { type: 'buttons', items: [['measurelat', 'Measure latency…']] },
+    { type: 'note', text: 'Start plays a click; play or clap along and each note is measured against it (ms early or late, how even you are, whether you drift). Bar: which beat is accented. Subdivision: quiet clicks between the beats. Polyrhythm: a second layer in its own sound, p notes in the time of q beats (3:2 = three over two). Measure: against the beats, only the second layer, or every click. Headphones keep the click out of the microphone. Latency is how long the sound takes from the click being played to arriving through the microphone; it is taken off every note. Measure it once without headphones, with the phone near its own speaker (it plays eight loud clicks). Soft attacks (voice, bowed strings) are read a little late.' },
   ],
   tuner: [
     { key: 'tuning', label: 'Instrument', type: 'select', options: () => [...Object.entries(TUNINGS).map(([k, t]) => [k, t.name]), ...S.custom.map((c, i) => [`custom:${i}`, `★ ${c.name}`])] },
@@ -171,6 +185,7 @@ function action(act) {
     setSetting('tuning', 'free');
     buildControls();
   }
+  if (act === 'measurelat') measureLatency();
   if (act === 'calibrate') {
     const v = prompt('Calibrate: play a steady sound and type what a sound level meter shows for it (in dB, with the same weighting).', '');
     const n = parseFloat(String(v || '').replace(',', '.'));
@@ -181,7 +196,7 @@ function action(act) {
 // --------------------------------------------------------------------------------------- views
 // two rooms of tabs: Musician and Sound. The tone generator is not a tab: it is always at hand in the
 // top bar (the drawer), and the full keyboard is a screen of its own.
-const ROOMS = { musician: ['tuner', 'tone', 'rhythm'], sound: ['meter', 'spec', 'scope'] };
+const ROOMS = { musician: ['tuner', 'tone', 'rhythm', 'practice'], sound: ['meter', 'spec', 'scope', 'room'] };
 const roomOf = v => Object.keys(ROOMS).find(r => ROOMS[r].includes(v));
 let prevView = 'meter';
 function showRoom(room) {
@@ -247,6 +262,11 @@ function onEngine(d) {
     }, 50);
   }
   if (d.type === 'ref') refTone(d.midi);
+  if (d.type === 'roomPlay') roomPlay(d);
+  if (d.type === 'latency') {
+    if (d.ms != null) { S.mLat = Math.max(0, Math.min(300, d.ms)); save(); send({ type: 'set', key: 'mLat', value: S.mLat }); syncControls(); prNote(`Round trip measured: ${S.mLat} ms (${d.n} of ${d.of} clicks heard). It is now taken off every note.`); }
+    else prNote('Nothing heard: turn the media volume up, take the headphones off and hold the phone near its own speaker. Then measure again.');
+  }
   if (d.type === 'stats' && statsWait.has(d.id)) { statsWait.get(d.id)(d.stats); statsWait.delete(d.id); }
 }
 const statsWait = new Map();
@@ -258,7 +278,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.2239', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.2302', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -275,7 +295,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.2239');
+    const { Engine } = await import('./engine.js?v=20261009.2302');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -297,7 +317,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2239');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2302');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
@@ -309,11 +329,13 @@ async function start() {
       node.port.postMessage({ port: ch.port1 }, [ch.port1]);
       worker.postMessage({ type: 'port', port: ch.port2 }, [ch.port2]);
     } else {
-      node.port.onmessage = e => eng.push(e.data);
+      node.port.onmessage = e => { if (e.data && e.data.clock !== undefined) eng.clock(e.data.clock); else eng.push(e.data); };
     }
     ac.onstatechange = () => { if (running && ac.state !== 'running') showResume(); };
     running = true;
     send({ type: 'pause', on: false });
+    if (metro.running) setTimeout(() => prStart(), 0); // a click that was playing moves to the microphone's clock
+    prSync();
     $('#overlay').hidden = true;
     $('#power').classList.add('on');
     keepAwake();
@@ -329,6 +351,7 @@ async function start() {
 }
 function stop() {
   running = false;
+  metro.stop(); prSync();
   try { stream?.getTracks().forEach(t => t.stop()); } catch { /* */ }
   try { ac?.close(); } catch { /* */ }
   ac = null; stream = null; node = null;
@@ -515,6 +538,71 @@ $('#dwFull').addEventListener('click', () => { openDrawer(false); showView('gen'
 $('#genBack').addEventListener('click', () => showView(prevView));
 genSync();
 
+// ---------------------------------------------------------------------------------------- practice
+// The click plays on the microphone's own AudioContext when listening is on (then the engine can measure
+// the player against it), else on the generator's context (a plain metronome).
+const metro = new Metronome();
+let prTimer = null;
+function prNote(t) { $('#prNote').textContent = t || ''; }
+function prSync() {
+  $('#prStart').classList.toggle('on', metro.running); $('#prStart').textContent = metro.running ? '■ Stop' : '▶ Start';
+  $('#prBpm').value = S.mBpm; $('#prBeats').value = String(S.mBeats); $('#prSub').value = String(S.mSub); $('#prPoly').value = S.mPoly;
+  for (const b of $$('#prTarget button')) b.classList.toggle('on', b.dataset.val === S.mTarget);
+  if (!running && !$('#prNote').textContent.startsWith('Round')) prNote('Listening is off: the click plays but you are not measured. Tap ⏻ to start listening.');
+  else if (running && /^Listening is off/.test($('#prNote').textContent)) prNote('');
+}
+function prCtx() {
+  if (running && ac) { if (ac.state !== 'running') ac.resume(); return ac; }
+  iosUnlock();
+  if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  G.ctx.resume();
+  return G.ctx;
+}
+function prStart() {
+  const ctx = prCtx(), cfg = { t0: ctx.currentTime + 0.4, bpm: S.mBpm, beats: S.mBeats, sub: S.mSub, poly: parsePolyP(S.mPoly) };
+  metro.start(ctx, cfg, S.mVol);
+  send({ type: 'practice', run: true, sync: ctx === ac, t0: cfg.t0, bpm: cfg.bpm, beats: cfg.beats, sub: cfg.sub, poly: S.mPoly });
+  prSync();
+}
+function prStop() { metro.stop(); send({ type: 'practice', run: false }); prSync(); }
+const parsePolyP = s => { const m = /^(\d+):(\d+)$/.exec(String(s)); return m ? { p: +m[1], q: +m[2] } : null; };
+// a change while playing starts a new take (debounced: a finger on the slider)
+function prChanged() { prSync(); if (!metro.running) return; clearTimeout(prTimer); prTimer = setTimeout(prStart, 250); }
+for (const [id, key, num] of [['#prBeats', 'mBeats', true], ['#prSub', 'mSub', true], ['#prPoly', 'mPoly', false]]) $(id).addEventListener('change', e => { setSetting(key, num ? +e.target.value : e.target.value, false); prChanged(); });
+for (const o of POLY_PRESETS) $('#prPoly').add(new Option(o === 'off' ? 'Poly: off' : `Poly: ${o}`, o));
+$('#prBpm').addEventListener('change', e => { setSetting('mBpm', Math.max(30, Math.min(300, Math.round(+e.target.value || S.mBpm))), false); prChanged(); });
+for (const b of $$('[data-bpm]')) b.addEventListener('click', () => { setSetting('mBpm', Math.max(30, Math.min(300, S.mBpm + +b.dataset.bpm)), false); prChanged(); });
+for (const b of $$('#prTarget button')) b.addEventListener('click', () => { setSetting('mTarget', b.dataset.val, false); prSync(); });
+$('#prStart').addEventListener('click', () => (metro.running ? prStop() : prStart()));
+const taps = [];
+$('#prTap').addEventListener('click', () => {
+  const t = performance.now();
+  if (taps.length && t - taps[taps.length - 1] > 2000) taps.length = 0;
+  taps.push(t); if (taps.length > 6) taps.shift();
+  if (taps.length >= 3) { const iv = (taps[taps.length - 1] - taps[0]) / (taps.length - 1); setSetting('mBpm', Math.max(30, Math.min(300, Math.round(60000 / iv))), false); prChanged(); }
+});
+// the volume while playing
+document.addEventListener('input', e => { if (e.target && e.target.dataset && e.target.dataset.key === 'mVol') metro.setVolume(S.mVol); });
+// the sweep for the room measurement, on the microphone's own context (so it is heard where it is recorded)
+function roomPlay(d) {
+  if (!running || !ac) return;
+  ac.resume();
+  const x = sweepSignal(ac.sampleRate, d.T, d.f1, d.f2, Math.pow(10, d.ampDb / 20)), b = ac.createBuffer(1, x.length, ac.sampleRate);
+  b.copyToChannel(x, 0);
+  const src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination);
+  src.start(ac.currentTime + d.lead);
+  window.soundWizard && (window.soundWizard.lastRoom = { at: performance.now(), T: d.T, len: x.length, sr: ac.sampleRate });
+}
+function measureLatency() {
+  if (!running || !ac) { prNote('Start listening first (⏻), then measure.'); return; }
+  if (metro.running) prStop();
+  ac.resume();
+  const t0 = ac.currentTime + 0.6, times = Array.from({ length: 8 }, (_, i) => t0 + i * 0.5);
+  metro.bursts(ac, times, -3);
+  send({ type: 'latency', times });
+  prNote('Measuring: eight loud clicks…');
+}
+
 // ---------------------------------------------------------------------------------- offline (installed app)
 if ('serviceWorker' in navigator && !/^(localhost|127\.|\[::1\])/.test(location.hostname)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -536,6 +624,7 @@ window.soundWizard = {
   settings: S,
   stats: () => new Promise(res => { if (!worker && !eng) { res(null); return; } const id = ++statsId; statsWait.set(id, res); send({ type: 'stats', id }); }), // null until the engine runs
   set: setSetting,
+  send,
   view: showView,
   mode: () => mode,
   lastRef: () => G.lastRef || null,
@@ -547,4 +636,5 @@ $('#genOnly').addEventListener('click', () => { $('#overlay').hidden = true; sho
 $('#overlayBack')?.addEventListener('click', () => { if (!running) $('#overlay').hidden = false; });
 
 buildControls();
+prSync();
 showView(roomOf(S.view) ? S.view : 'meter');
