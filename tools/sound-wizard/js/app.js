@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.1548';
-import { CMAP_NAMES } from './dsp.js?v=20261009.1548';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.1623';
+import { CMAP_NAMES } from './dsp.js?v=20261009.1623';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -225,7 +225,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.1548', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.1623', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -242,7 +242,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.1548');
+    const { Engine } = await import('./engine.js?v=20261009.1623');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -264,7 +264,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1548');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1623');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
@@ -322,10 +322,19 @@ async function keepAwake() {
 // toggles it, so the way out is always visible. iPhone Safari has no full-screen mode for pages: there
 // the app is full screen when added to the home screen (a one-time hint says how).
 const root = document.documentElement;
-const fsAvailable = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+// available when the browser has the call at all (as Sleeper Agent does it): some iPhones report full
+// screen as not enabled and still allow it from a tap; whether it worked is checked afterwards
+const fsAvailable = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+let fsFailed = false;
 const standalone = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
 const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-function enterFs() { try { const r = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' }); r?.catch?.(() => {}); } catch { /* refused */ } }
+function enterFs() {
+  try {
+    const r = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' });
+    r?.catch?.(() => { fsFailed = true; });
+  } catch { fsFailed = true; }
+  setTimeout(() => { if (!isFs()) fsFailed = true; }, 700);
+}
 function exitFs() { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {}); } catch { /* */ } }
 const fsBtn = $('#fs');
 fsBtn.hidden = !fsAvailable || standalone;
@@ -337,7 +346,7 @@ function iosHint() {
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let seen = false;
   try { seen = localStorage.getItem('soundwizard.hint.a2hs') === '1'; } catch { /* */ }
-  if (!ios || standalone || fsAvailable || seen) return;
+  if (!ios || standalone || seen || (fsAvailable && !fsFailed)) return;
   $('#hint').hidden = false;
 }
 $('#hint button').addEventListener('click', () => { $('#hint').hidden = true; try { localStorage.setItem('soundwizard.hint.a2hs', '1'); } catch { /* */ } });
@@ -347,7 +356,7 @@ $('#startBig').addEventListener('click', async () => {
   if (running && await resume()) return;
   if (running) stop();
   await start();
-  if (running) iosHint();
+  if (running) setTimeout(iosHint, 900); // after the full-screen attempt has had its chance
 });
 $('#power').addEventListener('click', () => (running ? stop() : start()));
 

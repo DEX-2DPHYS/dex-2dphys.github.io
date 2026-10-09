@@ -5,7 +5,7 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, estimateChord, NOTE_NAMES } from './dsp.js?v=20261009.1548';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.1623';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -424,7 +424,7 @@ export class Engine {
     if (!this.pm || this.pm.W !== cfg.W) this.pm = new PitchMPM(cfg.W);
     const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17;
     const bl = this.lastBlockDb ?? -120, env = this.lvlEnv ?? -120;
-    if (bl > env + 6 && bl > -60) this.attackUntil = this.w + this.sr * 0.15;
+    if (bl > env + 6 && bl > -60) { this.attackUntil = this.w + this.sr * 0.15; this.newStrum = true; }
     this.lvlEnv = Math.max(bl, env - 1.2);
     const attack = this.w < (this.attackUntil || 0);
     const p = lvl > -65 ? this.pm.detect(this.ring, MASK, this.w, this.sr, cfg.fmin, cfg.fmax) : { f: NaN, clarity: 0 };
@@ -541,7 +541,16 @@ export class Engine {
     const pow = this.tonePow, df = this.sr / N;
     if (chromaFromSpectrum(pow, df, this.S.a4, this.chroma) > 0) {
       for (let i = 0; i < 12; i++) { this.chromaFast[i] += (this.chroma[i] - this.chromaFast[i]) * 0.4; this.chromaSlow[i] += (this.chroma[i] - this.chromaSlow[i]) * 0.03; }
-      this.chord = estimateChord(this.chromaFast);
+      // the chord: overtone-aware patterns over everything since the last strum (dsp.js ChordListener)
+      if (!this.chordL || this.chordL.a4 !== this.S.a4) this.chordL = new ChordListener(this.sr, N, this.S.a4);
+      // after a strum, wait until the window holds only the new strum (it reaches 0.34 s back, into the
+      // previous chord's ringing, and the first 30 ms are pick noise): the last chord stays shown meanwhile
+      if (this.newStrum) { this.strumAt = this.w - 1024; this.newStrum = false; }
+      if (this.strumAt != null && this.w - N >= this.strumAt + this.sr * 0.03) { this.chordL.onset(); this.strumAt = null; }
+      if (this.strumAt == null) {
+        const r = this.chordL.add(pow);
+        this.chord = r && { root: r.root, name: r.type, score: r.score, tones: r.tones, alt: r.alt, bass: r.bass, full: r.full };
+      }
       this.key = estimateKey(this.chromaSlow);
     }
     // harmonics of the current pitch, relative to the strongest
@@ -1145,12 +1154,13 @@ export class Engine {
       ctx.fillStyle = C.cyan; ctx.fillRect(x, y + 60 * dpr, half * clamp(conf || 0, 0, 1), 2 * dpr);
     };
     const ch = this.chord, k = this.key;
-    box(pad, 'chord', ch && ch.score > 0.75 ? NOTE_NAMES[ch.root] + ch.name : '', ch ? `match ${(ch.score * 100).toFixed(0)}%` : '', ch ? (ch.score - 0.6) / 0.4 : 0);
+    const chOk = ch && ch.score > 0.85;
+    box(pad, 'chord', chOk ? NOTE_NAMES[ch.root] + ch.name : '', chOk ? `${ch.bass >= 0 && ch.bass !== ch.root ? `bass ${NOTE_NAMES[ch.bass]} · ` : ''}or ${ch.alt.join(' · ')}` : '', ch ? (ch.score - 0.8) / 0.18 : 0);
     box(2 * pad + half, 'key (last few seconds)', k && k.score > 0.5 ? `${NOTE_NAMES[k.root]} ${k.mode}` : '', k ? `fit ${(k.score * 100).toFixed(0)}% · lead ${(k.margin * 100).toFixed(0)}` : '', k ? k.margin * 4 : 0);
     y += 62 * dpr + 18 * dpr;
     // the 12-note profile
     const chH = Math.max(60 * dpr, h * 0.14), bw = (w - 2 * pad) / 12;
-    const tones = ch && ch.score > 0.75 ? new Set(estimateChordTones(ch)) : new Set();
+    const tones = chOk ? new Set(ch.tones) : new Set();
     const mx = Math.max(1e-6, ...this.chromaFast);
     ctx.font = `${11 * dpr}px ${FONT}`; ctx.textAlign = 'center';
     for (let i = 0; i < 12; i++) {
@@ -1293,7 +1303,7 @@ export class Engine {
       pitch: this.pitch, target: this.target, cents: this.centsSm, lock: this.lockString,
       tuner: this.S.view === 'tuner' ? { advice: this.advice(this.centsSm, !!(this.pitch && this.w - this.pitch.at < this.sr * 0.35 && this.settledAt), this.tuning()).text, next: this.nextString(this.tuning()), strings: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), learn: this.learn ? this.learn.notes.map(midiName) : null,
         learnBtns: (this.learnBtns || []).map(b => ({ id: b.id, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), cells: (this.tunerCells || []).map(b => ({ x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), noteBox: this.noteBox && { x: (this.noteBox.x + this.noteBox.w / 2) / this.noteBox.dpr, y: (this.noteBox.y + this.noteBox.h / 2) / this.noteBox.dpr } } : null,
-      chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
+      chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, chordFull: this.chord ? this.chord.full : null, chordAlt: this.chord ? this.chord.alt : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
       harmonics: Array.from(this.harm), centroid: this.centroid,
       rhythm: this.rh ? { bpm: this.rh.bpmSm, raw: this.rh.bpm, conf: this.rh.conf, onsets: this.rh.onsets.length, mod: this.rh.mod && { f: this.rh.mod.f, share: this.rh.mod.share }, peaks: this.rh.peaks.slice(0, 6), tap: this.tapBpm() } : null,
       weighting: { A: [100, 1000, 10000].map(f => 20 * Math.log10(this.wA.response(f, this.sr))), C: [100, 1000, 10000].map(f => 20 * Math.log10(this.wC.response(f, this.sr))) },
