@@ -5,7 +5,9 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.1623';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.1707';
+import { analysePoly } from './poly.js?v=20261009.1707';
+import { describePolyrhythm, METERS } from './notation.js?v=20261009.1707';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -80,6 +82,7 @@ const RING = 1 << 18;          // ~5.5 s at 48 kHz: enough for the largest FFT a
 const MASK = RING - 1;
 const AES17 = 3.0103;          // dB: a full-scale sine reads 0 dBFS (RMS, AES17)
 const FONT = '-apple-system, system-ui, "Segoe UI", Roboto, sans-serif';
+const BAND_COL = { low: '#ff8a3d', mid: '#3dff8a', high: '#e6f3ff' }; // the registers of the heard onsets
 const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 export const DEFAULTS = {
@@ -94,6 +97,8 @@ export const DEFAULTS = {
   tuning: 'free', custom: [],
   // tone generator (the page plays it; listed here so all settings live in one place)
   genMode: 'note', genWave: 'sine', genLevel: -18, genHz: 440, genMidi: 69,
+  // rhythm
+  meter: 'auto',
   autoFs: true,
 };
 
@@ -190,10 +195,17 @@ export class Engine {
           } else if (c) this.lockString = this.lockString === c.i ? -1 : c.i; // tap a string to lock onto it, again to let go
           else if (nb && this.target) this.post({ type: 'ref', midi: this.target.midi }); // the target as a reference tone
         }
-        if (d.down && d.id === 'rhythm' && this.tapBox && this.rh) { // tap tempo
-          const b = this.tapBox, x = d.x * b.dpr, y = d.y * b.dpr;
-          if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
-            const t = now(), T = this.rh.taps;
+        if (d.down && d.id === 'rhythm' && this.rh) {
+          const R = this.rh, hit = list => (list || []).find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
+          const chip = hit(this.chipBoxes), mb = hit(this.meterBoxes), sg = hit(this.sugBoxes), tb = this.tapBox && hit([this.tapBox]);
+          if (chip) { // choose the main pulse (the chosen one again: back to automatic)
+            R.mainLock = R.mainLock && Math.abs(Math.log(chip.bpm / R.mainLock)) < 0.04 ? null : chip.bpm;
+            R.polyShown = null; R.polyLast = null; R.polyCount = 0; R.notation = null;
+            R.polyNow = true; // the next frame runs the analysis
+          } else if (mb) { this.set('meter', mb.meter); this.post({ type: 'saved', settings: { meter: mb.meter } }); }
+          else if (sg) { R.sugSel = sg.i; }
+          else if (tb) { // tap tempo
+            const t = now(), T = R.taps;
             if (T.length && t - T[T.length - 1] > 2500) T.length = 0;
             T.push(t); if (T.length > 9) T.shift();
           }
@@ -223,6 +235,7 @@ export class Engine {
     if (key === 'weight' || key === 'tw' || key === 'unit') this.resetStats();
     if (key === 'tuning' || key === 'custom') { this.lockString = -1; this.pRecent.length = 0; this.strStatus = []; this.tunCache = null; }
     if (key === 'view') { this.pRecent.length = 0; }
+    if (key === 'meter' && this.rh) { this.rh.notation = null; this.updateNotation(); }
   }
 
   // ---------------------------------------------------------------------------------- input
@@ -277,9 +290,14 @@ export class Engine {
     for (let b = 0; b <= nb; b++) R.bandEdge[b] = Math.max(1, Math.round(40 * Math.pow(12000 / 40, b / nb) / df));
     R.prev = new Float32Array(nb); R.cur = new Float32Array(nb);
     R.E = 1024; R.env = new Float32Array(R.E); R.rms = new Float32Array(R.E); R.ei = 0; R.frames = 0;
+    // the same onset strength per register: low (40–200 Hz), middle (200–2000), high (2000–12000)
+    R.envB = { low: new Float32Array(R.E), mid: new Float32Array(R.E), high: new Float32Array(R.E) };
+    R.bandGroup = new Uint8Array(nb);
+    for (let b = 0; b < nb; b++) { const f = 40 * Math.pow(12000 / 40, (b + 0.5) / nb); R.bandGroup[b] = f < 200 ? 0 : f < 2000 ? 1 : 2; }
+    R.polyRaw = null; R.polyShown = null; R.polyMiss = 0; R.polyCount = 0; R.polyLast = null; R.mainLock = null; R.notation = null; R.sugSel = 0; R.polyAbs = null; R.barFrames = null;
     R.lin = new Float32Array(R.E); R.acf = new Float32Array(R.E);
     R.bpm = NaN; R.bpmSm = NaN; R.conf = 0; R.pending = null; R.hist = new Float32Array(120).fill(NaN); R.hi = 0;
-    R.onsets = []; R.lastOnsetFrame = -99;
+    R.onsets = []; R.lastOnset = {};
     R.modFFT = new RealFFT(1024); R.modBuf = new Float64Array(1024); R.modPow = new Float32Array(513); R.modWin = hann(512).w; R.mod = null;
     R.big = new RealFFT(32768); R.bigWin = hann(32768).w; R.bigBuf = new Float64Array(32768); R.bigPow = new Float32Array(16385); R.avgDb = null; R.peaks = [];
     R.taps = [];
@@ -294,34 +312,85 @@ export class Engine {
       let ss = 0;
       for (let i = 0; i < N; i++) { const x = ring[(end - N + i) & MASK]; buf[i] = x * win[i]; if (i >= N - R.hop) ss += x * x; }
       R.fft.power(buf, R.pow);
-      let flux = 0;
+      let flux = 0, fl = 0, fm = 0, fh = 0;
       for (let b = 0; b < R.cur.length; b++) {
         let e = 0;
         for (let k = R.bandEdge[b], k1 = Math.max(R.bandEdge[b] + 1, R.bandEdge[b + 1]); k < k1; k++) e += R.pow[k];
         const L = Math.pow(e, 0.3); // compressed like loudness, not logarithmic: a loud kick outweighs a quiet hat
         const d = L - R.prev[b];
-        if (d > 0) flux += d;
+        if (d > 0) { flux += d; const g = R.bandGroup[b]; if (g === 0) fl += d; else if (g === 1) fm += d; else fh += d; }
         R.prev[b] = L;
       }
-      R.env[R.ei] = flux; R.rms[R.ei] = Math.sqrt(ss / R.hop); R.ei = (R.ei + 1) % R.E; R.frames++;
+      R.env[R.ei] = flux; R.envB.low[R.ei] = fl; R.envB.mid[R.ei] = fm; R.envB.high[R.ei] = fh;
+      R.rms[R.ei] = Math.sqrt(ss / R.hop); R.ei = (R.ei + 1) % R.E; R.frames++;
       // an onset: the flux well above its recent level, and the highest in the last ~70 ms
       this.onsetCheck(R);
       if (R.frames % 24 === 0 && R.frames > R.fr * 3) this.tempoEstimate(R);
       if (R.frames % 48 === 0) { this.modEstimate(R); this.mainFreqs(R); }
+      if ((R.frames % 48 === 24 || R.polyNow) && R.frames > R.fr * 3) { R.polyNow = false; this.polyEstimate(R); }
     }
   }
+  // the pulses and the polyrhythm, every ~0.5 s, over the last ~11 s; a second layer must be found
+  // twice running before it is shown and is kept for ~1.5 s after it stops being found
+  polyEstimate(R) {
+    const E = R.E, W = Math.min(E, R.frames), lin = k => { const out = new Float32Array(W); for (let i = 0; i < W; i++) out[i] = k[(R.ei - W + i + E) % E]; return out; };
+    const env = { all: lin(R.env), low: lin(R.envB.low), mid: lin(R.envB.mid), high: lin(R.envB.high) };
+    const prefer = R.mainLock || (R.polyRaw && R.polyRaw.main ? R.polyRaw.main.bpm : null);
+    const res = analysePoly(env, R.fr, { mainBpm: R.mainLock, prefer });
+    if (!res || !res.main) { R.polyRaw = res; return; }
+    R.polyRaw = res;
+    const first = R.frames - W; // the window's frame 0, as an absolute frame count
+    const P = res.main.P;
+    // the grid in absolute frames: the latest main beat, and the cycle start it belongs to
+    const nPts = res.main.pts, lastBeat = first + res.main.phi + (nPts - 1) * P;
+    // the bars: the chosen meter's length, or the detected one; the downbeat from the detection
+    const M = METERS[this.S.meter], beats = M ? M.n : res.meter ? res.meter.beats : 0; // main beats per bar
+    const down = res.meter && res.meter.downFrame != null ? first + res.meter.downFrame : lastBeat;
+    R.barFrames = beats ? { start: down, len: beats * P } : null;
+    const d = res.poly ? res.poly.d : 0;
+    const cycle = res.poly ? res.poly.q * P : beats ? beats * P : P;
+    const cycleStart = res.poly ? lastBeat - (((nPts - 1 - d) % res.poly.q + res.poly.q) % res.poly.q) * P : beats ? down : lastBeat;
+    R.polyAbs = { P, cycle, gridStart: lastBeat, cycleStart, beats };
+    // hysteresis on the claim
+    const same = (a, b) => a && b && a.p === b.p && a.q === b.q;
+    if (res.poly) {
+      R.polyCount = same(res.poly, R.polyLast) ? R.polyCount + 1 : 1;
+      R.polyLast = res.poly; R.polyMiss = 0;
+      if (R.polyCount >= 2) R.polyShown = { ...res.poly };
+    } else {
+      R.polyMiss++;
+      if (R.polyMiss >= 3) { R.polyShown = null; R.polyLast = null; R.polyCount = 0; }
+    }
+    this.updateNotation();
+  }
+  updateNotation() {
+    const R = this.rh, sh = R.polyShown, main = R.polyRaw && R.polyRaw.main;
+    if (!sh || !main) { R.notation = null; return; }
+    const key = `${sh.p}:${sh.q}|${this.S.meter}|${Math.round(main.bpm)}|${main.band}|${sh.band}`;
+    if (R.notation && R.notation.key === key) return;
+    const nt = describePolyrhythm({ p: sh.p, q: sh.q, bpm: main.bpm, meter: this.S.meter, bands: { main: main.band, second: sh.band === 'all' ? null : sh.band } });
+    R.notation = nt ? { ...nt, key } : null;
+    if (R.notation && R.sugSel >= R.notation.suggestions.length) R.sugSel = 0;
+  }
+  // onsets, per register: a frame whose onset strength stands well above that register's recent level
+  // and is the highest in the last ~70 ms. A kick and a hat at once give two onsets (amber and white).
   onsetCheck(R) {
-    const M = 40, E = R.E;
-    let mean = 0, sq = 0;
-    for (let i = 1; i <= M; i++) { const v = R.env[(R.ei - 1 - i + E) % E]; mean += v; sq += v * v; }
-    mean /= M; const sd = Math.sqrt(Math.max(0, sq / M - mean * mean));
-    const v = R.env[(R.ei - 2 + E) % E], before = R.env[(R.ei - 3 + E) % E], after = R.env[(R.ei - 1 + E) % E];
-    const loud = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17 > -60;
-    if (loud && v > mean + 1.8 * sd + 0.15 * mean && v >= before && v >= after && R.frames - 1 - R.lastOnsetFrame > R.fr * 0.07) {
-      R.lastOnsetFrame = R.frames - 1;
-      R.onsets.push(R.frames - 1);
-      if (R.onsets.length > 64) R.onsets.shift();
-      this.onsetFlash = now();
+    const M = 40, E = R.E, loud = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17 > -60;
+    if (!loud) return;
+    const k = (R.ei - 2 + E) % E;
+    for (const band of ['low', 'mid', 'high']) {
+      const env = R.envB[band];
+      let mean = 0, sq = 0;
+      for (let i = 1; i <= M; i++) { const v = env[(R.ei - 1 - i + E) % E]; mean += v; sq += v * v; }
+      mean /= M; const sd = Math.sqrt(Math.max(0, sq / M - mean * mean));
+      const v = env[k], before = env[(R.ei - 3 + E) % E], after = env[(R.ei - 1 + E) % E];
+      const last = R.lastOnset[band] || -99;
+      if (v > mean + 1.8 * sd + 0.15 * mean && v > 0.02 && v >= before && v >= after && R.frames - 1 - last > R.fr * 0.07) {
+        R.lastOnset[band] = R.frames - 1;
+        R.onsets.push({ f: R.frames - 1, amp: v, band, ripple: true });
+        if (R.onsets.length > 240) R.onsets.shift();
+        this.onsetFlash = now();
+      }
     }
   }
   tempoEstimate(R) {
@@ -1191,40 +1260,104 @@ export class Engine {
   }
 
   // --------------------------------------------------------------------------------- rhythm
+  // A tall view (the page scrolls it): tempo with the candidate pulses to choose from, the time
+  // signature, the polyrhythm reading with both grids on the onset strip and the cycle rings, the ways
+  // to write it (a drawn staff for the chosen one, the subdivision grid, the counting), then the tempo
+  // history, the repetition rate and the main frequencies.
   drawRhythm(v) {
     const { ctx, w, h, dpr } = v, S = this.S;
     if (!this.rh) this.setupRhythm();
     const R = this.rh;
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
-    const pad = 14 * dpr, cx = w / 2;
-    // tempo (tap the box for tap tempo)
-    const boxH = Math.max(120 * dpr, h * 0.15);
-    this.tapBox = { x: pad, y: pad, w: w - 2 * pad, h: boxH, dpr };
-    ctx.fillStyle = C.panel; ctx.fillRect(pad, pad, w - 2 * pad, boxH);
+    const pad = 14 * dpr, cx = w / 2, gw = w - 2 * pad;
+    const PR = R.polyRaw, main = PR && PR.main, shown = R.polyShown, NT = R.notation;
+    // ---- tempo (tap the number for tap tempo; the chips choose the main pulse)
+    const boxH = 128 * dpr;
+    this.tapBox = { x: pad, y: pad, w: gw, h: boxH - 40 * dpr, dpr };
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, pad, gw, boxH);
     const flash = this.onsetFlash && now() - this.onsetFlash < 110;
     ctx.fillStyle = flash ? C.magenta : C.grid2; ctx.beginPath(); ctx.arc(pad + 18 * dpr, pad + 18 * dpr, 7 * dpr, 0, 2 * Math.PI); ctx.fill();
     ctx.textAlign = 'left'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('onset', pad + 30 * dpr, pad + 22 * dpr);
-    const ok = isFinite(R.bpmSm) && R.conf > 0.15;
-    ctx.textAlign = 'center'; ctx.font = `700 ${Math.min(w * 0.2, boxH * 0.5)}px ${FONT}`; ctx.fillStyle = ok ? C.bright : C.grid2;
-    ctx.fillText(ok ? R.bpmSm.toFixed(1) : '—', cx, pad + boxH * 0.62);
-    ctx.font = `600 ${14 * dpr}px ${FONT}`; ctx.fillStyle = C.cyan; ctx.fillText('BPM', cx, pad + boxH * 0.62 + 20 * dpr);
-    ctx.fillStyle = C.cyan; ctx.fillRect(pad, pad + boxH - 3 * dpr, (w - 2 * pad) * clamp(R.conf * 1.4, 0, 1), 3 * dpr);
+    const bpmNow = main ? main.bpm : R.bpmSm, ok = isFinite(bpmNow) && (main || R.conf > 0.15);
+    ctx.textAlign = 'center'; ctx.font = `700 ${56 * dpr}px ${FONT}`; ctx.fillStyle = ok ? C.bright : C.grid2;
+    ctx.fillText(ok ? bpmNow.toFixed(1) : '—', cx, pad + 66 * dpr);
+    ctx.font = `600 ${13 * dpr}px ${FONT}`; ctx.fillStyle = C.cyan;
+    ctx.fillText(`BPM · main pulse${R.mainLock ? ' (chosen)' : ' (auto)'}${main ? ` · ${main.band === 'low' ? 'low' : main.band === 'mid' ? 'middle' : 'high'} register` : ''}`, cx, pad + 84 * dpr);
     ctx.textAlign = 'right'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
     ctx.fillText(`beat strength ${(R.conf * 100).toFixed(0)}%`, w - pad - 8 * dpr, pad + 22 * dpr);
     const tapBpm = this.tapBpm();
-    ctx.fillText(tapBpm ? `tap ${tapBpm.toFixed(1)}` : 'tap here for tap tempo', w - pad - 8 * dpr, pad + boxH - 12 * dpr);
-    let y = pad + boxH + 16 * dpr;
-    // the onset strength over the last ~8 s, with the onsets and a beat grid from the last onset
-    const sh = Math.max(70 * dpr, h * 0.13), gw = w - 2 * pad, frames = Math.min(R.E, Math.round(R.fr * 8));
+    if (tapBpm) ctx.fillText(`tap ${tapBpm.toFixed(1)}`, w - pad - 8 * dpr, pad + 40 * dpr);
+    // the candidate pulses as chips
+    this.chipBoxes = [];
+    const cands = PR ? PR.cands : [];
+    if (cands.length) {
+      const cw = Math.min(74 * dpr, (gw - 16 * dpr) / cands.length - 6 * dpr), chY = pad + boxH - 36 * dpr, chH = 28 * dpr;
+      let x = pad + 8 * dpr;
+      ctx.font = `600 ${13 * dpr}px ${FONT}`; ctx.textAlign = 'center';
+      for (const c of cands) {
+        const on = main && Math.abs(Math.log(c.bpm / main.bpm)) < 0.04;
+        ctx.fillStyle = on ? C.cyan : 'rgba(110,150,200,0.14)'; ctx.fillRect(x, chY, cw, chH);
+        ctx.fillStyle = on ? '#001018' : C.bright; ctx.fillText(c.bpm.toFixed(0), x + cw / 2, chY + 19 * dpr);
+        ctx.fillStyle = on ? 'rgba(0,16,24,0.5)' : C.grid2; ctx.fillRect(x, chY + chH - 3 * dpr, cw * clamp(c.score, 0, 1), 3 * dpr);
+        this.chipBoxes.push({ bpm: c.bpm, x, y: chY, w: cw, h: chH, dpr });
+        x += cw + 6 * dpr;
+      }
+      ctx.fillStyle = C.text; ctx.font = `${10 * dpr}px ${FONT}`; ctx.textAlign = 'left';
+      ctx.fillText(R.mainLock ? 'tap again: auto' : 'tap = main pulse', x + 2 * dpr, chY + 18 * dpr);
+    }
+    let y = pad + boxH + 10 * dpr;
+    // ---- time signature chips
+    this.meterBoxes = [];
+    const meters = ['auto', '2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'];
+    const mw = (gw - (meters.length - 1) * 4 * dpr) / meters.length, mh = 30 * dpr;
+    ctx.font = `600 ${11.5 * dpr}px ${FONT}`; ctx.textAlign = 'center';
+    meters.forEach((m, i) => {
+      const x = pad + i * (mw + 4 * dpr), on = S.meter === m;
+      ctx.fillStyle = on ? C.amber : C.panel; ctx.fillRect(x, y, mw, mh);
+      ctx.fillStyle = on ? '#1a1200' : C.text;
+      const label = m === 'auto' ? (PR && PR.meter ? `auto ${PR.meter.beats}` : 'auto') : m;
+      ctx.fillText(label, x + mw / 2, y + 19 * dpr);
+      this.meterBoxes.push({ meter: m, x, y, w: mw, h: mh, dpr });
+    });
+    y += mh + 14 * dpr;
+    // ---- the reading
+    const feel = PR && PR.subdiv ? ({ 2: 'straight eighths', 3: 'triplets (a swing or 12/8 feel)', 4: 'sixteenths', 5: 'quintuplets', 6: 'sextuplets', 7: 'septuplets', 8: 'thirty-seconds' })[PR.subdiv.s] : null;
+    ctx.textAlign = 'left';
+    if (shown) {
+      const bandName = b => ({ low: 'low register', mid: 'middle register', high: 'high register', all: 'all registers' })[b];
+      ctx.font = `700 ${22 * dpr}px ${FONT}`; ctx.fillStyle = C.bright;
+      ctx.fillText(`${shown.p} against ${shown.q}`, pad, y + 20 * dpr);
+      ctx.font = `600 ${13 * dpr}px ${MONO}`; ctx.fillStyle = C.magenta;
+      ctx.fillText(`${shown.bpm2.toFixed(1)} against ${bpmNow.toFixed(1)}`, pad + 150 * dpr, y + 20 * dpr);
+      ctx.font = `${11.5 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      ctx.fillText(`second layer in the ${bandName(shown.band)} · ${(shown.score * 100).toFixed(0)}% sure · cycle ${shown.q} beats = ${(60 / bpmNow * shown.q).toFixed(2)} s${feel ? ` · also ${feel}` : ''}`, pad, y + 38 * dpr);
+    } else {
+      ctx.font = `700 ${18 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      ctx.fillText(ok ? 'no polyrhythm heard' : 'listening for a pulse…', pad, y + 20 * dpr);
+      ctx.font = `${11.5 * dpr}px ${FONT}`;
+      ctx.fillText(ok ? (feel ? `one pulse with ${feel}` : 'one pulse, no clear subdivision') + (PR && PR.meter ? ` · accent every ${PR.meter.beats} beats` : '') : 'give it a few bars', pad, y + 38 * dpr);
+    }
+    y += 48 * dpr;
+    // ---- the onset strip with both grids and the bar lines
+    const sh = 96 * dpr, frames = Math.min(R.E, Math.round(R.fr * 8));
     ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, sh);
     let mx = 1e-6;
     for (let i = 0; i < frames; i++) mx = Math.max(mx, R.env[(R.ei - frames + i + R.E) % R.E]);
     const X = f => pad + gw * (1 - (R.frames - f) / frames);
-    if (ok && R.onsets.length) {
-      const per = 60 * R.fr / R.bpmSm, last = R.onsets[R.onsets.length - 1];
-      ctx.fillStyle = 'rgba(62,232,255,0.16)';
-      for (let f = last; f > R.frames - frames; f -= per) ctx.fillRect(X(f), y, Math.max(1, dpr), sh);
-      for (let f = last + per; f < R.frames; f += per) ctx.fillRect(X(f), y, Math.max(1, dpr), sh);
+    const A = R.polyAbs;
+    if (A) {
+      const first = R.frames - frames;
+      // bars (brighter), main beats (cyan), the second layer (magenta)
+      const bar = R.barFrames, P = A.P;
+      ctx.fillStyle = 'rgba(62,232,255,0.22)';
+      for (let f = A.gridStart; f < R.frames; f += P) if (f > first) ctx.fillRect(X(f), y, Math.max(1, dpr), sh);
+      if (bar) { ctx.fillStyle = 'rgba(230,243,255,0.55)'; for (let f = bar.start; f < R.frames; f += bar.len) if (f > first) ctx.fillRect(X(f) - dpr * 0.5, y, 2 * dpr, sh); for (let f = bar.start - bar.len; f > first; f -= bar.len) ctx.fillRect(X(f) - dpr * 0.5, y, 2 * dpr, sh); }
+      if (shown) {
+        const P2 = A.cycle / shown.p;
+        ctx.fillStyle = 'rgba(255,62,200,0.5)';
+        for (let f = A.cycleStart; f < R.frames; f += P2) if (f > first) ctx.fillRect(X(f), y + sh * 0.5, Math.max(1, dpr), sh * 0.5);
+        for (let f = A.cycleStart - P2; f > first; f -= P2) ctx.fillRect(X(f), y + sh * 0.5, Math.max(1, dpr), sh * 0.5);
+      }
     }
     ctx.beginPath();
     for (let i = 0; i < frames; i++) {
@@ -1232,15 +1365,69 @@ export class Engine {
       if (i) ctx.lineTo(x, yy); else ctx.moveTo(x, yy);
     }
     ctx.strokeStyle = C.cyan; ctx.lineWidth = 1.3 * dpr; ctx.stroke();
-    ctx.fillStyle = C.magenta;
-    for (const f of R.onsets) if (f > R.frames - frames) ctx.fillRect(X(f) - dpr, y, 2 * dpr, 6 * dpr);
-    ctx.font = `${10 * dpr}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = C.text; ctx.fillText('onset strength · last 8 s', pad + 4 * dpr, y + 13 * dpr);
+    for (const o of R.onsets) if (o.f > R.frames - frames) { ctx.fillStyle = BAND_COL[o.band]; ctx.fillRect(X(o.f) - dpr, y, 2 * dpr, 6 * dpr); }
+    ctx.font = `${10 * dpr}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = C.text;
+    ctx.fillText('onsets · last 8 s · │ main beats  │ bars' + (shown ? '  │ second layer (lower half)' : ''), pad + 4 * dpr, y + 13 * dpr);
     y += sh + 12 * dpr;
-    // tempo over the last 30 s
-    const th = Math.max(50 * dpr, h * 0.08);
+    // ---- the orbit: the cycle as a wheel, live
+    if (A) {
+      const size = Math.min(gw, 300 * dpr);
+      this.drawOrbit(ctx, cx - size / 2, y, size, dpr, R, shown, A, bpmNow, PR);
+      y += size + 8 * dpr;
+      if (shown && NT) { // counting, the second layer's syllables lit
+        ctx.textAlign = 'left'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+        ctx.fillText(`count ${shown.p} per beat · [second layer]${NT.mnemonic ? `  ·  “${NT.mnemonic}”` : ''}`, pad, y + 12 * dpr);
+        ctx.font = `600 ${15 * dpr}px ${MONO}`;
+        let x = pad, yy = y + 36 * dpr;
+        for (const c of NT.counting) {
+          const t = c.text || '·', ww = ctx.measureText(t).width + 9 * dpr;
+          if (x + ww > w - pad) { x = pad; yy += 24 * dpr; }
+          if (c.second) { ctx.fillStyle = 'rgba(255,62,200,0.25)'; ctx.fillRect(x - 2 * dpr, yy - 14 * dpr, ww - 4 * dpr, 19 * dpr); }
+          ctx.fillStyle = c.second ? C.magenta : c.main ? C.bright : C.text; ctx.fillText(t, x, yy);
+          x += ww;
+        }
+        y = yy + 16 * dpr;
+      }
+    }
+    // ---- notation
+    this.sugBoxes = [];
+    if (NT) {
+      ctx.textAlign = 'left'; ctx.font = `600 ${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('ways to write it (tap one to see it)', pad, y + 12 * dpr);
+      y += 18 * dpr;
+      NT.suggestions.forEach((s, i) => {
+        const on = i === (R.sugSel || 0), rh = 36 * dpr;
+        ctx.fillStyle = on ? 'rgba(255,176,32,0.14)' : C.panel; ctx.fillRect(pad, y, gw, rh);
+        if (on) { ctx.strokeStyle = C.amber; ctx.lineWidth = dpr; ctx.strokeRect(pad + 0.5, y + 0.5, gw - 1, rh - 1); }
+        ctx.font = `600 ${12.5 * dpr}px ${FONT}`; ctx.fillStyle = on ? C.bright : C.text;
+        ctx.fillText(`${i + 1}. ${s.title}`, pad + 8 * dpr, y + 15 * dpr);
+        ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+        ctx.fillText(this.ellipsis(ctx, s.why, gw - 70 * dpr), pad + 8 * dpr, y + 29 * dpr);
+        ctx.textAlign = 'right'; ctx.fillStyle = C.amber; ctx.fillText(`fit ${(s.fit * 100).toFixed(0)}%`, w - pad - 6 * dpr, y + 15 * dpr); ctx.textAlign = 'left';
+        this.sugBoxes.push({ i, x: pad, y, w: gw, h: rh, dpr });
+        y += rh + 4 * dpr;
+      });
+      const sel = NT.suggestions[R.sugSel || 0] || NT.suggestions[0];
+      y += 6 * dpr;
+      y = this.drawStaff(ctx, pad, y, gw, dpr, sel.staff, bpmNow);
+      ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.textAlign = 'left';
+      ctx.fillText(sel.why, pad, y + 4 * dpr, gw);
+      y += 14 * dpr;
+      // the subdivision grid
+      ctx.font = `600 ${12 * dpr}px ${MONO}`;
+      const rows = [['main  ', NT.grid.main, C.cyan], ['second', NT.grid.second, C.magenta]];
+      for (const [name, row, col] of rows) {
+        y += 16 * dpr;
+        ctx.fillStyle = C.text; ctx.fillText(name, pad, y);
+        const cellW = Math.min(16 * dpr, (gw - 60 * dpr) / row.length);
+        row.forEach((hit, u) => { ctx.fillStyle = hit ? col : C.grid2; ctx.beginPath(); ctx.arc(pad + 62 * dpr + u * cellW + cellW / 2, y - 4 * dpr, (hit ? 4.5 : 2) * dpr, 0, 2 * Math.PI); ctx.fill(); });
+      }
+      y += 22 * dpr;
+    }
+    // ---- tempo over the last 30 s
+    const th = 54 * dpr;
     ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, th);
     const lo = 40, hi = 240, TY = b => y + th * (1 - Math.log(b / lo) / Math.log(hi / lo));
-    ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`;
+    ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'left';
     for (const b of [60, 90, 120, 180]) { ctx.fillStyle = C.grid; ctx.fillRect(pad, TY(b), gw, 1); ctx.fillStyle = C.text; ctx.fillText(String(b), pad + 3 * dpr, TY(b) - 2 * dpr); }
     ctx.beginPath();
     let pen = false;
@@ -1253,27 +1440,27 @@ export class Engine {
     ctx.strokeStyle = C.amber; ctx.lineWidth = 1.6 * dpr; ctx.stroke();
     ctx.textAlign = 'right'; ctx.fillStyle = C.text; ctx.fillText('tempo · last 30 s', w - pad - 4 * dpr, y + 11 * dpr);
     y += th + 18 * dpr;
-    // repetition rate: the spectrum of the loudness envelope, 0.5–40 Hz
-    const mh = Math.max(70 * dpr, h * 0.13);
-    ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, mh);
+    // ---- repetition rate: the spectrum of the loudness envelope, 0.5–40 Hz
+    const mh2 = 80 * dpr;
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, mh2);
     const MX = f => pad + gw * Math.log(f / 0.5) / Math.log(80);
     ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'center';
-    for (const f of [0.5, 1, 2, 5, 10, 20, 40]) { ctx.fillStyle = C.grid; ctx.fillRect(MX(f), y, 1, mh); ctx.fillStyle = C.text; ctx.fillText(`${f}`, MX(f), y + mh + 11 * dpr); }
+    for (const f of [0.5, 1, 2, 5, 10, 20, 40]) { ctx.fillStyle = C.grid; ctx.fillRect(MX(f), y, 1, mh2); ctx.fillStyle = C.text; ctx.fillText(`${f}`, MX(f), y + mh2 + 11 * dpr); }
     const M = R.mod;
     if (M) {
       let pm = 0;
       for (let k = M.k0; k <= M.k1; k++) pm = Math.max(pm, R.modPow[k]);
       ctx.beginPath();
-      for (let k = M.k0; k <= M.k1; k++) { const x = MX(k * M.df), yy = y + mh - (mh - 4 * dpr) * Math.sqrt(R.modPow[k] / pm); if (k === M.k0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); }
+      for (let k = M.k0; k <= M.k1; k++) { const x = MX(k * M.df), yy = y + mh2 - (mh2 - 4 * dpr) * Math.sqrt(R.modPow[k] / pm); if (k === M.k0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); }
       ctx.strokeStyle = C.green; ctx.lineWidth = 1.4 * dpr; ctx.stroke();
       ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(MX(M.f), y + 6 * dpr, 4 * dpr, 0, 2 * Math.PI); ctx.fill();
     }
     ctx.textAlign = 'left'; ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('repetition rate (Hz) of the loudness', pad + 4 * dpr, y + 13 * dpr);
-    y += mh + 40 * dpr;
-    ctx.font = `600 ${15 * dpr}px ${MONO}`; ctx.fillStyle = M && M.share > 0.04 ? C.green : C.text;
+    y += mh2 + 34 * dpr;
+    ctx.font = `600 ${14 * dpr}px ${MONO}`; ctx.fillStyle = M && M.share > 0.04 ? C.green : C.text;
     ctx.fillText(M && M.share > 0.04 ? `repeats ${M.f.toFixed(2)} Hz · ${(M.f * 60).toFixed(0)} per minute` : 'no clear repetition', pad, y - 8 * dpr);
-    // main frequencies
-    y += 12 * dpr;
+    // ---- main frequencies
+    y += 10 * dpr;
     ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('main frequencies (2 s average)', pad, y);
     y += 6 * dpr;
     const rowH = 22 * dpr;
@@ -1284,6 +1471,150 @@ export class Engine {
       ctx.fillStyle = C.cyan; ctx.fillText(`${q.name}${q.octave} ${ct > 0 ? '+' : ct < 0 ? '−' : '±'}${Math.abs(ct)}¢`, pad + 130 * dpr, yy);
       ctx.textAlign = 'right'; ctx.fillStyle = C.text; ctx.fillText(`${p.db.toFixed(0)} dB`, w - pad, yy);
     });
+  }
+  // The orbit. One turn = one cycle of the polyrhythm (or one bar, or one beat). Rings from the
+  // outside in: the heard onsets as sparks at their moment in the cycle (amber low, green middle, white
+  // high; they fade over three cycles), the main beats (cyan nodes joined into a polygon), the second
+  // layer (magenta nodes, its own polygon), the subdivision as faint ticks, the bars as spokes. A hand
+  // sweeps the cycle; a node flashes as the hand passes it, and a ripple spreads from each spark as it
+  // lands. The centre names what is heard.
+  drawOrbit(ctx, x0, y0, size, dpr, R, shown, A, bpm, PR) {
+    const cx = x0 + size / 2, cy = y0 + size / 2, rOut = size * 0.46, t = now();
+    const cycle = A.cycle, start = A.cycleStart, P = A.P;
+    const posOf = f => ((((f - start) % cycle) + cycle) % cycle) / cycle;
+    const pos = posOf(R.frames), ang = u => -Math.PI / 2 + 2 * Math.PI * u;
+    const q = shown ? shown.q : Math.max(1, Math.round(cycle / P)), p = shown ? shown.p : 0;
+    const bar = R.barFrames, bars = bar ? Math.max(1, Math.round(cycle / bar.len)) : 0;
+    // background: a glow that breathes with the beat
+    const beatPhase = ((((R.frames - A.gridStart) % P) + P) % P) / P;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOut * 1.1);
+    glow.addColorStop(0, `rgba(62,232,255,${0.16 * Math.exp(-beatPhase * 4)})`); glow.addColorStop(1, 'rgba(62,232,255,0)');
+    ctx.fillStyle = glow; ctx.fillRect(x0, y0, size, size);
+    // the cycle ring and the subdivision ticks
+    ctx.strokeStyle = C.grid2; ctx.lineWidth = dpr; ctx.beginPath(); ctx.arc(cx, cy, rOut, 0, 2 * Math.PI); ctx.stroke();
+    const sub = PR && PR.subdiv ? PR.subdiv.s : 0, units = shown ? p * q : (sub ? sub * q : q);
+    for (let u = 0; u < units; u++) {
+      const a = ang(u / units), big = shown ? (u % p === 0 || u % q === 0) : (u % Math.max(1, sub) === 0);
+      ctx.strokeStyle = big ? C.grid2 : C.grid; ctx.lineWidth = dpr;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * (rOut - (big ? 7 : 4) * dpr), cy + Math.sin(a) * (rOut - (big ? 7 : 4) * dpr)); ctx.lineTo(cx + Math.cos(a) * rOut, cy + Math.sin(a) * rOut); ctx.stroke();
+    }
+    // bar spokes
+    if (bars > 0 && bar) {
+      const barPos = posOf(bar.start);
+      for (let k = 0; k < bars; k++) {
+        const a = ang(barPos + k / bars);
+        ctx.strokeStyle = 'rgba(230,243,255,0.35)'; ctx.lineWidth = 1.2 * dpr;
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * rOut * 0.35, cy + Math.sin(a) * rOut * 0.35); ctx.lineTo(cx + Math.cos(a) * rOut, cy + Math.sin(a) * rOut); ctx.stroke();
+      }
+    }
+    // the layers: polygons and nodes
+    const layer = (nn, r, col, phaseOff) => {
+      if (nn < 2) return;
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1.2 * dpr; ctx.beginPath();
+      for (let k = 0; k <= nn; k++) { const a = ang(phaseOff + k / nn); const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r; if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+      ctx.stroke(); ctx.globalAlpha = 1;
+      for (let k = 0; k < nn; k++) {
+        const u = phaseOff + k / nn, a = ang(u), d = ((pos - u) % 1 + 1) % 1, lit = d < 0.08, rr = (lit ? 7.5 - d * 30 : 5) * dpr;
+        ctx.fillStyle = col; ctx.globalAlpha = lit ? 1 : 0.75;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, rr, 0, 2 * Math.PI); ctx.fill();
+        if (lit) { ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.globalAlpha = 0.5 * (1 - d / 0.08); ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, (8 + d * 220) * dpr, 0, 2 * Math.PI); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+      }
+    };
+    const mainPhase = posOf(A.gridStart);
+    layer(q, rOut * 0.78, C.cyan, mainPhase);
+    if (shown) layer(p, rOut * 0.5, C.magenta, posOf(start));
+    // the heard onsets: sparks on the outer ring, fading over three cycles; a ripple when they land
+    for (const o of R.onsets) {
+      const age = (R.frames - o.f) / cycle;
+      if (age > 3) continue;
+      const a = ang(posOf(o.f)), col = BAND_COL[o.band], r = rOut * (o.band === 'low' ? 0.93 : o.band === 'mid' ? 0.98 : 1.03);
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, al = Math.max(0, 1 - age / 3);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.25 + 0.75 * al;
+      ctx.beginPath(); ctx.arc(x, y, (2.2 + 3.5 * al) * dpr, 0, 2 * Math.PI); ctx.fill();
+      if (o.ripple) { if (!o.t0) o.t0 = t; const u = (t - o.t0) / 450; if (u < 1) { ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.globalAlpha = 0.7 * (1 - u); ctx.beginPath(); ctx.arc(x, y, (4 + 26 * u) * dpr, 0, 2 * Math.PI); ctx.stroke(); } else o.ripple = false; }
+      ctx.globalAlpha = 1;
+    }
+    // the hand
+    const a = ang(pos);
+    ctx.strokeStyle = C.bright; ctx.lineWidth = 2 * dpr; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * rOut * 0.9, cy + Math.sin(a) * rOut * 0.9); ctx.stroke();
+    ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * rOut * 0.9, cy + Math.sin(a) * rOut * 0.9, 3.5 * dpr, 0, 2 * Math.PI); ctx.fill();
+    ctx.lineCap = 'butt';
+    // the centre
+    ctx.fillStyle = C.bg; ctx.beginPath(); ctx.arc(cx, cy, rOut * 0.3, 0, 2 * Math.PI); ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    if (shown) {
+      ctx.font = `700 ${30 * dpr}px ${FONT}`; ctx.fillStyle = C.bright; ctx.fillText(`${p}:${q}`, cx, cy + 8 * dpr);
+      ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(`${shown.bpm2.toFixed(0)} · ${bpm.toFixed(0)}`, cx, cy + 22 * dpr);
+    } else {
+      ctx.font = `700 ${22 * dpr}px ${FONT}`; ctx.fillStyle = C.bright; ctx.fillText(isFinite(bpm) ? bpm.toFixed(0) : '—', cx, cy + 6 * dpr);
+      ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(q > 1 ? `bar of ${q}` : 'beat', cx, cy + 20 * dpr);
+    }
+    // legend
+    ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = C.text;
+    const leg = [[C.cyan, 'main'], ...(shown ? [[C.magenta, 'second']] : []), [BAND_COL.low, 'low'], [BAND_COL.mid, 'mid'], [BAND_COL.high, 'high']];
+    let lx = x0 + 4 * dpr;
+    for (const [col, name] of leg) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx + 4 * dpr, y0 + size - 8 * dpr, 3 * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = C.text; ctx.fillText(name, lx + 11 * dpr, y0 + size - 5 * dpr); lx += ctx.measureText(name).width + 22 * dpr; }
+    ctx.textAlign = 'right'; ctx.fillText('sparks = what the microphone heard', x0 + size - 4 * dpr, y0 + 12 * dpr);
+  }
+  ellipsis(ctx, text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text;
+    let s = text;
+    while (s.length > 4 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -4);
+    return s.trim() + '…';
+  }
+  // one bar of a written rhythm: a one-line staff per layer, notes at their real positions, with
+  // stems, flags, dots, ties and tuplet brackets; the time signature at the left
+  drawStaff(ctx, x0, y0, w, dpr, staff, bpm) {
+    const layers = staff.layers, lineGap = 60 * dpr, left = 44 * dpr, right = 10 * dpr;
+    const sx = x0 + left, sw = w - left - right, X = t => sx + sw * t / staff.barBeats;
+    const cols = [C.cyan, C.magenta];
+    ctx.fillStyle = C.panel; ctx.fillRect(x0, y0, w, lineGap * layers.length + 8 * dpr);
+    layers.forEach((L, li) => {
+      const ly = y0 + 38 * dpr + li * lineGap, col = cols[li];
+      ctx.strokeStyle = C.grid2; ctx.lineWidth = dpr;
+      ctx.beginPath(); ctx.moveTo(sx, ly); ctx.lineTo(sx + sw, ly); ctx.stroke();
+      // time signature and bar lines
+      const sig = li === 1 && staff.sig2 ? staff.sig2 : staff.sig;
+      ctx.fillStyle = C.bright; ctx.font = `700 ${13 * dpr}px ${MONO}`; ctx.textAlign = 'center';
+      ctx.fillText(String(sig[0]), x0 + 14 * dpr, ly - 3 * dpr); ctx.fillText(String(sig[1]), x0 + 14 * dpr, ly + 11 * dpr);
+      ctx.font = `${9 * dpr}px ${FONT}`; ctx.fillStyle = col; ctx.fillText(L.name, x0 + 14 * dpr, ly + 24 * dpr);
+      ctx.strokeStyle = C.text; ctx.lineWidth = 1.2 * dpr;
+      for (const b of [...staff.bars, staff.barBeats]) { const xb = X(b); ctx.beginPath(); ctx.moveTo(xb, ly - 12 * dpr); ctx.lineTo(xb, ly + 12 * dpr); ctx.stroke(); }
+      // notes
+      const heads = [];
+      L.notes.forEach((n, i) => {
+        const x = X(n.t), hollow = n.value >= 2, whole = n.value >= 4;
+        ctx.save(); ctx.translate(x, ly); ctx.rotate(-0.35);
+        ctx.beginPath(); ctx.ellipse(0, 0, 4.6 * dpr, 3.3 * dpr, 0, 0, 2 * Math.PI);
+        ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 1.4 * dpr;
+        if (hollow) ctx.stroke(); else ctx.fill();
+        ctx.restore();
+        if (!whole) {
+          const stemX = x + 4 * dpr, top = ly - 21 * dpr;
+          ctx.strokeStyle = col; ctx.lineWidth = 1.2 * dpr; ctx.beginPath(); ctx.moveTo(stemX, ly - 1); ctx.lineTo(stemX, top); ctx.stroke();
+          const flags = n.value <= 0.5 ? (n.value <= 0.125 ? 3 : n.value <= 0.25 ? 2 : 1) : 0;
+          for (let f = 0; f < flags; f++) { ctx.beginPath(); ctx.moveTo(stemX, top + f * 4.5 * dpr); ctx.quadraticCurveTo(stemX + 7 * dpr, top + 3 * dpr + f * 4.5 * dpr, stemX + 4 * dpr, top + 11 * dpr + f * 4.5 * dpr); ctx.stroke(); }
+        }
+        for (let d = 0; d < (n.dots || 0); d++) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + (8 + d * 4) * dpr, ly - 2 * dpr, 1.4 * dpr, 0, 2 * Math.PI); ctx.fill(); }
+        heads.push({ x, tie: n.tie });
+        if (i > 0 && L.notes[i - 1].tie) { // a tie from the previous note
+          const xa = heads[i - 1].x + 5 * dpr, xb = x - 5 * dpr;
+          ctx.strokeStyle = col; ctx.lineWidth = 1.2 * dpr; ctx.beginPath(); ctx.moveTo(xa, ly + 5 * dpr); ctx.quadraticCurveTo((xa + xb) / 2, ly + 12 * dpr, xb, ly + 5 * dpr); ctx.stroke();
+        }
+      });
+      for (const tp of L.tuplets || []) {
+        const xa = heads[tp.from].x - 4 * dpr, xb = heads[tp.to].x + 8 * dpr, ty = ly - 30 * dpr;
+        ctx.strokeStyle = col; ctx.lineWidth = dpr;
+        ctx.beginPath(); ctx.moveTo(xa, ty + 5 * dpr); ctx.lineTo(xa, ty); ctx.lineTo(xb, ty); ctx.lineTo(xb, ty + 5 * dpr); ctx.stroke();
+        ctx.fillStyle = C.panel; const lw = ctx.measureText(tp.label).width + 6 * dpr; ctx.fillRect((xa + xb) / 2 - lw / 2, ty - 6 * dpr, lw, 11 * dpr);
+        ctx.fillStyle = col; ctx.font = `italic 600 ${10 * dpr}px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(tp.label, (xa + xb) / 2, ty + 3 * dpr);
+      }
+    });
+    ctx.textAlign = 'right'; ctx.font = `${9 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+    ctx.fillText(`♩ = ${Math.round(bpm)} · one bar · notes at their real timing`, x0 + w - 6 * dpr, y0 + 12 * dpr);
+    return y0 + lineGap * layers.length + 12 * dpr;
   }
   tapBpm() {
     const R = this.rh, t = R && R.taps;
@@ -1305,7 +1636,12 @@ export class Engine {
         learnBtns: (this.learnBtns || []).map(b => ({ id: b.id, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), cells: (this.tunerCells || []).map(b => ({ x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), noteBox: this.noteBox && { x: (this.noteBox.x + this.noteBox.w / 2) / this.noteBox.dpr, y: (this.noteBox.y + this.noteBox.h / 2) / this.noteBox.dpr } } : null,
       chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, chordFull: this.chord ? this.chord.full : null, chordAlt: this.chord ? this.chord.alt : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
       harmonics: Array.from(this.harm), centroid: this.centroid,
-      rhythm: this.rh ? { bpm: this.rh.bpmSm, raw: this.rh.bpm, conf: this.rh.conf, onsets: this.rh.onsets.length, mod: this.rh.mod && { f: this.rh.mod.f, share: this.rh.mod.share }, peaks: this.rh.peaks.slice(0, 6), tap: this.tapBpm() } : null,
+      rhythm: this.rh ? { bpm: this.rh.bpmSm, raw: this.rh.bpm, conf: this.rh.conf, onsets: this.rh.onsets.length, mod: this.rh.mod && { f: this.rh.mod.f, share: this.rh.mod.share }, peaks: this.rh.peaks.slice(0, 6), tap: this.tapBpm(),
+        main: this.rh.polyRaw && this.rh.polyRaw.main ? { bpm: this.rh.polyRaw.main.bpm, band: this.rh.polyRaw.main.band, locked: !!this.rh.mainLock } : null,
+        cands: this.rh.polyRaw ? this.rh.polyRaw.cands.map(c => ({ bpm: c.bpm, score: c.score })) : [],
+        poly: this.rh.polyShown, polyRaw: this.rh.polyRaw && this.rh.polyRaw.poly, subdiv: this.rh.polyRaw && this.rh.polyRaw.subdiv && this.rh.polyRaw.subdiv.s, meter: this.rh.polyRaw && this.rh.polyRaw.meter,
+        notation: this.rh.notation && { suggestions: this.rh.notation.suggestions.map(x => ({ id: x.id, title: x.title, fit: x.fit })), text: this.rh.notation.text, mnemonic: this.rh.notation.mnemonic },
+        chips: (this.chipBoxes || []).map(b => ({ bpm: b.bpm, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), meterChips: (this.meterBoxes || []).map(b => ({ meter: b.meter, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), sugBoxes: (this.sugBoxes || []).map(b => ({ i: b.i, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })) } : null,
       weighting: { A: [100, 1000, 10000].map(f => 20 * Math.log10(this.wA.response(f, this.sr))), C: [100, 1000, 10000].map(f => 20 * Math.log10(this.wC.response(f, this.sr))) },
     };
   }
