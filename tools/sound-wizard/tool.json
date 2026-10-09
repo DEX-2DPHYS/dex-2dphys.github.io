@@ -1,7 +1,7 @@
 {
   "slug": "sound-wizard",
   "name": "Sound Wizard (for phone)",
-  "description": "An audio analyser and tone generator for the phone, fast enough to keep up with real sound. Sound level meter (A, C, flat); spectrogram with FFT sizes up to 32768; triggered oscilloscope; a tuner for guitar, bass, ukulele and strings that reads to a tenth of a cent; tone analysis that names the base note, chord and key; rhythm analysis with tempo, tap tempo, repetition rate and main frequencies; and a note or frequency generator (sine, triangle, square, saw). Installable, full screen, works offline; nothing is recorded or sent.",
+  "description": "An audio analyser and tone generator for the phone, fast enough to keep up with real sound. Sound level meter (A, C, flat); spectrogram with FFT sizes up to 32768; triggered oscilloscope; a tuner that finds any note by itself or follows 16 tunings (7- and 8-string, drop C, drop B, bass) or your own (learned by playing the strings), with a strobe, words that coach you while you turn the peg, and a per-string overview; tone analysis that names the base note, chord and key; rhythm analysis with tempo, tap tempo, repetition rate and main frequencies; and a note or frequency generator (sine, triangle, square, saw). Installable, full screen, works offline; nothing is recorded or sent.",
   "status": "live",
   "url": "tools/sound-wizard/index.html",
   "icon": "chart",

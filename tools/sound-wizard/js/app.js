@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS } from './engine.js?v=20261009.1521';
-import { CMAP_NAMES } from './dsp.js?v=20261009.1521';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.1548';
+import { CMAP_NAMES } from './dsp.js?v=20261009.1548';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -12,6 +12,8 @@ const store = {
   set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch { /* private mode: settings last this visit */ } },
 };
 const S = { ...DEFAULTS, ...store.get() };
+if (S.tuning === 'chromatic') S.tuning = 'free'; // renamed
+if (!Array.isArray(S.custom)) S.custom = [];
 const save = () => store.set(S);
 
 // ------------------------------------------------------------------------------------ controls
@@ -43,9 +45,10 @@ const CONTROLS = {
     { key: 'trig', label: 'Trigger', type: 'seg', options: [['auto', 'Rising edge'], ['free', 'Free run']] },
   ],
   tuner: [
-    { key: 'tuning', label: 'Instrument', type: 'select', options: Object.entries(TUNINGS).map(([k, t]) => [k, t.name]) },
+    { key: 'tuning', label: 'Instrument', type: 'select', options: () => [...Object.entries(TUNINGS).map(([k, t]) => [k, t.name]), ...S.custom.map((c, i) => [`custom:${i}`, `★ ${c.name}`])] },
     { key: 'a4', label: 'A4', type: 'range', min: 415, max: 466, step: 1, fmt: v => `${v} Hz` },
-    { type: 'note', text: 'Tap a string to lock the tuner onto it (tap again to let go); otherwise it follows the nearest string. Green within ±3 cents. The strip below shows the last ten seconds.' },
+    { type: 'buttons', items: [['learn', 'Learn my tuning…'], ['type', 'Type a tuning…'], ['deltuning', 'Delete this tuning']] },
+    { type: 'note', text: 'Free finds any note by itself. With an instrument: tap a string to lock onto it (again to let go), otherwise it follows the nearest string. The strobe stands still when in tune; the words say what to do, and while you turn the peg they coach you ("keep going", "slow down", "✓"). Each string keeps its last reading; ▼ marks the next one to tune. Tap the big note to hear the target. Learn my tuning: play each open string once, lowest first. Type a tuning: notes low to high, e.g. A1 E2 A2 D3 G3 B3 E4, or just AEADGBE.' },
   ],
   rhythm: [
     { type: 'note', text: 'Tempo comes from the onsets (where new sound starts) over the last ~10 s: give it a few bars. Tap the tempo box in time for tap tempo. Repetition rate: how often the loudness repeats (engines, insects, tremolo, a ticking clock). Main frequencies: the strongest tones of the last two seconds.' },
@@ -81,7 +84,7 @@ function buildControls() {
       if (c.type === 'seg') {
         const seg = document.createElement('div');
         seg.className = 'seg'; seg.dataset.key = c.key;
-        for (const [val, text] of c.options) {
+        for (const [val, text] of (typeof c.options === 'function' ? c.options() : c.options)) {
           const b = document.createElement('button');
           b.textContent = text; b.dataset.val = val;
           b.addEventListener('click', () => setSetting(c.key, val));
@@ -91,7 +94,7 @@ function buildControls() {
       } else if (c.type === 'select') {
         const sel = document.createElement('select');
         sel.dataset.key = c.key;
-        for (const [val, text] of c.options) sel.add(new Option(text, val));
+        for (const [val, text] of (typeof c.options === 'function' ? c.options() : c.options)) sel.add(new Option(text, val));
         sel.addEventListener('change', () => setSetting(c.key, c.num ? +sel.value : sel.value));
         row.appendChild(sel);
       } else if (c.type === 'range') {
@@ -125,8 +128,36 @@ function setSetting(key, value, resync = true) {
   send({ type: 'set', key, value });
   if (resync) syncControls();
 }
+function saveCustom(name, strings) {
+  S.custom = [...S.custom, { name: String(name).slice(0, 40) || 'My tuning', strings }];
+  setSetting('custom', S.custom);
+  setSetting('tuning', `custom:${S.custom.length - 1}`);
+  buildControls();
+}
 function action(act) {
   if (act === 'reset') send({ type: 'reset' });
+  if (act === 'learn') {
+    for (const sh of $$('.sheet.open')) { sh.classList.remove('open'); sh.parentElement.querySelector('.gear').classList.remove('on'); }
+    send({ type: 'learnStart' });
+  }
+  if (act === 'type') {
+    const v = prompt('Your tuning, lowest string first: notes with octaves (A1 E2 A2 D3 G3 B3 E4) or just letters (AEADGBE, DADGAD; the lowest string is then put between A1 and G♯2).', '');
+    if (v == null) return;
+    const m = parseTuning(v);
+    if (!m) { alert('That was not read as notes. Example: A1 E2 A2 D3 G3 B3 E4, or AEADGBE.'); return; }
+    const strings = m.map(midiName);
+    const name = prompt(`${strings.join(' ')}\nA name for this tuning:`, v.trim().length <= 12 ? v.trim() : 'My tuning');
+    if (name != null) saveCustom(name, strings);
+  }
+  if (act === 'deltuning') {
+    if (!String(S.tuning).startsWith('custom:')) { alert('Only your own tunings (★) can be deleted.'); return; }
+    const i = +S.tuning.slice(7), c = S.custom[i];
+    if (!c || !confirm(`Delete the tuning "${c.name}"?`)) return;
+    S.custom = S.custom.filter((_, j) => j !== i);
+    setSetting('custom', S.custom);
+    setSetting('tuning', 'free');
+    buildControls();
+  }
   if (act === 'calibrate') {
     const v = prompt('Calibrate: play a steady sound and type what a sound level meter shows for it (in dB, with the same weighting).', '');
     const n = parseFloat(String(v || '').replace(',', '.'));
@@ -176,6 +207,13 @@ function onEngine(d) {
     $('#status').title = mode === 'worker' ? 'Analysis and drawing run in a background worker' : 'Analysis runs on the page (this browser cannot draw from a worker)';
   }
   if (d.type === 'saved') { Object.assign(S, d.settings); save(); syncControls(); }
+  if (d.type === 'learned') {
+    setTimeout(() => { // after the tap that ended it
+      const name = prompt(`Heard: ${d.strings.join(' ')}\nA name for this tuning:`, 'My tuning');
+      if (name != null) saveCustom(name, d.strings);
+    }, 50);
+  }
+  if (d.type === 'ref') refTone(d.midi);
   if (d.type === 'stats' && statsWait.has(d.id)) { statsWait.get(d.id)(d.stats); statsWait.delete(d.id); }
 }
 const statsWait = new Map();
@@ -187,7 +225,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.1521', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.1548', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -204,7 +242,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.1521');
+    const { Engine } = await import('./engine.js?v=20261009.1548');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -226,7 +264,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1521');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1548');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
@@ -334,6 +372,17 @@ function iosUnlock() {
     G.silent = a;
   } catch { /* fine without */ }
 }
+// a 2.5 s sine of the tuner's target note, through the generator's audio context
+function refTone(midi) {
+  iosUnlock();
+  if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  G.ctx.resume();
+  const t = G.ctx.currentTime, o = G.ctx.createOscillator(), g = G.ctx.createGain();
+  o.frequency.value = S.a4 * Math.pow(2, (midi - 69) / 12);
+  g.gain.setValueAtTime(0, t); g.gain.setTargetAtTime(dbGain(-20), t, 0.02); g.gain.setTargetAtTime(0, t + 2.3, 0.08);
+  o.connect(g).connect(G.ctx.destination); o.start(t); o.stop(t + 2.8);
+  G.lastRef = { midi, at: performance.now() };
+}
 function genStart() {
   iosUnlock();
   if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
@@ -426,10 +475,11 @@ document.addEventListener('visibilitychange', () => {
 // for tests and the curious: window.soundWizard.stats() → what the engine measures now
 window.soundWizard = {
   settings: S,
-  stats: () => new Promise(res => { const id = ++statsId; statsWait.set(id, res); send({ type: 'stats', id }); }),
+  stats: () => new Promise(res => { if (!worker && !eng) { res(null); return; } const id = ++statsId; statsWait.set(id, res); send({ type: 'stats', id }); }), // null until the engine runs
   set: setSetting,
   view: showView,
   mode: () => mode,
+  lastRef: () => G.lastRef || null,
   generator: () => ({ playing: G.playing, type: G.osc?.type, freq: G.osc ? G.osc.frequency.value : null, target: genFreq(), level: S.genLevel, ctx: G.ctx?.state }),
 };
 
