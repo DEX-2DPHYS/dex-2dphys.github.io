@@ -1,8 +1,8 @@
 // Sound Wizard offline support (installed to the home screen, it works without a connection).
-// The published copy has a version stamp instead of 20261009.2200 (tools/publish.cjs), and its pages ask
+// The published copy has a version stamp instead of 20261009.2222 (tools/publish.cjs), and its pages ask
 // for the files with that same stamp, so a new version is a new set of cache entries. The page itself
 // is fetched from the network first (so an update shows at once when online), from the cache when offline.
-const VERSION = '20261009.2200';
+const VERSION = '20261009.2222';
 const CACHE = `sound-wizard-${VERSION}`;
 const STAMPED = ['style.css', 'js/app.js', 'js/engine.js', 'js/dsp.js', 'js/poly.js', 'js/notation.js', 'js/worker.js', 'js/capture.worklet.js', 'icons/icon.svg', 'icons/icon-180.png', 'manifest.webmanifest'];
 const PLAIN = ['./', 'index.html', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png'];
