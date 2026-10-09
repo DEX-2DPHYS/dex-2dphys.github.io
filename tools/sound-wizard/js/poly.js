@@ -73,7 +73,7 @@ function refine(o, fr, bpm) {
       const P = P0 * (1 + k * step);
       for (let phi = 0; phi < P; phi += 1) {
         let s = 0, c = 0;
-        for (let t = phi; t < n; t += P) { s += at(o, t); c++; }
+        for (let t = phi; t < n; t += P) { s += atPeak(o, t); c++; }
         if (c && s / c > best.e) best = { P, phi, e: s / c };
       }
     }
@@ -82,11 +82,19 @@ function refine(o, fr, bpm) {
   search(best.P, 8, 0.0005);          // then ±0.4 % in 0.05 % steps (0.05 % = a quarter frame over 10 s)
   return best;
 }
-// onset strength at a (fractional) frame: the most within ±2 frames (±21 ms, a player's timing)
+// for the tempo refinement: the same window, but an onset counts most when it sits exactly on the grid
+// point (a flat window would let the estimate settle anywhere on a plateau)
+function atPeak(o, t) {
+  const i = Math.round(t), n = o.length;
+  let m = 0;
+  for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) { const v = o[j] * (1 - Math.abs(j - t) / 4.5); if (v > m) m = v; }
+  return m;
+}
+// onset strength at a (fractional) frame: the most within ±3 frames (±32 ms: hands, not machines)
 function at(o, t) {
   const i = Math.round(t), n = o.length;
   let m = 0;
-  for (let j = Math.max(0, i - 2); j <= Math.min(n - 1, i + 2); j++) if (o[j] > m) m = o[j];
+  for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) if (o[j] > m) m = o[j];
   return m;
 }
 // how a set of grid points stands out in a register. The register is judged by its own loud onsets
@@ -96,11 +104,11 @@ function at(o, t) {
 // register has real onsets at all (its loud frames stand far above its median). ok needs all three.
 function gridStats(o, reg, pts, minProm = 0.35) {
   if (!pts.length || !reg.spiky) return { prom: 0, cov: 0, score: 0, ok: false };
-  const ref = reg.refFor(pts.length), thr = 0.3 * ref;
+  const ref = reg.refFor(pts.length), thr = 0.2 * ref;
   let s = 0, hit = 0;
   for (const t of pts) { const v = at(o, t); s += v; if (v > thr) hit++; }
   const mean = s / pts.length, prom = Math.min(1.5, mean / ref), cov = hit / pts.length;
-  const ok = cov >= 0.65 && prom >= minProm;
+  const ok = cov >= 0.6 && prom >= minProm;
   return { prom, cov, z: reg.spikiness, score: ok ? cov * Math.min(1, prom) : 0, ok };
 }
 // a register's reference levels: its frames sampled like grid points (±2 frames), sorted
@@ -171,7 +179,7 @@ export function analysePoly(env, fr, opts = {}) {
   for (let s = 2; s <= 8; s++) {
     const pts = [];
     for (let t = phi; t < n; t += P) for (let j = 1; j < s; j++) if (t + j * P / s < n) pts.push(t + j * P / s);
-    subs[s] = bestBand(pts, 0.3); // a subdivision needs a little less: it only names the feel and vetoes claims
+    subs[s] = bestBand(pts, 0.25); // a subdivision needs a little less: it only names the feel and vetoes claims
   }
   // the finest subdivision that is well populated (sixteenths contain the eighths; the eighths alone
   // would not fill a sixteenth grid)
@@ -194,7 +202,36 @@ export function analysePoly(env, fr, opts = {}) {
     // explained by a plain subdivision (the p:q grid lies on every grid of p, 2p, 3p … notes per beat)?
     let explained = false;
     for (let m = p; m <= 8; m += p) if (subs[m] && subs[m].ok) explained = true;
-    ratios.push({ p, q, ...best, ok: best.ok && !explained, explained });
+    // the union pattern: both layers on one sound ("bam-babadam" = X·XXX· for 3:2). The pattern's
+    // filled slots must be hit in most cycles AND its empty slots must stay empty (else it is a
+    // plain subdivision). Judged in the register where the pattern is clearest.
+    let union = null;
+    if (!explained) {
+      const U = p * q, unit = P / p, d = best.d;
+      const filled = [], second = [], empty = [];
+      for (let t0 = phi + d * P; t0 - q * P < n; t0 += q * P) for (let u = 0; u < U; u++) {
+        const t = t0 + u * unit;
+        if (t < 0 || t >= n) continue;
+        if (u % p === 0) filled.push(t); else if (u % q === 0) { filled.push(t); second.push(t); } else empty.push(t);
+      }
+      if (second.length >= 3 && empty.length >= 2) for (const b of BANDS) {
+        const reg = st[b].reg;
+        if (!reg.spiky) continue;
+        const ref = reg.refFor(filled.length), thr = 0.2 * ref, thrSoft = 0.15 * ref;
+        let hf = 0, sf = 0, se = 0, he = 0, hs = 0;
+        for (const t of filled) { const v = at(o[b], t); sf += v; if (v > thr) hf++; }
+        for (const t of second) if (at(o[b], t) > thrSoft) hs++; // the second layer's own slots, soft notes allowed
+        for (const t of empty) { const v = at(o[b], t); se += v; if (v > thr) he++; }
+        const cov = hf / filled.length, covS = hs / second.length, quiet = 1 - he / empty.length, meanF = sf / filled.length, meanE = se / empty.length;
+        const ok = covS >= 0.6 && cov >= 0.7 && quiet >= 0.7 && meanF / ref >= 0.3 && meanE < 0.35 * meanF;
+        const score = ok ? covS * quiet * Math.min(1, meanF / ref) : 0;
+        if (score > (union ? union.score : 0)) union = { score, cov: covS, quiet, band: b, d };
+      }
+    }
+    const byLayer = best.ok && !explained, byUnion = !!union && union.score >= 0.4;
+    if (byUnion && !byLayer) best = { ...best, score: union.score, cov: union.cov, prom: Math.max(best.prom, 0.3), band: union.band, d: union.d, union: true };
+    else if (byUnion && byLayer) best = { ...best, score: Math.max(best.score, union.score), union: true };
+    ratios.push({ p, q, ...best, ok: byLayer || byUnion, explained });
   }
   // a coarser layer whose grid lies inside a well-populated denser one is that denser layer
   for (const r of ratios) {
@@ -205,8 +242,17 @@ export function analysePoly(env, fr, opts = {}) {
       if (m > 1.5 && Math.abs(m - Math.round(m)) < 1e-6 && s.score >= 0.8 * r.score) { r.ok = false; r.inside = `${s.p}:${s.q}`; break; }
     }
   }
-  const good = ratios.filter(r => r.ok).sort((a, b) => b.score - a.score);
-  const poly = good.length && good[0].score >= 0.25 ? good[0] : null;
+  let good = ratios.filter(r => r.ok).sort((a, b) => b.score - a.score);
+  let poly = good.length && good[0].score >= 0.25 ? good[0] : null;
+  // the main taken as the whole cycle (one "bam" per cycle): both layers then look like subdivisions
+  // (2 and 3 per beat, but not 6). Read it again from the slower layer.
+  if (!poly && !opts.again && !opts.mainBpm) {
+    const okS = [2, 3, 4, 5, 7].filter(a => subs[a] && subs[a].ok);
+    for (const a of okS) for (const b of okS) if (a < b && gcd(a, b) === 1 && !(subs[a * b] && subs[a * b].ok)) {
+      const r2 = analysePoly(env, fr, { ...opts, mainBpm: bpm * a, again: true });
+      if (r2 && r2.poly) { r2.main.locked = false; r2.cands = cands; return r2; }
+    }
+  }
   // the second layer's pulse is always a choice for the main
   if (poly) { const b2 = bpm * poly.p / poly.q; if (!cands.some(c => Math.abs(Math.log(c.bpm / b2)) < 0.04)) cands.push({ bpm: b2, strength: poly.score, score: 0.5 * poly.score, band: poly.band }); }
   cands.sort((a, b) => b.score - a.score); cands.length = Math.min(cands.length, 5);
