@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS } from './engine.js?v=20261009.1504';
-import { CMAP_NAMES } from './dsp.js?v=20261009.1504';
+import { DEFAULTS, TUNINGS } from './engine.js?v=20261009.1521';
+import { CMAP_NAMES } from './dsp.js?v=20261009.1521';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -47,6 +47,9 @@ const CONTROLS = {
     { key: 'a4', label: 'A4', type: 'range', min: 415, max: 466, step: 1, fmt: v => `${v} Hz` },
     { type: 'note', text: 'Tap a string to lock the tuner onto it (tap again to let go); otherwise it follows the nearest string. Green within ±3 cents. The strip below shows the last ten seconds.' },
   ],
+  rhythm: [
+    { type: 'note', text: 'Tempo comes from the onsets (where new sound starts) over the last ~10 s: give it a few bars. Tap the tempo box in time for tap tempo. Repetition rate: how often the loudness repeats (engines, insects, tremolo, a ticking clock). Main frequencies: the strongest tones of the last two seconds.' },
+  ],
   tone: [
     { key: 'a4', label: 'A4', type: 'range', min: 415, max: 466, step: 1, fmt: v => `${v} Hz` },
     { type: 'note', text: 'Base note: the fundamental of a single note (or the root when several notes sound). Chord: from the last half second. Key: from the last few seconds, so let a phrase play. Harmonics: the overtones of the base note, odd ones cyan, even ones magenta.' },
@@ -56,6 +59,7 @@ const CONTROLS = {
 function buildControls() {
   for (const [view, list] of Object.entries(CONTROLS)) {
     const sheet = $(`.view[data-view="${view}"] .sheet`);
+    if (!sheet) continue;
     sheet.innerHTML = '';
     for (const c of list) {
       const row = document.createElement('div');
@@ -183,7 +187,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.1504', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.1521', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -200,7 +204,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.1504');
+    const { Engine } = await import('./engine.js?v=20261009.1521');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -222,7 +226,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1504');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1521');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
@@ -275,8 +279,138 @@ async function keepAwake() {
   try { if ('wakeLock' in navigator && !document.hidden) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* not allowed: fine */ }
 }
 
-$('#startBig').addEventListener('click', async () => { if (running && await resume()) return; if (running) stop(); start(); });
+// ---------------------------------------------------------------------------------- full screen
+// Android/desktop: full screen at the Start tap (it needs a tap), and the ⤢ button in the top bar
+// toggles it, so the way out is always visible. iPhone Safari has no full-screen mode for pages: there
+// the app is full screen when added to the home screen (a one-time hint says how).
+const root = document.documentElement;
+const fsAvailable = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const standalone = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function enterFs() { try { const r = (root.requestFullscreen || root.webkitRequestFullscreen).call(root, { navigationUI: 'hide' }); r?.catch?.(() => {}); } catch { /* refused */ } }
+function exitFs() { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document)?.catch?.(() => {}); } catch { /* */ } }
+const fsBtn = $('#fs');
+fsBtn.hidden = !fsAvailable || standalone;
+fsBtn.addEventListener('click', () => (isFs() ? exitFs() : enterFs()));
+const syncFs = () => fsBtn.classList.toggle('on', isFs());
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
+function iosHint() {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let seen = false;
+  try { seen = localStorage.getItem('soundwizard.hint.a2hs') === '1'; } catch { /* */ }
+  if (!ios || standalone || fsAvailable || seen) return;
+  $('#hint').hidden = false;
+}
+$('#hint button').addEventListener('click', () => { $('#hint').hidden = true; try { localStorage.setItem('soundwizard.hint.a2hs', '1'); } catch { /* */ } });
+
+$('#startBig').addEventListener('click', async () => {
+  if (S.autoFs && fsAvailable && !standalone && !isFs()) enterFs(); // inside the tap, before anything waits
+  if (running && await resume()) return;
+  if (running) stop();
+  await start();
+  if (running) iosHint();
+});
 $('#power').addEventListener('click', () => (running ? stop() : start()));
+
+// ---------------------------------------------------------------------------------- tone generator
+// Its own AudioContext (works with or without the microphone; the analyser tabs can listen to it).
+// Band-limited Web Audio oscillators; 15 ms ramps on start, stop and level so nothing clicks.
+const G = { ctx: null, osc: null, gain: null, playing: false };
+const genFreq = () => (S.genMode === 'note' ? S.a4 * Math.pow(2, (S.genMidi - 69) / 12) : S.genHz);
+const dbGain = db => Math.pow(10, db / 20);
+let unlocked = false;
+function iosUnlock() {
+  // iPhones play Web Audio through the "ambient" session, which the silent switch mutes. A looping,
+  // silent <audio> element started from a tap moves the page to the "playback" session.
+  if (unlocked) return;
+  unlocked = true;
+  try {
+    const n = 4800, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 48000, true); v.setUint32(28, 96000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+    const a = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' })));
+    a.loop = true; a.setAttribute('playsinline', ''); a.play().catch(() => {});
+    G.silent = a;
+  } catch { /* fine without */ }
+}
+function genStart() {
+  iosUnlock();
+  if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  G.ctx.resume();
+  const t = G.ctx.currentTime;
+  G.osc = G.ctx.createOscillator();
+  G.osc.type = S.genWave;
+  G.osc.frequency.setValueAtTime(genFreq(), t);
+  G.gain = G.ctx.createGain();
+  G.gain.gain.setValueAtTime(0, t);
+  G.gain.gain.setTargetAtTime(dbGain(S.genLevel), t, 0.015);
+  G.osc.connect(G.gain).connect(G.ctx.destination);
+  G.osc.start(t);
+  G.playing = true;
+  genSync();
+}
+function genStop() {
+  if (!G.playing) return;
+  const t = G.ctx.currentTime, osc = G.osc;
+  G.gain.gain.setTargetAtTime(0, t, 0.015);
+  osc.stop(t + 0.12);
+  G.playing = false;
+  genSync();
+}
+function genApply() {
+  if (G.playing) {
+    const t = G.ctx.currentTime;
+    G.osc.frequency.setTargetAtTime(genFreq(), t, 0.008);
+    if (G.osc.type !== S.genWave) G.osc.type = S.genWave;
+    G.gain.gain.setTargetAtTime(dbGain(S.genLevel), t, 0.015);
+  }
+  genSync();
+}
+const NOTE_N = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+const midiLabel = m => `${NOTE_N[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
+function genSync() {
+  const f = genFreq(), midi = 69 + 12 * Math.log2(f / S.a4), n = Math.round(midi), ct = Math.round((midi - n) * 100);
+  $('#genMain').textContent = S.genMode === 'note' ? midiLabel(S.genMidi) : (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 2 : 3)} kHz` : `${f.toFixed(f < 100 ? 2 : 1)} Hz`);
+  $('#genSub').textContent = S.genMode === 'note' ? `${f.toFixed(2)} Hz` : `nearest note ${midiLabel(n)} ${ct > 0 ? '+' : ct < 0 ? '−' : '±'}${Math.abs(ct)}¢`;
+  $('#genNoteUI').hidden = S.genMode !== 'note';
+  $('#genFreqUI').hidden = S.genMode !== 'freq';
+  for (const b of $$('#genMode button')) b.classList.toggle('on', b.dataset.val === S.genMode);
+  for (const b of $$('#genWave button')) b.classList.toggle('on', b.dataset.val === S.genWave);
+  for (const k of $$('#keys button')) k.classList.toggle('on', +k.dataset.m + 12 * Math.floor(S.genMidi / 12) === S.genMidi && S.genMode === 'note');
+  $('#octLabel').textContent = `octave ${Math.floor(S.genMidi / 12) - 1}`;
+  $('#genLevel').value = S.genLevel; $('#genLevelVal').textContent = `${S.genLevel} dBFS`;
+  const pos = Math.round(1000 * Math.log(clampN(S.genHz, 10, 20000) / 10) / Math.log(2000));
+  if (document.activeElement !== $('#genHzIn')) $('#genHzIn').value = +S.genHz.toFixed(2);
+  $('#genHzSlider').value = pos;
+  $('#genPlay').classList.toggle('on', G.playing);
+  $('#genPlay').textContent = G.playing ? '■ Stop' : '▶ Play';
+}
+const clampN = (v, a, b) => Math.min(b, Math.max(a, v));
+function genSet(k, v) { S[k] = v; save(); genApply(); }
+$('#genPlay').addEventListener('click', () => (G.playing ? genStop() : genStart()));
+for (const b of $$('#genMode button')) b.addEventListener('click', () => genSet('genMode', b.dataset.val));
+for (const b of $$('#genWave button')) b.addEventListener('click', () => genSet('genWave', b.dataset.val));
+$('#genLevel').addEventListener('input', e => genSet('genLevel', +e.target.value));
+$('#genHzSlider').addEventListener('input', e => genSet('genHz', +(10 * Math.pow(2000, +e.target.value / 1000)).toPrecision(4)));
+$('#genHzIn').addEventListener('change', e => { const v = parseFloat(String(e.target.value).replace(',', '.')); if (isFinite(v)) genSet('genHz', clampN(v, 0.1, 24000)); });
+for (const b of $$('[data-nudge]')) b.addEventListener('click', () => {
+  const d = b.dataset.nudge;
+  genSet('genHz', clampN(d === 'x2' ? S.genHz * 2 : d === 'half' ? S.genHz / 2 : S.genHz + +d, 0.1, 24000));
+});
+$('#octDown').addEventListener('click', () => genSet('genMidi', Math.max(12, S.genMidi - 12)));
+$('#octUp').addEventListener('click', () => genSet('genMidi', Math.min(120, S.genMidi + 12)));
+for (const k of $$('#keys button')) k.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  genSet('genMidi', 12 * Math.floor(S.genMidi / 12) + +k.dataset.m);
+  if (!G.playing) genStart();
+});
+genSync();
+
+// ---------------------------------------------------------------------------------- offline (installed app)
+if ('serviceWorker' in navigator && !/^(localhost|127\.|\[::1\])/.test(location.hostname)) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 $('#hold').addEventListener('click', () => {
   const on = !$('#hold').classList.contains('on');
   $('#hold').classList.toggle('on', on);
@@ -296,7 +430,12 @@ window.soundWizard = {
   set: setSetting,
   view: showView,
   mode: () => mode,
+  generator: () => ({ playing: G.playing, type: G.osc?.type, freq: G.osc ? G.osc.frequency.value : null, target: genFreq(), level: S.genLevel, ctx: G.ctx?.state }),
 };
 
+// the generator does not need the microphone: open it straight from the start screen
+$('#genOnly').addEventListener('click', () => { $('#overlay').hidden = true; showView('gen'); });
+$('#overlayBack')?.addEventListener('click', () => { if (!running) $('#overlay').hidden = false; });
+
 buildControls();
-showView(S.view in CONTROLS ? S.view : 'meter');
+showView(['meter', 'spec', 'scope', 'tuner', 'tone', 'rhythm', 'gen'].includes(S.view) ? S.view : 'meter');
