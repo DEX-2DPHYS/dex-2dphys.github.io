@@ -94,13 +94,13 @@ function at(o, t) {
 // counts as much as a loud kick in the kick's register. prom = the grid's mean level / ref (1 when the
 // grid points ARE the register's loudest onsets); cov = the share of points above 0.3·ref; spiky = the
 // register has real onsets at all (its loud frames stand far above its median). ok needs all three.
-function gridStats(o, reg, pts) {
+function gridStats(o, reg, pts, minProm = 0.35) {
   if (!pts.length || !reg.spiky) return { prom: 0, cov: 0, score: 0, ok: false };
   const ref = reg.refFor(pts.length), thr = 0.3 * ref;
   let s = 0, hit = 0;
   for (const t of pts) { const v = at(o, t); s += v; if (v > thr) hit++; }
   const mean = s / pts.length, prom = Math.min(1.5, mean / ref), cov = hit / pts.length;
-  const ok = cov >= 0.65 && prom >= 0.35;
+  const ok = cov >= 0.65 && prom >= minProm;
   return { prom, cov, z: reg.spikiness, score: ok ? cov * Math.min(1, prom) : 0, ok };
 }
 // a register's reference levels: its frames sampled like grid points (±2 frames), sorted
@@ -156,10 +156,10 @@ export function analysePoly(env, fr, opts = {}) {
   const mainBand = ['low', 'mid', 'high'].reduce((a, b) => (st[b].mainE > st[a].mainE ? b : a), 'low');
   // the best register's statistics; the register named is the specific one (low / mid / high) where the
   // points stand out most clearly, 'all' only when no single register carries them
-  const bestBand = pts => {
+  const bestBand = (pts, minProm) => {
     let best = null, named = null;
     for (const b of BANDS) {
-      const g = gridStats(o[b], st[b].reg, pts);
+      const g = gridStats(o[b], st[b].reg, pts, minProm);
       if (!best || g.score > best.score) best = { band: b, ...g };
       if (b !== 'all' && g.ok && (!named || g.z > named.z)) named = { band: b, ...g };
     }
@@ -171,7 +171,7 @@ export function analysePoly(env, fr, opts = {}) {
   for (let s = 2; s <= 8; s++) {
     const pts = [];
     for (let t = phi; t < n; t += P) for (let j = 1; j < s; j++) if (t + j * P / s < n) pts.push(t + j * P / s);
-    subs[s] = bestBand(pts);
+    subs[s] = bestBand(pts, 0.3); // a subdivision needs a little less: it only names the feel and vetoes claims
   }
   // the finest subdivision that is well populated (sixteenths contain the eighths; the eighths alone
   // would not fill a sixteenth grid)
