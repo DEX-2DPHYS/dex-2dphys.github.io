@@ -28,7 +28,7 @@ import { makeRng } from './rng.js';
 const TWO_PI = 2 * Math.PI;
 
 // config = { E0, layers: [{mat, thickness}] (last may be Infinity), tallyLayer = 0, Ecut = 0.5,
-//            beamA = 0 (nm, beam/SE blur in the notes' convention exp(-r²/a²)), mott = true,
+//            beamA = 0 (nm, beam/SE blur as a width in exp(-r²/a²)), mott = true,
 //            rangeRejection = true, r0 = 0.25 nm, perDecade = 25, rMax (nm), nz = 1 }
 export function createTransport(config) {
   const cfg = { tallyLayer: 0, Ecut: 0.5, beamA: 0, mott: true, rangeRejection: true, r0: 0.25, perDecade: 25, nz: 1, ...config };

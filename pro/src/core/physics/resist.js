@@ -63,7 +63,7 @@ export function remainingFraction(resist, D) {
   return tone === 'negative' ? 1 - t : t;
 }
 
-// Resist at another beam energy: D0 and D100 scale as E^0.75 (notes Eq. 3.1), γ unchanged.
+// Resist at another beam energy: D0 and D100 scale as E^0.75 (an empirical scaling), γ unchanged.
 export function atEnergy(resist, toKeV) {
   if (resist.energyKeV == null) throw new Error(`resist "${resist.name}" has no reference energy`);
   return makeResist({ ...resist, D100: scaleDoseToEnergy(resist.D100, resist.energyKeV, toKeV), energyKeV: toKeV });

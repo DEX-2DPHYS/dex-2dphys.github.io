@@ -1,7 +1,7 @@
 // GDSII import / export dialogs. The work is in core/gds; this file only asks and reports.
 //
-// Import: pick a .gds, see what is in it, optionally add a dose table ("Dose Layer"
-// text) so a corrected file is simulated with its doses, then replace the layout (the PSF and the
+// Import: pick a .gds, see what is in it, optionally add a dose table (relative dose
+// per layer) so a corrected file is simulated with its doses, then replace the layout (the PSF and the
 // other settings are kept).
 // Export: the layout as drawn ("design"), or the fractured writing data as dose classes
 // (layer = datatype = class, plus the dose table).
@@ -70,7 +70,7 @@ export function installGdsIO(app, { setProject }) {
       narrow: false,
       html: `<div class="hint" id="gdsSum">${summarise(first.report)}</div>
         <div class="two" style="margin-top:10px;"><div><div class="label">Nominal dose (µC/cm²) <span class="q" data-tip="The target dose every imported shape gets.">?</span></div><input class="field" id="gdsNom" type="number" value="${app.nominalDose()}" min="0" step="10"></div>
-        <div><div class="label">Dose table (optional) <span class="q" data-tip="For a proximity-corrected file from a correction program (BEAMER, for example): the text file with &quot;Dose Layer&quot; lines. Each shape then keeps the nominal dose as its target and gets the relative dose of its layer as its writing dose, so the Exposure tab shows what the corrected file delivers.">?</span></div>
+        <div><div class="label">Dose table (optional) <span class="q" data-tip="For a proximity-corrected file from a correction program (BEAMER, for example): a text file with one &quot;relative dose, layer&quot; line per layer (header lines are skipped). Each shape then keeps the nominal dose as its target and gets the relative dose of its layer as its writing dose, so the Exposure tab shows what the corrected file delivers.">?</span></div>
         <div class="row"><button class="btn small" id="gdsTable">Choose…</button><span class="hint" id="gdsTableName">none</span></div></div></div>
         <div class="hint" style="margin-top:8px;">Importing replaces the current layout. The PSF and the other settings are kept.</div>`,
       onOpen: (box) => {

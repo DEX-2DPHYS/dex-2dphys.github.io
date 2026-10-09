@@ -6,7 +6,7 @@
 //              merged into one outline (they are exposed once where members overlap, and a writer
 //              would otherwise expose overlaps twice). Device-area shapes are left out by default.
 //   'classes'  fractured writing data: each fragment on layer = datatype = its dose class
-//              (a common writer convention), plus a "Dose Layer" table of relative doses.
+//              (a common writer convention), plus a text table of relative doses per class.
 //
 // Shapes are polygons in their cell's coordinates (circles at ≤ tol nm chord error, rounded to the
 // 1 nm grid); hierarchy is kept (SREF/AREF with STRANS/MAG/ANGLE). Per-ref dose scaling (dose-ramp
@@ -154,7 +154,7 @@ export function writeGds(lib, { mode = 'design', libName = null, tol = 1, date =
   let doseTable = null;
   if (mode === 'classes') {
     if (!classes) throw new Error('dose-class export needs the class doses');
-    doseTable = 'Dose Layer\n' + classes.map((d, c) => `${(d / nominalDose).toFixed(6)} ${c}`).join('\n') + '\n';
+    doseTable = '# EBL Workbench dose classes: relative dose, layer\n' + classes.map((d, c) => `${(d / nominalDose).toFixed(6)} ${c}`).join('\n') + '\n';
   }
   return { bytes: w.bytes(), report, doseTable };
 }

@@ -9,7 +9,7 @@
 // - BOX, TEXT, NODE are skipped and counted. PROPATTR/PROPVALUE pairs are kept on the element as
 //   `props` and written back by write.js.
 // - Each layer/datatype seen becomes an exposure layer "L/D". With a dose table (the
-//   "Dose Layer" text, see parseDoseTable) a shape's writeDose = relative dose of its layer ×
+//   relative dose per layer, see parseDoseTable) a shape's writeDose = relative dose of its layer ×
 //   nominal, and its target dose stays nominal: the Exposure tab then shows what that corrected
 //   file delivers (BEAMER import, §6.2).
 
@@ -21,7 +21,7 @@ import { areaOf } from '../pec/fracture.js';
 
 const PALETTE = ['#2f6fd6', '#d6532f', '#2a9d5c', '#9b4dca', '#d1a000', '#0f9fb5', '#c2185b', '#5d6d7e', '#7cb342', '#ef6c00', '#3949ab', '#8d6e63'];
 
-// "Dose Layer" table: first line a header, then "<relative dose> <layer>" per line.
+// Dose table: "<relative dose> <layer>" per line; any other line (a header, a comment) is skipped.
 // Returns Map(layer → relative dose). Also accepts comma or semicolon separators.
 export function parseDoseTable(text) {
   const m = new Map();
@@ -31,7 +31,7 @@ export function parseDoseTable(text) {
     const dose = parseFloat(f[0]), layer = parseInt(f[1], 10);
     if (Number.isFinite(dose) && Number.isInteger(layer)) m.set(layer, dose);
   }
-  if (!m.size) throw new Error('no "dose layer" lines found in the dose table');
+  if (!m.size) throw new Error('no "<relative dose> <layer>" lines found in the dose table');
   return m;
 }
 

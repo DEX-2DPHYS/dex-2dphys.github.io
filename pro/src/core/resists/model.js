@@ -93,7 +93,7 @@ export const grunRangeUm = (kV, density = 1.2) => 0.0398 * kV ** 1.75 / density;
 // PSF, so it wants the large-area curve. Most sources do not say how large their test areas were: the
 // library records what the source states, and says so when it does not — it does not guess.
 // structure: { kind: 'pads' | 'lines' | 'unknown', sizeUm?, text }
-export const betaUm = (kV) => 31.2 * (kV / 100) ** 1.7;     // notes Fig. 17 (Si), ≈; the PSF tab has the real one
+export const betaUm = (kV) => 31.2 * (kV / 100) ** 1.7;     // Owen's Si data (β ∝ E^1.7), ≈; the PSF tab has the real one
 export const STRUCTURE_SIGMA = 0.2;                           // ≈ ln(1.5)/2: up to ×1.5 too high, unknown how much
 export function structureVerdict(st, kV) {
   const b3 = Math.round(3 * betaUm(kV));

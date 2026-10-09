@@ -1,19 +1,22 @@
-// Analytic PSF models in the notes' convention (Eq. 2.16 and its common extensions):
+// Analytic PSF models, with the widths in exp(−r²/α²) (not Gaussian σ; σ = α/√2):
 //
 //   double     f(r) = 1/(π(1+η))   [ e^{-r²/α²}/α² + η e^{-r²/β²}/β² ]
 //   triple     f(r) = 1/(π(1+η+ν)) [ … + ν e^{-r²/γ²}/γ² ]                 mid-range Gaussian
 //   gauss-exp  f(r) = 1/(1+η+ν)    [ … + ν e^{-r/γ}/(2πγ²) ]                mid-range exponential
 //
 // α, β, γ in nm. η and ν are the weights of the backscatter and mid-range terms relative to the
-// forward term. Every model integrates to exactly 1.
+// forward term. Every model integrates to exactly 1. Two models that are not sums of Gaussians —
+// power-Gaussian and spline-based — are in models2.js and become tables (settings.js tableModelPSF).
 
 import { makePSF, logGrid, gaussAt, kernelReach } from './psf.js';
 import { psfParamsFor } from '../physics/scaling.js';
 
 export const MODELS = {
-  double: { label: 'Double Gaussian (notes Eq. 2.16)', mid: null, short: 'DG' },
+  double: { label: 'Double Gaussian', mid: null, short: 'DG' },
   triple: { label: 'Triple Gaussian', mid: 'gauss', short: 'TG' },
   'gauss-exp': { label: 'Double Gaussian + exponential', mid: 'exp', short: 'DG+exp' },
+  plg: { label: 'Power-Gaussian (power-law core + Gaussian)', mid: null, short: 'PLG', table: true },
+  spline: { label: 'Spline-based (tabulated)', mid: null, short: 'Spline', table: true },
 };
 
 // Without an explicit model, a γ with ν > 0 means the triple Gaussian (as before).
@@ -57,11 +60,11 @@ export function makeAnalyticPSF(params, { meta = {}, perDecade = 100 } = {}) {
 // From beam energy and substrate (scaling.js), e.g. makeAnalyticFor({energyKeV: 30, substrate: 'Si'}).
 export function makeAnalyticFor(opts = {}) {
   const p = psfParamsFor(opts);
-  return makeAnalyticPSF(p, { meta: { energyKeV: p.energyKeV, substrate: p.substrate, resistNm: p.resistNm, notes: p.source } });
+  return makeAnalyticPSF(p, { meta: { energyKeV: p.energyKeV, substrate: p.substrate, resistNm: p.resistNm, basis: p.source } });
 }
 
 // Pattern Studio stores α, β as Gaussian standard deviations σ (it uses
-// exp(-r²/2σ²) and erfc(d/(σ√2))). In the notes' convention the widths are √2 larger.
+// exp(-r²/2σ²) and erfc(d/(σ√2))). As widths in exp(−r²/α²) they are √2 larger.
 export function fromPPSParams({ alpha, beta, eta }) {
   return { alpha: Math.SQRT2 * alpha, beta: Math.SQRT2 * beta, eta };
 }

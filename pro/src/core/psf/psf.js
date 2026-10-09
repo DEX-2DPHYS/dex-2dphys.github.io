@@ -34,7 +34,7 @@ export function logGrid(rMin, rMax, perDecade = 50) {
 
 // ---- Analytic terms ----
 // A term is {w, s, kind}, kind 'gauss' (default) or 'exp', each normalised to integrate to w:
-//   gauss   w e^{-r²/s²} / (π s²)        the notes' Gaussians (α, β, and a mid-range γ)
+//   gauss   w e^{-r²/s²} / (π s²)        the Gaussians (α, β, and a mid-range γ)
 //   exp     w e^{-r/s}   / (2π s²)       the exponential mid-range tail of the "two Gaussians +
 //                                        exponential" model (fast secondaries)
 

@@ -19,7 +19,7 @@ export const TUTORIALS = [
   { id: 'ps-layers', module: 'layout', title: 'Layers, beams and PEC zones', blurb: 'Show / hide all, move shapes between layers, beam step and current, high-resolution layers and zones.' },
   { id: 'psf-warnings', module: 'psf', title: 'Warnings, common mistakes and pitfalls', warn: true, blurb: 'Conventions, energy and substrate, the default PSF, Monte Carlo statistics.' },
   { id: 'psf-basics', module: 'psf', title: 'What the PSF is, and where it comes from', blurb: 'Energy and substrate, α, β, η, reading the plots.' },
-  { id: 'psf-own', module: 'psf', title: 'Your own PSF', blurb: 'Manual or triple-Gaussian values, or a table; compare with the default.' },
+  { id: 'psf-own', module: 'psf', title: 'Your own PSF', blurb: 'Manual models started from Monte Carlo suggestions (double, triple, power-Gaussian, spline), or a table; compare with the default.' },
   { id: 'psf-mc', module: 'psf', title: 'Monte Carlo PSF', blurb: 'The default PSF source: run it, see the trajectories and the energy deposition, use the fit.' },
   { id: 'rs-warnings', module: 'resists', title: 'Warnings, common mistakes and pitfalls', warn: true, blurb: 'Conditions belong to the curve, regimes, best guesses, lab-to-lab differences.' },
   { id: 'rs-library', module: 'resists', title: 'The resist library: curves, conditions, regimes', blurb: 'The resists in the cleanroom, their curves and sources, and what calibrated, window and extrapolated mean.' },

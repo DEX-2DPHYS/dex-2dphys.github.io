@@ -16,6 +16,7 @@
 //             fraction (0.01 = 1 % of the energy misplaced).
 
 import { gaussianTerms, MODELS } from './analytic.js';
+import { fitPLG, splineKnots, splineTable } from './models2.js';
 import { gaussAt, termsCumulative, cumulative } from './psf.js';
 
 const hasMid = (model) => !!MODELS[model].mid;
@@ -105,6 +106,19 @@ function levenbergMarquardt(x0, pts, model, maxIter = 300) {
 export function fitGaussians(psf, { model = 'double', triple = false, floor = 1e-15, objective = 'logf' } = {}) {
   if (triple && model === 'double') model = 'triple';
   if (!MODELS[model]) throw new Error(`unknown PSF model ${model}`);
+  if (MODELS[model].table) {
+    // power-Gaussian / spline: fitted on their own; a double-Gaussian fit gives the grid scale (terms)
+    const g = fitGaussians(psf, { model: 'double', floor, objective });
+    const C = cumulative(psf.r, psf.f), tot = C[C.length - 1], frac = Array.from(C, (c) => c / tot);
+    if (model === 'plg') {
+      const P = fitPLG(psf.r, psf.f, frac, g, objective);
+      return { alpha: P.alpha, p: P.p, beta: P.beta, eta: P.eta, gamma: null, nu: 0, model, terms: g.terms, amplitude: null, rms: P.rms, objective };
+    }
+    const knots = splineKnots(psf.r, psf.f), T = splineTable(knots);
+    const CT = cumulative(T.r, T.f), at = (R) => { if (R <= T.r[0]) return CT[0] * (R / T.r[0]) ** 2; let i = 0; while (i < T.r.length - 2 && T.r[i + 1] < R) i++; if (R >= T.r[T.r.length - 1]) return CT[CT.length - 1]; const u = Math.log(R / T.r[i]) / Math.log(T.r[i + 1] / T.r[i]); return CT[i] + u * (CT[i + 1] - CT[i]); };
+    let ss = 0, n = 0; for (let i = 0; i < psf.r.length; i++) if (psf.f[i] > floor * Math.max(...psf.f.slice(0, 1))) { const d = at(psf.r[i]) - frac[i]; ss += d * d; n++; }
+    return { alpha: g.alpha, beta: g.beta, eta: g.eta, gamma: null, nu: 0, model, knots, terms: g.terms, amplitude: null, rms: Math.sqrt(ss / Math.max(1, n)), objective };
+  }
   const fmax = Math.max(...psf.f);
   const r = [], lnf = [];
   for (let i = 0; i < psf.r.length; i++) {

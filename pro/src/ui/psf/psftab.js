@@ -1,10 +1,11 @@
 // PSF tab: choose the point spread function — from beam energy and substrate
-// (notes Fig. 17 / Eq. 2.17), manual α β η (γ ν), or an imported two-column table — and compare
+// (published Si data and an empirical forward broadening), manual α β η (γ ν), or an imported two-column table — and compare
 // PSFs on log–log axes.
 
 import { $, esc, toast, pickFile } from '../dom.js';
 import { psfFromSettings, psfLabel } from '../../core/psf/settings.js';
 import { makeAnalyticFor, MODELS, modelOf } from '../../core/psf/analytic.js';
+import { SUGGESTED, SUGGESTED_ENERGIES, suggestionFor } from '../../core/psf/suggested.js';
 import { psfAt, cumulative, gaussAt, makePSF } from '../../core/psf/psf.js';
 import { importTableText } from '../../core/psf/table.js';
 import { importBeamerPsf, looksLikeBeamerPsf, beamerPsfLabel } from '../../core/psf/beamer.js';
@@ -40,10 +41,10 @@ export function createPsfTab(app) {
   <div class="grid">
     <div class="col">
       <div class="panel">
-        <div class="section-title">Point spread function <span class="q" data-tip="<b>PSF</b> — the energy one electron deposits in the resist as a function of the distance r from where it landed. The notes' double Gaussian (Eq. 2.16):<br><br>f(r) = 1/(π(1+η)) [ e<sup>−r²/α²</sup>/α² + η e<sup>−r²/β²</sup>/β² ]<br><br>α = forward scattering (nm), β = backscattering (µm), η = backscattered / forward energy. Everything in the Exposure tab is the layout convolved with this.">?</span></div>
+        <div class="section-title">Point spread function <span class="q" data-tip="<b>PSF</b> — the energy one electron deposits in the resist as a function of the distance r from where it landed. The simplest model is a double Gaussian:<br><br>f(r) = 1/(π(1+η)) [ e<sup>−r²/α²</sup>/α² + η e<sup>−r²/β²</sup>/β² ]<br><br>α = forward scattering (nm), β = backscattering (µm), η = backscattered / forward energy. Everything in the Exposure tab is the layout convolved with this.">?</span></div>
         <div class="label">Source</div>
         <select class="field" id="psfMode">
-          <option value="scaling">From beam energy &amp; substrate (notes)</option>
+          <option value="scaling">From beam energy &amp; substrate (analytic)</option>
           <option value="manual">Manual α, β, η</option>
           <option value="table">Imported table</option>
           <option value="mc">Monte Carlo (built in)</option>
@@ -52,31 +53,36 @@ export function createPsfTab(app) {
           <div class="two">
             <div><div class="label">Energy (keV)</div><input class="field" id="psfKeV" type="number" min="1" max="300" step="1"></div>
             <div><div class="label">Substrate</div><select class="field" id="psfSub">${Object.keys(SUBSTRATES).map((k) => `<option>${k}</option>`).join('')}</select></div>
-            <div><div class="label">Resist thickness (nm) <span class="q" data-tip="Sets the forward broadening d = 0.9 (h/E)<sup>1.5</sup> (notes Eq. 2.17), added in quadrature to the α floor.">?</span></div><input class="field" id="psfResist" type="number" min="1" step="10"></div>
-            <div><div class="label">α floor (nm) <span class="q" data-tip="Beam size and secondary-electron range, 5–10 nm in the notes. α = √(floor² + d²).">?</span></div><input class="field" id="psfAlphaMin" type="number" min="0.5" step="0.5"></div>
-            <div><div class="label">η (blank = table) <span class="q" data-tip="Leave blank to use the substrate's value (Si: 0.7, as the notes recommend). The Figure 17 references give 0.51–0.75 for Si.">?</span></div><input class="field" id="psfEtaOv" type="number" min="0" step="0.01" placeholder="default"></div>
+            <div><div class="label">Resist thickness (nm) <span class="q" data-tip="Sets the forward broadening d = 0.9 (h/E)<sup>1.5</sup> (an empirical fit), added in quadrature to the α floor.">?</span></div><input class="field" id="psfResist" type="number" min="1" step="10"></div>
+            <div><div class="label">α floor (nm) <span class="q" data-tip="Beam size and secondary-electron range, typically 5–10 nm. α = √(floor² + d²).">?</span></div><input class="field" id="psfAlphaMin" type="number" min="0.5" step="0.5"></div>
+            <div><div class="label">η (blank = table) <span class="q" data-tip="Leave blank to use the substrate's value (Si: 0.7, a common textbook value). Published measurements give 0.51–0.75 for Si (Owen 1990; Boere et al. 1990; Rishton and Kern 1987); the built-in Monte Carlo gives ≈ 0.53–0.64 (thin PMMA, 30–120 keV).">?</span></div><input class="field" id="psfEtaOv" type="number" min="0" step="0.01" placeholder="default"></div>
           </div>
           <div class="hint" id="psfScalingNote" style="margin-top:6px;"></div>
         </div>
         <div id="psfManual" style="margin-top:8px; display:none;">
-          <div class="label">Model <span class="q" data-tip="<b>Double Gaussian</b> — the notes' Eq. 2.16: forward term α, backscatter term β with weight η.<br><b>Triple Gaussian</b> — adds a mid-range Gaussian of width γ and weight ν.<br><b>Double Gaussian + exponential</b> — the mid-range term is ν e<sup>−r/γ</sup>/(2πγ²) instead: a heavier tail, the common choice for the fast-secondary contribution in Monte Carlo fits and in BEAMER.<br><br>All three integrate to 1; the weights are relative to the forward term.">?</span></div>
+          <div class="label">Model <span class="q" data-tip="<b>Double Gaussian</b> — forward term α, backscatter term β with weight η. The workhorse: fast, supported everywhere; good for features ≳ 100 nm on plain substrates.<br><b>Triple Gaussian</b> — adds a mid-range Gaussian (γ, ν) between forward and backscatter: multilayer or heavy substrates (GaAs, Au, Pt), dense patterns.<br><b>Double Gaussian + exponential</b> — the mid-range term is ν e<sup>−r/γ</sup>/(2πγ²): a heavier tail, the fast secondaries in Monte Carlo fits.<br><b>Power-Gaussian</b> — a power-law core (p−1)/(πα²)·(1+r²/α²)<sup>−p</sup> with a Gaussian backscatter term: a sharp core with the long tail Gaussians miss — sub-20 nm work at high voltage.<br><b>Spline-based</b> — no formula: log f(r) through knots taken from a Monte Carlo (or a table), joined by a smooth monotone curve; for cases the formulas fit poorly.<br><br><b>Suggested values</b> come from the Workbench's own Monte Carlo (100 nm PMMA on Si) at 30, 50, 100 and 120 keV, fitted with each model: physics only. All models integrate to 1.">?</span></div>
           <select class="field" id="psfModel">${Object.entries(MODELS).map(([k, m]) => `<option value="${k}">${m.label}</option>`).join('')}</select>
           <div class="two" style="margin-top:6px;">
             <div><div class="label">α (nm)</div><input class="field" id="psfA" type="number" min="0.1" step="0.5"></div>
             <div><div class="label">β (µm)</div><input class="field" id="psfB" type="number" min="0.01" step="0.5"></div>
             <div><div class="label">η</div><input class="field" id="psfE" type="number" min="0" step="0.01"></div>
-            <div></div>
+            <div id="psfPBox"><div class="label">p (power, &gt; 1)</div><input class="field" id="psfP" type="number" min="1.01" step="0.05"></div>
           </div>
+          <div class="hint" id="psfSplineInfo" style="margin-top:6px;display:none;"></div>
           <div class="two" id="psfMidRow" style="margin-top:6px;">
             <div><div class="label" id="psfGLabel">γ (nm)</div><input class="field" id="psfG" type="number" min="1" step="10"></div>
             <div><div class="label">ν (weight) </div><input class="field" id="psfN" type="number" min="0" step="0.01"></div>
           </div>
+          <div class="row" style="margin-top:8px;gap:6px;align-items:center;flex-wrap:wrap;"><span class="label" style="margin:0;">Suggested values</span>
+            <select class="field" id="psfSugE" style="width:auto;">${SUGGESTED_ENERGIES.map((e) => `<option value="${e}">${e} keV</option>`).join('')}</select>
+            <button class="btn small" id="psfSugUse" title="Fill in this model's values from the Workbench's own Monte Carlo (100 nm PMMA on Si) at this energy">Use</button>
+            <span class="hint" id="psfSugNote"></span></div>
         </div>
         <div id="psfTable" style="margin-top:8px; display:none;">
           <div class="row"><button class="btn small" id="psfImport" title="A two-column table (radius, value) from any program, or a BEAMER / TRACER PSF file (.lpsf)">Import table / BEAMER PSF…</button><span class="hint" id="psfFile">no file</span></div>
           <div class="three" style="margin-top:6px;">
             <div><div class="label">Radius in</div><select class="field" id="psfRUnit">${['nm', 'um', 'A', 'mm'].map((u) => `<option value="${u}">${u === 'um' ? 'µm' : u === 'A' ? 'Å' : u}</option>`).join('')}</select></div>
-            <div><div class="label">Values are <span class="q" data-tip="<b>per area</b>: energy per unit area f(r) — use as is.<br><b>per radius</b>: dE/dr = 2πr f(r).<br><b>per annulus</b>: energy in each radial bin (histogram counts), as most Monte Carlo codes write them.<br><br>Getting this wrong is the commonest PSF import mistake — compare the plot with the notes' curve.">?</span></div><select class="field" id="psfVMode"><option value="per-area">per area</option><option value="per-radius">per radius</option><option value="per-annulus">per annulus</option></select></div>
+            <div><div class="label">Values are <span class="q" data-tip="<b>per area</b>: energy per unit area f(r) — use as is.<br><b>per radius</b>: dE/dr = 2πr f(r).<br><b>per annulus</b>: energy in each radial bin (histogram counts), as most Monte Carlo codes write them.<br><br>Getting this wrong is the commonest PSF import mistake — compare the plot with the analytic curve.">?</span></div><select class="field" id="psfVMode"><option value="per-area">per area</option><option value="per-radius">per radius</option><option value="per-annulus">per annulus</option></select></div>
             <div><div class="label">Bins</div><select class="field" id="psfBins"><option value="geometric">log-spaced</option><option value="arithmetic">linear</option></select></div>
           </div>
           <div class="label" style="margin-top:8px;">Fit model <span class="q" data-tip="The analytic model fitted to the table (least squares on log f, so every decade counts). The table below compares all three; the rms is of ln f, so 0.05 ≈ 5 % typical misfit.<br><br><b>Use the fit instead of the table</b> swaps the table for its fitted model: every term is then in closed form, which makes the exposure engine faster and exact instead of interpolating the table. Keep the table when the fit's rms is poor.">?</span></div>
@@ -87,7 +93,7 @@ export function createPsfTab(app) {
         <div id="psfMC" style="margin-top:8px; display:none;">
           <div class="two">
             <div><div class="label">Energy (keV)</div><input class="field" id="mcKeV" type="number" min="1" max="200" step="1"></div>
-            <div><div class="label">Beam + SE blur a (nm) <span class="q" data-tip="Each electron lands at a random point of a Gaussian spot e<sup>−r²/a²</sup> (the notes' convention). It stands in for the beam size and the secondary electrons the simulation does not follow, so it sets the α floor. 5–10 nm is typical.">?</span></div><input class="field" id="mcBeamA" type="number" min="0" step="1"></div>
+            <div><div class="label">Beam + SE blur a (nm) <span class="q" data-tip="Each electron lands at a random point of a Gaussian spot e<sup>−r²/a²</sup> (the convention used throughout: widths in exp(−r²/α²), not σ). It stands in for the beam size and the secondary electrons the simulation does not follow, so it sets the α floor. 5–10 nm is typical.">?</span></div><input class="field" id="mcBeamA" type="number" min="0" step="1"></div>
             <div><div class="label">Resist</div><select class="field" id="mcResist">${RESISTS.map((k) => `<option value="${k}">${esc(MATERIALS[k].name)}</option>`).join('')}</select></div>
             <div><div class="label">Resist thickness (nm)</div><input class="field" id="mcResistNm" type="number" min="1" step="10"></div>
             <div><div class="label">Film under the resist <span class="q" data-tip="An optional layer between resist and substrate, e.g. a Cr or Au film, or thermal oxide. Heavy films raise the backscatter (η) a lot.">?</span></div><select class="field" id="mcFilm"><option value="">none</option>${BULK.map((k) => `<option value="${k}">${esc(MATERIALS[k].name)}</option>`).join('')}</select></div>
@@ -154,9 +160,16 @@ export function createPsfTab(app) {
     $('psfEtaOv').value = s.mode === 'scaling' && s.eta != null ? s.eta : '';
     const q = psfParamsFor({ energyKeV: s.energyKeV ?? 100, substrate: s.substrate ?? 'Si', resistNm: s.resistNm ?? 100, alphaMinNm: s.alphaMinNm ?? 8 });
     $('psfA').value = +(s.alpha ?? q.alpha).toFixed(3); $('psfB').value = +((s.beta ?? q.beta) / 1000).toFixed(4);
-    $('psfE').value = s.eta ?? q.eta; $('psfG').value = s.gamma ?? ''; $('psfN').value = s.nu ?? '';
-    const model = modelOf(s);
+    $('psfE').value = s.eta ?? q.eta; $('psfG').value = s.gamma ?? ''; $('psfN').value = s.nu ?? ''; $('psfP').value = s.p ?? '';
+    const model = MODELS[s.model]?.table ? s.model : modelOf(s);
     $('psfModel').value = model;
+    const spl = model === 'spline';
+    for (const id of ['psfA', 'psfB', 'psfE']) $(id).closest('div').parentElement.style.display = spl ? 'none' : '';
+    $('psfPBox').style.display = model === 'plg' ? '' : 'none';
+    $('psfSplineInfo').style.display = spl ? '' : 'none';
+    if (spl) $('psfSplineInfo').innerHTML = s.knots?.length ? `${s.knots.length} knots${s.knotsFrom ? ` from ${esc(s.knotsFrom)}` : ''}, log f(r) from ${fmtLenNm(s.knots[0][0])} to ${fmtLenNm(s.knots[s.knots.length - 1][0])}. Choose an energy and press <b>Use</b> for the Monte Carlo knots.` : 'No knots yet: choose an energy and press <b>Use</b>.';
+    $('psfSugE').value = String(s.sugKeV ?? nearestSugE(s.energyKeV ?? mcSt().energyKeV ?? 100));
+    $('psfSugNote').textContent = `Monte Carlo, ${SUGGESTED.stack}`;
     $('psfMidRow').style.display = MODELS[model].mid ? '' : 'none';
     $('psfGLabel').textContent = MODELS[model].mid === 'exp' ? 'γ (nm, decay length of the exponential)' : 'γ (nm, width of the mid-range Gaussian)';
     for (const id of ['psfRUnit', 'psfVMode', 'psfBins']) $(id).disabled = false;
@@ -182,14 +195,22 @@ export function createPsfTab(app) {
     $('psfMC').style.display = s.mode === 'mc' ? '' : 'none';
   }
   const mcSt = () => { const s = st(); s.mcSettings = { ...MC_DEFAULTS, ...(s.mcSettings || {}) }; return s.mcSettings; };
+  const fmtLenNm = (nm) => (nm >= 1000 ? `${+(nm / 1000).toPrecision(3)} µm` : `${+nm.toPrecision(3)} nm`);
+  const nearestSugE = (keV) => SUGGESTED_ENERGIES.reduce((a, b) => (Math.abs(Math.log(b / keV)) < Math.abs(Math.log(a / keV)) ? b : a));
+  // fill the manual fields of a model from the Monte Carlo suggestion at an energy
+  function applySuggestion(model, keV) {
+    const s = st(), g = suggestionFor(model, keV);
+    s.model = model; s.sugKeV = g.energyKeV;
+    if (model === 'spline') { s.knots = g.knots.map((k) => [...k]); s.knotsFrom = `the Monte Carlo at ${g.energyKeV} keV`; }
+    else { s.alpha = g.alpha; s.beta = g.beta; s.eta = g.eta; s.gamma = g.gamma ?? null; s.nu = g.nu ?? 0; if (model === 'plg') s.p = g.p; }
+    return g.energyKeV;
+  }
 
   function commit(reason) { app.psfChanged(reason); render(); }
 
   $('psfMode').onchange = (e) => {
     const s = st();
-    if (e.target.value === 'manual' && !(s.alpha > 0)) {   // start manual from what is in use
-      const f = current?.fit; if (f) { s.alpha = f.alpha; s.beta = f.beta; s.eta = f.eta; }
-    }
+    if (e.target.value === 'manual' && !(s.alpha > 0) && !s.knots) applySuggestion(MODELS[s.model] ? s.model : 'double', s.energyKeV ?? mcSt().energyKeV ?? 100);   // start from the Monte Carlo suggestion
     if (e.target.value === 'table' && !s.table) toast('Import a two-column table (radius, value). Until then the previous PSF stays in use.');
     if (e.target.value === 'mc' && !s.mc) toast('Set up the stack and press <b>Run Monte Carlo</b>. Until a run finishes, the PSF from beam energy &amp; substrate stays in use.', 5000);
     s.mode = e.target.value;
@@ -204,21 +225,16 @@ export function createPsfTab(app) {
     commit('PSF energy/substrate');
   };
   $('psfSub').onchange = () => { st().substrate = $('psfSub').value; commit('substrate'); };
-  for (const id of ['psfA', 'psfB', 'psfE', 'psfG', 'psfN']) $(id).oninput = () => {
+  for (const id of ['psfA', 'psfB', 'psfE', 'psfG', 'psfN', 'psfP']) $(id).oninput = () => {
     const s = st();
     s.alpha = Math.max(0.1, num('psfA') ?? 8); s.beta = Math.max(10, (num('psfB') ?? 30) * 1000); s.eta = Math.max(0, num('psfE') ?? 0.7);
-    s.gamma = num('psfG'); s.nu = num('psfN') ?? 0;
+    s.gamma = num('psfG'); s.nu = num('psfN') ?? 0; s.p = Math.max(1.01, num('psfP') ?? 2);
     commit('manual PSF');
   };
-  $('psfModel').onchange = (e) => {
-    const s = st();
-    s.model = e.target.value;
-    if (MODELS[s.model].mid && !(s.gamma > 0)) {   // sensible mid-range start: 5 % at the geometric mean of α and β
-      s.gamma = Math.round(Math.sqrt((s.alpha || 8) * (s.beta || 30000)));
-      s.nu = s.nu > 0 ? s.nu : 0.05;
-    }
-    syncFields(); commit('PSF model');
-  };
+  // a new model starts from its Monte Carlo suggestion at the chosen energy
+  $('psfModel').onchange = (e) => { const E = applySuggestion(e.target.value, +$('psfSugE').value); syncFields(); commit('PSF model'); toast(`${MODELS[e.target.value].label}: suggested values from the Monte Carlo at ${E} keV (${SUGGESTED.stack}).`, 3500); };
+  $('psfSugE').onchange = () => { st().sugKeV = +$('psfSugE').value; };
+  $('psfSugUse').onclick = () => { const E = applySuggestion($('psfModel').value, +$('psfSugE').value); syncFields(); commit('PSF suggestion'); toast(`Suggested values from the Monte Carlo at ${E} keV.`); };
 
   function storeTable(psf, name, model, source) {
     psf.fit = fitGaussians(psf, { model });
@@ -251,7 +267,7 @@ export function createPsfTab(app) {
       const o = tableOpts(); delete o.valueMode;          // a fresh file: let the importer guess the value mode
       const guess = importWith(text, name, o);
       syncFields(); commit('PSF imported');
-      toast(`Imported <b>${esc(name)}</b> — values read as <b>${guess.mode}</b>${guess.confident ? '' : ' (a guess: check the plot against the notes curve)'}.`, 5000);
+      toast(`Imported <b>${esc(name)}</b> — values read as <b>${guess.mode}</b>${guess.confident ? '' : ' (a guess: check the plot against the analytic curve)'}.`, 5000);
     } catch (e) { alert(`Could not import ${name}:\n${e.message}`); }
   }, { binary: isBeamerName });
   for (const id of ['psfRUnit', 'psfVMode', 'psfBins', 'psfFitModel']) $(id).onchange = () => {
@@ -414,16 +430,16 @@ export function createPsfTab(app) {
   function curves() {
     const out = [{ psf: current, color: '#111', width: 2, label: 'in use' }];
     const s = st();
-    if (!current.gauss && current.fit) out.push({ fn: (r) => current.fit.amplitude * gaussAt(current.fit.terms, r), color: '#d13', dash: [6, 4], width: 1.5, label: `fit: ${MODELS[current.fit.model]?.short || 'DG'}` });
+    if (!current.gauss && current.fit && current.fit.amplitude != null) out.push({ fn: (r) => current.fit.amplitude * gaussAt(current.fit.terms, r), color: '#d13', dash: [6, 4], width: 1.5, label: `fit: ${MODELS[current.fit.model]?.short || 'DG'}` });
     else if (s.mode === 'table' && s.table?.useFit && s.table.r?.length) out.push({ psf: makePSF({ r: s.table.r, f: s.table.f }), color: '#d13', dash: [6, 4], width: 1.5, label: 'the table itself' });
     else if (s.mode === 'mc' && s.mc?.useFit && s.mc.r?.length) out.push({ psf: makePSF({ r: s.mc.r, f: s.mc.f }), color: '#d13', dash: [6, 4], width: 1.5, label: 'the simulated table' });
     if (live) out.push({ psf: live, color: '#e08a00', width: 2, label: `Monte Carlo running (${live.meta.electrons} e⁻)` });
-    // reference: the notes' PSF for the same energy and substrate (the MC's when in MC mode)
+    // reference: the analytic PSF for the same energy and substrate (the MC's when in MC mode)
     const mcs = s.mode === 'mc' ? mcSt() : null;
     const refE = mcs ? mcs.energyKeV : s.energyKeV ?? 100, refS = mcs ? mcs.substrate : s.substrate ?? 'Si';
     if (s.mode !== 'scaling' && SUBSTRATES[refS]) {
       const ref = makeAnalyticFor({ energyKeV: refE, substrate: refS, resistNm: mcs ? mcs.resistNm : s.resistNm ?? 100 });
-      out.push({ psf: ref, color: '#2a9d5b', width: 1.5, dash: [2, 3], label: `notes, ${refE} keV ${refS}` });
+      out.push({ psf: ref, color: '#2a9d5b', width: 1.5, dash: [2, 3], label: `analytic, ${refE} keV ${refS}` });
     }
     compare.forEach((c, i) => out.push({ psf: c.psf, color: COMPARE_COLORS[i], width: 1.5, label: c.label }));
     return out;
@@ -522,14 +538,19 @@ export function createPsfTab(app) {
     try { current = psfFromSettings(st()); } catch (e) { $('psfSummary').innerHTML = `<span style="color:#c00">${esc(e.message)}</span>`; return; }
     const s = st(), f = current.fit, sp = splitPSF(current);
     const q = psfParamsFor({ energyKeV: s.energyKeV ?? 100, substrate: s.substrate ?? 'Si', resistNm: s.resistNm ?? 100, alphaMinNm: s.alphaMinNm ?? 8 });
-    $('psfScalingNote').innerHTML = `β from Figure 17 (${esc(SUBSTRATES[s.substrate ?? 'Si'].points.filter((p) => p.use).map((p) => `${p.E} kV: ${p.betaUm} µm`).join(', '))}, β ∝ E<sup>1.7</sup> between/outside); forward broadening d = ${(0.9 * ((s.resistNm ?? 100) / (s.energyKeV ?? 100)) ** 1.5).toFixed(2)} nm (Eq. 2.17) → α = ${q.alpha.toFixed(2)} nm.`;
+    $('psfScalingNote').innerHTML = `β from published data (Owen 1990 et al.: ${esc(SUBSTRATES[s.substrate ?? 'Si'].points.filter((p) => p.use).map((p) => `${p.E} kV: ${p.betaUm} µm`).join(', '))}, β ∝ E<sup>1.7</sup> between/outside); forward broadening d = ${(0.9 * ((s.resistNm ?? 100) / (s.energyKeV ?? 100)) ** 1.5).toFixed(2)} nm → α = ${q.alpha.toFixed(2)} nm.`;
     const warn = s.mode === 'table' && s.table?.warnings?.length ? `<br><span style="color:#a60">${s.table.warnings.map(esc).join('<br>')}</span>` : '';
     const model = MODELS[f.model] || MODELS[f.gamma ? 'triple' : 'double'];
-    const how = current.meta.source === 'fit' ? ` <span class="pill">fit of the table, rms ${(100 * f.rms).toFixed(1)} %</span>` : current.gauss ? '' : ` <span class="pill">table; fit rms ${(100 * f.rms).toFixed(1)} %</span>`;
+    const spl = f.model === 'spline', manualTable = current.meta.source === 'manual' && model.table;
+    const how = current.meta.source === 'fit' ? ` <span class="pill">fit of the table, rms ${(100 * f.rms).toFixed(1)} %</span>`
+      : manualTable ? ` <span class="pill">${spl && current.meta.knotsFrom ? `knots from ${esc(current.meta.knotsFrom)}` : 'manual'}</span>`
+      : current.gauss ? '' : ` <span class="pill">table; fit rms ${(100 * f.rms).toFixed(1)} %</span>`;
     const gTxt = f.gamma ? `, γ = ${f.gamma >= 1000 ? (f.gamma / 1000).toFixed(2) + ' µm' : f.gamma.toFixed(1) + ' nm'}, ν = ${f.nu.toFixed(3)}` : '';
-    $('psfSummary').innerHTML = `<span class="pill">${esc(model.label)}</span>${how}<br><b>α = ${f.alpha.toFixed(2)} nm</b>, <b>β = ${(f.beta / 1000).toFixed(3)} µm</b>, <b>η = ${f.eta.toFixed(3)}</b>${gTxt}<br>`
-      + `forward share 1/(1+η${f.gamma ? '+ν' : ''}) = ${(1 / (1 + f.eta + (f.gamma ? f.nu : 0))).toFixed(3)} · short range up to ${(sp.rMaxSR / 1000).toFixed(2)} µm, long range on a β/8 grid`
-      + `<br><span style="color:#888">The old Pattern Studio used σ = α/√2, β/√2: σ<sub>α</sub> = ${(f.alpha / Math.SQRT2).toFixed(2)} nm, σ<sub>β</sub> = ${(f.beta / Math.SQRT2 / 1000).toFixed(2)} µm.</span>${warn}`;
+    const params = spl ? `<b>${f.knots?.length ?? '?'} knots</b>; as a double Gaussian ≈ α ${f.alpha.toFixed(2)} nm, β ${(f.beta / 1000).toFixed(3)} µm, η ${f.eta.toFixed(3)}`
+      : `<b>α = ${f.alpha.toFixed(2)} nm</b>${f.model === 'plg' ? `, <b>p = ${f.p.toFixed(2)}</b>` : ''}, <b>β = ${(f.beta / 1000).toFixed(3)} µm</b>, <b>η = ${f.eta.toFixed(3)}</b>${gTxt}`;
+    $('psfSummary').innerHTML = `<span class="pill">${esc(model.label)}</span>${how}<br>${params}<br>`
+      + `forward share 1/(1+η${f.gamma ? '+ν' : ''}) ${spl ? '≈' : '='} ${(1 / (1 + f.eta + (f.gamma ? f.nu : 0))).toFixed(3)} · short range up to ${(sp.rMaxSR / 1000).toFixed(2)} µm, long range on a β/8 grid`
+      + (model.table ? '' : `<br><span style="color:#888">The old Pattern Studio used σ = α/√2, β/√2: σ<sub>α</sub> = ${(f.alpha / Math.SQRT2).toFixed(2)} nm, σ<sub>β</sub> = ${(f.beta / Math.SQRT2 / 1000).toFixed(2)} µm.</span>`) + warn;
     // table and MC modes: all three models side by side, so the choice is informed
     const tab = s.mode === 'table' ? s.table : s.mode === 'mc' ? s.mc : null;
     const tabBox = s.mode === 'mc' ? 'mcFitTable' : 'psfFitTable';
