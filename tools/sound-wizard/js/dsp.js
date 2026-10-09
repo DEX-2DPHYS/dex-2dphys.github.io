@@ -21,9 +21,12 @@ export class RealFFT {
     this.cn = new Float64Array(m + 1); this.sn = new Float64Array(m + 1);
     for (let k = 0; k <= m; k++) { this.cn[k] = Math.cos(2 * Math.PI * k / n); this.sn[k] = -Math.sin(2 * Math.PI * k / n); }
   }
-  // x: n samples (already windowed). out: n/2 + 1 values of |X[k]|². Also keeps re/im of X in
-  // this.xr / this.xi when keepComplex is set (the tuner and tone analysis use the phase-free power only).
-  power(x, out) {
+  // x: n samples (already windowed). out: n/2 + 1 values of |X[k]|².
+  power(x, out) { this.run(x, out, false); }
+  // the real part of X[k], k = 0 … n/2 (for an even input, such as a power spectrum, X is real: this
+  // is how the pitch tracker turns a power spectrum back into an autocorrelation)
+  realPart(x, out) { this.run(x, out, true); }
+  run(x, out, realOnly) {
     const { m, re, im, rev, cm, sm } = this;
     for (let i = 0; i < m; i++) { const j = rev[i]; re[j] = x[2 * i]; im[j] = x[2 * i + 1]; }
     for (let size = 2; size <= m; size <<= 1) {
@@ -45,9 +48,131 @@ export class RealFFT {
       const or = (zi - wi) * 0.5, oi = -(zr - wr) * 0.5;
       const c = cn[k], s = sn[k];
       const xr = er + or * c - oi * s, xi = ei + or * s + oi * c;
-      out[k] = xr * xr + xi * xi;
+      out[k] = realOnly ? xr : xr * xr + xi * xi;
     }
   }
+}
+
+// ------------------------------------------------------------------------------- pitch (MPM)
+// McLeod pitch method: the normalised square difference function n(τ) = 2r(τ)/m(τ), with the
+// autocorrelation r from an FFT of the zero-padded window (two FFTs of 2W instead of W² products) and
+// m from running sums. The first "key maximum" within 90 % of the highest is the period: this picks the
+// fundamental, not a strong second harmonic, and does not jump octaves. Parabolic interpolation gives
+// the period to a fraction of a sample (well under a cent for the guitar's range).
+export class PitchMPM {
+  constructor(W) {
+    this.W = W;
+    this.fft = new RealFFT(2 * W);
+    this.x = new Float64Array(W);
+    this.buf = new Float64Array(2 * W);
+    this.pow = new Float32Array(W + 1);
+    this.pfull = new Float64Array(2 * W);
+    this.r = new Float64Array(W + 1);
+    this.sq = new Float64Array(W + 1);
+    this.nsdf = new Float64Array(W + 1);
+  }
+  detect(ring, mask, end, sr, fmin, fmax) {
+    const W = this.W, x = this.x;
+    let mean = 0;
+    for (let i = 0; i < W; i++) { x[i] = ring[(end - W + i) & mask]; mean += x[i]; }
+    mean /= W;
+    let e = 0;
+    for (let i = 0; i < W; i++) { x[i] -= mean; e += x[i] * x[i]; }
+    const rms = Math.sqrt(e / W);
+    if (rms < 1e-5) return { f: NaN, clarity: 0, rms };
+    const buf = this.buf;
+    buf.fill(0, W); buf.set(x);
+    this.fft.power(buf, this.pow);
+    const P = this.pfull, N = 2 * W;
+    for (let k = 0; k <= W; k++) P[k] = this.pow[k];
+    for (let k = 1; k < W; k++) P[N - k] = this.pow[k];
+    this.fft.realPart(P, this.r);
+    const sq = this.sq;
+    sq[0] = 0;
+    for (let i = 0; i < W; i++) sq[i + 1] = sq[i] + x[i] * x[i];
+    const tmin = Math.max(2, Math.floor(sr / fmax)), tmax = Math.min(W >> 1, Math.ceil(sr / fmin));
+    const n = this.nsdf;
+    for (let t = 0; t <= tmax + 1; t++) {
+      const m = sq[W - t] + (sq[W] - sq[t]);
+      n[t] = m > 0 ? 2 * (this.r[t] / N) / m : 0;
+    }
+    // key maxima: the highest point of each positive region after the first dip below zero
+    let seenNeg = false, inPos = false, curT = -1, curV = -1, best = 0;
+    const keys = [];
+    for (let t = 1; t <= tmax; t++) {
+      const v = n[t];
+      if (!seenNeg) { if (v < 0) seenNeg = true; continue; }
+      if (v > 0) {
+        if (!inPos) { inPos = true; curV = -1; }
+        if (v > curV) { curV = v; curT = t; }
+      } else if (inPos) {
+        inPos = false;
+        if (curT >= tmin) { keys.push(curT); if (curV > best) best = curV; }
+      }
+    }
+    if (inPos && curT >= tmin && curT < tmax) { keys.push(curT); if (curV > best) best = curV; }
+    if (!keys.length) return { f: NaN, clarity: 0, rms };
+    const thr = 0.9 * best;
+    const t = keys.find(k => n[k] >= thr);
+    const a = n[t - 1], b = n[t], c = n[t + 1], d = a - 2 * b + c;
+    const dt = d < 0 ? 0.5 * (a - c) / d : 0;
+    return { f: sr / (t + dt), clarity: Math.min(1, b - 0.25 * (a - c) * dt), rms };
+  }
+}
+
+// ------------------------------------------------------------------- chroma, key and chord
+// 12-note profile from the peaks of a power spectrum (each peak's amplitude added to its pitch class)
+export function chromaFromSpectrum(pow, df, a4, out, fmin = 55, fmax = 5000) {
+  out.fill(0);
+  const k0 = Math.max(2, Math.floor(fmin / df)), k1 = Math.min(pow.length - 2, Math.ceil(fmax / df));
+  let mx = 0;
+  for (let k = k0; k <= k1; k++) if (pow[k] > mx) mx = pow[k];
+  const floor = mx * 1e-5; // 50 dB below the strongest peak
+  let tot = 0;
+  for (let k = k0; k <= k1; k++) {
+    const p = pow[k];
+    if (p < floor || p < pow[k - 1] || p < pow[k + 1]) continue;
+    const q = peakInterp(pow, k), f = q.k * df;
+    const pc = ((Math.round(12 * Math.log2(f / a4)) % 12) + 12 + 9) % 12; // 0 = C
+    const amp = Math.sqrt(p);
+    out[pc] += amp; tot += amp;
+  }
+  if (tot > 0) for (let i = 0; i < 12; i++) out[i] /= tot;
+  return tot;
+}
+const KK_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const KK_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+function pearson(a, b, rot) {
+  let ma = 0, mb = 0;
+  for (let i = 0; i < 12; i++) { ma += a[i]; mb += b[i]; }
+  ma /= 12; mb /= 12;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < 12; i++) { const x = a[(i + rot) % 12] - ma, y = b[i] - mb; num += x * y; da += x * x; db += y * y; }
+  return da > 0 && db > 0 ? num / Math.sqrt(da * db) : 0;
+}
+// Krumhansl–Kessler key profiles: the best of 24 keys, and how clearly it beats the runner-up
+export function estimateKey(chroma) {
+  const res = [];
+  for (let r = 0; r < 12; r++) { res.push({ root: r, mode: 'major', score: pearson(chroma, KK_MAJOR, r) }); res.push({ root: r, mode: 'minor', score: pearson(chroma, KK_MINOR, r) }); }
+  res.sort((a, b) => b.score - a.score);
+  return { ...res[0], margin: res[0].score - res[1].score };
+}
+const CHORDS = [['', [0, 4, 7]], ['m', [0, 3, 7]], ['7', [0, 4, 7, 10]], ['maj7', [0, 4, 7, 11]], ['m7', [0, 3, 7, 10]],
+  ['dim', [0, 3, 6]], ['aug', [0, 4, 8]], ['sus2', [0, 2, 7]], ['sus4', [0, 5, 7]], ['5', [0, 7]]];
+export function estimateChord(chroma) {
+  let norm = 0;
+  for (let i = 0; i < 12; i++) norm += chroma[i] * chroma[i];
+  norm = Math.sqrt(norm) || 1;
+  let best = null;
+  for (let r = 0; r < 12; r++) for (const [name, iv] of CHORDS) {
+    let dot = 0;
+    const w = iv.map((_, j) => (j === 0 ? 1.15 : 1)); // the root counts a little more
+    let wn = 0;
+    iv.forEach((d, j) => { dot += chroma[(r + d) % 12] * w[j]; wn += w[j] * w[j]; });
+    const score = dot / (norm * Math.sqrt(wn)) - (iv.length === 2 ? 0.08 : 0) - (iv.length === 4 ? 0.02 : 0);
+    if (!best || score > best.score) best = { root: r, name, score };
+  }
+  return best;
 }
 
 // Hann window (periodic) and the factor that makes a sine of amplitude 1 read 0 dB in its bin
