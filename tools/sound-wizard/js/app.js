@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2222';
-import { CMAP_NAMES } from './dsp.js?v=20261009.2222';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2234';
+import { CMAP_NAMES } from './dsp.js?v=20261009.2234';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -176,14 +176,34 @@ function action(act) {
 }
 
 // --------------------------------------------------------------------------------------- views
+// two rooms of tabs: Musician and Sound. The tone generator is not a tab: it is always at hand in the
+// top bar (the drawer), and the full keyboard is a screen of its own.
+const ROOMS = { musician: ['tuner', 'tone', 'rhythm'], sound: ['meter', 'spec', 'scope'] };
+const roomOf = v => Object.keys(ROOMS).find(r => ROOMS[r].includes(v));
+let prevView = 'meter';
+function showRoom(room) {
+  S.room = room;
+  for (const b of $$('#tabs button')) b.hidden = b.dataset.room !== room;
+  for (const b of $$('#room button')) b.classList.toggle('on', b.dataset.room === room);
+}
 function showView(view) {
-  S.view = view; save();
+  if (view === 'gen' && S.view !== 'gen') prevView = S.view;
+  S.view = view;
+  const r = roomOf(view);
+  if (r) showRoom(r);
+  save();
   for (const s of $$('.view')) s.classList.toggle('on', s.dataset.view === view);
   for (const b of $$('#tabs button')) b.classList.toggle('on', b.dataset.view === view);
   send({ type: 'set', key: 'view', value: view });
   sendSize($(`.view[data-view="${view}"] canvas`));
 }
 for (const b of $$('#tabs button')) b.addEventListener('click', () => showView(b.dataset.view));
+// switching room opens the view last used in it
+for (const b of $$('#room button')) b.addEventListener('click', () => {
+  const r = b.dataset.room, cur = S.view === 'gen' ? prevView : S.view;
+  S.lastIn = { ...(S.lastIn || {}), [roomOf(cur) || S.room]: cur };
+  showView((S.lastIn[r] && ROOMS[r].includes(S.lastIn[r])) ? S.lastIn[r] : ROOMS[r][0]);
+});
 for (const g of $$('.gear')) g.addEventListener('click', () => { const sh = g.parentElement.querySelector('.sheet'); sh.classList.toggle('open'); g.classList.toggle('on', sh.classList.contains('open')); });
 
 // canvas sizes (CSS px; the engine multiplies by the pixel ratio, capped at 2: a 3× iPhone screen
@@ -235,7 +255,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.2222', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.2234', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -252,7 +272,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.2222');
+    const { Engine } = await import('./engine.js?v=20261009.2234');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -274,7 +294,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2222');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2234');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
@@ -451,6 +471,11 @@ function genSync() {
   const pos = Math.round(1000 * Math.log(clampN(S.genHz, 10, 20000) / 10) / Math.log(2000));
   if (document.activeElement !== $('#genHzIn')) $('#genHzIn').value = +S.genHz.toFixed(2);
   $('#genHzSlider').value = pos;
+  $('#dwMain').textContent = $('#genMain').textContent; $('#dwSub').textContent = $('#genSub').textContent;
+  for (const b of $$('#dwWave button')) b.classList.toggle('on', b.dataset.val === S.genWave);
+  $('#dwLevel').value = S.genLevel; $('#dwLevelVal').textContent = `${S.genLevel} dBFS`;
+  $('#dwPlay').classList.toggle('on', G.playing); $('#dwPlay').textContent = G.playing ? '■ Stop' : '▶ Play';
+  $('#genBtn').classList.toggle('on', G.playing);
   $('#genPlay').classList.toggle('on', G.playing);
   $('#genPlay').textContent = G.playing ? '■ Stop' : '▶ Play';
 }
@@ -473,6 +498,18 @@ for (const k of $$('#keys button')) k.addEventListener('pointerdown', e => {
   genSet('genMidi', 12 * Math.floor(S.genMidi / 12) + +k.dataset.m);
   if (!G.playing) genStart();
 });
+// the drawer: a small generator in the top bar, on every screen
+const drawer = $('#genDrawer'), openDrawer = on => { drawer.hidden = !on; $('#genBtn').classList.toggle('open', on); };
+$('#genBtn').addEventListener('click', e => { e.stopPropagation(); openDrawer(drawer.hidden); });
+document.addEventListener('pointerdown', e => { if (!drawer.hidden && !drawer.contains(e.target) && !$('#genBtn').contains(e.target)) openDrawer(false); });
+$('#dwPlay').addEventListener('click', () => (G.playing ? genStop() : genStart()));
+for (const b of $$('#dwWave button')) b.addEventListener('click', () => genSet('genWave', b.dataset.val));
+$('#dwLevel').addEventListener('input', e => genSet('genLevel', +e.target.value));
+const step = d => { if (S.genMode === 'note') genSet('genMidi', clampN(S.genMidi + d, 12, 120)); else genSet('genHz', clampN(S.genHz * Math.pow(2, d / 12), 0.1, 24000)); };
+$('#dwDown').addEventListener('click', () => step(-1));
+$('#dwUp').addEventListener('click', () => step(1));
+$('#dwFull').addEventListener('click', () => { openDrawer(false); showView('gen'); });
+$('#genBack').addEventListener('click', () => showView(prevView));
 genSync();
 
 // ---------------------------------------------------------------------------------- offline (installed app)
@@ -507,4 +544,4 @@ $('#genOnly').addEventListener('click', () => { $('#overlay').hidden = true; sho
 $('#overlayBack')?.addEventListener('click', () => { if (!running) $('#overlay').hidden = false; });
 
 buildControls();
-showView(['meter', 'spec', 'scope', 'tuner', 'tone', 'rhythm', 'gen'].includes(S.view) ? S.view : 'meter');
+showView(roomOf(S.view) ? S.view : 'meter');

@@ -84,8 +84,33 @@ input[type=range] { flex: 1; min-width: 0; accent-color: var(--cyan); height: 30
 #err { color: var(--amber); font-size: 13px; min-height: 1em; }
 .linkbtn { background: none; border: 0; color: var(--text); text-decoration: underline; font-size: 13px; margin-top: 4px; }
 
-/* tabs: seven fit a phone at 10.5 px */
-#tabs button { font-size: 10.5px; }
+/* tabs: four per room */
+#tabs button { font-size: 11px; }
+#tabs button[hidden] { display: none; }
+
+/* the room switch in the top bar, and the generator drawer */
+#room { flex: 1; max-width: 230px; margin: 0 auto 0 4px; }
+#room button { padding: 7px 4px; font-size: 13px; }
+.hbtn { width: 36px; }
+#genBtn svg { fill: none; stroke-width: 2; }
+#genBtn.on { background: var(--magenta); border-color: var(--magenta); color: #fff; animation: pulse 1.4s ease-in-out infinite; }
+#genBtn.open { border-color: var(--cyan); color: var(--cyan); }
+@keyframes pulse { 50% { opacity: .55; } }
+#genDrawer { position: fixed; z-index: 9; right: 8px; top: calc(env(safe-area-inset-top) + 50px); width: min(94vw, 340px); padding: 12px;
+  border-radius: 16px; background: rgba(9, 14, 22, .97); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, .6);
+  display: flex; flex-direction: column; gap: 10px; }
+.dw-top { display: flex; align-items: center; gap: 10px; }
+.dw-top .act { width: 52px; height: 52px; font-size: 26px; padding: 0; }
+.dw-disp { flex: 1; text-align: center; }
+#dwMain { font: 700 34px/1.05 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: var(--bright); }
+#dwSub { font: 600 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--cyan); margin-top: 3px; }
+#genDrawer .seg button { padding: 10px 4px; font-size: 14px; }
+#genDrawer .row { margin: 0; }
+.dw-bot { display: flex; gap: 8px; }
+.dw-bot .bigplay { flex: 1; padding: 13px; font-size: 17px; }
+.dw-bot .act { font-size: 13px; }
+.genback { align-self: flex-start; }
+@media (max-width: 560px) { .brand span { display: none; } #status { display: none; } }
 
 /* the iPhone "Add to Home Screen" hint */
 #hint { position: fixed; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 66px); z-index: 8; padding: 12px 40px 12px 14px;
