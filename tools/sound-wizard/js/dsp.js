@@ -115,8 +115,9 @@ export class PitchMPM {
     const thr = 0.9 * best;
     const t = keys.find(k => n[k] >= thr);
     const a = n[t - 1], b = n[t], c = n[t + 1], d = a - 2 * b + c;
-    const dt = d < 0 ? 0.5 * (a - c) / d : 0;
-    return { f: sr / (t + dt), clarity: Math.min(1, b - 0.25 * (a - c) * dt), rms };
+    // the refinement is only valid within half a sample of the maximum; a near-flat top would send it anywhere
+    const dt = d < 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / d)) : 0;
+    return { f: sr / (t + dt), clarity: Math.max(0, Math.min(1, b - 0.25 * (a - c) * dt)), rms };
   }
 }
 
@@ -278,7 +279,7 @@ export function peakInterp(pow, k) {
   const a = Math.log(pow[k - 1] + 1e-30), b = Math.log(pow[k] + 1e-30), c = Math.log(pow[k + 1] + 1e-30);
   const d = a - 2 * b + c;
   if (d >= 0) return { k, db: 10 * Math.log10(pow[k] + 1e-30) };
-  const p = 0.5 * (a - c) / d;
+  const p = Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / d)); // never beyond the neighbouring bins
   return { k: k + p, db: (10 / Math.LN10) * (b - 0.25 * (a - c) * p) };
 }
 

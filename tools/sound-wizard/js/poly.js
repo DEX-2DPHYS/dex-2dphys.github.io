@@ -50,7 +50,7 @@ export function pulseCandidates(o, fr, { bpmMin = 40, bpmMax = 240, prior = 120 
   }
   const peaks = [];
   for (let L = Lmin + 1; L < Lmax; L++) if (sc[L] >= sc[L - 1] && sc[L] > sc[L + 1] && sc[L] > 0) {
-    const a = sc[L - 1], b = sc[L], c = sc[L + 1], d = a - 2 * b + c, dl = d < 0 ? 0.5 * (a - c) / d : 0;
+    const a = sc[L - 1], b = sc[L], c = sc[L + 1], d = a - 2 * b + c, dl = d < 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / d)) : 0;
     peaks.push({ L: L + dl, bpm: 60 * fr / (L + dl), score: b, acf: acf[L] });
   }
   peaks.sort((x, y) => y.score - x.score);

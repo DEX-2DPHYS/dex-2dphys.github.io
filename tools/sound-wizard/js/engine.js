@@ -5,9 +5,9 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.1812';
-import { analysePoly } from './poly.js?v=20261009.1812';
-import { describePolyrhythm, METERS } from './notation.js?v=20261009.1812';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2153';
+import { analysePoly } from './poly.js?v=20261009.2153';
+import { describePolyrhythm, METERS } from './notation.js?v=20261009.2153';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -421,7 +421,7 @@ export class Engine {
       if (sc > best) { best = sc; bestL = L; }
     }
     const a = acf[bestL - 1], b = acf[bestL], cc = acf[bestL + 1], d = a - 2 * b + cc;
-    const Lf = bestL + (d < 0 ? 0.5 * (a - cc) / d : 0);
+    const Lf = bestL + (d < 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - cc) / d)) : 0);
     const bpm = 60 * fr / Lf;
     R.conf = Math.max(0, Math.min(1, b));
     // follow small drifts smoothly; a new tempo has to show up twice before it replaces the old one
@@ -466,7 +466,7 @@ export class Engine {
       for (let j = k - 1; j >= Math.max(1, k - span) && A[j] <= A[k]; j--) lmin = Math.min(lmin, A[j]);
       for (let j = k + 1; j <= Math.min(m, k + span) && A[j] <= A[k]; j++) rmin = Math.min(rmin, A[j]);
       if (A[k] - Math.max(lmin, rmin) < 8) continue;
-      const a = A[k - 1], b = A[k], c = A[k + 1], d = a - 2 * b + c, dk = d < 0 ? 0.5 * (a - c) / d : 0;
+      const a = A[k - 1], b = A[k], c = A[k + 1], d = a - 2 * b + c, dk = d < 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / d)) : 0;
       cand.push({ f: (k + dk) * df, db: b - 0.25 * (a - c) * dk });
     }
     cand.sort((x, y) => y.db - x.db);
@@ -1149,6 +1149,7 @@ export class Engine {
 
   // a history strip: 'cents' (−50 … +50 around the target) or 'notes' (a note grid around the recent pitch)
   drawTrace(ctx, x, y, gw, gh, dpr, kind) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x - 1, y - 1, gw + 2, gh + 16 * dpr); ctx.clip();
     ctx.fillStyle = C.panel; ctx.fillRect(x, y, gw, gh);
     const n = HIST, data = kind === 'cents' ? this.hCents : this.hMidi;
     let lo, hi, Y;
@@ -1188,6 +1189,7 @@ export class Engine {
       ctx.fillStyle = 'rgba(5,7,11,0.6)';
       for (let i = 0; i < n; i++) if (this.hAtk[(this.hI + i) % n]) ctx.fillRect(x + gw * i / (n - 1) - gw / n, y, gw / n * 2, gh);
     }
+    ctx.restore();
   }
 
   // ----------------------------------------------------------------------------------- tone
