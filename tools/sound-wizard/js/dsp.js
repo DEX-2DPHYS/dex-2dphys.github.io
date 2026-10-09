@@ -157,6 +157,95 @@ export function estimateKey(chroma) {
   res.sort((a, b) => b.score - a.score);
   return { ...res[0], margin: res[0].score - res[1].score };
 }
+// ------------------------------------------------------------------- chords, overtone-aware
+// A real strummed chord is not three pure notes: each string brings its overtones (the 3rd is a fifth
+// up, the 5th a major third, the 7th a flat seventh), and on a thin unplugged string or a phone mic the
+// overtones can outweigh the fundamentals. So (1) the spectrum is levelled (each peak measured against
+// its surroundings, a third of an octave wide, so weak low strings still count), (2) the chord patterns
+// compared with include the overtones each chord tone brings, and (3) everything since the last strum is
+// gathered (the start of a new strum clears it), instead of judging the latest 85 ms.
+const OVERTONE_PC = [0, 0, 7, 0, 4, 7, 10, 0]; // pitch class of harmonics 1–8 relative to the note
+export const CHORD_TYPES = [['', [0, 4, 7]], ['m', [0, 3, 7]], ['7', [0, 4, 7, 10]], ['maj7', [0, 4, 7, 11]], ['m7', [0, 3, 7, 10]],
+  ['dim', [0, 3, 6]], ['aug', [0, 4, 8]], ['sus2', [0, 2, 7]], ['sus4', [0, 5, 7]], ['5', [0, 7]], ['6', [0, 4, 7, 9]], ['m6', [0, 3, 7, 9]]];
+export class ChordListener {
+  constructor(sr, N, a4 = 440, opts = {}) {
+    this.df = sr / N; this.a4 = a4;
+    // tuned on strummed Karplus–Strong chords coloured like an unplugged electric at a phone (tests/chord-search.mjs)
+    this.s = opts.s ?? 0.8;              // how slowly the overtones fade in the patterns
+    this.fmax = opts.fmax ?? 800;        // peaks above this are mostly high overtones: left out
+    this.weight = opts.weight ?? 'log';  // a peak counts by the log of how far it stands out
+    this.hmax = opts.hmax ?? 4;          // overtones modelled per chord tone
+    this.bassAcc = new Float64Array(12);
+    this.leak = opts.leak ?? 0.97;       // older frames fade (~3 s): chords played without new strums still change
+    this.acc = new Float64Array(12); this.n = 0; this.res = null;
+    this.templates = [];
+    for (let r = 0; r < 12; r++) for (const [name, iv] of CHORD_TYPES) {
+      const T = new Float64Array(12);
+      for (const d of iv) for (let h = 0; h < Math.min(this.hmax, OVERTONE_PC.length); h++) T[(r + d + OVERTONE_PC[h]) % 12] += Math.pow(this.s, h);
+      let nrm = 0;
+      for (let i = 0; i < 12; i++) nrm += T[i] * T[i];
+      nrm = Math.sqrt(nrm);
+      for (let i = 0; i < 12; i++) T[i] /= nrm;
+      this.templates.push({ root: r, name, T, size: iv.length });
+    }
+    this.chroma = new Float32Array(12);
+  }
+  onset() { this.acc.fill(0); this.bassAcc.fill(0); this.n = 0; }   // a new strum: start over
+  // one spectrum (power, N/2 + 1 bins): add its levelled 12-note profile, return the chord so far
+  add(pow) {
+    const df = this.df, k0 = Math.max(2, Math.floor(60 / df)), k1 = Math.min(pow.length - 2, Math.ceil(this.fmax / df));
+    const m = new Float64Array(k1 + 2), pre = new Float64Array(k1 + 3);
+    for (let k = 1; k <= k1 + 1; k++) { m[k] = Math.sqrt(pow[k]); pre[k + 1] = pre[k] + m[k]; }
+    const ch = this.chroma, low = [];
+    ch.fill(0);
+    let tot = 0;
+    const r6 = Math.pow(2, 1 / 6);
+    for (let k = k0; k <= k1; k++) {
+      if (m[k] < m[k - 1] || m[k] < m[k + 1]) continue;
+      const a = Math.max(1, Math.floor(k / r6)), b = Math.min(k1 + 1, Math.ceil(k * r6));
+      const env = (pre[b + 1] - pre[a]) / (b - a + 1);
+      const w = m[k] / (env + 1e-12);
+      if (w < 2) continue;                                   // a peak 6 dB above its third-octave
+      const q = peakInterp(pow, k), f = q.k * df;
+      const pc = ((Math.round(12 * Math.log2(f / this.a4)) % 12) + 12 + 9) % 12;
+      const v = this.weight === 'log' ? Math.log(w) : this.weight === 'amp' ? m[k] : this.weight === 'sqrt' ? Math.sqrt(m[k]) : w;
+      ch[pc] += v; tot += v;
+      if (f < 400) low.push({ f, w, pc });
+    }
+    // the bass: the lowest strong peak that its octave confirms (or that stands well out on its own)
+    for (const p of low) {
+      const oct = low.some(q => Math.abs(q.f / p.f - 2) < 0.04);
+      if (oct || p.w > 6) { this.bassAcc[p.pc] += Math.log(p.w); break; }
+    }
+    if (tot <= 0) return this.res;
+    for (let i = 0; i < 12; i++) { this.acc[i] = this.acc[i] * this.leak + ch[i] / tot; this.bassAcc[i] *= this.leak; }
+    this.n++;
+    this.res = this.decide();
+    return this.res;
+  }
+  decide() {
+    const a = this.acc;
+    let nrm = 0;
+    for (let i = 0; i < 12; i++) nrm += a[i] * a[i];
+    nrm = Math.sqrt(nrm);
+    if (!nrm) return null;
+    const scored = this.templates.map(t => {
+      let dot = 0;
+      for (let i = 0; i < 12; i++) dot += a[i] * t.T[i];
+      return { ...t, score: dot / nrm - (t.size === 4 ? 0.015 : 0) };
+    }).sort((x, y) => y.score - x.score);
+    // the bass decides between near-equal readings (Am7 and C6 are the same four notes); an inversion
+    // is named as such (C/E)
+    let bass = -1, bm = 0;
+    for (let i = 0; i < 12; i++) if (this.bassAcc[i] > bm) { bm = this.bassAcc[i]; bass = i; }
+    let b = scored[0];
+    if (bass >= 0 && b.root !== bass) { const alt = scored.slice(1, 6).find(x => x.root === bass && b.score - x.score < 0.03); if (alt) b = alt; }
+    const tones = (CHORD_TYPES.find(t => t[0] === b.name) || [, [0]])[1].map(d => (b.root + d) % 12);
+    const slash = bass >= 0 && bass !== b.root && tones.includes(bass) ? `/${NOTE_NAMES[bass]}` : '';
+    return { root: b.root, type: b.name, name: NOTE_NAMES[b.root] + b.name, full: NOTE_NAMES[b.root] + b.name + slash, bass, tones, score: b.score, margin: b.score - scored.filter(x => x !== b)[0].score, alt: scored.filter(x => x !== b).slice(0, 2).map(x => NOTE_NAMES[x.root] + x.name) };
+  }
+  result() { return this.res; }
+}
 const CHORDS = [['', [0, 4, 7]], ['m', [0, 3, 7]], ['7', [0, 4, 7, 10]], ['maj7', [0, 4, 7, 11]], ['m7', [0, 3, 7, 10]],
   ['dim', [0, 3, 6]], ['aug', [0, 4, 8]], ['sus2', [0, 2, 7]], ['sus4', [0, 5, 7]], ['5', [0, 7]]];
 export function estimateChord(chroma) {
