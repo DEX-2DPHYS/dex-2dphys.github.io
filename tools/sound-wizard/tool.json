@@ -1,0 +1,14 @@
+{
+  "slug": "sound-wizard",
+  "name": "Sound Wizard (for phone)",
+  "description": "An audio analyser for the phone, fast enough to keep up with real sound. A sound level meter with A, C and flat weighting, Leq and calibration; a spectrogram with a live spectrum, FFT sizes up to 32768, gain, range and colour maps; a triggered oscilloscope. The analysis and the drawing run in a background worker, and nothing is recorded or sent: the sound is analysed on the device.",
+  "status": "live",
+  "url": "tools/sound-wizard/index.html",
+  "icon": "chart",
+  "tags": [
+    "phone",
+    "visualisations",
+    "educational",
+    "applications"
+  ]
+}

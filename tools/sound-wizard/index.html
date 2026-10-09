@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05070b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sound Wizard">
+<meta name="description" content="Sound Wizard: a fast audio analyser for the phone. Sound level meter, spectrogram, oscilloscope, tuner, tone and tempo analysis. Everything is analysed on the device.">
+<title>Sound Wizard</title>
+<link rel="icon" href="icons/icon.svg?v=20261009.1453" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=20261009.1453">
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <div class="brand"><img src="icons/icon.svg?v=20261009.1453" alt="" width="26" height="26"><span>Sound <b>Wizard</b></span></div>
+    <div id="status">not listening</div>
+    <button id="hold" class="hbtn" title="Hold: freeze what you see (touch still reads values)" aria-label="Hold">
+      <svg viewBox="0 0 24 24" width="18" height="18"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+    <button id="power" class="hbtn" title="Start / stop listening" aria-label="Start or stop">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3v8" stroke-width="2.4" stroke-linecap="round" fill="none"/><path d="M6.3 6.6a8 8 0 1 0 11.4 0" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></button>
+  </header>
+
+  <main id="views">
+    <section class="view" data-view="meter"><canvas class="cv" data-id="meter"></canvas><button class="gear" aria-label="Settings">⚙</button><div class="sheet"></div></section>
+    <section class="view" data-view="spec"><canvas class="cv" data-id="spec"></canvas><button class="gear" aria-label="Settings">⚙</button><div class="sheet"></div></section>
+    <section class="view" data-view="scope"><canvas class="cv" data-id="scope"></canvas><button class="gear" aria-label="Settings">⚙</button><div class="sheet"></div></section>
+  </main>
+
+  <nav id="tabs">
+    <button data-view="meter"><svg viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4-6"/></svg>Meter</button>
+    <button data-view="spec"><svg viewBox="0 0 24 24"><path d="M4 20V13M8 20V8M12 20v-6M16 20V5M20 20v-9"/></svg>Spectrum</button>
+    <button data-view="scope"><svg viewBox="0 0 24 24"><path d="M2 12c2-6 4-6 5 0s3 6 5 0 4-6 5 0 3 6 5 0"/></svg>Scope</button>
+  </nav>
+</div>
+
+<div id="overlay">
+  <div class="ov-inner">
+    <img src="icons/icon.svg?v=20261009.1453" alt="" width="72" height="72">
+    <h1>Sound <b>Wizard</b></h1>
+    <button id="startBig"><svg viewBox="0 0 24 24" width="34" height="34"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg><span>Tap to listen</span></button>
+    <p class="small">Sound is analysed on this device. Nothing is recorded, stored or sent.</p>
+    <p id="err"></p>
+  </div>
+</div>
+<script type="module" src="js/app.js?v=20261009.1453"></script>
+</body>
+</html>
