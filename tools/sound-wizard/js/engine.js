@@ -5,7 +5,7 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, estimateChord, NOTE_NAMES } from './dsp.js?v=20261009.1504';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, estimateChord, NOTE_NAMES } from './dsp.js?v=20261009.1521';
 
 // instruments for the tuner: strings low to high, the pitch range searched and the analysis window
 // (a bass needs 8192 samples: two periods of a low B are 65 ms)
@@ -43,6 +43,9 @@ export const DEFAULTS = {
   win: 10, sgain: 'auto', trig: 'auto',
   // tuner
   tuning: 'guitar',
+  // tone generator (the page plays it; listed here so all settings live in one place)
+  genMode: 'note', genWave: 'sine', genLevel: -18, genHz: 440, genMidi: 69,
+  autoFs: true,
 };
 
 const C = {
@@ -131,6 +134,14 @@ export class Engine {
           const c = this.tunerCells.find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
           if (c) this.lockString = this.lockString === c.i ? -1 : c.i;
         }
+        if (d.down && d.id === 'rhythm' && this.tapBox && this.rh) { // tap tempo
+          const b = this.tapBox, x = d.x * b.dpr, y = d.y * b.dpr;
+          if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+            const t = now(), T = this.rh.taps;
+            if (T.length && t - T[T.length - 1] > 2500) T.length = 0;
+            T.push(t); if (T.length > 9) T.shift();
+          }
+        }
         break;
       case 'pause': this.paused = !!d.on; break;
       case 'hidden': this.hidden = !!d.on; break;
@@ -190,7 +201,151 @@ export class Engine {
     if (view === 'spec') this.specRows(n);
     if (view === 'tuner' || view === 'tone') this.pitchStep();
     if (view === 'tone') this.toneStep(n);
+    if (view === 'rhythm') this.rhythmStep(n);
     this.busy += now() - t0;
+  }
+
+  // --------------------------------------------------------------------------------- rhythm
+  // Every 512 samples (~94 frames/s): spectral flux in 48 log-spaced bands (the onset strength) and the
+  // RMS envelope. Every ~0.25 s: tempo from the autocorrelation of the onset strength, with the multiples
+  // of each period added in (a beat repeats at 2P and 3P too) and a broad preference around 120 BPM to
+  // settle double/half ambiguity. Every ~0.5 s: the repetition rate (spectrum of the RMS envelope,
+  // 0.5–40 Hz) and the main frequencies (peaks of a 2 s average spectrum).
+  setupRhythm() {
+    const R = this.rh = { hop: 512, acc: 0, fr: this.sr / 512, N: 1024 };
+    R.fft = new RealFFT(R.N); R.win = hann(R.N).w; R.buf = new Float64Array(R.N); R.pow = new Float32Array(R.N / 2 + 1);
+    const nb = 48, df = this.sr / R.N;
+    R.bandEdge = new Int32Array(nb + 1);
+    for (let b = 0; b <= nb; b++) R.bandEdge[b] = Math.max(1, Math.round(40 * Math.pow(12000 / 40, b / nb) / df));
+    R.prev = new Float32Array(nb); R.cur = new Float32Array(nb);
+    R.E = 1024; R.env = new Float32Array(R.E); R.rms = new Float32Array(R.E); R.ei = 0; R.frames = 0;
+    R.lin = new Float32Array(R.E); R.acf = new Float32Array(R.E);
+    R.bpm = NaN; R.bpmSm = NaN; R.conf = 0; R.pending = null; R.hist = new Float32Array(120).fill(NaN); R.hi = 0;
+    R.onsets = []; R.lastOnsetFrame = -99;
+    R.modFFT = new RealFFT(1024); R.modBuf = new Float64Array(1024); R.modPow = new Float32Array(513); R.modWin = hann(512).w; R.mod = null;
+    R.big = new RealFFT(32768); R.bigWin = hann(32768).w; R.bigBuf = new Float64Array(32768); R.bigPow = new Float32Array(16385); R.avgDb = null; R.peaks = [];
+    R.taps = [];
+  }
+  rhythmStep(n) {
+    if (!this.rh) this.setupRhythm();
+    const R = this.rh;
+    R.acc += n;
+    while (R.acc >= R.hop) {
+      R.acc -= R.hop;
+      const end = this.w - R.acc, ring = this.ring, buf = R.buf, win = R.win, N = R.N;
+      let ss = 0;
+      for (let i = 0; i < N; i++) { const x = ring[(end - N + i) & MASK]; buf[i] = x * win[i]; if (i >= N - R.hop) ss += x * x; }
+      R.fft.power(buf, R.pow);
+      let flux = 0;
+      for (let b = 0; b < R.cur.length; b++) {
+        let e = 0;
+        for (let k = R.bandEdge[b], k1 = Math.max(R.bandEdge[b] + 1, R.bandEdge[b + 1]); k < k1; k++) e += R.pow[k];
+        const L = Math.pow(e, 0.3); // compressed like loudness, not logarithmic: a loud kick outweighs a quiet hat
+        const d = L - R.prev[b];
+        if (d > 0) flux += d;
+        R.prev[b] = L;
+      }
+      R.env[R.ei] = flux; R.rms[R.ei] = Math.sqrt(ss / R.hop); R.ei = (R.ei + 1) % R.E; R.frames++;
+      // an onset: the flux well above its recent level, and the highest in the last ~70 ms
+      this.onsetCheck(R);
+      if (R.frames % 24 === 0 && R.frames > R.fr * 3) this.tempoEstimate(R);
+      if (R.frames % 48 === 0) { this.modEstimate(R); this.mainFreqs(R); }
+    }
+  }
+  onsetCheck(R) {
+    const M = 40, E = R.E;
+    let mean = 0, sq = 0;
+    for (let i = 1; i <= M; i++) { const v = R.env[(R.ei - 1 - i + E) % E]; mean += v; sq += v * v; }
+    mean /= M; const sd = Math.sqrt(Math.max(0, sq / M - mean * mean));
+    const v = R.env[(R.ei - 2 + E) % E], before = R.env[(R.ei - 3 + E) % E], after = R.env[(R.ei - 1 + E) % E];
+    const loud = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17 > -60;
+    if (loud && v > mean + 1.8 * sd + 0.15 * mean && v >= before && v >= after && R.frames - 1 - R.lastOnsetFrame > R.fr * 0.07) {
+      R.lastOnsetFrame = R.frames - 1;
+      R.onsets.push(R.frames - 1);
+      if (R.onsets.length > 64) R.onsets.shift();
+      this.onsetFlash = now();
+    }
+  }
+  tempoEstimate(R) {
+    const E = R.E, N = Math.min(E, R.frames), lin = R.lin, acf = R.acf, fr = R.fr;
+    // the onset strength, oldest first, minus its moving average (1 s), negative parts dropped
+    for (let i = 0; i < N; i++) lin[i] = R.env[(R.ei - N + i + E) % E];
+    const half = Math.round(fr / 2), tmp = new Float32Array(N);
+    let s = 0, c = 0;
+    for (let i = 0; i < Math.min(N, half); i++) { s += lin[i]; c++; }
+    for (let i = 0; i < N; i++) {
+      if (i + half < N) { s += lin[i + half]; c++; }
+      if (i - half - 1 >= 0) { s -= lin[i - half - 1]; c--; }
+      tmp[i] = Math.max(0, lin[i] - s / c);
+    }
+    const Lmin = Math.floor(60 * fr / 240), Lmax = Math.min(Math.ceil(60 * fr / 40), Math.floor(N / 3));
+    let e0 = 0;
+    for (let i = 0; i < N; i++) e0 += tmp[i] * tmp[i];
+    if (e0 <= 1e-9) { R.conf *= 0.8; return; }
+    for (let L = Lmin - 1; L <= Math.min(N - 1, 3 * Lmax + 2); L++) {
+      let a = 0;
+      for (let i = L; i < N; i++) a += tmp[i] * tmp[i - L];
+      acf[L] = (a / (N - L)) / (e0 / N);
+    }
+    let best = -1, bestL = 0;
+    for (let L = Lmin; L <= Lmax; L++) {
+      const bpm = 60 * fr / L, prior = Math.exp(-0.5 * (Math.log2(bpm / 120) / 0.9) ** 2);
+      const sc = (acf[L] + 0.5 * (acf[2 * L] || 0) + 0.33 * (acf[3 * L] || 0)) * prior;
+      if (sc > best) { best = sc; bestL = L; }
+    }
+    const a = acf[bestL - 1], b = acf[bestL], cc = acf[bestL + 1], d = a - 2 * b + cc;
+    const Lf = bestL + (d < 0 ? 0.5 * (a - cc) / d : 0);
+    const bpm = 60 * fr / Lf;
+    R.conf = Math.max(0, Math.min(1, b));
+    // follow small drifts smoothly; a new tempo has to show up twice before it replaces the old one
+    if (!isFinite(R.bpmSm) || Math.abs(bpm / R.bpmSm - 1) < 0.04) R.bpmSm = isFinite(R.bpmSm) ? R.bpmSm + (bpm - R.bpmSm) * 0.35 : bpm;
+    else if (R.pending && Math.abs(bpm / R.pending - 1) < 0.04) { R.bpmSm = bpm; R.pending = null; }
+    else R.pending = bpm;
+    R.bpm = bpm;
+    R.hist[R.hi] = R.conf > 0.15 ? R.bpmSm : NaN; R.hi = (R.hi + 1) % R.hist.length;
+  }
+  modEstimate(R) {
+    const E = R.E, M = 512;
+    if (R.frames < M) return;
+    let mean = 0;
+    for (let i = 0; i < M; i++) mean += R.rms[(R.ei - M + i + E) % E];
+    mean /= M;
+    if (mean < 1e-5) { R.mod = null; return; }
+    const buf = R.modBuf;
+    buf.fill(0);
+    for (let i = 0; i < M; i++) buf[i] = (R.rms[(R.ei - M + i + E) % E] - mean) * R.modWin[i];
+    R.modFFT.power(buf, R.modPow);
+    const df = R.fr / 1024, k0 = Math.ceil(0.5 / df), k1 = Math.min(511, Math.floor(40 / df));
+    let mx = 0, km = k0, tot = 0;
+    for (let k = k0; k <= k1; k++) { tot += R.modPow[k]; if (R.modPow[k] > mx) { mx = R.modPow[k]; km = k; } }
+    const p = peakInterp(R.modPow, km);
+    R.mod = { f: p.k * df, share: tot > 0 ? mx / tot : 0, depth: Math.sqrt(mx) / (mean * 512 / 4), df, k0, k1 };
+  }
+  mainFreqs(R) {
+    const N = 32768, buf = R.bigBuf, ring = this.ring, start = this.w - N;
+    for (let i = 0; i < N; i++) buf[i] = ring[(start + i) & MASK] * R.bigWin[i];
+    R.big.power(buf, R.bigPow);
+    const m = N / 2, norm = 20 * Math.log10(2 / (N / 2));
+    if (!R.avgDb) R.avgDb = new Float32Array(m + 1).fill(-200);
+    for (let k = 0; k <= m; k++) { const d = 10 * Math.log10(R.bigPow[k] + 1e-30) + norm; R.avgDb[k] = R.avgDb[k] < -150 ? d : R.avgDb[k] + (d - R.avgDb[k]) * 0.3; }
+    const df = this.sr / N, k0 = Math.ceil(25 / df), k1 = Math.min(m - 2, Math.floor(16000 / df)), A = R.avgDb;
+    let mx = -300;
+    for (let k = k0; k <= k1; k++) if (A[k] > mx) mx = A[k];
+    const cand = [];
+    for (let k = k0; k <= k1; k++) if (A[k] > mx - 45 && A[k] > -90 && A[k] >= A[k - 1] && A[k] > A[k + 1]) {
+      // it must stand out: 8 dB above the lowest point on each side within ±6 % (not a shoulder of a broader peak)
+      const span = Math.max(3, Math.round(k * 0.06));
+      let lmin = A[k], rmin = A[k];
+      for (let j = k - 1; j >= Math.max(1, k - span) && A[j] <= A[k]; j--) lmin = Math.min(lmin, A[j]);
+      for (let j = k + 1; j <= Math.min(m, k + span) && A[j] <= A[k]; j++) rmin = Math.min(rmin, A[j]);
+      if (A[k] - Math.max(lmin, rmin) < 8) continue;
+      const a = A[k - 1], b = A[k], c = A[k + 1], d = a - 2 * b + c, dk = d < 0 ? 0.5 * (a - c) / d : 0;
+      cand.push({ f: (k + dk) * df, db: b - 0.25 * (a - c) * dk });
+    }
+    cand.sort((x, y) => y.db - x.db);
+    const out = [];
+    for (const c of cand) { if (out.every(o => Math.abs(Math.log2(c.f / o.f)) > 0.04)) out.push(c); if (out.length >= 6) break; }
+    R.peaks = out;
   }
 
   // ---------------------------------------------------------------------------------- pitch
@@ -389,6 +544,7 @@ export class Engine {
       else if (this.S.view === 'scope') this.drawScope(v);
       else if (this.S.view === 'tuner') this.drawTuner(v);
       else if (this.S.view === 'tone') this.drawTone(v);
+      else if (this.S.view === 'rhythm') this.drawRhythm(v);
     }
     this.frames++;
     this.busy += now() - t0;
@@ -817,6 +973,109 @@ export class Engine {
     if (th > 50 * dpr) this.drawTrace(ctx, pad, y, w - 2 * pad, th, dpr, 'notes');
   }
 
+  // --------------------------------------------------------------------------------- rhythm
+  drawRhythm(v) {
+    const { ctx, w, h, dpr } = v, S = this.S;
+    if (!this.rh) this.setupRhythm();
+    const R = this.rh;
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    const pad = 14 * dpr, cx = w / 2;
+    // tempo (tap the box for tap tempo)
+    const boxH = Math.max(120 * dpr, h * 0.15);
+    this.tapBox = { x: pad, y: pad, w: w - 2 * pad, h: boxH, dpr };
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, pad, w - 2 * pad, boxH);
+    const flash = this.onsetFlash && now() - this.onsetFlash < 110;
+    ctx.fillStyle = flash ? C.magenta : C.grid2; ctx.beginPath(); ctx.arc(pad + 18 * dpr, pad + 18 * dpr, 7 * dpr, 0, 2 * Math.PI); ctx.fill();
+    ctx.textAlign = 'left'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('onset', pad + 30 * dpr, pad + 22 * dpr);
+    const ok = isFinite(R.bpmSm) && R.conf > 0.15;
+    ctx.textAlign = 'center'; ctx.font = `700 ${Math.min(w * 0.2, boxH * 0.5)}px ${FONT}`; ctx.fillStyle = ok ? C.bright : C.grid2;
+    ctx.fillText(ok ? R.bpmSm.toFixed(1) : '—', cx, pad + boxH * 0.62);
+    ctx.font = `600 ${14 * dpr}px ${FONT}`; ctx.fillStyle = C.cyan; ctx.fillText('BPM', cx, pad + boxH * 0.62 + 20 * dpr);
+    ctx.fillStyle = C.cyan; ctx.fillRect(pad, pad + boxH - 3 * dpr, (w - 2 * pad) * clamp(R.conf * 1.4, 0, 1), 3 * dpr);
+    ctx.textAlign = 'right'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+    ctx.fillText(`beat strength ${(R.conf * 100).toFixed(0)}%`, w - pad - 8 * dpr, pad + 22 * dpr);
+    const tapBpm = this.tapBpm();
+    ctx.fillText(tapBpm ? `tap ${tapBpm.toFixed(1)}` : 'tap here for tap tempo', w - pad - 8 * dpr, pad + boxH - 12 * dpr);
+    let y = pad + boxH + 16 * dpr;
+    // the onset strength over the last ~8 s, with the onsets and a beat grid from the last onset
+    const sh = Math.max(70 * dpr, h * 0.13), gw = w - 2 * pad, frames = Math.min(R.E, Math.round(R.fr * 8));
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, sh);
+    let mx = 1e-6;
+    for (let i = 0; i < frames; i++) mx = Math.max(mx, R.env[(R.ei - frames + i + R.E) % R.E]);
+    const X = f => pad + gw * (1 - (R.frames - f) / frames);
+    if (ok && R.onsets.length) {
+      const per = 60 * R.fr / R.bpmSm, last = R.onsets[R.onsets.length - 1];
+      ctx.fillStyle = 'rgba(62,232,255,0.16)';
+      for (let f = last; f > R.frames - frames; f -= per) ctx.fillRect(X(f), y, Math.max(1, dpr), sh);
+      for (let f = last + per; f < R.frames; f += per) ctx.fillRect(X(f), y, Math.max(1, dpr), sh);
+    }
+    ctx.beginPath();
+    for (let i = 0; i < frames; i++) {
+      const val = R.env[(R.ei - frames + i + R.E) % R.E] / mx, x = pad + gw * i / (frames - 1), yy = y + sh - val * (sh - 4 * dpr);
+      if (i) ctx.lineTo(x, yy); else ctx.moveTo(x, yy);
+    }
+    ctx.strokeStyle = C.cyan; ctx.lineWidth = 1.3 * dpr; ctx.stroke();
+    ctx.fillStyle = C.magenta;
+    for (const f of R.onsets) if (f > R.frames - frames) ctx.fillRect(X(f) - dpr, y, 2 * dpr, 6 * dpr);
+    ctx.font = `${10 * dpr}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillStyle = C.text; ctx.fillText('onset strength · last 8 s', pad + 4 * dpr, y + 13 * dpr);
+    y += sh + 12 * dpr;
+    // tempo over the last 30 s
+    const th = Math.max(50 * dpr, h * 0.08);
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, th);
+    const lo = 40, hi = 240, TY = b => y + th * (1 - Math.log(b / lo) / Math.log(hi / lo));
+    ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`;
+    for (const b of [60, 90, 120, 180]) { ctx.fillStyle = C.grid; ctx.fillRect(pad, TY(b), gw, 1); ctx.fillStyle = C.text; ctx.fillText(String(b), pad + 3 * dpr, TY(b) - 2 * dpr); }
+    ctx.beginPath();
+    let pen = false;
+    for (let i = 0; i < R.hist.length; i++) {
+      const b = R.hist[(R.hi + i) % R.hist.length];
+      if (!isFinite(b)) { pen = false; continue; }
+      const x = pad + gw * i / (R.hist.length - 1), yy = TY(clamp(b, lo, hi));
+      if (pen) ctx.lineTo(x, yy); else { ctx.moveTo(x, yy); pen = true; }
+    }
+    ctx.strokeStyle = C.amber; ctx.lineWidth = 1.6 * dpr; ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillStyle = C.text; ctx.fillText('tempo · last 30 s', w - pad - 4 * dpr, y + 11 * dpr);
+    y += th + 18 * dpr;
+    // repetition rate: the spectrum of the loudness envelope, 0.5–40 Hz
+    const mh = Math.max(70 * dpr, h * 0.13);
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, y, gw, mh);
+    const MX = f => pad + gw * Math.log(f / 0.5) / Math.log(80);
+    ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'center';
+    for (const f of [0.5, 1, 2, 5, 10, 20, 40]) { ctx.fillStyle = C.grid; ctx.fillRect(MX(f), y, 1, mh); ctx.fillStyle = C.text; ctx.fillText(`${f}`, MX(f), y + mh + 11 * dpr); }
+    const M = R.mod;
+    if (M) {
+      let pm = 0;
+      for (let k = M.k0; k <= M.k1; k++) pm = Math.max(pm, R.modPow[k]);
+      ctx.beginPath();
+      for (let k = M.k0; k <= M.k1; k++) { const x = MX(k * M.df), yy = y + mh - (mh - 4 * dpr) * Math.sqrt(R.modPow[k] / pm); if (k === M.k0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); }
+      ctx.strokeStyle = C.green; ctx.lineWidth = 1.4 * dpr; ctx.stroke();
+      ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(MX(M.f), y + 6 * dpr, 4 * dpr, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.textAlign = 'left'; ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('repetition rate (Hz) of the loudness', pad + 4 * dpr, y + 13 * dpr);
+    y += mh + 40 * dpr;
+    ctx.font = `600 ${15 * dpr}px ${MONO}`; ctx.fillStyle = M && M.share > 0.04 ? C.green : C.text;
+    ctx.fillText(M && M.share > 0.04 ? `repeats ${M.f.toFixed(2)} Hz · ${(M.f * 60).toFixed(0)} per minute` : 'no clear repetition', pad, y - 8 * dpr);
+    // main frequencies
+    y += 12 * dpr;
+    ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('main frequencies (2 s average)', pad, y);
+    y += 6 * dpr;
+    const rowH = 22 * dpr;
+    R.peaks.slice(0, Math.max(0, Math.floor((h - y - 8 * dpr) / rowH))).forEach((p, i) => {
+      const q = noteOf(p.f, S.a4), ct = Math.round(q.cents), yy = y + (i + 1) * rowH;
+      ctx.fillStyle = i === 0 ? C.bright : C.text; ctx.font = `600 ${14 * dpr}px ${MONO}`; ctx.textAlign = 'left';
+      ctx.fillText(fmtHz(p.f).padStart(10), pad, yy);
+      ctx.fillStyle = C.cyan; ctx.fillText(`${q.name}${q.octave} ${ct > 0 ? '+' : ct < 0 ? '−' : '±'}${Math.abs(ct)}¢`, pad + 130 * dpr, yy);
+      ctx.textAlign = 'right'; ctx.fillStyle = C.text; ctx.fillText(`${p.db.toFixed(0)} dB`, w - pad, yy);
+    });
+  }
+  tapBpm() {
+    const R = this.rh, t = R && R.taps;
+    if (!t || t.length < 3 || now() - t[t.length - 1] > 4000) return null;
+    const iv = [];
+    for (let i = 1; i < t.length; i++) iv.push(t[i] - t[i - 1]);
+    return 60000 / (iv.reduce((a, b) => a + b, 0) / iv.length);
+  }
+
   // ---------------------------------------------------------------------------------- stats (tests, status)
   stats() {
     const pk = this.specFresh !== undefined && this.fftN ? this.specPeak() : null;
@@ -827,6 +1086,7 @@ export class Engine {
       pitch: this.pitch, target: this.target, cents: this.centsSm, lock: this.lockString,
       chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
       harmonics: Array.from(this.harm), centroid: this.centroid,
+      rhythm: this.rh ? { bpm: this.rh.bpmSm, raw: this.rh.bpm, conf: this.rh.conf, onsets: this.rh.onsets.length, mod: this.rh.mod && { f: this.rh.mod.f, share: this.rh.mod.share }, peaks: this.rh.peaks.slice(0, 6), tap: this.tapBpm() } : null,
       weighting: { A: [100, 1000, 10000].map(f => 20 * Math.log10(this.wA.response(f, this.sr))), C: [100, 1000, 10000].map(f => 20 * Math.log10(this.wC.response(f, this.sr))) },
     };
   }
