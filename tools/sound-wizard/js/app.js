@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2153';
-import { CMAP_NAMES } from './dsp.js?v=20261009.2153';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2200';
+import { CMAP_NAMES } from './dsp.js?v=20261009.2200';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -234,7 +234,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.2153', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.2200', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -251,7 +251,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.2153');
+    const { Engine } = await import('./engine.js?v=20261009.2200');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -273,7 +273,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2153');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2200');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
