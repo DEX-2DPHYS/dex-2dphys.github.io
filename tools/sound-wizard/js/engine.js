@@ -5,9 +5,9 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2200';
-import { analysePoly } from './poly.js?v=20261009.2200';
-import { describePolyrhythm, METERS } from './notation.js?v=20261009.2200';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2222';
+import { analysePoly } from './poly.js?v=20261009.2222';
+import { describePolyrhythm, METERS } from './notation.js?v=20261009.2222';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -94,7 +94,7 @@ export const DEFAULTS = {
   // scope
   win: 10, sgain: 'auto', trig: 'auto',
   // tuner
-  tuning: 'free', custom: [],
+  tuning: 'free', custom: [], tgain: 0,
   // tone generator (the page plays it; listed here so all settings live in one place)
   genMode: 'note', genWave: 'sine', genLevel: -18, genHz: 440, genMidi: 69,
   // rhythm
@@ -502,8 +502,9 @@ export class Engine {
     const S = this.S, tun = this.tuning();
     const cfg = S.view === 'tone' ? { W: 8192, fmin: 27, fmax: 2100 } : tun;
     if (!this.pm || this.pm.W !== cfg.W) this.pm = new PitchMPM(cfg.W);
-    const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17;
-    const bl = this.lastBlockDb ?? -120, env = this.lvlEnv ?? -120;
+    const tg = S.view === 'tuner' ? (+S.tgain || 0) : 0; // tuner gain: how quiet a string may be and still be heard
+    const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17 + tg;
+    const bl = (this.lastBlockDb ?? -120) + tg, env = this.lvlEnv ?? -120;
     if (bl > env + 6 && bl > -60) { this.attackUntil = this.w + this.sr * 0.15; this.newStrum = true; }
     this.lvlEnv = Math.max(bl, env - 1.2);
     const attack = this.w < (this.attackUntil || 0);
