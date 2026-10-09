@@ -5,10 +5,12 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261009.2239';
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2239';
-import { analysePoly } from './poly.js?v=20261009.2239';
-import { describePolyrhythm, METERS } from './notation.js?v=20261009.2239';
+import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261009.2302';
+import { clickEvents, analyseTake, describeTake, parsePoly } from './practice.js?v=20261009.2302';
+import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261009.2302';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2302';
+import { analysePoly } from './poly.js?v=20261009.2302';
+import { describePolyrhythm, METERS } from './notation.js?v=20261009.2302';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -103,6 +105,9 @@ export const DEFAULTS = {
   meter: 'auto',
   autoFs: true,
   room: 'sound', lastIn: {},
+  // practice
+  rT: 6, rAmp: -12,
+  mBpm: 100, mBeats: 4, mSub: 0, mPoly: 'off', mTarget: 'beats', mVol: -12, mLat: 0,
 };
 
 const C = {
@@ -202,6 +207,14 @@ export class Engine {
           } else if (c) this.lockString = this.lockString === c.i ? -1 : c.i; // tap a string to lock onto it, again to let go
           else if (nb && this.target) this.post({ type: 'ref', midi: this.target.midi }); // the target as a reference tone
         }
+        if (d.down && d.id === 'room' && this.roomBoxes) {
+          const q = this.roomBoxes.find(b => d.x * b.dpr >= b.x && d.x * b.dpr <= b.x + b.w && d.y * b.dpr >= b.y && d.y * b.dpr <= b.y + b.h);
+          if (q) this.roomTap(q);
+        }
+        if (d.down && d.id === 'practice' && this.pr && this.prResetBox) {
+          const q = this.prResetBox;
+          if (d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h) { this.pr.on.length = 0; this.pr.an = null; }
+        }
         if (d.down && d.id === 'rhythm' && this.rh) {
           const R = this.rh, hit = list => (list || []).find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
           const chip = hit(this.chipBoxes), mb = hit(this.meterBoxes), sg = hit(this.sugBoxes), tb = this.tapBox && hit([this.tapBox]);
@@ -219,6 +232,23 @@ export class Engine {
         }
         break;
       case 'pause': this.paused = !!d.on; break;
+      case 'practice': { // the metronome started, changed or stopped on the page: a new take
+        const P = this.prac();
+        P.cfg = d.run ? { t0: d.t0, bpm: d.bpm, beats: d.beats, sub: d.sub, poly: parsePoly(d.poly) } : null;
+        P.sync = !!d.sync; P.on.length = 0; P.an = null; P.anAt = 0;
+        break;
+      }
+      case 'roomInject': { // for tests: analyse this recording as if it had just been measured
+        const R = this.rmState();
+        R.mode = d.mode || 'sweep'; R.T = d.T || 6; R.f1 = 30; R.f2 = Math.min(18000, Math.floor(this.sr * 0.45)); R.rec = d.rec; R.n = R.need = d.rec.length; R.state = 'working';
+        break;
+      }
+      case 'latency': { // measure the round trip: clicks played at these context times, heard by the microphone
+        const P = this.prac();
+        this.lat = { times: d.times.slice(), found: [], until: d.times[d.times.length - 1] + 0.7 };
+        P.on.length = 0;
+        break;
+      }
       case 'hidden': this.hidden = !!d.on; break;
       case 'learnStart': this.learn = { notes: [], buf: [], silence: true }; this.lockString = -1; break;
       case 'reset': this.resetStats(); break;
@@ -282,6 +312,9 @@ export class Engine {
     if (view === 'tuner' || view === 'tone') this.pitchStep();
     if (view === 'tone') this.toneStep(n);
     if (view === 'rhythm') this.rhythmStep(n);
+    if (view === 'practice' || this.lat) this.practiceStep(n);
+    if (this.rm && (this.rm.state === 'recording' || this.rm.state === 'listening')) this.roomStep(block, n);
+    this.pushAt = t0;
     this.busy += now() - t0;
   }
 
@@ -788,6 +821,8 @@ export class Engine {
       else if (this.S.view === 'tuner') this.drawTuner(v);
       else if (this.S.view === 'tone') this.drawTone(v);
       else if (this.S.view === 'rhythm') this.drawRhythm(v);
+      else if (this.S.view === 'practice') this.drawPractice(v);
+      else if (this.S.view === 'room') this.drawRoom(v);
     }
     this.frames++;
     this.busy += now() - t0;
@@ -1044,6 +1079,332 @@ export class Engine {
   // Top to bottom: the strings (each with its last measured state; tap to lock), a strobe band (still =
   // in tune), the note, what to do now (with coaching while the peg turns), any warning, the gauge and
   // the last 10 s. Tap the note for a reference tone of the target.
+  // ------------------------------------------------------------------------------------- room
+  // A sweep played by the page (or a clap / balloon pop) is recorded and analysed (room.js): the frequency
+  // response, reverberation per octave band, and the low resonances. States: idle → recording (sweep) or
+  // listening (pop: waits for the bang) → working → done.
+  rmState() {
+    if (!this.rm) this.rm = { state: 'idle', mode: 'sweep', rec: null, n: 0, need: 0, res: null, sel: 1000, note: '', T: 6, f1: 30, f2: 18000 };
+    return this.rm;
+  }
+  roomTap(q) {
+    const R = this.rmState();
+    if (q.id === 'sweep' || q.id === 'pop') this.roomStart(q.id);
+    else if (q.id === 'cancel') { R.state = R.res ? 'done' : 'idle'; R.note = ''; }
+    else if (q.id === 'band') R.sel = q.f;
+  }
+  roomStart(mode) {
+    const R = this.rmState(), S = this.S, sr = this.sr;
+    if (R.state === 'recording' || R.state === 'working') return;
+    R.mode = mode; R.n = 0; R.note = '';
+    if (mode === 'sweep') {
+      R.T = +S.rT || 6; R.f1 = 30; R.f2 = Math.min(18000, Math.floor(sr * 0.45));
+      const lead = 0.6, tail = 3;
+      R.need = Math.round((lead + R.T + tail) * sr); R.rec = new Float32Array(R.need); R.state = 'recording';
+      this.post({ type: 'roomPlay', T: R.T, f1: R.f1, f2: R.f2, ampDb: S.rAmp, lead });
+    } else {
+      R.need = Math.round(4 * sr); R.rec = new Float32Array(R.need); R.state = 'listening'; R.base = 0;
+    }
+  }
+  roomStep(block, n) {
+    const R = this.rm;
+    if (R.state === 'listening') {
+      let pk = 0; for (let i = 0; i < n; i++) { const a = Math.abs(block[i]); if (a > pk) pk = a; }
+      R.base = R.base ? R.base * 0.97 + pk * 0.03 : pk;
+      if (pk > Math.max(0.04, 6 * R.base) && this.w > this.sr * 0.5) { // the bang: keep a little before it too
+        const pre = Math.min(2048, this.w - n), ring = this.ring;
+        for (let i = 0; i < pre; i++) R.rec[i] = ring[(this.w - n - pre + i) & MASK];
+        R.n = pre; R.state = 'recording';
+      } else return;
+    }
+    const take = Math.min(n, R.need - R.n);
+    if (take > 0) { R.rec.set(block.subarray(0, take), R.n); R.n += take; }
+    if (R.n >= R.need) R.state = 'working';
+  }
+  roomWork() {
+    const R = this.rm;
+    try {
+      R.res = R.mode === 'sweep' ? analyseSweep(R.rec, this.sr, R.T, R.f1, R.f2) : analysePop(R.rec, this.sr);
+      R.sel = R.res.rt.some(r => r.f === R.sel) ? R.sel : 1000;
+      R.note = '';
+    } catch (e) { R.res = null; R.note = 'The analysis failed: ' + (e && e.message); }
+    R.rec = null; R.state = R.res ? 'done' : 'idle';
+  }
+  drawRoom(v) {
+    const { ctx, w, h, dpr } = v, S = this.S, R = this.rmState(), pad = 14 * dpr, cx = w / 2;
+    if (R.state === 'working') this.roomWork();
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    const boxes = this.roomBoxes = [];
+    const button = (id, label, x, y, bw, bh, on) => {
+      ctx.fillStyle = on ? C.cyan : C.panel; ctx.fillRect(x, y, bw, bh);
+      ctx.strokeStyle = on ? C.cyan : C.grid2; ctx.lineWidth = dpr; ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, bh - 1);
+      ctx.fillStyle = on ? '#001018' : C.bright; ctx.font = `${on ? 600 : 500} ${14 * dpr}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + bw / 2, y + bh / 2 + dpr); ctx.textBaseline = 'alphabetic';
+      boxes.push({ id, x, y, w: bw, h: bh, dpr });
+    };
+    const busy = R.state === 'recording' || R.state === 'listening' || R.state === 'working';
+    // header: the two ways to measure
+    const bh = 40 * dpr, bw = (w - 2 * pad - 8 * dpr) / 2;
+    if (!busy) { button('sweep', '▶ Sweep (speaker)', pad, 8 * dpr, bw, bh, !R.res); button('pop', '👏 Clap / pop', pad + bw + 8 * dpr, 8 * dpr, bw, bh, false); }
+    else button('cancel', 'Cancel', pad, 8 * dpr, w - 2 * pad, bh, false);
+    let y = 8 * dpr + bh + 18 * dpr;
+    ctx.textAlign = 'center';
+    if (R.state === 'recording' || R.state === 'listening') {
+      const frac = R.need ? R.n / R.need : 0;
+      ctx.font = `600 ${18 * dpr}px ${FONT}`; ctx.fillStyle = C.bright;
+      ctx.fillText(R.state === 'listening' ? 'Waiting for the bang…' : R.mode === 'sweep' ? 'Measuring: keep quiet' : 'Recording the decay…', cx, y + 30 * dpr);
+      ctx.fillStyle = C.panel; ctx.fillRect(pad, y + 50 * dpr, w - 2 * pad, 12 * dpr);
+      ctx.fillStyle = C.cyan; ctx.fillRect(pad, y + 50 * dpr, (w - 2 * pad) * frac, 12 * dpr);
+      ctx.font = `${13 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      const lines = R.mode === 'sweep' ? ['The sweep rises from 30 Hz to 18 kHz.', 'Stay still and quiet until it ends.'] : ['Clap hard, or pop a balloon, once.', 'Then stay quiet for four seconds.'];
+      lines.forEach((t, i) => ctx.fillText(t, cx, y + 90 * dpr + i * 19 * dpr));
+      return;
+    }
+    if (R.state === 'working') { ctx.font = `600 ${16 * dpr}px ${FONT}`; ctx.fillStyle = C.bright; ctx.fillText('Analysing…', cx, y + 40 * dpr); return; }
+    const res = R.res;
+    if (!res) {
+      ctx.font = `600 ${17 * dpr}px ${FONT}`; ctx.fillStyle = C.bright; ctx.fillText('Measure this room', cx, y + 10 * dpr);
+      ctx.font = `${13 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      const lines = ['Sweep: the phone plays a rising tone and listens.', 'It gives the frequency response, the reverberation', 'time per octave band and the low resonances.', 'Set the media volume to about half; keep the room quiet;', 'no headphones. A phone speaker is weak below ~150 Hz:', 'for the low resonances use an external speaker.', '', 'Clap / pop: a loud clap or a balloon, for the reverberation', 'time only (a quick check, less exact).'];
+      lines.forEach((t, i) => ctx.fillText(t, cx, y + 40 * dpr + i * 18 * dpr));
+      if (R.note) { ctx.fillStyle = C.amber; ctx.fillText(R.note, cx, y + 40 * dpr + lines.length * 18 * dpr + 14 * dpr); }
+      return;
+    }
+    // the result: quality line
+    const qcol = res.quality === 'good' ? C.green : res.quality === 'fair' ? C.amber : C.red;
+    ctx.textAlign = 'left'; ctx.font = `600 ${13 * dpr}px ${FONT}`; ctx.fillStyle = qcol;
+    ctx.fillText(`${res.sweep ? 'Sweep' : 'Pop'} · ${res.quality} signal (${res.range.toFixed(0)} dB above the noise)`, pad, y - 2 * dpr);
+    ctx.textAlign = 'right'; ctx.fillStyle = C.bright;
+    ctx.fillText(res.rtMean != null ? `RT ${res.rtMean.toFixed(2)} s` : 'RT —', w - pad, y - 2 * dpr);
+    y += 8 * dpr;
+    const avail = h - y - 8 * dpr, hA = res.sweep ? avail * 0.30 : 0, hB = avail * (res.sweep ? 0.25 : 0.38), hC = avail * (res.sweep ? 0.22 : 0.34);
+    const gx = pad, gw = w - 2 * pad;
+    // A: the frequency response
+    if (res.sweep && hA > 40 * dpr) {
+      const f = res.response.f, d = res.response.db, fl = Math.log(f[0]), fh = Math.log(f[f.length - 1]);
+      const X = fr => gx + gw * (Math.log(fr) - fl) / (fh - fl);
+      const lo = Math.min(-30, Math.floor(Math.min(...d) / 10) * 10), hi = Math.max(15, Math.ceil(Math.max(...d) / 5) * 5);
+      const Y = db => y + hA - (clamp(db, lo, hi) - lo) / (hi - lo) * (hA - 16 * dpr) - 2 * dpr;
+      ctx.fillStyle = C.panel; ctx.fillRect(gx, y, gw, hA);
+      ctx.strokeStyle = C.grid; ctx.lineWidth = dpr; ctx.beginPath();
+      for (const fr of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) if (fr > f[0] && fr < f[f.length - 1]) { ctx.moveTo(X(fr), y); ctx.lineTo(X(fr), y + hA); }
+      for (let q = Math.ceil(lo / 10) * 10; q <= hi; q += 10) { ctx.moveTo(gx, Y(q)); ctx.lineTo(gx + gw, Y(q)); }
+      ctx.stroke();
+      ctx.strokeStyle = C.grid2; ctx.beginPath(); ctx.moveTo(gx, Y(0)); ctx.lineTo(gx + gw, Y(0)); ctx.stroke();
+      ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'center';
+      for (const fr of [100, 1000, 10000]) ctx.fillText(fr >= 1000 ? `${fr / 1000}k` : String(fr), X(fr), y + hA - 3 * dpr);
+      ctx.textAlign = 'left'; ctx.fillText('response (speaker + room + microphone), dB', gx + 4 * dpr, y + 11 * dpr);
+      ctx.strokeStyle = C.cyan; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+      f.forEach((fr, i) => { if (i) ctx.lineTo(X(fr), Y(d[i])); else ctx.moveTo(X(fr), Y(d[i])); });
+      ctx.stroke();
+      ctx.fillStyle = C.amber; ctx.textAlign = 'center';
+      res.modes.forEach((m, i) => { ctx.fillRect(X(m.f) - dpr, y + 14 * dpr, 2 * dpr, 7 * dpr); ctx.fillText(String(Math.round(m.f)), X(m.f), y + (31 + (i % 2) * 10) * dpr); });
+      if (res.lowWeak) { ctx.fillStyle = C.red; ctx.textAlign = 'right'; ctx.font = `600 ${10 * dpr}px ${FONT}`; ctx.fillText('weak lows: the speaker cannot excite room modes', gx + gw - 4 * dpr, y + 11 * dpr); }
+      y += hA + 10 * dpr;
+    }
+    // B: reverberation per octave band (tap a bar)
+    {
+      const rts = res.rt, tmax = Math.max(1.2, ...rts.map(r => r.t || 0)) * 1.1, bwid = gw / rts.length;
+      ctx.fillStyle = C.panel; ctx.fillRect(gx, y, gw, hB);
+      ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText('reverberation time RT60 per octave band (tap a bar)', gx + 4 * dpr, y + 11 * dpr);
+      rts.forEach((r, i) => {
+        const x = gx + i * bwid + bwid * 0.15, bw2 = bwid * 0.7, sel = r.f === R.sel, bt = r.t != null ? (r.t / tmax) * (hB - 44 * dpr) : 0, by = y + hB - 16 * dpr - bt;
+        if (r.t != null) { ctx.fillStyle = sel ? C.cyan : 'rgba(62,232,255,0.45)'; ctx.fillRect(x, by, bw2, bt); }
+        ctx.textAlign = 'center'; ctx.fillStyle = C.bright; ctx.font = `600 ${10 * dpr}px ${FONT}`; ctx.fillText(r.t != null ? r.t.toFixed(2) : '—', x + bw2 / 2, (r.t != null ? by : y + hB - 20 * dpr) - 3 * dpr);
+        ctx.fillStyle = sel ? C.cyan : C.text; ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillText(r.f >= 1000 ? `${r.f / 1000}k` : String(r.f), x + bw2 / 2, y + hB - 4 * dpr);
+        boxes.push({ id: 'band', f: r.f, x: gx + i * bwid, y, w: bwid, h: hB, dpr });
+      });
+      y += hB + 10 * dpr;
+    }
+    // C: the decay of the chosen band
+    {
+      const r = res.rt.find(q => q.f === R.sel), dec = res.decays[R.sel] || [];
+      ctx.fillStyle = C.panel; ctx.fillRect(gx, y, gw, hC);
+      ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'left';
+      ctx.fillText(`decay at ${R.sel >= 1000 ? R.sel / 1000 + ' kHz' : R.sel + ' Hz'}${r && r.t20 != null ? ` · T20 ${r.t20.toFixed(2)} s` : ''}${r && r.edt != null ? ` · EDT ${r.edt.toFixed(2)} s` : ''}`, gx + 4 * dpr, y + 11 * dpr);
+      const tmax = Math.max(0.6, Math.min(3, dec.length / 100)), X = t => gx + gw * Math.min(1, t / tmax), Y = db => y + 16 * dpr + (Math.min(60, Math.max(0, -db)) / 60) * (hC - 20 * dpr);
+      ctx.strokeStyle = C.grid; ctx.lineWidth = dpr; ctx.beginPath();
+      for (const q of [-20, -40, -60]) { ctx.moveTo(gx, Y(q)); ctx.lineTo(gx + gw, Y(q)); }
+      ctx.stroke();
+      ctx.fillStyle = C.text; ctx.textAlign = 'right';
+      for (const q of [-20, -40, -60]) ctx.fillText(String(q), gx + gw - 3 * dpr, Y(q) - 2 * dpr);
+      ctx.strokeStyle = C.magenta; ctx.lineWidth = 2 * dpr; ctx.beginPath();
+      dec.forEach((db, i) => { const t = i / 100; if (t > tmax) return; if (i) ctx.lineTo(X(t), Y(db)); else ctx.moveTo(X(t), Y(db)); });
+      ctx.stroke();
+      y += hC + 14 * dpr;
+    }
+    // D: words
+    ctx.textAlign = 'left'; ctx.fillStyle = C.bright; ctx.font = `600 ${12 * dpr}px ${FONT}`;
+    const rm = res.rtMean, feel = rm == null ? '' : rm < 0.3 ? 'very dry (heavily treated)' : rm < 0.5 ? 'dry: good for speech and recording' : rm < 0.9 ? 'lively: fine for practice and small groups' : rm < 1.5 ? 'reverberant: speech will blur' : 'very live: echoey';
+    if (feel) ctx.fillText(`${rm.toFixed(2)} s: ${feel}`, pad, y);
+    ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+    const low = res.rt.find(q => q.f === 125), mid = res.rt.find(q => q.f === 1000);
+    let yy = y + 16 * dpr;
+    if (low && mid && low.t && mid.t && low.t > mid.t * 1.4) { ctx.fillText(`bass rings ${(low.t / mid.t).toFixed(1)}× longer than the mids: boomy`, pad, yy); yy += 15 * dpr; }
+    if (res.sweep && res.modes.length) { ctx.fillText(`resonances: ${res.modes.map(m => `${Math.round(m.f)} Hz (${NOTE_NAMES[((Math.round(69 + 12 * Math.log2(m.f / S.a4)) % 12) + 12) % 12]})`).join(' · ')}`, pad, yy); yy += 15 * dpr; }
+    if (res.quality === 'poor') { ctx.fillStyle = C.amber; ctx.fillText('weak signal: raise the media volume or measure when it is quieter', pad, yy); }
+  }
+  // ---------------------------------------------------------------------------------- practice
+  // The page plays a metronome on the audio clock and tells us its schedule (t0, bpm, bar, subdivision,
+  // a polyrhythm layer). The worklet tells us which clock time each block ends at, so any sample has a
+  // clock time and any click a sample. Notes the player makes are found in the raw signal (energy in
+  // 2.7 ms steps: a rise of 9 dB over the last 40 ms, then back to where the rise began), so they are
+  // timed to a few ms, and measured against the clicks (practice.js).
+  prac() {
+    if (!this.pr) this.pr = { cfg: null, sync: false, on: [], d: new Float32Array(16).fill(-120), k: 0, lastOn: -1e9, an: null, anAt: 0, flash: [] };
+    return this.pr;
+  }
+  clock(frame) { this.clk = { t: frame / this.sr, w: this.w }; }
+  tOf(w) { return this.clk ? this.clk.t + (w - this.clk.w) / this.sr : NaN; }
+  // the clock time now (to the screen frame): the last block's end plus the wall time since it arrived
+  tNow() { return this.clk ? this.clk.t + (this.w - this.clk.w) / this.sr + Math.min(0.06, (now() - (this.pushAt || now())) / 1000) : NaN; }
+  practiceStep(n) {
+    const P = this.prac(), w0 = this.w - n, ring = this.ring, D = P.d;
+    for (let h = 0; h + 128 <= n; h += 128) {
+      let ss = 0;
+      for (let i = 0; i < 128; i++) { const x = ring[(w0 + h + i) & MASK]; ss += x * x; }
+      const db = 10 * Math.log10(ss / 128 + 1e-20) + AES17, wEnd = w0 + h + 128;
+      let mn = 1e9;
+      for (let j = 1; j <= 15; j++) mn = Math.min(mn, D[(P.k - j + 16) & 15]);
+      if (db - mn > 9 && db > -48 && wEnd - P.lastOn > this.sr * 0.07) {
+        // where the rise began: the earliest of the last 15 steps already 4 dB over the floor
+        let f = 0;
+        for (let j = 15; j >= 1; j--) if (D[(P.k - j + 16) & 15] - mn >= 4) { f = j; break; }
+        const wOn = f ? wEnd - 128 * (f + 1) + 64 : wEnd - 64;
+        P.lastOn = wEnd;
+        const t = this.tOf(wOn);
+        if (isFinite(t)) {
+          P.on.push({ t, db });
+          if (P.on.length > 600) P.on.shift();
+          if (this.lat) this.lat.found.push(t);
+        }
+      }
+      D[P.k & 15] = db; P.k++;
+    }
+  }
+  latencyCheck() {
+    const L = this.lat, tn = this.tNow();
+    if (!L || !(tn > L.until)) return;
+    const d = [];
+    for (const tk of L.times) { const f = L.found.find(t => t >= tk - 0.02 && t <= tk + 0.45); if (f !== undefined) d.push((f - tk) * 1000); }
+    d.sort((a, b) => a - b);
+    this.lat = null;
+    this.post({ type: 'latency', ms: d.length >= 3 ? Math.round(d[d.length >> 1]) : null, n: d.length, of: L.times.length });
+  }
+  practiceAnalysis(P, tn) {
+    if (!P.cfg || !isFinite(tn)) return null;
+    if (!P.an || now() - P.anAt > 200) {
+      const S = this.S, ts = P.on.filter(o => o.t >= P.cfg.t0 - 0.25).map(o => o.t);
+      P.an = analyseTake(ts, P.cfg, { target: S.mTarget, comp: S.mLat, now: tn });
+      P.anAt = now();
+    }
+    return P.an;
+  }
+  drawPractice(v) {
+    this.latencyCheck();
+    const { ctx, w, h, dpr } = v, S = this.S, P = this.prac(), cfg = P.cfg, pad = 14 * dpr, cx = w / 2;
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+    if (!cfg) {
+      ctx.font = `600 ${18 * dpr}px ${FONT}`; ctx.fillStyle = C.bright; ctx.fillText('Press Start', cx, h * 0.32);
+      ctx.font = `${13 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      const lines = ['A click plays; play along on any instrument', 'or clap. Each note is measured against the', 'beat: early or late, how even, and whether', 'you drift. Headphones keep the click out of', 'the microphone.'];
+      lines.forEach((t, i) => ctx.fillText(t, cx, h * 0.32 + 30 * dpr + i * 19 * dpr));
+      this.prResetBox = null;
+      return;
+    }
+    const tn = this.tNow(), B = 60 / cfg.bpm, beats = Math.max(1, cfg.beats | 0), poly = cfg.poly;
+    const cycBeats = poly ? poly.q : beats, Tc = cycBeats * B;
+    const an = P.sync ? this.practiceAnalysis(P, tn) : null;
+    // the wheel
+    const R = Math.min(w * 0.3, h * 0.2), cy = 22 * dpr + R + 14 * dpr, ph = isFinite(tn) ? (((tn - cfg.t0) % Tc) + Tc) % Tc / Tc : 0;
+    const ang = f => -Math.PI / 2 + f * 2 * Math.PI;
+    ctx.strokeStyle = C.grid2; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.stroke();
+    const sinceNode = f => { const d = ph - f; return (d + 1) % 1 * Tc; }; // seconds since the hand passed a node
+    const node = (f, r, rad, col, glow) => {
+      const a = ang(f), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r, g = Math.max(0, 1 - sinceNode(f) / 0.25);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.55 + 0.45 * g; ctx.beginPath(); ctx.arc(x, y, rad * (1 + 0.5 * g), 0, 2 * Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+    };
+    for (let j = 0; j < cycBeats; j++) {
+      const f = j / cycBeats, acc = beats > 1 && (j % beats === 0);
+      for (let u = 1; u < (cfg.sub || 1); u++) node(f + u / (cfg.sub * cycBeats), R, 2 * dpr, C.grid2);
+      node(f, R, (acc ? 7 : 5) * dpr, acc ? C.amber : C.cyan);
+    }
+    if (poly) for (let j = 0; j < poly.p; j++) node(j / poly.p, R * 0.72, 5 * dpr, C.magenta);
+    // the hand
+    const a = ang(ph);
+    ctx.strokeStyle = 'rgba(230,243,255,0.8)'; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * (R - 8 * dpr), cy + Math.sin(a) * (R - 8 * dpr)); ctx.stroke();
+    ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(cx, cy, 3 * dpr, 0, 2 * Math.PI); ctx.fill();
+    // the player's notes as sparks outside the ring: green on time, blue early, orange late
+    const comp = (S.mLat || 0) / 1000, hitAt = new Map();
+    if (an) for (const hh of an.hits) hitAt.set(Math.round(hh.t * 1e4), hh);
+    for (const o of P.on) {
+      const age = tn - o.t;
+      if (!(age >= 0 && age < 3 * Tc) || o.t < cfg.t0 - 0.25) continue;
+      const hh = hitAt.get(Math.round((o.t - comp) * 1e4)), f = ((((o.t - comp) - cfg.t0) % Tc) + Tc) % Tc / Tc, aa = ang(f);
+      const off = hh ? hh.off : null, col = off == null ? C.text : Math.abs(off) <= 10 ? C.green : off < 0 ? '#5aa8ff' : C.amber;
+      ctx.globalAlpha = Math.max(0.15, 1 - age / (3 * Tc)); ctx.fillStyle = col;
+      const r = R + 13 * dpr + clamp((o.db + 50) / 10, 0, 4) * dpr;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(aa) * r, cy + Math.sin(aa) * r, (3 + clamp((o.db + 50) / 20, 0, 3)) * dpr, 0, 2 * Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+    }
+    // the last note's offset in the middle
+    ctx.textAlign = 'center';
+    if (!P.sync) {
+      ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.amber; ctx.fillText('listening is off: tap ⏻ to be measured', cx, cy + R + 36 * dpr);
+    } else if (an && an.hits.length) {
+      const last = an.hits[an.hits.length - 1], ago = tn - last.t;
+      if (ago < 2.5) {
+        const col = Math.abs(last.off) <= 10 ? C.green : last.off < 0 ? '#5aa8ff' : C.amber;
+        ctx.globalAlpha = clamp(1.5 - ago / 2.5 * 1.2, 0.3, 1);
+        ctx.fillStyle = col; ctx.font = `700 ${R * 0.34}px ${FONT}`; ctx.fillText(`${last.off > 0 ? '+' : last.off < 0 ? '−' : ''}${Math.abs(last.off).toFixed(0)}`, cx, cy - R * 0.06);
+        ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillText(Math.abs(last.off) <= 10 ? 'ms · on it' : last.off < 0 ? 'ms · early' : 'ms · late', cx, cy + R * 0.2);
+        ctx.globalAlpha = 1;
+      }
+    }
+    let y = cy + R + 44 * dpr;
+    // the report
+    this.prResetBox = null;
+    if (an && an.n) {
+      const d = describeTake(an);
+      ctx.textAlign = 'left'; ctx.font = `600 ${14 * dpr}px ${FONT}`; ctx.fillStyle = C.bright;
+      ctx.fillText(`${an.n} notes: ${d.bias}`, pad, y);
+      ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      ctx.fillText(`${d.spread} (±${an.sd.toFixed(0)} ms)${an.missed ? ' · ' + an.missed + ' missed' : ''}${an.extras ? ' · ' + an.extras + ' extra' : ''}`, pad, y + 17 * dpr);
+      let yy = y + 34 * dpr;
+      if (d.drift) { ctx.fillStyle = C.amber; ctx.fillText(d.drift, pad, yy); yy += 17 * dpr; ctx.fillStyle = C.text; }
+      if (an.swing) { ctx.fillText(`off-beats at ${(an.swing.f * 100).toFixed(0)} % of the beat: swing ${an.swing.ratio.toFixed(1)}:1 (straight 1:1, triplet 2:1)`, pad, yy); yy += 17 * dpr; }
+      y = yy + 4 * dpr;
+      // reset
+      const bw = 56 * dpr, bh = 24 * dpr, bx = w - pad - bw;
+      ctx.strokeStyle = C.grid2; ctx.lineWidth = dpr; ctx.strokeRect(bx + 0.5, y - 14 * dpr - 4 * dpr + 0.5, bw - 1, bh - 1);
+      ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.fillText('Reset', bx + bw / 2, y - 4 * dpr);
+      this.prResetBox = { x: bx, y: y - 18 * dpr, w: bw, h: bh, dpr };
+      // the offsets of the last notes
+      const gx = pad, gw = w - 2 * pad, gy = y + 10 * dpr, gh = h - gy - 70 * dpr;
+      if (gh > 50 * dpr) {
+        const hits = an.hits.slice(-32), top = Math.max(30, Math.ceil(Math.max(...hits.map(x => Math.abs(x.off))) / 10) * 10 + 10), mid = gy + gh / 2, Y = o => mid - clamp(o, -top, top) / top * (gh / 2 - 6 * dpr);
+        ctx.fillStyle = C.panel; ctx.fillRect(gx, gy, gw, gh);
+        ctx.fillStyle = 'rgba(61,255,138,0.10)'; ctx.fillRect(gx, Y(10), gw, Y(-10) - Y(10));
+        ctx.strokeStyle = C.grid2; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(gx, mid); ctx.lineTo(gx + gw, mid); ctx.stroke();
+        ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'left';
+        ctx.fillText(`+${top} ms  late`, gx + 3 * dpr, gy + 11 * dpr); ctx.fillText(`−${top} ms  early`, gx + 3 * dpr, gy + gh - 4 * dpr);
+        const step = gw / 32;
+        hits.forEach((hh, i) => {
+          const x = gx + gw - (hits.length - i - 0.5) * step, col = Math.abs(hh.off) <= 10 ? C.green : hh.off < 0 ? '#5aa8ff' : C.amber;
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, Y(hh.off), 3.2 * dpr, 0, 2 * Math.PI); ctx.fill();
+        });
+        if (an.trend && hits.length >= 6) { // the drift line
+          const tr = an.trend, t1 = hits[0].t, t2 = hits[hits.length - 1].t, o1 = tr.mo + tr.slope * (t1 - tr.mt), o2 = tr.mo + tr.slope * (t2 - tr.mt);
+          ctx.strokeStyle = C.bright; ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.lineWidth = 1.2 * dpr;
+          ctx.beginPath(); ctx.moveTo(gx + gw - (hits.length - 0.5) * step, Y(o1)); ctx.lineTo(gx + gw - 0.5 * step, Y(o2)); ctx.stroke(); ctx.setLineDash([]);
+        }
+      }
+    } else if (P.sync) {
+      ctx.textAlign = 'center'; ctx.font = `${13 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      ctx.fillText(`play along: ${S.mTarget === 'layer2' ? 'the magenta layer' : S.mTarget === 'all' ? 'any click' : 'the beat'}`, cx, y + 10 * dpr);
+    }
+  }
   // The intonation trainer: play the notes of a scale; each note is judged against its target (equal
   // temperament or just intonation) in cents. The scale as cells with the last error of each degree, the
   // note now sounding with its error on a bar, and the log of the last notes (sharp up, flat down).
@@ -1776,6 +2137,8 @@ export class Engine {
       level: { Z: this.level('Z', 'fast', true), A: this.level('A', 'fast', true), C: this.level('C', 'fast', true), Zslow: this.level('Z', 'slow', true) },
       peakDb: 20 * Math.log10(this.peakMax + 1e-12), specPeak: pk, rows: this.rowCount, scopeFreq: this.scopeFreq, view: this.S.view,
       pitch: this.pitch, target: this.target, cents: this.centsSm, lock: this.lockString,
+      room: this.rm ? { state: this.rm.state, mode: this.rm.mode, n: this.rm.n, need: this.rm.need, note: this.rm.note, res: this.rm.res && { quality: this.rm.res.quality, range: this.rm.res.range, rtMean: this.rm.res.rtMean, rt: this.rm.res.rt.map(r => ({ f: r.f, t: r.t })), modes: this.rm.res.modes, lowWeak: this.rm.res.lowWeak, sweep: this.rm.res.sweep }, boxes: (this.roomBoxes || []).map(b => ({ id: b.id, f: b.f, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })) } : null,
+      practice: this.S.view === 'practice' ? { cfg: this.pr && this.pr.cfg, sync: this.pr && this.pr.sync, nOn: this.pr ? this.pr.on.length : 0, clk: !!this.clk, an: this.pr && this.pr.cfg ? (() => { const a = this.practiceAnalysis(this.pr, this.tNow()); return a && { n: a.n, mean: a.mean, sd: a.sd, drift: a.drift, missed: a.missed, extras: a.extras, swing: a.swing, offs: a.hits.map(x => Math.round(x.off * 10) / 10) }; })() : null, lat: this.lat ? { n: this.lat.found.length } : null, resetBox: this.prResetBox && { x: (this.prResetBox.x + this.prResetBox.w / 2) / this.prResetBox.dpr, y: (this.prResetBox.y + this.prResetBox.h / 2) / this.prResetBox.dpr } } : null,
       intonation: this.S.tuning === 'scale' ? { log: this.nlog.log.map(e => ({ k: midiName(e.k), cents: Math.round(e.cents * 10) / 10 })), live: this.nlog.live(), target: this.target && { name: midiName(this.target.k), idx: this.target.idx }, cents: this.centsSm, summary: this.nlog.summary(12), status: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), modeBoxes: (this.modeBoxes || []).map(b => ({ mode: b.mode, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), clear: this.clearBox && { x: (this.clearBox.x + this.clearBox.w / 2) / this.clearBox.dpr, y: (this.clearBox.y + this.clearBox.h / 2) / this.clearBox.dpr } } : null,
       tuner: this.S.view === 'tuner' ? { advice: this.advice(this.centsSm, !!(this.pitch && this.w - this.pitch.at < this.sr * 0.35 && this.settledAt), this.tuning()).text, next: this.nextString(this.tuning()), strings: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), learn: this.learn ? this.learn.notes.map(midiName) : null,
         learnBtns: (this.learnBtns || []).map(b => ({ id: b.id, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), cells: (this.tunerCells || []).map(b => ({ x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), noteBox: this.noteBox && { x: (this.noteBox.x + this.noteBox.w / 2) / this.noteBox.dpr, y: (this.noteBox.y + this.noteBox.h / 2) / this.noteBox.dpr } } : null,
