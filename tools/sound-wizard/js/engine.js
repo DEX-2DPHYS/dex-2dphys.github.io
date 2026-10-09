@@ -5,26 +5,75 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, estimateChord, NOTE_NAMES } from './dsp.js?v=20261009.1521';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, estimateChord, NOTE_NAMES } from './dsp.js?v=20261009.1548';
 
-// instruments for the tuner: strings low to high, the pitch range searched and the analysis window
-// (a bass needs 8192 samples: two periods of a low B are 65 ms)
-const nm = s => { const m = /^([A-G])([#♯b♭]?)(-?\d)$/.exec(s); const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' || m[2] === '♯' ? 1 : m[2] ? -1 : 0); return base + 12 * (+m[3] + 1); };
+// instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
+// from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
+const NOTE_IDX = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+// 'E2', 'F#1', 'Bb0', 'E♭4' → { midi }; a letter without octave ('A', 'F#') → { pc }; null if not a note.
+// Only a lowercase b is a flat, so "AEADGBE" reads as seven notes.
+export function parseNote(s) {
+  const m = /^([A-Ga-g])([#♯b♭]?)(-?\d)?$/.exec(String(s).trim());
+  if (!m) return null;
+  const base = NOTE_IDX[m[1].toUpperCase()] + (m[2] === '#' || m[2] === '♯' ? 1 : m[2] ? -1 : 0);
+  return m[3] === undefined ? { pc: (base + 12) % 12 } : { midi: base + 12 * (+m[3] + 1) };
+}
+// a typed tuning, low to high: "A1 E2 A2 D3 G3 B3 E4", or letters only ("AEADGBE", "DADGAD"): then the
+// lowest string is placed between A1 and G♯2 and each next string is the nearest note above the one before
+export function parseTuning(text) {
+  const raw = String(text || '').trim();
+  const toks = /[\s,]/.test(raw) ? raw.split(/[\s,]+/).filter(Boolean) : (raw.match(/[A-Ga-g][#♯b♭]?-?\d?/g) || []);
+  if (!toks.length || toks.length > 12 || toks.join('').length !== raw.replace(/[\s,]+/g, '').length) return null;
+  const out = [];
+  for (const t of toks) {
+    const p = parseNote(t);
+    if (!p) return null;
+    if (p.midi !== undefined) out.push(p.midi);
+    else if (!out.length) out.push(33 + ((p.pc - 9 + 12) % 12));
+    else { let m = out[out.length - 1] + 1; while (((m % 12) + 12) % 12 !== p.pc) m++; out.push(m); }
+  }
+  return out;
+}
+const T = (name, strings, opts = {}) => ({ name, strings, ...opts });
 export const TUNINGS = {
-  chromatic: { name: 'Chromatic', strings: [], fmin: 25, fmax: 4200, W: 4096 },
-  guitar: { name: 'Guitar · standard', strings: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'], fmin: 60, fmax: 1400, W: 4096 },
-  dropd: { name: 'Guitar · drop D', strings: ['D2', 'A2', 'D3', 'G3', 'B3', 'E4'], fmin: 55, fmax: 1400, W: 4096 },
-  dadgad: { name: 'Guitar · DADGAD', strings: ['D2', 'A2', 'D3', 'G3', 'A3', 'D4'], fmin: 55, fmax: 1400, W: 4096 },
-  openg: { name: 'Guitar · open G', strings: ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'], fmin: 55, fmax: 1400, W: 4096 },
-  halfdown: { name: 'Guitar · ½ step down', strings: ['E♭2', 'A♭2', 'D♭3', 'G♭3', 'B♭3', 'E♭4'], fmin: 55, fmax: 1400, W: 4096 },
-  bass4: { name: 'Bass · 4 strings', strings: ['E1', 'A1', 'D2', 'G2'], fmin: 25, fmax: 500, W: 8192 },
-  bass5: { name: 'Bass · 5 strings', strings: ['B0', 'E1', 'A1', 'D2', 'G2'], fmin: 25, fmax: 500, W: 8192 },
-  ukulele: { name: 'Ukulele', strings: ['G4', 'C4', 'E4', 'A4'], fmin: 180, fmax: 2000, W: 4096 },
-  violin: { name: 'Violin', strings: ['G3', 'D4', 'A4', 'E5'], fmin: 150, fmax: 3000, W: 4096 },
-  cello: { name: 'Cello', strings: ['C2', 'G2', 'D3', 'A3'], fmin: 50, fmax: 1500, W: 4096 },
+  free: T('Free · any note', [], { fmin: 25, fmax: 4200, W: 4096 }),
+  guitar: T('Guitar · standard', ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  dropd: T('Guitar · drop D', ['D2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  dropc: T('Guitar · drop C', ['C2', 'G2', 'C3', 'F3', 'A3', 'D4']),
+  dropb: T('Guitar · drop B', ['B1', 'F♯2', 'B2', 'E3', 'G♯3', 'C♯4']),
+  halfdown: T('Guitar · ½ step down', ['E♭2', 'A♭2', 'D♭3', 'G♭3', 'B♭3', 'E♭4']),
+  dadgad: T('Guitar · DADGAD', ['D2', 'A2', 'D3', 'G3', 'A3', 'D4']),
+  openg: T('Guitar · open G', ['D2', 'G2', 'D3', 'G3', 'B3', 'D4']),
+  g7dropa: T('7-string · drop A (AEADGBE)', ['A1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  g7: T('7-string · standard', ['B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  g8: T('8-string · standard', ['F♯1', 'B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  g8drope: T('8-string · drop E', ['E1', 'B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  bass4: T('Bass · 4 strings', ['E1', 'A1', 'D2', 'G2'], { fmax: 500 }),
+  bass5: T('Bass · 5 strings', ['B0', 'E1', 'A1', 'D2', 'G2'], { fmax: 500 }),
+  ukulele: T('Ukulele', ['G4', 'C4', 'E4', 'A4']),
+  violin: T('Violin', ['G3', 'D4', 'A4', 'E5']),
+  cello: T('Cello', ['C2', 'G2', 'D3', 'A3']),
 };
-for (const t of Object.values(TUNINGS)) t.midi = t.strings.map(nm);
-const midiName = m => { const n = Math.round(m); return `${NOTE_NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}`; };
+function finishTuning(t) {
+  t.midi = t.strings.map(s => parseNote(s).midi);
+  if (t.midi.length) {
+    const fLo = 440 * Math.pow(2, (Math.min(...t.midi) - 69) / 12), fHi = 440 * Math.pow(2, (Math.max(...t.midi) - 69) / 12);
+    if (t.fmin === undefined) t.fmin = Math.max(20, fLo * 0.7);
+    if (t.fmax === undefined) t.fmax = Math.min(4200, fHi * 4);
+    if (t.W === undefined) t.W = fLo < 40 ? 8192 : 4096;
+  }
+  return t;
+}
+for (const t of Object.values(TUNINGS)) finishTuning(t);
+// a tuning by key: a preset, or 'custom:N' from the user's own (settings.custom = [{ name, strings }])
+export function tuningOf(key, custom) {
+  if (String(key).startsWith('custom:')) {
+    const c = (custom || [])[+String(key).slice(7)];
+    if (c && c.strings && c.strings.length) return finishTuning({ name: `★ ${c.name}`, strings: c.strings.slice(), custom: true });
+  }
+  return TUNINGS[key] || TUNINGS.free;
+}
+export const midiName = m => { const n = Math.round(m); return `${NOTE_NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}`; };
 const HIST = 480; // pitch history: 480 blocks of 1024 samples ≈ 10 s
 
 const RING = 1 << 18;          // ~5.5 s at 48 kHz: enough for the largest FFT and the scope
@@ -42,7 +91,7 @@ export const DEFAULTS = {
   // scope
   win: 10, sgain: 'auto', trig: 'auto',
   // tuner
-  tuning: 'guitar',
+  tuning: 'free', custom: [],
   // tone generator (the page plays it; listed here so all settings live in one place)
   genMode: 'note', genWave: 'sine', genLevel: -18, genHz: 440, genMidi: 69,
   autoFs: true,
@@ -85,7 +134,8 @@ export class Engine {
     this.hMidi = new Float32Array(HIST).fill(NaN);       // smoothed pitch per block
     this.hCents = new Float32Array(HIST).fill(NaN);      // cents from the tuner's target per block
     this.hI = 0;
-    this.lockString = -1; this.target = null; this.centsSm = 0;
+    this.lockString = -1; this.target = null; this.centsSm = 0; this.settledAt = 0;
+    this.hAtk = new Uint8Array(HIST); this.coach = []; this.strStatus = []; this.learn = null;
     // tone
     this.toneFFT = null; this.toneAcc = 0;
     this.chroma = new Float32Array(12); this.chromaFast = new Float32Array(12); this.chromaSlow = new Float32Array(12);
@@ -130,9 +180,15 @@ export class Engine {
       case 'set': this.set(d.key, d.value); break;
       case 'pointer':
         this.pointer = d.active ? { id: d.id, x: d.x, y: d.y } : null;
-        if (d.down && d.id === 'tuner' && this.tunerCells) { // tap a string to lock onto it, again to let go
-          const c = this.tunerCells.find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
-          if (c) this.lockString = this.lockString === c.i ? -1 : c.i;
+        if (d.down && d.id === 'tuner') {
+          const hit = list => (list || []).find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
+          const lb = this.learn && hit(this.learnBtns), c = !this.learn && hit(this.tunerCells), nb = hit(this.noteBox ? [this.noteBox] : []);
+          if (lb) { // learn my tuning: Undo / Done / Cancel
+            if (lb.id === 'undo') { this.learn.notes.pop(); this.learn.capT = -9; }
+            if (lb.id === 'cancel') this.learn = null;
+            if (lb.id === 'done' && this.learn.notes.length) { this.post({ type: 'learned', strings: this.learn.notes.map(midiName) }); this.learn = null; }
+          } else if (c) this.lockString = this.lockString === c.i ? -1 : c.i; // tap a string to lock onto it, again to let go
+          else if (nb && this.target) this.post({ type: 'ref', midi: this.target.midi }); // the target as a reference tone
         }
         if (d.down && d.id === 'rhythm' && this.tapBox && this.rh) { // tap tempo
           const b = this.tapBox, x = d.x * b.dpr, y = d.y * b.dpr;
@@ -145,6 +201,7 @@ export class Engine {
         break;
       case 'pause': this.paused = !!d.on; break;
       case 'hidden': this.hidden = !!d.on; break;
+      case 'learnStart': this.learn = { notes: [], buf: [], silence: true }; this.lockString = -1; break;
       case 'reset': this.resetStats(); break;
       case 'calibrate': { // the reading the user's reference meter shows for the current sound
         const raw = this.level(this.S.weight, this.S.tw, true);
@@ -164,7 +221,7 @@ export class Engine {
     if (key === 'gain' || key === 'range') this.repaintWaterfall();
     if (key === 'scale' || key === 'fmin' || key === 'fmax') { this.mapDirty = true; }
     if (key === 'weight' || key === 'tw' || key === 'unit') this.resetStats();
-    if (key === 'tuning') { this.lockString = -1; this.pRecent.length = 0; }
+    if (key === 'tuning' || key === 'custom') { this.lockString = -1; this.pRecent.length = 0; this.strStatus = []; this.tunCache = null; }
     if (key === 'view') { this.pRecent.length = 0; }
   }
 
@@ -191,6 +248,7 @@ export class Engine {
     this.w = w + n;
     this.ms.Z[0] = zf; this.ms.Z[1] = zs; this.ms.A[0] = af; this.ms.A[1] = as; this.ms.C[0] = cf; this.ms.C[1] = cs;
     const L = this.leq; L.Z += sz; L.A += sa; L.C += sc; L.n += n;
+    this.lastBlockDb = 10 * Math.log10(sz / n + 1e-20) + AES17;
     if (pk > this.peakBlock) this.peakBlock = pk;
     if (pk > this.peakMax) this.peakMax = pk;
     const lv = this.level(this.S.weight, this.S.tw);
@@ -349,13 +407,26 @@ export class Engine {
   }
 
   // ---------------------------------------------------------------------------------- pitch
+  // the tuning in use (presets, or the user's own: cached, as this runs every block)
+  tuning() {
+    const S = this.S, key = `${S.tuning}|${S.tuning.startsWith('custom:') ? JSON.stringify(S.custom || []) : ''}`;
+    if (!this.tunCache || this.tunCache.key !== key) this.tunCache = { key, t: tuningOf(S.tuning, S.custom) };
+    return this.tunCache.t;
+  }
   // one estimate per arriving block (~21 ms): McLeod pitch on the latest window, a median of the last
-  // five good estimates against stray readings, and a history for the traces
+  // five good estimates against stray readings, and a history for the traces. A new pluck (the level
+  // jumps 6 dB above its decaying envelope) starts an "attack" of 150 ms: a plucked string runs sharp
+  // there, so those readings go on the trace (dimmed) but do not move the needle, the coaching or the
+  // per-string memory.
   pitchStep() {
-    const S = this.S, tun = TUNINGS[S.tuning] || TUNINGS.guitar;
+    const S = this.S, tun = this.tuning();
     const cfg = S.view === 'tone' ? { W: 8192, fmin: 27, fmax: 2100 } : tun;
     if (!this.pm || this.pm.W !== cfg.W) this.pm = new PitchMPM(cfg.W);
     const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17;
+    const bl = this.lastBlockDb ?? -120, env = this.lvlEnv ?? -120;
+    if (bl > env + 6 && bl > -60) this.attackUntil = this.w + this.sr * 0.15;
+    this.lvlEnv = Math.max(bl, env - 1.2);
+    const attack = this.w < (this.attackUntil || 0);
     const p = lvl > -65 ? this.pm.detect(this.ring, MASK, this.w, this.sr, cfg.fmin, cfg.fmax) : { f: NaN, clarity: 0 };
     let midi = NaN;
     if (p.clarity > 0.86 && isFinite(p.f)) {
@@ -369,7 +440,7 @@ export class Engine {
     } else if (this.pitch && this.w - this.pitch.at > this.sr * 0.25) {
       this.pRecent.length = 0;
     }
-    // the tuner's target: a locked string, the nearest string, or the nearest note
+    // the tuner's target: a locked string, the nearest string, or (free) the nearest note
     let cents = NaN;
     if (isFinite(midi)) {
       let tm = Math.round(midi), idx = -1;
@@ -381,7 +452,76 @@ export class Engine {
       this.target = { midi: tm, idx };
       cents = (midi - tm) * 100;
     }
-    this.hMidi[this.hI] = midi; this.hCents[this.hI] = cents; this.hI = (this.hI + 1) % HIST;
+    if (S.view === 'tuner') {
+      const t = this.w / this.sr;
+      if (isFinite(cents) && !attack) {
+        // the needle: smoothed, but a jump to another note follows at once
+        this.centsSm = Math.abs(cents - this.centsSm) > 30 || !this.settledAt ? cents : this.centsSm + (cents - this.centsSm) * 0.35;
+        this.settledAt = this.w;
+        this.coach.push([t, cents]);
+        while (this.coach.length && t - this.coach[0][0] > 0.4) this.coach.shift();
+        if (this.target.idx >= 0) this.strStatus[this.target.idx] = { cents: this.centsSm, at: this.w };
+      } else if (!isFinite(cents)) {
+        this.coach.length = 0;
+        if (this.settledAt && this.w - this.settledAt > this.sr * 1.5) this.settledAt = 0;
+      }
+      if (this.learn) this.learnStep(midi, attack, t);
+    }
+    this.hMidi[this.hI] = midi; this.hCents[this.hI] = cents; this.hAtk[this.hI] = attack ? 1 : 0; this.hI = (this.hI + 1) % HIST;
+  }
+  // learn my tuning: each open string played and held; a note that stays within a quarter tone for
+  // ~0.45 s is captured (rounded to the nearest note); the next capture needs a different note, or the
+  // same note again after a silence, and at least 0.8 s
+  learnStep(midi, attack, t) {
+    const L = this.learn;
+    if (!isFinite(midi)) { L.buf.length = 0; if (t - (L.lastPitchT || 0) > 0.4) L.silence = true; return; }
+    if (attack) return;
+    L.lastPitchT = t;
+    L.buf.push([t, midi]);
+    while (L.buf.length && t - L.buf[0][0] > 0.45) L.buf.shift();
+    if (L.buf.length < 15 || t - (L.capT ?? -9) < 0.8 || L.notes.length >= 12) return;
+    const ms = L.buf.map(x => x[1]).sort((a, b) => a - b);
+    if (ms[ms.length - 1] - ms[0] > 0.25) return;
+    const note = Math.round(ms[ms.length >> 1]);
+    if (L.notes.length && note === L.notes[L.notes.length - 1] && !L.silence) return;
+    L.notes.push(note); L.capT = t; L.silence = false; L.buf.length = 0;
+  }
+  // what the player should do now: from the distance and from how the pitch is moving (a straight line
+  // through the last 0.4 s of settled readings: cents per second)
+  advice(c, live, tun) {
+    const k = this.coach, free = !tun.midi.length;
+    if (!live) return { text: free ? 'play a note' : 'play a string', sub: '', col: C.text };
+    if (this.w < (this.attackUntil || 0) && !this.settledAt) return { text: 'listening…', sub: '', col: C.text };
+    let slope = 0;
+    if (k.length >= 6) {
+      const n = k.length, mt = k.reduce((s, x) => s + x[0], 0) / n, mc = k.reduce((s, x) => s + x[1], 0) / n;
+      let num = 0, den = 0;
+      for (const [t, v] of k) { num += (t - mt) * (v - mc); den += (t - mt) ** 2; }
+      slope = den > 0 ? num / den : 0;
+    }
+    const a = Math.abs(c), steady = Math.abs(slope) < 4;
+    // a locked string more than 1.5 semitones off: most likely another string is ringing; turning the peg
+    // that far would be wrong advice
+    if (this.lockString >= 0 && a > 150) return { text: 'wrong string?', sub: `${(a / 100).toFixed(1)} semitones ${c < 0 ? 'below' : 'above'} the ${tun.strings[this.lockString]} string`, col: C.amber };
+    const next = this.nextString(tun);
+    if (a <= 2) return steady ? { text: '✓ in tune', sub: free ? '' : next >= 0 ? `next: ${tun.strings[next]} string` : 'all strings in tune ✓', col: C.green } : { text: 'almost…', sub: 'hold it there', col: C.green };
+    if (slope * c > 0 && Math.abs(slope) > 3) return { text: 'other way!', sub: c < 0 ? 'it is flat: tighten (raise) it' : 'it is sharp: loosen (lower) it', col: C.red };
+    if (slope * c < 0 && Math.abs(slope) > 3) {
+      const tt = a / Math.abs(slope);
+      return tt < 0.6 ? { text: 'slow down…', sub: `${a.toFixed(0)} ¢ to go`, col: C.amber } : { text: 'keep going', sub: `${a.toFixed(0)} ¢ to go`, col: C.amber };
+    }
+    const amount = a > 25 ? 'a lot' : a > 8 ? 'a bit' : 'a touch';
+    return { text: c < 0 ? `tighten ▲ ${amount}` : `loosen ▼ ${amount}`, sub: c < 0 ? 'flat: too low' : 'sharp: too high', col: a > 10 ? C.red : C.amber };
+  }
+  // the first string (low to high) not yet measured in tune; −1 when all are
+  nextString(tun) {
+    const cur = this.target ? this.target.idx : -1;
+    for (let i = 0; i < tun.midi.length; i++) {
+      const s = this.strStatus[i];
+      if (i === cur && Math.abs(this.centsSm) <= 2) continue;
+      if (!s || Math.abs(s.cents) > 2) return i;
+    }
+    return -1;
   }
 
   // ----------------------------------------------------------------------------------- tone
@@ -798,72 +938,135 @@ export class Engine {
   }
 
   // ---------------------------------------------------------------------------------- tuner
+  // Top to bottom: the strings (each with its last measured state; tap to lock), a strobe band (still =
+  // in tune), the note, what to do now (with coaching while the peg turns), any warning, the gauge and
+  // the last 10 s. Tap the note for a reference tone of the target.
   drawTuner(v) {
-    const { ctx, w, h, dpr } = v, S = this.S, tun = TUNINGS[S.tuning] || TUNINGS.guitar;
+    const { ctx, w, h, dpr } = v, S = this.S, tun = this.tuning(), free = !tun.midi.length;
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
     const pad = 14 * dpr, cx = w / 2;
     const p = this.pitch, live = p && this.w - p.at < this.sr * 0.35, recent = p && this.w - p.at < this.sr * 2.5;
-    // header: instrument and reference
     ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(tun.name, pad, 20 * dpr);
     ctx.textAlign = 'right'; ctx.fillText(`A4 = ${S.a4} Hz`, w - pad, 20 * dpr);
-    // strings (tap to lock)
     let y = 30 * dpr;
-    this.tunerCells = [];
-    if (tun.midi.length) {
-      const n = tun.midi.length, gap = 6 * dpr, cw = (w - 2 * pad - gap * (n - 1)) / n, ch = 44 * dpr;
+    this.tunerCells = []; this.learnBtns = [];
+    if (this.learn) { y = this.drawLearn(v, y); }
+    else if (tun.midi.length) {
+      const n = tun.midi.length, gap = 5 * dpr, cw = (w - 2 * pad - gap * (n - 1)) / n, ch = 54 * dpr, next = this.nextString(tun);
       tun.strings.forEach((s, i) => {
-        const x = pad + i * (cw + gap), on = this.target && this.target.idx === i && recent, locked = this.lockString === i;
+        const x = pad + i * (cw + gap), on = this.target && this.target.idx === i && recent, locked = this.lockString === i, st = this.strStatus[i];
         ctx.fillStyle = on ? 'rgba(62,232,255,0.18)' : C.panel; ctx.fillRect(x, y, cw, ch);
         ctx.strokeStyle = locked ? C.amber : on ? C.cyan : C.grid2; ctx.lineWidth = (locked ? 2 : 1) * dpr; ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
-        ctx.textAlign = 'center'; ctx.fillStyle = on ? C.bright : C.text; ctx.font = `600 ${16 * dpr}px ${FONT}`;
-        ctx.fillText(s.replace(/\d/, ''), x + cw / 2, y + 23 * dpr);
-        ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillText(locked ? 'locked' : s.replace(/\D/g, ''), x + cw / 2, y + 37 * dpr);
+        ctx.textAlign = 'center'; ctx.fillStyle = on ? C.bright : C.text; ctx.font = `600 ${(n > 6 ? 14 : 16) * dpr}px ${FONT}`;
+        ctx.fillText(s.replace(/-?\d+$/, ''), x + cw / 2, y + 20 * dpr);
+        ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillText(locked ? 'locked' : s.replace(/^[^\d-]+/, ''), x + cw / 2, y + 33 * dpr);
+        if (st) { // the last settled reading of this string
+          const ok = Math.abs(st.cents) <= 2, col = ok ? C.green : Math.abs(st.cents) <= 10 ? C.amber : C.red;
+          ctx.fillStyle = col; ctx.fillRect(x + 3 * dpr, y + ch - 6 * dpr, cw - 6 * dpr, 3 * dpr);
+          ctx.font = `600 ${10 * dpr}px ${FONT}`; ctx.fillText(ok ? '✓' : `${st.cents > 0 ? '+' : '−'}${Math.abs(st.cents).toFixed(0)}`, x + cw / 2, y + ch - 11 * dpr);
+        }
+        if (i === next && !on) { ctx.fillStyle = C.cyan; ctx.beginPath(); ctx.moveTo(x + cw / 2 - 5 * dpr, y - 1); ctx.lineTo(x + cw / 2 + 5 * dpr, y - 1); ctx.lineTo(x + cw / 2, y + 6 * dpr); ctx.fill(); }
         this.tunerCells.push({ i, x, y, w: cw, h: ch, dpr });
       });
       y += ch;
+    } else {
+      ctx.textAlign = 'center'; ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      ctx.fillText('finds the note you play: tuned to no instrument and no scale', cx, y + 18 * dpr);
+      y += 26 * dpr;
     }
-    // the note, the cents and the frequency
-    const cents = live ? (p.midi - this.target.midi) * 100 : NaN;
-    if (isFinite(cents)) this.centsSm += (cents - this.centsSm) * (Math.abs(cents - this.centsSm) > 30 ? 1 : 0.35);
-    const c = this.centsSm, inTune = live && Math.abs(c) < 3, close = live && Math.abs(c) < 10;
-    const col = !recent ? C.text : inTune ? C.green : close ? C.amber : C.red;
-    const big = Math.min(w * 0.3, h * 0.16);
-    y += big + 18 * dpr;
+    // the strobe band: stripes drift right when sharp, left when flat, faster the further off; still = in tune
+    const c = this.centsSm, inTune = live && Math.abs(c) <= 2;
+    const t = now(), dt = Math.min(0.1, (t - (this.strobeT || t)) / 1000);
+    this.strobeT = t;
+    if (live && isFinite(c) && this.settledAt) this.strobePh = (this.strobePh || 0) + clamp(c, -60, 60) * 5 * dpr * dt;
+    y += 12 * dpr;
+    const sh = 40 * dpr, sw = w - 2 * pad;
+    ctx.fillStyle = C.panel; ctx.fillRect(pad, y, sw, sh);
+    ctx.save(); ctx.beginPath(); ctx.rect(pad, y, sw, sh); ctx.clip();
+    for (let row = 0; row < 2; row++) {
+      const sp = (row ? 13 : 26) * dpr, ph = ((((this.strobePh || 0) * (row ? 2 : 1)) % sp) + sp) % sp, yy = y + row * sh / 2 + dpr, hh = sh / 2 - 2 * dpr;
+      ctx.fillStyle = !live ? 'rgba(110,150,200,0.16)' : inTune ? (row ? 'rgba(61,255,138,0.6)' : C.green) : (row ? 'rgba(62,232,255,0.55)' : C.cyan);
+      for (let x = pad - sp + ph; x < w - pad; x += sp) ctx.fillRect(x, yy, sp / 2, hh);
+    }
+    ctx.restore();
+    ctx.font = `${9 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.fillText('◀ flat', pad + 3 * dpr, y + sh + 11 * dpr);
+    ctx.textAlign = 'right'; ctx.fillText('sharp ▶', w - pad - 3 * dpr, y + sh + 11 * dpr);
+    ctx.textAlign = 'center'; ctx.fillText('strobe: still = in tune', cx, y + sh + 11 * dpr);
+    y += sh + 14 * dpr;
+    // the note (tap it for a reference tone)
+    const adv = this.advice(c, live && this.settledAt, tun);
+    const col = !recent ? C.text : inTune ? C.green : Math.abs(c) <= 10 ? C.amber : C.red;
+    const big = Math.min(w * 0.24, h * 0.12);
+    const noteTop = y;
+    y += big + 6 * dpr;
     ctx.textAlign = 'center'; ctx.fillStyle = recent ? col : C.grid2; ctx.font = `700 ${big}px ${FONT}`;
     const tname = this.target ? midiName(this.target.midi) : '—', letter = tname.replace(/-?\d+$/, ''), oct = tname.replace(/^[^\d-]+/, '');
     ctx.fillText(recent ? letter : '—', cx, y);
     if (recent) { const lw = ctx.measureText(letter).width; ctx.font = `600 ${big * 0.32}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(oct, cx + lw / 2 + 4 * dpr, y); }
-    ctx.textAlign = 'center'; ctx.font = `600 ${17 * dpr}px ${MONO}`; ctx.fillStyle = recent ? C.bright : C.text;
-    ctx.fillText(recent ? `${fmtHz(p.f)}   ${c > 0 ? '+' : c < 0 ? '−' : '±'}${Math.abs(c).toFixed(1)} ¢` : 'play a note', cx, y + 28 * dpr);
-    if (recent && this.target) { ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(`target ${fmtHz(S.a4 * Math.pow(2, (this.target.midi - 69) / 12))}`, cx, y + 46 * dpr); }
-    // the gauge: ±50 cents on an arc, green within ±3
-    const gr = Math.min(w * 0.38, (h - y) * 0.36), gy = y + 96 * dpr + gr; // room for the tick labels above the arc
-    const A = 1.15; // half-angle of the arc (rad)
-    const ang = d => -Math.PI / 2 + clamp(d / 50, -1, 1) * A;
-    ctx.lineWidth = 10 * dpr; ctx.lineCap = 'butt';
-    ctx.strokeStyle = C.panel; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-50), ang(50)); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,176,32,0.35)'; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-10), ang(10)); ctx.stroke();
-    ctx.strokeStyle = 'rgba(61,255,138,0.75)'; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-3), ang(3)); ctx.stroke();
-    ctx.lineWidth = 1.5 * dpr; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
-    for (let d = -50; d <= 50; d += 10) {
-      const a = ang(d), r0 = gr + 9 * dpr, r1 = gr + (d % 50 === 0 || d === 0 ? 20 : 15) * dpr;
-      ctx.strokeStyle = d === 0 ? C.bright : C.grid2;
-      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, gy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, gy + Math.sin(a) * r1); ctx.stroke();
-      if (d % 25 === 0) ctx.fillText(d > 0 ? `+${d}` : String(d), cx + Math.cos(a) * (gr + 34 * dpr), gy + Math.sin(a) * (gr + 34 * dpr) + 4 * dpr);
+    this.noteBox = { x: cx - big, y: noteTop, w: 2 * big, h: big + 10 * dpr, dpr };
+    ctx.textAlign = 'center'; ctx.font = `600 ${16 * dpr}px ${MONO}`; ctx.fillStyle = recent ? C.bright : C.text;
+    ctx.fillText(recent ? `${fmtHz(p.f)}   ${c > 0 ? '+' : c < 0 ? '−' : '±'}${Math.abs(c).toFixed(1)} ¢` : '', cx, y + 24 * dpr);
+    ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+    ctx.fillText(this.target ? `target ${fmtHz(S.a4 * Math.pow(2, (this.target.midi - 69) / 12))} · tap the note to hear it` : 'tap the note to hear it', cx, y + 39 * dpr);
+    y += 70 * dpr;
+    // what to do now
+    ctx.font = `700 ${22 * dpr}px ${FONT}`; ctx.fillStyle = adv.col; ctx.fillText(adv.text, cx, y);
+    ctx.font = `${13 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(adv.sub, cx, y + 19 * dpr);
+    // warnings: a locked string played on the wrong string, or a note far from every string
+    let warn = '';
+    if (live && p && tun.midi.length) {
+      if (this.lockString >= 0 && Math.abs(p.midi - tun.midi[this.lockString]) > 1.5) warn = `sounds like ${midiName(p.midi)}: is this the ${tun.strings[this.lockString]} string?`;
+      else if (this.lockString < 0 && Math.min(...tun.midi.map(m => Math.abs(m - p.midi))) > 2.5) warn = `${midiName(p.midi)} is far from every string of this tuning`;
     }
-    if (recent) {
-      const a = ang(c);
-      ctx.strokeStyle = col; ctx.lineWidth = 4 * dpr; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * gr * 0.18, gy + Math.sin(a) * gr * 0.18); ctx.lineTo(cx + Math.cos(a) * (gr - 4 * dpr), gy + Math.sin(a) * (gr - 4 * dpr)); ctx.stroke();
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, gy, 7 * dpr, 0, 2 * Math.PI); ctx.fill();
-      ctx.font = `600 ${14 * dpr}px ${FONT}`; ctx.fillStyle = col; ctx.textAlign = 'center';
-      ctx.fillText(inTune ? '✓ in tune' : c < 0 ? 'too low · tune up ▲' : 'too high · tune down ▼', cx, gy + 30 * dpr);
+    if (warn) { ctx.font = `600 ${12 * dpr}px ${FONT}`; ctx.fillStyle = C.amber; ctx.fillText(`⚠ ${warn}`, cx, y + 37 * dpr); }
+    y += 46 * dpr;
+    // the gauge: ±50 cents, green within ±2
+    const gr = Math.min(w * 0.34, (h - y) * 0.42), gy = y + 32 * dpr + gr;
+    if (gr > 40 * dpr) {
+      const A = 1.15, ang = d => -Math.PI / 2 + clamp(d / 50, -1, 1) * A;
+      ctx.lineWidth = 9 * dpr; ctx.lineCap = 'butt';
+      ctx.strokeStyle = C.panel; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-50), ang(50)); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,176,32,0.35)'; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-10), ang(10)); ctx.stroke();
+      ctx.strokeStyle = 'rgba(61,255,138,0.75)'; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-2), ang(2)); ctx.stroke();
+      ctx.lineWidth = 1.5 * dpr; ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      for (let d = -50; d <= 50; d += 10) {
+        const a = ang(d), r0 = gr + 8 * dpr, r1 = gr + (d % 50 === 0 || d === 0 ? 18 : 13) * dpr;
+        ctx.strokeStyle = d === 0 ? C.bright : C.grid2;
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, gy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, gy + Math.sin(a) * r1); ctx.stroke();
+        if (d % 25 === 0) ctx.fillText(d > 0 ? `+${d}` : String(d), cx + Math.cos(a) * (gr + 30 * dpr), gy + Math.sin(a) * (gr + 30 * dpr) + 4 * dpr);
+      }
+      if (recent && this.settledAt) {
+        const a = ang(c);
+        ctx.strokeStyle = col; ctx.lineWidth = 4 * dpr; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * gr * 0.15, gy + Math.sin(a) * gr * 0.15); ctx.lineTo(cx + Math.cos(a) * (gr - 4 * dpr), gy + Math.sin(a) * (gr - 4 * dpr)); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, gy, 6 * dpr, 0, 2 * Math.PI); ctx.fill();
+      }
+      ctx.lineCap = 'butt';
     }
-    ctx.lineCap = 'butt';
-    // the trace: cents from the target over the last 10 s
-    const ty = gy + 48 * dpr, th = h - ty - 22 * dpr;
+    // the last 10 s (the sharp start of each pluck dimmed)
+    const ty = gy + 22 * dpr, th = h - ty - 22 * dpr;
     if (th > 50 * dpr) this.drawTrace(ctx, pad, ty, w - 2 * pad, th, dpr, 'cents');
+  }
+  // learn my tuning: what has been heard so far, the note now, and Undo / Done / Cancel
+  drawLearn(v, y) {
+    const { ctx, w, dpr } = v, L = this.learn, pad = 14 * dpr, cx = w / 2;
+    ctx.fillStyle = 'rgba(255,62,200,0.12)'; ctx.fillRect(pad, y, w - 2 * pad, 112 * dpr);
+    ctx.strokeStyle = C.magenta; ctx.lineWidth = dpr; ctx.strokeRect(pad + 0.5, y + 0.5, w - 2 * pad - 1, 112 * dpr - 1);
+    ctx.textAlign = 'center'; ctx.font = `600 ${13 * dpr}px ${FONT}`; ctx.fillStyle = C.bright;
+    ctx.fillText(`Learn my tuning: play string ${L.notes.length + 1}, lowest first, and let it ring`, cx, y + 20 * dpr);
+    ctx.font = `600 ${18 * dpr}px ${MONO}`; ctx.fillStyle = L.notes.length ? C.magenta : C.text;
+    ctx.fillText(L.notes.length ? L.notes.map(midiName).join('  ') : '…', cx, y + 48 * dpr);
+    const labels = [['undo', 'Undo'], ['done', 'Done ✓'], ['cancel', 'Cancel']], bw = (w - 2 * pad - 40 * dpr) / 3;
+    labels.forEach(([id, txt], i) => {
+      const x = pad + 10 * dpr + i * (bw + 10 * dpr), by = y + 64 * dpr, bh = 38 * dpr;
+      const on = id !== 'done' || L.notes.length > 0;
+      ctx.fillStyle = id === 'done' && on ? C.magenta : C.panel; ctx.fillRect(x, by, bw, bh);
+      ctx.strokeStyle = C.grid2; ctx.strokeRect(x + 0.5, by + 0.5, bw - 1, bh - 1);
+      ctx.font = `600 ${14 * dpr}px ${FONT}`; ctx.fillStyle = on ? C.bright : C.grid2; ctx.fillText(txt, x + bw / 2, by + 24 * dpr);
+      this.learnBtns.push({ id, x, y: by, w: bw, h: bh, dpr });
+    });
+    return y + 112 * dpr;
   }
 
   // a history strip: 'cents' (−50 … +50 around the target) or 'notes' (a note grid around the recent pitch)
@@ -903,6 +1106,10 @@ export class Engine {
       if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; }
     }
     ctx.strokeStyle = C.cyan; ctx.lineWidth = 2 * dpr; ctx.lineJoin = 'round'; ctx.stroke();
+    if (kind === 'cents') { // the sharp start of each pluck, dimmed over the line
+      ctx.fillStyle = 'rgba(5,7,11,0.6)';
+      for (let i = 0; i < n; i++) if (this.hAtk[(this.hI + i) % n]) ctx.fillRect(x + gw * i / (n - 1) - gw / n, y, gw / n * 2, gh);
+    }
   }
 
   // ----------------------------------------------------------------------------------- tone
@@ -1084,6 +1291,8 @@ export class Engine {
       level: { Z: this.level('Z', 'fast', true), A: this.level('A', 'fast', true), C: this.level('C', 'fast', true), Zslow: this.level('Z', 'slow', true) },
       peakDb: 20 * Math.log10(this.peakMax + 1e-12), specPeak: pk, rows: this.rowCount, scopeFreq: this.scopeFreq, view: this.S.view,
       pitch: this.pitch, target: this.target, cents: this.centsSm, lock: this.lockString,
+      tuner: this.S.view === 'tuner' ? { advice: this.advice(this.centsSm, !!(this.pitch && this.w - this.pitch.at < this.sr * 0.35 && this.settledAt), this.tuning()).text, next: this.nextString(this.tuning()), strings: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), learn: this.learn ? this.learn.notes.map(midiName) : null,
+        learnBtns: (this.learnBtns || []).map(b => ({ id: b.id, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), cells: (this.tunerCells || []).map(b => ({ x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), noteBox: this.noteBox && { x: (this.noteBox.x + this.noteBox.w / 2) / this.noteBox.dpr, y: (this.noteBox.y + this.noteBox.h / 2) / this.noteBox.dpr } } : null,
       chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
       harmonics: Array.from(this.harm), centroid: this.centroid,
       rhythm: this.rh ? { bpm: this.rh.bpmSm, raw: this.rh.bpm, conf: this.rh.conf, onsets: this.rh.onsets.length, mod: this.rh.mod && { f: this.rh.mod.f, share: this.rh.mod.share }, peaks: this.rh.peaks.slice(0, 6), tap: this.tapBpm() } : null,
