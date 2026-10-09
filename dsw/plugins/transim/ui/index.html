@@ -25,112 +25,70 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
 .toast{position:absolute;z-index:70;top:12px;left:50%;transform:translate(-50%,-20px);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:12.5px;opacity:0;pointer-events:none;transition:.18s;box-shadow:var(--shadow)}.toast.on{opacity:1;transform:translate(-50%,0)}
 @media(max-width:900px){.stage{padding:72px 10px 94px}.hud{top:10px;left:10px;width:250px}.hud-card{padding:7px 9px}.metrics{display:none}.dock{bottom:10px}.tab{padding:7px}.runmini .secondary{display:none}.top-actions .export{display:none}.brand p{display:none}}
 @media(max-height:640px){.stage{padding-top:42px;padding-bottom:70px}.hud{top:7px}.hud-card{padding:6px 9px}.metrics{margin-top:4px}.drawer-head{padding-top:8px}.action-grid{padding-bottom:7px}.dock{bottom:8px}}
-/* ============================================================
-   Front panel: three columns at 16:9.
+#mapBig{position:fixed;inset:0;z-index:50;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center}#mapBig[hidden]{display:none!important}#mapBig .mapcard{position:relative;width:min(1200px,94vw);height:min(760px,88vh);background:var(--input);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.35);padding:44px 10px 10px;box-sizing:border-box}#mapBigCanvas{width:100%;height:100%;display:block}#mapClose{position:absolute;top:8px;right:10px;z-index:2}</style>
 
-   The view used to be the whole workspace with the readout, the
-   tabs and the run buttons floating on top of it, and the only
-   chart in the plugin was buried in a slide-out drawer. Columns
-   give each of those a place of its own, and the view stops being
-   the only thing on screen without being made small.
-   ============================================================ */
-:root{--rail:300px;--side:390px;--gutter:12px}
-
-.workspace{display:grid;gap:var(--gutter);padding:var(--gutter);
-  grid-template-columns:var(--rail) minmax(0,1fr) var(--side);align-items:stretch}
-
-/* the old drawer, docked as the controls rail */
-.drawer{position:static;transform:none;width:auto;height:100%;min-height:0;
-  border:1px solid var(--line);border-radius:14px;box-shadow:none;z-index:1;
-  overflow:hidden;transition:none}
-.drawer.open{transform:none}
-.drawer-head small{display:none}
-
-/* centre: the tab/run bar, then the device view */
-/* justify-/align-content must be reset explicitly: the rule this overrides is
-   a centring flexbox, and in grid those two centre the TRACKS, which leaves an
-   auto column sized to its content and floating in the middle of the column. */
-.stage{position:static;inset:auto;display:grid;gap:10px;padding:0;min-width:0;
-  min-height:0;grid-template-rows:auto auto minmax(0,1fr);grid-template-columns:minmax(0,1fr);
-  align-items:stretch;justify-items:stretch;align-content:stretch;
-  justify-content:stretch}
-/* the sweep reminder strip: what this sweep IS, sitting above the device */
-.sweepbar{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;
-  padding:6px 10px;background:var(--panel);border:1px solid var(--line);
-  border-radius:10px;font-size:12px;color:var(--muted);line-height:1.4;min-width:0}
-.sweepbar b{color:var(--fg);font-weight:600}
-.sweepbar .sb-main{flex:1 1 auto;min-width:0}
-.sweepbar .sb-prog{font-variant-numeric:tabular-nums}
-.sweepbar .sb-warn{flex-basis:100%;color:#b45309;font-weight:600}
-.sweepbar .sb-warn:empty{display:none}
-.viewbar{display:flex;align-items:center;gap:6px;padding:6px;background:var(--panel);
-  border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
-.viewbar .tabs{flex:1 1 auto;min-width:0}
-/* A size container, so the view can be sized against the height it actually
-   has rather than against arithmetic on the viewport. */
-.viewwrap{display:flex;align-items:center;justify-content:center;
-  min-width:0;min-height:0;container-type:size}
-/* 100cqh IS the height available here, so this fits in both directions at every
-   breakpoint. Sizing by viewport arithmetic instead let max-height clamp the
-   box at narrow widths, and a clamped max-height beats aspect-ratio -- the view
-   came out at 1.91 and the device render would have been stretched. */
-.frame-shell{width:min(100%,calc(100cqh*16/9));height:auto;max-height:100%;
-  aspect-ratio:16/9;box-shadow:0 10px 30px rgba(0,0,0,.18)}
-
-/* right: readout, the sweep chart, and the tables -- all on the front page */
-/* Was a three-row grid of fixed cards. It now carries the sweep controls and
-   the numerical settings too, so it is a scrolling stack: each panel takes its
-   own height and the detail panel keeps whatever is left. */
-.side{display:flex;flex-direction:column;gap:var(--gutter);
-  min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
-.side > .panel{flex:0 0 auto}
-.side > .panel-detail{flex:1 1 auto;min-height:150px}
-.side .group{margin-top:10px}
-.side .group summary{font-size:12.5px}
-.side .row2{gap:6px}
-.side .field label{font-size:11.5px}
-.side .panel{display:flex;flex-direction:column;min-height:0;padding:12px;
-  background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  box-shadow:var(--shadow)}
-.side .panel > h3{margin:0 0 9px;font-size:10.5px;font-weight:800;letter-spacing:.15em;
-  text-transform:uppercase;color:var(--muted)}
-.side .hud{position:static;width:auto;pointer-events:auto}
-.side .hud-card{background:transparent;border:0;border-radius:0;padding:0;
-  box-shadow:none;backdrop-filter:none}
-.side .sweepbox{margin-top:0;height:172px;flex:0 0 auto}
-.side #sweepInfo{margin-top:7px;color:var(--muted)}
-.panel-detail .detail{position:static;display:none;width:auto;max-height:none;
-  padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;
-  overflow:auto;flex:1 1 auto;min-height:0}
-.panel-detail .detail.on{display:block}
-/* the placeholder follows the panel, so one sibling rule retires it */
-.detail.on + .detail-empty{display:none}
-
-/* the settings button now collapses the rail rather than opening a drawer */
-.app.norail .workspace{grid-template-columns:0 minmax(0,1fr) var(--side)}
+<style>.hint.warn{color:#b45309}</style>
+<style>#detail tr.few td{color:#b45309;font-weight:600}</style>
+<style>.gsrc{font-style:normal;opacity:.7;font-size:.9em}.stale{color:#b45309;font-size:12px;margin-top:2px}#scaleNote{opacity:.75;margin-top:2px}</style>
+<style>
+/* ==================================================================
+   Layout, 2026-10-09: SETUP | RESULTS | SIMULATE.
+   Left: what the sample is and how it is modelled (device, contacts,
+   maps, physics, engine). Middle: results only -- the view with its
+   colour/resolution bar, the line graph and the 2D map. Right: the
+   measurement (operating point, sweeps) and every button that runs.
+   ================================================================== */
+:root{--rail:300px;--side:340px;--gutter:12px;--radius:12px}
+.workspace{position:relative;display:grid;gap:var(--gutter);padding:var(--gutter);min-height:0;overflow:hidden;
+  grid-template-columns:var(--rail) minmax(0,1fr) var(--side)}
+.app.norail .workspace{grid-template-columns:minmax(0,1fr) var(--side)}
 .app.norail .drawer{display:none}
 
-@media(max-width:1420px){:root{--rail:284px;--side:318px}}
-@media(max-width:1240px){:root{--rail:262px;--side:288px}
-  .side .sweepbox{height:150px}}
-/* Too narrow for three columns: put the readouts in a row UNDER the view
-   rather than hiding them -- they are the thing that was asked to be on the
-   front page. */
-@media(max-width:1120px){
-  .workspace{grid-template-columns:var(--rail) minmax(0,1fr);
-    grid-template-rows:minmax(0,1fr) auto}
-  .drawer{grid-row:1/3}
-  .side{grid-column:2;grid-row:2;grid-template-columns:repeat(3,minmax(0,1fr));
-    grid-template-rows:auto}
-  .side .sweepbox{height:128px}}
-@media(max-width:840px){
-  .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
-  .drawer{display:none}.side{grid-column:1;grid-row:2}}
-#mapBig{position:fixed;inset:0;z-index:50;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center}#mapBig[hidden]{display:none!important}#mapBig .mapcard{position:relative;width:min(1200px,94vw);height:min(760px,88vh);background:var(--input);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.35);padding:44px 10px 10px;box-sizing:border-box}#mapBigCanvas{width:100%;height:100%;display:block}#mapClose{position:absolute;top:8px;right:10px;z-index:2}</style>
-<style>
-/* 2026-10-08 layout: status line, chart under the view, 2D map panel */
-.stage{grid-template-rows:auto auto auto minmax(0,1fr) auto}
-.statusstrip{padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+/* side columns */
+.col{position:static;transform:none;width:auto;height:auto;min-height:0;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:none;overflow:hidden;transition:none;z-index:1}
+.col-head{display:flex;align-items:center;gap:8px;padding:11px 14px 10px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.col-head>div{flex:1;min-width:0}
+.col-head h2{margin:0;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.col-head small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.col-head .iconbtn{width:28px;min-height:28px;padding:2px}
+.drawer-scroll,.side-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px;scrollbar-width:thin}
+.side-scroll{display:flex;flex-direction:column;gap:10px}
+
+/* components, one scale throughout */
+.body{padding:2px 12px 12px}
+details.group{margin:0 0 8px;border-radius:var(--radius)}
+details.group>summary{padding:9px 12px;font-size:11px;letter-spacing:.08em}
+.field{margin:8px 0}
+.field>label,.row>label{display:flex;align-items:center;gap:5px;margin:0 0 3px;font-size:12px;line-height:1.3;color:var(--muted)}
+.row>label{margin:0}
+.row{margin:6px 0;grid-template-columns:minmax(0,1fr) 112px}
+label.check{display:flex!important;align-items:center;gap:7px;margin:8px 0;font-size:12px;line-height:1.3;color:var(--fg);cursor:pointer}
+label.check input{margin:0;flex:0 0 auto}
+input[type=text]{width:100%;min-width:0;background:var(--input);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:6px 7px;font-size:12.5px}
+input[type=number],input[type=text],select{min-height:30px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);outline-offset:1px}
+.inline{margin:8px 0;gap:6px}
+.inline .btn{min-width:0}
+.hint{margin:6px 0;font-size:11.5px;line-height:1.45}
+.derived{margin-top:8px}
+.contact{grid-template-columns:9px minmax(0,1fr) 92px 26px}
+
+/* MIDDLE: results */
+.stage{position:static;inset:auto;display:flex;flex-direction:column;gap:8px;padding:0;min-width:0;min-height:0;
+  align-items:stretch;justify-content:flex-start}
+.viewbar{display:flex;align-items:center;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none;flex:0 0 auto}
+.viewbar .tabs{flex:1 1 auto;min-width:0}
+.displaybar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:4px 8px;padding:5px 9px;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);flex:0 0 auto}
+.dctl{display:flex;flex-direction:column;gap:2px;margin:0;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dctl select,.dctl input{width:auto;min-width:0;max-width:150px;min-height:26px;padding:2px 5px;font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}
+.dctl input[type=number]{width:72px}
+.dchecks{display:flex;gap:10px;align-items:center;min-height:26px}
+#scaleNote{margin-left:auto;align-self:center;max-width:260px;line-height:1.3}
+.dchecks label.check{margin:0}
+.dsep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+.statusstrip{flex:0 0 auto;padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
 .statusstrip .hud{position:static;width:auto;pointer-events:auto}
 .statusstrip .hud-card{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;background:transparent;border:0;padding:0;box-shadow:none;backdrop-filter:none}
 .statusstrip .hud-title{margin:0;font-size:12.5px}
@@ -138,25 +96,75 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
 .statusstrip .metric{border:0;padding:0;display:flex;gap:5px;align-items:baseline}
 .statusstrip .metric span{display:inline;font-size:10px}
 .statusstrip .statusline{margin:0;flex:1 1 auto;text-align:right}
-.linepanel{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:10px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);height:clamp(190px,24vh,300px);min-height:0}
+.viewwrap{flex:1 1 auto;min-height:180px;min-width:0;display:flex;align-items:center;justify-content:center;container-type:size}
+.frame-shell{width:min(100%,calc(100cqh*16/9));height:auto;max-height:100%;aspect-ratio:16/9;box-shadow:0 8px 24px rgba(0,0,0,.14)}
+.panel-detail{flex:0 0 clamp(200px,28vh,320px);display:flex;flex-direction:column;min-height:0;padding:10px 12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.panel-detail[hidden]{display:none!important}
+.panel-detail>h3,.linepanel h3,.mappanel h3{margin:0 0 6px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.panel-detail .detail{position:static;display:none;width:auto;max-height:none;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:auto;flex:1 1 auto;min-height:0}
+.panel-detail .detail.on{display:block}
+.resultsrow{flex:0 0 clamp(200px,28vh,320px);display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:var(--gutter);min-height:0}
+.stage.detail-on .resultsrow{display:none}
+.linecol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:0}
+.sweepbar{flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:5px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;font-size:11.5px;color:var(--muted);line-height:1.4;min-width:0}
+.sweepbar b{color:var(--fg);font-weight:600}
+.sweepbar .sb-main{flex:1 1 auto;min-width:0}
+.sweepbar .sb-prog{font-variant-numeric:tabular-nums}
+.sweepbar .sb-warn{flex-basis:100%;color:#b45309;font-weight:600}
+.sweepbar .sb-warn:empty{display:none}
+.linepanel{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr) 168px;gap:10px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);min-height:0;height:auto}
 .linepanel .sweepbox{height:100%!important;min-height:0;margin:0}
-.linepanel .lp-side{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin}
-.linepanel h3{margin:0;font-size:10.5px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
-.linepanel .row{margin:0!important}
-.side > [hidden]{display:none!important}
-.side > .panel-detail{flex:0 0 auto;min-height:220px;max-height:60vh}
+.linepanel .lp-side{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin}
+.linepanel .lp-side .row{display:flex!important;flex-wrap:wrap;gap:6px!important;margin:4px 0!important}
+.linepanel .lp-side .field{margin:3px 0}
+.linepanel .lp-side input,.linepanel .lp-side select{min-height:26px;padding:3px 5px;font-size:12px}
+.linepanel .lp-side .row2{gap:5px}
+.mappanel{display:flex;flex-direction:column;gap:5px;min-height:0;min-width:0;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
 .mappanel h3{display:flex;align-items:center;justify-content:space-between}
 .mappanel .h3tools{display:flex;gap:4px;letter-spacing:0;text-transform:none}
-.mappanel .h3tools .btn{padding:2px 8px;font-size:11px}
-.mapbox{height:280px;border:1px solid var(--line);border-radius:9px;background:var(--input);position:relative}
+.mappanel .h3tools .btn{min-height:24px;padding:2px 8px;font-size:11px}
+.mapbox{flex:1 1 auto;min-height:0;height:auto;border:1px solid var(--line);border-radius:9px;background:var(--input);position:relative}
 .mapbox canvas{width:100%;height:100%;display:block}
+.sweepbox canvas,.mapbox canvas{position:absolute;inset:0}
+.mappanel .progress{margin:2px 0}
+.dctl select{max-width:180px}
+/* the graph's side column: title, state, export first; axis limits after */
+.lp-side>*{order:3}.lp-side>h3{order:0}.lp-side>#sweepInfo{order:1}.lp-side>.inline{order:2;margin:2px 0 4px}
+.mapdisp{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 10px}
+.mapdisp label.check{margin:0 0 5px}
+
+/* RIGHT: simulate */
+.simpanel{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px 12px;background:color-mix(in srgb,var(--panel2) 60%,transparent)}
+.simpanel>h3{margin:0 0 4px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.simpanel .row{grid-template-columns:minmax(0,1fr) 120px}
+.runrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:10px}
+.runrow .btn{padding:6px 3px;font-size:12.5px;min-width:0}
+.runrow #stop{grid-column:1/-1}
+.runrow.two{grid-template-columns:minmax(0,1fr) 84px}
+.simpanel details>summary{cursor:pointer;margin:6px 0}
 .maxis{display:grid;grid-template-columns:14px minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) 46px;gap:4px;align-items:center;margin-top:6px}
 .maxis label{font-weight:700;color:var(--muted)}
 .maxis input,.maxis select{min-width:0;width:100%}
+
+/* narrower screens */
+@media(max-width:1440px){:root{--rail:282px;--side:320px}}
+@media(max-width:1280px){:root{--rail:262px;--side:300px}}
+/* Laptop screens: everything does not fit at a useful size, so the middle column
+   scrolls instead of shrinking the view to a stamp. The view keeps a real height
+   and the graph and the map each get the full width, one under the other. */
+@media(max-height:860px),(max-width:1500px){
+  .stage{overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+  .viewwrap{flex:0 0 auto;height:clamp(300px,58vh,560px)}
+  .panel-detail{flex:0 0 auto;height:360px}
+  .resultsrow{flex:0 0 auto;grid-template-columns:minmax(0,1fr)}
+  .linecol{flex:0 0 auto}
+  .linepanel{flex:0 0 auto;height:280px}
+  .mappanel{height:380px}}
+.axis-x{white-space:nowrap}
+@media(max-width:1060px){.workspace{grid-template-columns:minmax(0,1fr) var(--side)}
+  .drawer{position:absolute;left:var(--gutter);top:var(--gutter);bottom:var(--gutter);width:var(--rail);z-index:40;box-shadow:var(--shadow)}}
 </style>
-<style>.hint.warn{color:#b45309}</style>
-<style>#detail tr.few td{color:#b45309;font-weight:600}</style>
-<style>.gsrc{font-style:normal;opacity:.7;font-size:.9em}.stale{color:#b45309;font-size:12px;margin-top:2px}#scaleNote{opacity:.75;margin-top:2px}</style>
 </head>
 <body>
 <div id="mapBig" hidden><div class="mapcard"><button class="btn" id="mapClose" type="button">Close</button><canvas id="mapBigCanvas"></canvas></div></div>
@@ -166,14 +174,13 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
     <div class="brand"><h1>Graphene Transport Explorer</h1><p>Hybrid finite-volume + adaptive semiclassical transport</p></div>
     <div class="top-actions">
       <button class="btn export" id="exportJson">Export JSON</button><button class="btn export" id="exportPng">Export PNG</button>
-      <button class="btn iconbtn" id="theme" title="Toggle theme">◐</button><button class="btn accent" id="settings">Settings <span>⚙</span></button>
+      <button class="btn iconbtn" id="theme" title="Toggle theme">◐</button><button class="btn accent" id="settings" title="Show or hide the Setup column">Setup <span>◧</span></button>
     </div>
   </header>
     <div class="workspace" id="workspace">
-        <!-- left: every technical control, docked instead of sliding -->
-    <aside class="drawer" id="drawer">
-      <div class="drawer-head"><div><h2>Experiment controls</h2><small>Technical controls stay tucked away here</small></div><button class="btn iconbtn" id="closeSettings">×</button></div>
-      
+    <!-- LEFT: what the sample is and how it is modelled -->
+    <aside class="drawer col" id="drawer">
+      <div class="col-head"><div><h2>Setup</h2><small>Device, physics and engine</small></div><button class="btn iconbtn" id="closeSettings" title="Hide the setup column">×</button></div>
       <div class="drawer-scroll">
         <details class="group" id="projGroup" open><summary>Projects &amp; examples</summary><div class="body">
           <div class="field"><label>Example</label><select id="exampleSel"><option value="">— loading the list —</option></select></div>
@@ -184,27 +191,31 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
           <div class="field"><label>Name</label><input id="projName" type="text" placeholder="my device"></div><div class="inline"><button class="btn" id="myProjSave">Save to My projects</button></div>
           <div class="inline"><button class="btn" id="projSaveFile">Save project file</button><button class="btn" id="projOpenFile">Open project file…</button><input type="file" id="projFile" accept=".json,application/json" hidden></div>
         </div></details>
-        <details class="group" open><summary>Device & material</summary><div class="body">
-          <div class="row2"><div class="field"><label title="Along x: the source-to-drain direction in the presets">Length L along x (µm)</label><input id="W_um" type="number" min=".2" step=".5" value="4"></div><div class="field"><label title="Along y: across the channel; the contact width and the mode count use this">Width W along y (µm)</label><input id="H_um" type="number" min=".2" step=".5" value="2"></div></div>
-          <div class="field"><label>Carrier density n (cm⁻²) <button class="help" data-help="density">?</button></label><input id="n_cm2" type="number" step="1e11" value="1e12"></div>
-          <div class="field"><label>Mobility µ (cm²/Vs)</label><input id="mu_cm" type="number" step="1000" value="50000"></div>
-          <label class="check field"><input id="mfpFromMobility" type="checkbox" checked> Derive mean free path from µ and n</label>
-          <div class="field"><label>Mean free path ℓ (µm)</label><input id="mfp_um" type="number" min="0" step=".1" value=".5"></div><p class="hint warn" id="mfpSplitNote" hidden>ℓ set by hand reaches the TRAJECTORIES and the viscous model; the Ohmic FEM still uses the mobility µ. If they do not match, the models describe different samples.</p>
-          <div class="field"><label>Magnetic field B (T) <output id="B_val">0.00 T</output></label><input id="B" type="range" min="-2" max="2" step=".0005" value="0"></div><div class="field"><label>Temperature (K)</label><input id="tempK" type="number" min="0" max="2000" step="10" value="300" title="Used by phonon scattering (Scattering &amp; tracer) and by the viscous model when l_ee comes from T"></div>
-          <div class="row2"><div class="field"><label>Source V</label><input id="Vsource" type="number" step=".001" value=".001"></div><div class="field"><label>Drain V</label><input id="Vdrain" type="number" step=".001" value="0"></div></div>
-          <div class="row2"><div class="field"><label>Bulk scattering</label><select id="scattering"><option value="isotropic">Isotropic</option><option value="gaussian">Small-angle, Gaussian σ</option><option value="smallangle">Small-angle (uniform ±17°)</option><option value="forward">Forward-biased (uniform ±45°)</option><option value="none">None / ballistic</option></select></div><div class="field"><label>Edge scattering</label><select id="edge"><option value="specular">Specular</option><option value="partial">Partly specular, p</option><option value="diffuse">Diffuse (Lambert)</option><option value="mixed">Mixed (p = 0.5)</option><option value="absorbing">Absorbing</option></select></div></div>
-          <div class="derived" id="derived">Waiting for native core…</div>
+        <details class="group" open><summary>Device &amp; material</summary><div class="body"><div class="row2"><div class="field"><label title="Along x: the source-to-drain direction in the presets">Length L along x (µm)</label><input id="W_um" type="number" min=".2" step=".5" value="4"></div><div class="field"><label title="Along y: across the channel; the contact width and the mode count use this">Width W along y (µm)</label><input id="H_um" type="number" min=".2" step=".5" value="2"></div></div><div class="field"><label>Carrier density n (cm⁻²) <button class="help" data-help="density">?</button></label><input id="n_cm2" type="number" step="1e11" value="1e12"></div><div class="field"><label>Mobility µ (cm²/Vs)</label><input id="mu_cm" type="number" step="1000" value="50000"></div><label class="check field"><input id="mfpFromMobility" type="checkbox" checked> Derive mean free path from µ and n</label><div class="field"><label>Mean free path ℓ (µm)</label><input id="mfp_um" type="number" min="0" step=".1" value=".5"></div><p class="hint warn" id="mfpSplitNote" hidden>ℓ set by hand reaches the TRAJECTORIES and the viscous model; the Ohmic FEM still uses the mobility µ. If they do not match, the models describe different samples.</p><div class="derived" id="derived">Waiting for native core…</div></div></details>
+        <details class="group"><summary>Contacts</summary><div class="body">
+          <div class="field"><label>Preset layout</label><select id="contactPreset"><option value="hall_bar">Hall bar</option><option value="two_terminal">Two-terminal bar</option><option value="four_probe">Four-probe inline</option><option value="hall_cross">Hall cross</option></select></div>
+          <div class="field"><label>Contact depth (µm) <output id="dxNote"></output></label>
+            <input id="contactDepthUm" type="number" min="0.001" step="0.01" value="0.08"></div>
+          <div class="legend">How far the default electrodes reach in from their edge. They are boundary conditions, not sample, so this wants to be small — but keep it above the grid spacing dx, shown above. Drawn and imported contacts are unaffected.</div>
+          <div class="row2"><div class="field"><label>Draw role</label><select id="drawRole"><option value="source">Source</option><option value="drain">Drain</option><option value="probe">Probe</option><option value="absorber">Absorber</option><option value="reflector">Reflecting target (hard-wall ellipse)</option></select></div><div class="field"><label>&nbsp;</label><button class="btn" id="drawContact">✎ Draw on map</button></div></div>
+          <div class="inline"><button class="btn" id="clearContacts">Clear</button><button class="btn" id="resetContacts">Restore preset</button></div><div class="contact-list" id="contactList"></div>
         </div></details>
-        <details class="group"><summary>Scattering & tracer</summary><div class="body">
-          <div class="row2"><div class="field"><label>Impurity kick σ (°)</label><input id="fwdSigmaDeg" type="number" min=".1" max="180" step="1" value="10"></div><div class="field"><label>Edge specularity p</label><input id="specularity" type="number" min="0" max="1" step=".05" value="1"></div></div>
+        <details class="group"><summary>Spatial image maps</summary><div class="body">
+          <p class="hint">Images are reduced locally and sent to the native core. Luminance maps from the chosen minimum to maximum.</p>
+          <div class="field"><label>Density map</label><input type="file" id="densityFile" accept="image/*"></div><div class="row2"><div class="field"><label>min (cm⁻²)</label><input id="dmin" type="number" value="1e11"></div><div class="field"><label>max (cm⁻²)</label><input id="dmax" type="number" value="5e12"></div></div>
+          <div class="field"><label>Mobility map</label><input type="file" id="mobilityFile" accept="image/*"></div><div class="row2"><div class="field"><label>min</label><input id="mmin" type="number" value="5000"></div><div class="field"><label>max</label><input id="mmax" type="number" value="100000"></div></div>
+          <div class="row2"><div class="field"><label>Mobility controls</label><select id="mobScope"><option value="cond">Conductivity</option><option value="mfp">Mean free path</option><option value="both">Both</option></select></div><div class="field"><label>Channel</label><select id="mapChannel"><option value="lum">Luminance</option><option value="r">Red</option><option value="g">Green</option><option value="b">Blue</option></select></div></div>
+          <div class="row2"><label class="check field"><input id="mapInvert" type="checkbox"> Invert</label><div class="field"><label>Smooth radius</label><input id="mapSmooth" type="number" min="0" max="6" value="0"></div></div>
+          <div class="field"><label>Contact map</label><input type="file" id="contactFile" accept="image/*"></div><div class="inline"><button class="btn" data-clear-map="density">Clear density</button><button class="btn" data-clear-map="mobility">Clear mobility</button></div>
+        </div></details>
+        <details class="group"><summary>Scattering &amp; tracer</summary><div class="body"><div class="row2"><div class="field"><label>Bulk scattering</label><select id="scattering"><option value="isotropic">Isotropic</option><option value="gaussian">Small-angle, Gaussian σ</option><option value="smallangle">Small-angle (uniform ±17°)</option><option value="forward">Forward-biased (uniform ±45°)</option><option value="none">None / ballistic</option></select></div><div class="field"><label>Edge scattering</label><select id="edge"><option value="specular">Specular</option><option value="partial">Partly specular, p</option><option value="diffuse">Diffuse (Lambert)</option><option value="mixed">Mixed (p = 0.5)</option><option value="absorbing">Absorbing</option></select></div></div><div class="row2"><div class="field"><label>Impurity kick σ (°)</label><input id="fwdSigmaDeg" type="number" min=".1" max="180" step="1" value="10"></div><div class="field"><label>Edge specularity p</label><input id="specularity" type="number" min="0" max="1" step=".05" value="1"></div></div>
           <p class="hint">ℓ (given, or from µ and n) is the TRANSPORT mean free path for every angular law, so a given mobility means the same thing whichever law you pick: a small-angle law scatters more often, every ℓ·(1−⟨cos Δθ⟩), to relax momentum as fast. σ is used by the Gaussian law, p by the partly specular edge. Diffuse reflection follows Lambert's cosine law.</p>
           <div class="row2"><div class="field"><label>Phonon ℓ at 300 K (µm, 0 = off)</label><input id="phMfp300_um" type="number" min="0" step=".5" value="0"></div></div>
           <p class="hint">Acoustic phonons: an isotropic channel of length ℓ_ph(300 K)·300/T, added by Matthiessen's rule to the trajectories AND to the FEM mobility, so the two models stay comparable. µ above is then the impurity-limited (low-temperature) mobility.</p>
           <div class="row2"><div class="field"><label>e–e ℓ (µm, 0 = off)</label><input id="eeMfp_um" type="number" min="0" step=".5" value="0"></div><div class="field"><label>e–e kick σ (°)</label><input id="eeSigmaDeg" type="number" min=".1" max="180" step="1" value="15"></div></div>
           <p class="hint">Electron–electron collisions as one-body small-angle kicks (the Klein magnetometer model). Real e–e collisions conserve total momentum, so this channel is not counted in the mobility and is not given to the FEM; treat it as an indication, not a hydrodynamic model.</p>
           <div class="row2"><div class="field"><label>Trajectory tracer</label><select id="tracer"><option value="step">Stepped (any density map)</option><option value="arc">Exact arcs (uniform density)</option></select></div><label class="check field"><input id="refract" type="checkbox"> Refraction in density gradients</label></div><div class="field"><label>p–n junctions (sign change of n)</label><select id="pnMode"><option value="klein">Klein tunnelling + negative refraction</option><option value="pass">Pass straight through (old)</option></select></div><div class="field"><label>p–n junction width d (nm), 0 = abrupt</label><input id="pnWidth_nm" type="number" min="0" max="1000" step="1" value="0"></div>
-          <p class="hint">Exact arcs solve every wall, contact and scattering event analytically (no step error) and need a uniform density; with a density map loaded the stepped tracer runs instead, and the result says which one ran. Refraction (stepped tracer, density map) bends rays toward higher |n| as Snell's law requires, so a density step totally reflects rays beyond the critical angle. Where the density map changes sign (a p–n junction, e.g. a map from −2e12 to +2e12) a carrier tunnels with the abrupt-junction Klein probability T = cos θ₁ cos θ₂ / cos²((θ₁+θ₂)/2) and leaves on the same side of the normal (negative refraction), or is reflected. A symmetric junction (equal |n| on both sides) refocuses a point source at the mirror distance: a Veselago lens. A junction width d > 0 uses the smooth-step law of Cayssol, Huard &amp; Goldhaber-Gordon (PRB 79, 075428), which filters oblique rays more and more strongly as d grows (k_F d ≈ 1 at d ≈ 5.6 nm for 10¹² cm⁻²). The width is a physical parameter; the drawn map only sets where the junction is. Density maps are read at up to 256 pixels.</p>
-        </div></details>
+          <p class="hint">Exact arcs solve every wall, contact and scattering event analytically (no step error) and need a uniform density; with a density map loaded the stepped tracer runs instead, and the result says which one ran. Refraction (stepped tracer, density map) bends rays toward higher |n| as Snell's law requires, so a density step totally reflects rays beyond the critical angle. Where the density map changes sign (a p–n junction, e.g. a map from −2e12 to +2e12) a carrier tunnels with the abrupt-junction Klein probability T = cos θ₁ cos θ₂ / cos²((θ₁+θ₂)/2) and leaves on the same side of the normal (negative refraction), or is reflected. A symmetric junction (equal |n| on both sides) refocuses a point source at the mirror distance: a Veselago lens. A junction width d > 0 uses the smooth-step law of Cayssol, Huard &amp; Goldhaber-Gordon (PRB 79, 075428), which filters oblique rays more and more strongly as d grows (k_F d ≈ 1 at d ≈ 5.6 nm for 10¹² cm⁻²). The width is a physical parameter; the drawn map only sets where the junction is. Density maps are read at up to 256 pixels.</p></div></details>
         <details class="group" id="hydroGroup"><summary>Viscous (hydrodynamic) flow</summary><div class="body">
           <p class="hint">In clean graphene electron-electron collisions conserve momentum and the electrons flow like a viscous fluid (Stokes-Ohm model). Choose it here; the FEM and Hybrid buttons then solve it instead of Ohm's law.</p>
           <div class="field"><label>Field model</label><select id="fieldModel"><option value="ohmic">Ohmic (local, diffusive)</option><option value="hydro">Hydrodynamic (viscous electron fluid)</option></select></div>
@@ -215,42 +226,26 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
           <label class="check field"><input id="hydroHallVisc" type="checkbox" checked> Magnetic field reduces the viscosity, and adds Hall viscosity</label>
           <div class="hint" id="hydroInfo">—</div>
         </div></details>
-        <details class="group"><summary>Contacts</summary><div class="body">
-          <div class="field"><label>Preset layout</label><select id="contactPreset"><option value="hall_bar">Hall bar</option><option value="two_terminal">Two-terminal bar</option><option value="four_probe">Four-probe inline</option><option value="hall_cross">Hall cross</option></select></div>
-          <div class="field"><label>Contact depth (µm) <output id="dxNote"></output></label>
-            <input id="contactDepthUm" type="number" min="0.001" step="0.01" value="0.08"></div>
-          <div class="legend">How far the default electrodes reach in from their edge. They are boundary conditions, not sample, so this wants to be small — but keep it above the grid spacing dx, shown above. Drawn and imported contacts are unaffected.</div>
-          <div class="row2"><div class="field"><label>Draw role</label><select id="drawRole"><option value="source">Source</option><option value="drain">Drain</option><option value="probe">Probe</option><option value="absorber">Absorber</option><option value="reflector">Reflecting target (hard-wall ellipse)</option></select></div><div class="field"><label>&nbsp;</label><button class="btn" id="drawContact">✎ Draw on map</button></div></div>
-          <div class="inline"><button class="btn" id="clearContacts">Clear</button><button class="btn" id="resetContacts">Restore preset</button></div><div class="contact-list" id="contactList"></div>
-        </div></details>
-        <details class="group" id="dispGroup"><summary>Display &amp; colours</summary><div class="body">
-          <p class="hint">How the maps are coloured. Display only: nothing is re-run. The exported PNG carries the colour bar and its range.</p>
-          <div class="row2"><div class="field"><label>Colour map</label><select id="dSeq"><option value="viridis">Viridis</option><option value="magma">Magma</option><option value="inferno">Inferno</option><option value="plasma">Plasma</option><option value="cividis">Cividis</option><option value="turbo">Turbo</option><option value="hot">Hot</option><option value="blues">Blues</option><option value="gray">Grey</option><option value="grayinv">Grey, inverted</option></select></div>
-          <div class="field"><label>Potential map</label><select id="dDiv"><option value="rdbu">Red–blue</option><option value="coolwarm">Cool–warm</option><option value="puor">Orange–purple</option><option value="bwr">Blue–white–red</option></select></div></div>
-          <div class="row2"><div class="field"><label>Scale</label><select id="dScale"><option value="auto">Auto (log for densities)</option><option value="linear">Linear</option><option value="sqrt">Square root</option><option value="log">Log</option></select></div>
-          <div class="field"><label>Top of range</label><select id="dClip"><option value="100">Maximum</option><option value="99.9">99.9th percentile</option><option value="99.5">99.5th percentile</option><option value="99">99th percentile</option><option value="98">98th percentile</option><option value="95">95th percentile</option></select></div></div>
-          <div class="row2"><div class="field"><label>Smoothing</label><select id="dSmooth"><option value="0">Off</option><option value="1">Light</option><option value="2">Medium</option><option value="4">Strong</option></select></div>
-          <div class="field"><label>Trajectory paths</label><select id="dPaths"><option value="0.72">Shown</option><option value="0.3">Faint</option><option value="0">Hidden</option></select></div></div>
-          <div class="row2"><label class="check field"><input id="dInterp" type="checkbox"> Smooth pixels</label><label class="check field"><input id="dInvert" type="checkbox"> Reverse map</label></div>
-          <label class="check field"><input id="dBar" type="checkbox" checked> Colour bar</label>
-          <div class="hint" id="dRange">Colour range: run a model to see it.</div>
-        </div></details>
-        <details class="group"><summary>Spatial image maps</summary><div class="body">
-          <p class="hint">Images are reduced locally and sent to the native core. Luminance maps from the chosen minimum to maximum.</p>
-          <div class="field"><label>Density map</label><input type="file" id="densityFile" accept="image/*"></div><div class="row2"><div class="field"><label>min (cm⁻²)</label><input id="dmin" type="number" value="1e11"></div><div class="field"><label>max (cm⁻²)</label><input id="dmax" type="number" value="5e12"></div></div>
-          <div class="field"><label>Mobility map</label><input type="file" id="mobilityFile" accept="image/*"></div><div class="row2"><div class="field"><label>min</label><input id="mmin" type="number" value="5000"></div><div class="field"><label>max</label><input id="mmax" type="number" value="100000"></div></div>
-          <div class="row2"><div class="field"><label>Mobility controls</label><select id="mobScope"><option value="cond">Conductivity</option><option value="mfp">Mean free path</option><option value="both">Both</option></select></div><div class="field"><label>Channel</label><select id="mapChannel"><option value="lum">Luminance</option><option value="r">Red</option><option value="g">Green</option><option value="b">Blue</option></select></div></div>
-          <div class="row2"><label class="check field"><input id="mapInvert" type="checkbox"> Invert</label><div class="field"><label>Smooth radius</label><input id="mapSmooth" type="number" min="0" max="6" value="0"></div></div>
-          <div class="field"><label>Contact map</label><input type="file" id="contactFile" accept="image/*"></div><div class="inline"><button class="btn" data-clear-map="density">Clear density</button><button class="btn" data-clear-map="mobility">Clear mobility</button></div>
-        </div></details>
+        <details class="group"><summary>Engine &amp; numerics</summary><div class="body"><div class="row"><label>FEM max iterations</label><input id="femIter" type="number" step="500" value="3000"></div><div class="row"><label>FEM tolerance</label><input id="femTol" type="number" step="1e-10" value="1e-9"></div><div class="row"><label>Max path (µm)</label><input id="maxPath_um" type="number" min="1" step="20" value="240"></div><div class="row"><label>Step safety cap</label><input id="maxSteps" type="number" min="100" step="1000" value="8000"></div><div class="row"><label>CPU threads (0 = all)</label><input id="threads" type="number" min="0" max="256" value="0"></div><p class="hint">Adaptive ds resolves scattering events exactly and caps angular advance near tight cyclotron arcs. The core automatically raises the step cap when needed to reach the selected path length.</p></div></details>
         <details class="group"><summary>Model assumptions</summary><div class="body"><p class="hint">Trajectories are semiclassical and phase-incoherent; p–n junctions use the Dirac (Klein) transmission per angle. The field model is either local drift–diffusion (FEM) or a viscous electron fluid (hydro). The crossover sweep model adds Sharvin and Drude resistances in series. Not included: quantum interference, Landau quantisation, the Dirac-point minimum conductivity, contact resistance.</p><button class="btn" data-help="assumptions">Read model guidance</button></div></details>
         <div class="inline"><button class="btn danger" id="resetAll">Reset all settings</button></div>
       </div>
     </aside>
-        <main class="stage">
-            <div class="viewbar"><nav class="tabs" id="tabs"><button class="tab on" data-view="device">Device</button><button class="tab" data-view="potential">Potential</button><button class="tab" data-view="current">Current</button><button class="tab" data-view="vorticity">Vorticity</button><button class="tab" data-view="trajectories">Trajectories</button><button class="tab" data-view="transmission">Transmission</button><button class="tab" data-view="validity">Validity</button></nav><i class="dock-sep"></i><div class="runmini"><button class="btn secondary" data-run="fem" title="Field model: Ohmic FEM, or the viscous solver when Field model = Hydrodynamic">FEM</button><button class="btn secondary" data-run="ballistic" title="Trajectories with no scattering">Ballistic</button><button class="btn secondary" data-run="quasi" title="Trajectories with the configured scattering">Quasi</button><button class="btn primary" data-run="hybrid" title="Field model and trajectories together">Hybrid</button><button class="btn danger" id="stop">Stop</button></div></div>
-            <div class="statusstrip" id="statusStrip"><div class="hud"><div class="hud-card"><div class="eyebrow" id="regime">hybrid regime</div><div class="hud-title" id="headline">4.00 × 2.00 µm · B = 0.00 T</div><div class="metrics"><div class="metric"><span>mean free path</span><b id="mfpHud">—</b></div><div class="metric"><span>cyclotron radius</span><b id="rcHud">∞</b></div><div class="metric"><span>conductance <i id="gSrc" class="gsrc"></i></span><b id="gHud">—</b></div></div><div class="statusline" id="status"><span class="live">●</span> connecting…</div><div class="stale" id="staleNote" hidden>Settings changed since the last run: the views, tables and chart show the previous run.</div><div class="tiny" id="scaleNote"></div></div></div></div><div class="sweepbar" id="sweepBar"><span class="sb-main" id="sweepBarMain"></span><span class="sb-prog" id="sweepBarProg"></span><span class="sb-warn" id="sweepBarWarn"></span></div>
-            <div class="viewwrap"><div class="frame-shell"><canvas id="view"></canvas><canvas id="drawLayer"></canvas><div class="axis-x">x / source → drain</div><div class="axis-y">y / transverse</div></div></div><section class="linepanel" id="linePanel"><div class="sweepbox"><canvas id="sweepCanvas"></canvas></div><div class="lp-side"><h3>Line sweep</h3><div class="tiny" id="sweepInfo">No sweep yet.</div><div class="row" style="margin-top:8px;align-items:end;gap:8px">
+    <!-- MIDDLE: results -->
+    <main class="stage results">
+      <div class="viewbar"><nav class="tabs" id="tabs"><button class="tab on" data-view="device">Device</button><button class="tab" data-view="potential">Potential</button><button class="tab" data-view="current">Current</button><button class="tab" data-view="vorticity">Vorticity</button><button class="tab" data-view="trajectories">Trajectories</button><button class="tab" data-view="transmission">Transmission</button><button class="tab" data-view="validity">Validity</button></nav></div>
+      <div class="displaybar" id="dispGroup">
+        <label class="dctl"><span>Colour map</span><select id="dSeq"><option value="viridis">Viridis</option><option value="magma">Magma</option><option value="inferno">Inferno</option><option value="plasma">Plasma</option><option value="cividis">Cividis</option><option value="turbo">Turbo</option><option value="hot">Hot</option><option value="blues">Blues</option><option value="gray">Grey</option><option value="grayinv">Grey, inverted</option></select></label><label class="dctl"><span>Potential map</span><select id="dDiv"><option value="rdbu">Red–blue</option><option value="coolwarm">Cool–warm</option><option value="puor">Orange–purple</option><option value="bwr">Blue–white–red</option></select></label><label class="dctl"><span>Scale</span><select id="dScale"><option value="auto">Auto (log for densities)</option><option value="linear">Linear</option><option value="sqrt">Square root</option><option value="log">Log</option></select></label><label class="dctl"><span>Top of range</span><select id="dClip"><option value="100">Maximum</option><option value="99.9">99.9th percentile</option><option value="99.5">99.5th percentile</option><option value="99">99th percentile</option><option value="98">98th percentile</option><option value="95">95th percentile</option></select></label><label class="dctl"><span>Smoothing</span><select id="dSmooth"><option value="0">Off</option><option value="1">Light</option><option value="2">Medium</option><option value="4">Strong</option></select></label><label class="dctl"><span>Paths</span><select id="dPaths"><option value="0.72">Shown</option><option value="0.3">Faint</option><option value="0">Hidden</option></select></label>
+        <span class="dchecks"><label class="check"><input id="dInterp" type="checkbox"> Smooth pixels</label><label class="check"><input id="dInvert" type="checkbox"> Reverse</label><label class="check"><input id="dBar" type="checkbox" checked> Colour bar</label></span>
+        <i class="dsep"></i>
+        <label class="dctl" title="Cells along x of the FEM / hydro grid: sets the Potential, Current and Vorticity maps. Takes effect on the next run."><span>Grid resolution</span><input id="res" type="number" min="16" max="300" step="10" value="100"></label><label class="dctl" title="Cells across the trajectory heat map. Finer cells each collect fewer paths, so raise Trajectories with it (twice the cells each way needs about four times the paths for the same noise). The view is about 890 pixels wide, so more than 640 adds nothing on screen."><span>Trajectory map cells</span><select id="trajRes"><option value="160" selected>160 (standard)</option><option value="320">320</option><option value="480">480</option><option value="640">640</option></select></label>
+        <span class="tiny" id="scaleNote"></span><div class="hint" id="dRange" hidden>Colour range: run a model to see it.</div>
+      </div>
+      <div class="statusstrip" id="statusStrip"><div class="hud"><div class="hud-card"><div class="eyebrow" id="regime">hybrid regime</div><div class="hud-title" id="headline">4.00 × 2.00 µm · B = 0.00 T</div><div class="metrics"><div class="metric"><span>mean free path</span><b id="mfpHud">—</b></div><div class="metric"><span>cyclotron radius</span><b id="rcHud">∞</b></div><div class="metric"><span>conductance <i id="gSrc" class="gsrc"></i></span><b id="gHud">—</b></div></div><div class="statusline" id="status"><span class="live">●</span> connecting…</div><div class="stale" id="staleNote" hidden>Settings changed since the last run: the views, tables and chart show the previous run.</div></div></div></div>
+      <div class="viewwrap"><div class="frame-shell"><canvas id="view"></canvas><canvas id="drawLayer"></canvas><div class="axis-x">x along the length L · y across the width W</div></div></div>
+      <section class="panel panel-detail" hidden><h3>Detail</h3><section class="detail" id="detail"></section></section>
+      <div class="resultsrow">
+        <div class="linecol"><div class="sweepbar" id="sweepBar"><span class="sb-main" id="sweepBarMain"></span><span class="sb-prog" id="sweepBarProg"></span><span class="sb-warn" id="sweepBarWarn"></span></div><section class="linepanel" id="linePanel"><div class="sweepbox"><canvas id="sweepCanvas"></canvas></div><div class="lp-side"><h3>Line sweep</h3><div class="tiny" id="sweepInfo">No sweep yet.</div><div class="row" style="margin-top:8px;align-items:end;gap:8px">
             <div class="field" style="flex:0 0 auto;min-width:118px">
               <label>Axis scale</label>
               <select id="sweepScale" title="A resistance sweep through the Dirac point diverges, so the full range is set by two or three points. Robust keeps the inter-quartile range with 1.5×IQR whiskers, which survives a peak several points wide where a 2–98 percentile clip does not; Fixed uses the numbers above, and From view fills them from what is on screen. Curves are clipped to the axes and anything outside is counted on the chart.">
@@ -268,29 +263,27 @@ input[type=number],select,input[type=file]{width:100%;min-width:0;background:var
             <div class="field"><label>y min</label><input id="syMin" type="number" step="any"></div>
             <div class="field"><label>y max</label><input id="syMax" type="number" step="any"></div>
           </div>
-          <div class="inline"><button class="btn primary" id="runSweep">Run sweep</button><button class="btn" id="exportCsv">Export CSV</button></div><p class="hint">Sweep type, ranges, measure and model: <b>Line sweep settings</b> in the right column.</p></div></section>
-        </main>
-        <aside class="side"><section class="panel panel-detail" hidden><h3>Detail</h3><section class="detail" id="detail"></section></section>
-        <section class="panel mappanel" id="mapPanel"><h3>2D map <span class="h3tools"><button class="btn" id="mapExpand" type="button">Enlarge</button><button class="btn" id="mapCsv" type="button">CSV</button></span></h3><div class="mapbox"><canvas id="mapCanvas"></canvas></div><div class="tiny" id="mapInfo">No map yet: choose two axes and press Run map.</div><div class="progress" id="mapProgress"><i></i></div><div class="maxis"><label>x</label><select id="mapXParam"><option value="vg">Gate voltage Vg</option><option value="n">Carrier density n</option><option value="b">Magnetic field B</option><option value="T">Temperature T</option><option value="mfp">Mean free path ℓ</option><option value="mu">Mobility µ</option></select><input id="mxFrom" type="number" step="any" value="-40" title="from"><input id="mxTo" type="number" step="any" value="40" title="to"><input id="mxN" type="number" min="2" max="101" value="21" title="points"></div><div class="maxis"><label>y</label><select id="mapYParam"><option value="vg">Gate voltage Vg</option><option value="n">Carrier density n</option><option value="b" selected>Magnetic field B</option><option value="T">Temperature T</option><option value="mfp">Mean free path ℓ</option><option value="mu">Mobility µ</option></select><input id="myFrom" type="number" step="any" value="-1" title="from"><input id="myTo" type="number" step="any" value="1" title="to"><input id="myN" type="number" min="2" max="101" value="21" title="points"></div><div class="row2"><div class="field"><label>Measure</label><select id="mapMeasure"><option value="2t">Two-terminal</option><option value="hall">Hall Rxy</option><option value="rxx">Longitudinal Rxx</option></select></div><div class="field"><label>Shows</label><select id="mapQuantity"><option value="G">Conductance G</option><option value="R">Resistance R</option></select></div></div><div class="row2"><div class="field"><label>Model</label><select id="mapSource"><option value="fem">Field model (FEM / Hydro)</option><option value="bal">Trajectories</option></select></div><div class="field"><label>Colour range</label><select id="mapScale"><option value="robust" selected>Robust</option><option value="auto">Full range</option></select></div></div><div class="inline"><label class="check"><input id="mapLog" type="checkbox"> Log colours</label><button class="btn primary" id="runMap" type="button">Run map</button></div><p class="hint">x and y are any two different kinds of parameter (Vg and n both set the density; ℓ and µ both set the scattering). ℓ and µ are spaced logarithmically. The trajectory model and gate model come from Line sweep settings. Hover a cell for its values.</p></section>
-            <section class="panel"><details class="group" open><summary>Line sweep settings</summary><div class="body">
-          <div class="field"><label>Sweep</label><select id="sweepType"><option value="vg">versus gate voltage Vg</option><option value="b">versus field B</option><option value="mfp">versus mean free path ℓ</option><option value="T">versus temperature T</option></select></div><div class="row2"><label class="check"><input id="wantFem" type="checkbox" checked> Field model (FEM / Hydro)</label><label class="check"><input id="wantBal" type="checkbox"> Trajectories</label></div><label class="check field"><input id="snapshots" type="checkbox"> Store field snapshots</label>
+          <div class="inline"><button class="btn" id="exportCsv">Export CSV</button></div></div></section></div>
+        <section class="panel mappanel" id="mapPanel"><h3>2D map <span class="h3tools"><button class="btn" id="mapExpand" type="button">Enlarge</button><button class="btn" id="mapCsv" type="button">CSV</button></span></h3><div class="mapbox"><canvas id="mapCanvas"></canvas></div><div class="tiny" id="mapInfo">No map yet: choose two axes and press Run map.</div><div class="progress" id="mapProgress"><i></i></div><div class="mapdisp"><label class="dctl"><span>Model</span><select id="mapSource"><option value="fem">Field model (FEM / Hydro)</option><option value="bal">Trajectories</option></select></label><label class="dctl"><span>Colour range</span><select id="mapScale"><option value="robust" selected>Robust</option><option value="auto">Full range</option></select></label><label class="check"><input id="mapLog" type="checkbox"> Log colours</label></div></section>
+      </div>
+    </main>
+    <!-- RIGHT: the measurement, and everything that runs it -->
+    <aside class="side col simulate">
+      <div class="col-head"><div><h2>Simulate</h2><small>Measurement set-up and runs</small></div></div>
+      <div class="side-scroll">
+        <section class="simpanel"><h3>Operating point</h3><div class="field"><label>Magnetic field B (T) <output id="B_val">0.00 T</output></label><input id="B" type="range" min="-2" max="2" step=".0005" value="0"></div><div class="field"><label>Temperature (K)</label><input id="tempK" type="number" min="0" max="2000" step="10" value="300" title="Used by phonon scattering (Scattering &amp; tracer) and by the viscous model when l_ee comes from T"></div><div class="row2"><div class="field"><label>Source V</label><input id="Vsource" type="number" step=".001" value=".001"></div><div class="field"><label>Drain V</label><input id="Vdrain" type="number" step=".001" value="0"></div></div></section>
+        <section class="simpanel"><h3>Single point</h3><div class="row"><label>Trajectories</label><input id="nTraj" type="number" min="100" max="1000000" step="500" value="2000"></div><div class="row"><label>Random seed</label><input id="seed" type="number" step="1" value="7"></div><div class="runrow"><button class="btn secondary" data-run="fem" title="Field model: Ohmic FEM, or the viscous solver when Field model = Hydrodynamic">FEM</button><button class="btn secondary" data-run="ballistic" title="Trajectories with no scattering">Ballistic</button><button class="btn secondary" data-run="quasi" title="Trajectories with the configured scattering">Quasi</button><button class="btn primary" data-run="hybrid" title="Field model and trajectories together">Hybrid</button><button class="btn danger" id="stop">Stop</button></div></section>
+        <section class="simpanel"><h3>Line sweep</h3><div class="field"><label>Sweep</label><select id="sweepType"><option value="vg">versus gate voltage Vg</option><option value="b">versus field B</option><option value="mfp">versus mean free path ℓ</option><option value="T">versus temperature T</option></select></div><div class="row2"><label class="check"><input id="wantFem" type="checkbox" checked> Field model (FEM / Hydro)</label><label class="check"><input id="wantBal" type="checkbox"> Trajectories</label></div><label class="check field"><input id="snapshots" type="checkbox"> Store field snapshots</label>
           <div class="row2"><div class="field"><label>Trajectory model</label><select id="balMode"><option value="crossover">Sharvin + Drude</option><option value="mc">Pure trajectory MC</option></select></div><div class="field"><label>Sweep quality</label><select id="quality"><option value="accurate" selected>Configured trajectories</option><option value="fast">Fast preview (caps trajectories)</option></select></div></div>
           <div id="vgRange"><div class="row2"><div class="field"><label>Vg from</label><input id="vgFrom" type="number" value="-40"></div><div class="field"><label>Vg to</label><input id="vgTo" type="number" value="40"></div></div><div class="row"><label>Vg points</label><input id="vgN" type="number" min="2" max="201" value="41"></div></div>
           <div id="bRange" hidden><div class="row2"><div class="field"><label>B from</label><input id="bFrom" type="number" value="-1"></div><div class="field"><label>B to</label><input id="bTo" type="number" value="1"></div></div><div class="row"><label>B points</label><input id="bN" type="number" min="2" max="201" value="41"></div></div>
           <div id="lRange" hidden><div class="row2"><div class="field"><label>ℓ from (nm)</label><input id="lFrom" type="number" min=".1" value="1"></div><div class="field"><label>ℓ to (nm)</label><input id="lTo" type="number" min="1" value="10000"></div></div><div class="row"><label>ℓ points</label><input id="lN" type="number" min="2" max="201" value="41"></div></div><div id="tRange" hidden><div class="row2"><div class="field"><label>T from (K)</label><input id="tFrom" type="number" min="1" value="4"></div><div class="field"><label>T to (K)</label><input id="tTo" type="number" min="1" value="300"></div></div><div class="row"><label>T points</label><input id="tN" type="number" min="2" max="201" value="41"></div><p class="hint">Temperature acts through the hydrodynamic model (l_ee from T) and through phonon scattering (Scattering &amp; tracer). With neither on, G vs T is flat.</p></div>
           <div class="row2"><div class="field"><label>Measure</label><select id="measure"><option value="2t">Two-terminal</option><option value="hall">Hall Rxy</option><option value="rxx">Longitudinal Rxx</option></select></div><div class="field"><label>Plot quantity</label><select id="quantity"><option value="G">Conductance G</option><option value="R">Resistance R</option></select></div></div>
           <details><summary class="tiny">Gate model n(Vg)</summary><div class="row2"><div class="field"><label>tox (nm)</label><input id="tox" type="number" value="300"></div><div class="field"><label>εr</label><input id="epsr" type="number" step=".1" value="3.9"></div></div><div class="field"><label>Dirac voltage V₀</label><input id="vdirac" type="number" step=".5" value="0"></div></details>
-          <div class="progress" id="progress"><i></i></div><div id="snapshotHost"></div>
-        </div></details>
-        </section>
-            <section class="panel">
-        <details class="group"><summary>Numerical settings</summary><div class="body">
-          <div class="row"><label>Grid resolution</label><input id="res" type="number" min="16" max="300" step="10" value="100"></div><div class="row"><label>Trajectory map cells</label><select id="trajRes"><option value="160" selected>160 (standard)</option><option value="320">320</option><option value="480">480</option><option value="640">640</option></select></div><p class="hint">Cells across the trajectory heat map. Finer cells each collect fewer paths, so raise Trajectories with it (twice the cells each way needs about four times the paths for the same noise). The view is about 890 pixels wide, so more than 640 adds nothing on screen.</p><div class="row"><label>Trajectories</label><input id="nTraj" type="number" min="100" max="1000000" step="500" value="2000"></div><div class="row"><label>Random seed</label><input id="seed" type="number" step="1" value="7"></div>
-          <div class="row"><label>FEM max iterations</label><input id="femIter" type="number" step="500" value="3000"></div><div class="row"><label>FEM tolerance</label><input id="femTol" type="number" step="1e-10" value="1e-9"></div><div class="row"><label>Max path (µm)</label><input id="maxPath_um" type="number" min="1" step="20" value="240"></div><div class="row"><label>Step safety cap</label><input id="maxSteps" type="number" min="100" step="1000" value="8000"></div><div class="row"><label>CPU threads (0 = all)</label><input id="threads" type="number" min="0" max="256" value="0"></div>
-          <p class="hint">Adaptive ds resolves scattering events exactly and caps angular advance near tight cyclotron arcs. The core automatically raises the step cap when needed to reach the selected path length.</p>
-        </div></details>
-        </section>
-        </aside>
+          <div class="progress" id="progress"><i></i></div><div id="snapshotHost"></div><div class="runrow two"><button class="btn primary" id="runSweep">Run sweep</button><button class="btn danger stopbtn" type="button">Stop</button></div></section>
+        <section class="simpanel"><h3>2D map</h3><div class="maxis"><label>x</label><select id="mapXParam"><option value="vg">Gate voltage Vg</option><option value="n">Carrier density n</option><option value="b">Magnetic field B</option><option value="T">Temperature T</option><option value="mfp">Mean free path ℓ</option><option value="mu">Mobility µ</option></select><input id="mxFrom" type="number" step="any" value="-40" title="from"><input id="mxTo" type="number" step="any" value="40" title="to"><input id="mxN" type="number" min="2" max="101" value="21" title="points"></div><div class="maxis"><label>y</label><select id="mapYParam"><option value="vg">Gate voltage Vg</option><option value="n">Carrier density n</option><option value="b" selected>Magnetic field B</option><option value="T">Temperature T</option><option value="mfp">Mean free path ℓ</option><option value="mu">Mobility µ</option></select><input id="myFrom" type="number" step="any" value="-1" title="from"><input id="myTo" type="number" step="any" value="1" title="to"><input id="myN" type="number" min="2" max="101" value="21" title="points"></div><div class="row2"><div class="field"><label>Measure</label><select id="mapMeasure"><option value="2t">Two-terminal</option><option value="hall">Hall Rxy</option><option value="rxx">Longitudinal Rxx</option></select></div><div class="field"><label>Shows</label><select id="mapQuantity"><option value="G">Conductance G</option><option value="R">Resistance R</option></select></div></div><div class="runrow two"><button class="btn primary" id="runMap" type="button">Run map</button><button class="btn danger stopbtn" type="button">Stop</button></div><p class="hint">x and y are two different kinds of parameter (Vg and n both set the density; ℓ and µ both set the scattering). ℓ and µ are spaced logarithmically. The trajectory model and gate model come from Line sweep. Hover a cell for its values.</p></section>
+      </div>
+    </aside>
     <div class="toast" id="toast"></div>
     </div>
 </div>
@@ -345,7 +338,7 @@ function fmtB(B){return Math.abs(B)<0.1?(B*1000).toFixed(1)+' mT':B.toFixed(3)+'
 function updateHud(){{const nt=document.getElementById('mfpSplitNote');if(nt)nt.hidden=$('mfpFromMobility').checked}const B=num('B'),W=num('W_um'),H=num('H_um');$('B_val').textContent=fmtB(B);$('headline').textContent=`${W.toFixed(2)} × ${H.toFixed(2)} µm · B = ${fmtB(B)}`;$('mfp_um').disabled=$('mfpFromMobility').checked;if($('mfpFromMobility').checked&&derived&&derived.mfpImp_um>0)$('mfp_um').value=(+derived.mfpImp_um).toPrecision(3);if(derived){$('mfpHud').textContent=fmt(derived.mfp_um,' µm');$('rcHud').textContent=derived.rc_um<0?'∞':fmt(derived.rc_um,' µm');const r=derived.mfp_um/W;$('regime').textContent=r<.2?'diffusive regime':r<3?'quasi-ballistic crossover':'ballistic regime';$('derived').textContent=`ℓ = ${fmt(derived.mfp_um,' µm')} (transport${derived.mfpPh_um>0?', impurity '+fmt(derived.mfpImp_um,' µm')+' + phonon '+fmt(derived.mfpPh_um,' µm'):''})\n${derived.mfpImpEvent_um>0&&Math.abs(derived.mfpImpEvent_um-derived.mfpImp_um)>1e-9?'impurity event every '+fmt(derived.mfpImpEvent_um,' µm')+'\n':''}${derived.eeMfp_um>0?'e–e kick every '+fmt(derived.eeMfp_um,' µm')+'\n':''}µ_eff = ${fmt(derived.muEff_cm,' cm²/Vs')}\nrc = ${derived.rc_um<0?'∞':fmt(derived.rc_um,' µm')}\nkF = ${fmt(derived.kf,' m⁻¹')}\nmodes ≈ ${fmt(derived.modes)} · ${derived.threads} CPU threads`;}}
 function setStatus(s,busy=false){$('status').innerHTML=`<span class="${busy?'':'live'}">●</span> ${s}`}
 function renderContacts(){const h=$('contactList');h.innerHTML='';contacts.forEach((c,i)=>{const r=document.createElement('div');r.className='contact';r.innerHTML=`<i class="dot" style="background:${ROLE_COLOR[c.role]}"></i><span>${c.id}</span><select><option>source</option><option>drain</option><option>probe</option><option>absorber</option><option>reflector</option><option>wall</option></select><button class="btn danger">×</button>`;const sel=r.querySelector('select');sel.value=c.role;sel.onchange=()=>{c.role=sel.value;sync()};r.querySelector('button').onclick=()=>{contacts.splice(i,1);renderContacts();sync()};h.appendChild(r)})}
-function setView(v){activeView=v;{const pd=document.querySelector(".panel-detail");if(pd)pd.hidden=!(v==="transmission"||v==="validity")}document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));dex.send({t:'view',name:v});renderDetail()}
+function setView(v){activeView=v;{const pd=document.querySelector(".panel-detail"),on=v==="transmission"||v==="validity";if(pd)pd.hidden=!on;const st=document.querySelector('.stage');if(st)st.classList.toggle('detail-on',on);requestAnimationFrame(()=>{drawSweep();if(typeof drawMapPanel==='function')drawMapPanel()})}document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.view===v));dex.send({t:'view',name:v});renderDetail()}
 function renderDetail(){const d=$('detail');if(activeView==='transmission'){d.classList.add('on');let html='<h3>Landauer transmission matrix</h3>';if(!traj)html+='<p>Run ballistic, quasi-ballistic, or hybrid transport to populate terminal statistics.</p>';else{html+=`<p>${traj.n.toLocaleString()} trajectories · ${fmt(traj.meanPath_um,' µm')} mean path · ${fmt(traj.meanScatters)} mean scattering events · ${traj.tracer==='arc'?'exact arcs':'stepped tracer'}</p>${traj.signCrossings>0&&traj.pnMode==='pass'?`<div class="valid-note warn">${traj.signCrossings.toLocaleString()} crossings of n = 0 were passed straight through (p–n junction mode: pass).</div>`:''}${(traj.pnTransmitted||traj.pnReflected)?`<div class="valid-note">p–n junction: ${traj.pnTransmitted.toLocaleString()} crossings tunnelled, ${traj.pnReflected.toLocaleString()} reflected (${(100*traj.pnTransmitted/(traj.pnTransmitted+traj.pnReflected)).toFixed(1)} % transmitted).</div>`:''}<table><tr><th>from → to</th><th>T ± σ</th><th>G</th><th>carriers</th></tr>`;let thin=0;traj.transmission.forEach(r=>{const few=r.hits!=null&&r.hits<100&&r.T>0;if(few)thin++;html+=`<tr${few?' class="few"':''}><td>${r.source} → ${r.target}</td><td>${r.T.toFixed(4)}${r.dT!=null?' ± '+r.dT.toFixed(4):''}</td><td>${fmt(r.G,' S')}</td><td>${r.hits!=null?r.hits.toLocaleString()+' / '+r.N.toLocaleString():''}</td></tr>`});html+='</table>';{const ms=traj.statuses&&traj.statuses.max_steps||0;if(ms/traj.n>0.01)html+=`<div class="valid-note warn">${(100*ms/traj.n).toFixed(1)} % of the carriers ran out of path budget before reaching a contact: transmissions are biased low. Raise Max path under Numerical settings.</div>`}if(thin)html+=`<div class="valid-note warn">${thin} transmission${thin>1?'s rest':' rests'} on fewer than 100 carriers (marked): its relative error is above 10 %. Raise Trajectories, or use the field model where ℓ ≪ L.</div>`}if(fem&&fem.probes&&fem.probes.length){html+=`<h3>Field model probe potentials</h3><table><tr><th>probe</th><th>V (relative to drain)</th></tr>${fem.probes.map(q=>`<tr><td>${q.id}</td><td>${fmt(q.V," V")}</td></tr>`).join("")}</table>`}d.innerHTML=html}else if(activeView==='validity'){d.classList.add('on');const W=num('W_um'),m=derived?derived.mfp_um:0,rc=derived?derived.rc_um:-1,r=m/W;let notes=r<.2?'<div class="valid-note ok">ℓ ≪ L: drift–diffusion FEM is likely appropriate.</div>':r<3?'<div class="valid-note warn">ℓ ~ L: this is the crossover regime; compare FEM and trajectories.</div>':'<div class="valid-note warn">ℓ ≫ L: ballistic transmission dominates and local FEM is outside its best regime.</div>';if(fem&&derived&&derived.modes>0&&fem.G>1.5498e-4*derived.modes)notes+=`<div class="valid-note warn">The field-model conductance (${fmt(fem.G," S")}) exceeds the ballistic Sharvin limit of this width (${fmt(1.5498e-4*derived.modes," S")}): a local model has no such limit, so here it overestimates. Use the trajectories.</div>`;if(rc>0&&rc/num('H_um')>.3&&rc/num('H_um')<3)notes+='<div class="valid-note warn">rc ~ W: magnetic focusing and geometry should be visible.</div>';d.innerHTML=`<h3>Model validity</h3><table><tr><th>ratio</th><th>value</th></tr><tr><td>ℓ / L</td><td>${fmt(r)}</td></tr><tr><td>ℓ / W</td><td>${fmt(m/num('H_um'))}</td></tr><tr><td>rc / W</td><td>${rc<0?'∞':fmt(rc/num('H_um'))}</td></tr></table>${notes}<p><b>Included:</b> semiclassical trajectories with scattering, magnetic bending, specular/diffuse edges and Klein tunnelling at p–n junctions (abrupt or smooth, angle-resolved); local Ohmic transport (FEM) and a viscous electron fluid (hydrodynamic Stokes–Ohm model).</p><p><b>Not included:</b> phase coherence and quantum interference (weak localisation, conductance fluctuations), Landau quantisation and quantum Hall plateaus, the Dirac point itself (no minimum conductivity, electron–hole puddles or thermal smearing: at n = 0 the conductance is reported as 0), contact resistance (contacts are ideal equipotentials), and Coulomb drag. The electron–electron length in the viscous model uses an uncalibrated prefactor C (default 1, no logarithmic factor): calibrate it against data before quoting a viscosity.</p>`}else d.classList.remove('on')}
 let lastRunMode='',jobError='';
 // Results belong to the settings they were run with: any change marks them stale until the next run.
@@ -362,7 +355,7 @@ const dex=DEX.connect({canvas:$('view'),onStatus:s=>setStatus(s==='open'?'native
  if(m.t==='job'&&m.state==='done'){if(jobError){setStatus('stopped with an error: '+jobError);jobError='';return}setStatus(fem&&fem.model==='hydro'&&(lastRunMode==='fem'||lastRunMode==='hybrid')?`complete · hydrodynamic, Gurzhi length ${(+fem.Dnu_um).toPrecision(3)} µm`:'complete');return}if(m.t==='error'){jobError=m.message||'error';toast(m.message);setStatus('error: '+(m.message||''));if(m.where!=='sweep')return}if(m.t==='notice'){toast(m.message);return}
  if(m.t==='reset_done'){resetControls(false);toast('Defaults restored');return}handleSweepMessage(m)
 }});
-document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>run(b.dataset.run));$('stop').onclick=()=>{dex.send({t:'stop'});setStatus('stopped');if(liveSweep){liveSweep.stopped=true;$('sweepBarProg').textContent='stopped';$('progress').classList.remove('on');$('mapProgress').classList.remove('on')}};
+document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>run(b.dataset.run));document.querySelectorAll('.stopbtn').forEach(b=>b.onclick=()=>$('stop').click());$('stop').onclick=()=>{dex.send({t:'stop'});setStatus('stopped');if(liveSweep){liveSweep.stopped=true;$('sweepBarProg').textContent='stopped';$('progress').classList.remove('on');$('mapProgress').classList.remove('on')}};
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 $('settings').onclick=()=>$('drawer').classList.add('open');$('closeSettings').onclick=()=>$('drawer').classList.remove('open');
 $('theme').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';drawSweep()};
@@ -499,7 +492,7 @@ function drawMap(x,W,H,css,tag){
   else for(const t of mapTicks(lo,hi,4)){const py=P.B-(t-lo)/(hi-lo)*ph;x.fillText(mapTickLabel(t,hi-lo),bx+bw+3,py)}
   x.textAlign='center';x.fillText(q.name+' ('+q.unit+')'+(logOK?' log':''),bx+bw/2+8,P.T-11);
   x.textAlign='left';x.fillStyle=muted;
-  x.fillText((which==='fem'?'FEM / Drude':'trajectories')+(logWanted&&!logOK?' · log needs positive data':''),P.L,P.T-11);
+  x.fillText((which==='fem'?'field model':'trajectories')+(logWanted&&!logOK?' · log needs positive data':''),P.L,P.T-11);
   // hover readout, from the point's own values
   if(mapHover&&mapHover.tag===tag){const {i,j}=mapHover,k=j*nx+i,v=vals[k];
     x.strokeStyle=ink;x.lineWidth=1.5;x.strokeRect(P.L+i*cw,P.B-(j+1)*chh,cw,chh);
