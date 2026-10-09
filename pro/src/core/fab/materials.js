@@ -10,14 +10,14 @@ export const M = {
   S1813: 14, S1813_EXP: 15, AZ5214E: 16, AZ5214E_EXP: 17, SU8: 18, SU8_EXP: 19, MAN2400: 20, MAN2400_EXP: 21,
   GRAPHENE: 22, MOS2: 23, HBN: 24, AU: 25, CR: 26, AL: 27,
   ZEP: 28, ZEP_EXP: 29, HSQ: 30, HSQ_EXP: 31, MREBL: 32, MREBL_EXP: 33, ARN7520: 34, ARN7520_EXP: 35,
-  PMMA50K: 36, PMMA50K_EXP: 37,
+  PMMA50K: 36, PMMA50K_EXP: 37, ARP617: 38, ARP617_EXP: 39,
 };
 
 export const MAT_NAMES = ['Air', 'Resist', 'Resist (exposed)', 'Metal', 'Poly-Si', 'SiO₂', 'Si₃N₄', 'Si',
   'PMMA', 'PMMA (exposed)', 'CSAR', 'CSAR (exposed)', 'MEDUSA', 'MEDUSA (exposed)',
   'S1813', 'S1813 (exposed)', 'AZ5214E', 'AZ5214E (exposed)', 'SU-8', 'SU-8 (exposed)', 'ma-N 2400', 'ma-N 2400 (exposed)',
   'Graphene', 'MoS₂', 'hBN', 'Au', 'Cr', 'Al',
-  'ZEP 520A', 'ZEP 520A (exposed)', 'HSQ', 'HSQ (exposed)', 'mr-EBL 6000', 'mr-EBL 6000 (exposed)', 'AR-N 7520', 'AR-N 7520 (exposed)', 'PMMA 50K', 'PMMA 50K (exposed)'];
+  'ZEP 520A', 'ZEP 520A (exposed)', 'HSQ', 'HSQ (exposed)', 'mr-EBL 6000', 'mr-EBL 6000 (exposed)', 'AR-N 7520', 'AR-N 7520 (exposed)', 'PMMA 50K', 'PMMA 50K (exposed)', 'AR-P 617', 'AR-P 617 (exposed)'];
 
 export const MAT_COLOR = [
   [255, 255, 255], [255, 170, 195], [255, 120, 160], [180, 190, 210], [160, 140, 120], [140, 210, 245], [180, 230, 180], [168, 176, 188],
@@ -25,19 +25,19 @@ export const MAT_COLOR = [
   [255, 236, 153], [234, 196, 72], [255, 214, 170], [239, 161, 95], [198, 255, 184], [119, 209, 100], [174, 235, 214], [103, 197, 173],
   [128, 128, 128], [245, 220, 80], [110, 165, 255], [222, 178, 74], [205, 209, 215], [130, 136, 150],
   [225, 195, 250], [175, 135, 228], [208, 228, 252], [145, 185, 238], [255, 205, 218], [226, 140, 165], [242, 226, 188], [206, 176, 112],
-  [255, 222, 200], [242, 168, 140],
+  [255, 222, 200], [242, 168, 140], [255, 240, 205], [236, 200, 120],
 ];
 
 // step-param material names → M (METAL kept for legacy recipes)
 export const MAT_MAP = { METAL: M.AU, AU: M.AU, CR: M.CR, AL: M.AL, POLYSI: M.POLYSI, SIO2: M.SIO2, SI3N4: M.SI3N4, SI: M.SI, GRAPHENE: M.GRAPHENE, MOS2: M.MOS2, HBN: M.HBN };
-export const RESIST_MAT_MAP = { PMMA: M.PMMA, CSAR: M.CSAR, MEDUSA: M.MEDUSA, S1813: M.S1813, AZ5214E: M.AZ5214E, SU8: M.SU8, MAN2400: M.MAN2400, ZEP: M.ZEP, HSQ: M.HSQ, MREBL: M.MREBL, ARN7520: M.ARN7520, PMMA50K: M.PMMA50K, custom: M.RESIST };
+export const RESIST_MAT_MAP = { PMMA: M.PMMA, CSAR: M.CSAR, MEDUSA: M.MEDUSA, S1813: M.S1813, AZ5214E: M.AZ5214E, SU8: M.SU8, MAN2400: M.MAN2400, ZEP: M.ZEP, HSQ: M.HSQ, MREBL: M.MREBL, ARN7520: M.ARN7520, PMMA50K: M.PMMA50K, ARP617: M.ARP617, custom: M.RESIST };
 
 export const isMetal = (m) => m === M.AU || m === M.CR || m === M.AL || m === M.METAL;
 export const is2DFlakeMaterial = (m) => m === M.GRAPHENE || m === M.MOS2 || m === M.HBN;
 export const isSF6Etchable = (m) => m === M.MOS2 || m === M.HBN;
 
-const UNEXP = new Set([M.RESIST, M.PMMA, M.CSAR, M.MEDUSA, M.S1813, M.AZ5214E, M.SU8, M.MAN2400, M.ZEP, M.HSQ, M.MREBL, M.ARN7520, M.PMMA50K]);
-const EXP = new Set([M.RESIST_EXP, M.PMMA_EXP, M.CSAR_EXP, M.MEDUSA_EXP, M.S1813_EXP, M.AZ5214E_EXP, M.SU8_EXP, M.MAN2400_EXP, M.ZEP_EXP, M.HSQ_EXP, M.MREBL_EXP, M.ARN7520_EXP, M.PMMA50K_EXP]);
+const UNEXP = new Set([M.RESIST, M.PMMA, M.CSAR, M.MEDUSA, M.S1813, M.AZ5214E, M.SU8, M.MAN2400, M.ZEP, M.HSQ, M.MREBL, M.ARN7520, M.PMMA50K, M.ARP617]);
+const EXP = new Set([M.RESIST_EXP, M.PMMA_EXP, M.CSAR_EXP, M.MEDUSA_EXP, M.S1813_EXP, M.AZ5214E_EXP, M.SU8_EXP, M.MAN2400_EXP, M.ZEP_EXP, M.HSQ_EXP, M.MREBL_EXP, M.ARN7520_EXP, M.PMMA50K_EXP, M.ARP617_EXP]);
 export const isResistUnexp = (m) => UNEXP.has(m);
 export const isResistExp = (m) => EXP.has(m);
 export const isResist = (m) => UNEXP.has(m) || EXP.has(m);
@@ -75,7 +75,7 @@ export const RESIST_PRESETS = {
 // above). ADVANCED: the resist library's resists and their curves (each with the conditions it was
 // measured at); a development or film away from a curve's conditions is moved by the library's model.
 // Film properties the library does not hold, per resist: dark erosion (nm/min) and scum (nm).
-const LIB_FILM = { PMMA50K: { darkErosion: 1, scum: 2 }, CSAR: { darkErosion: 0.1, scum: 1 }, ZEP: { darkErosion: 0.3, scum: 1 }, PMMA: { darkErosion: 0.5, scum: 2 }, HSQ: { darkErosion: 0.1, scum: 0.5 }, MEDUSA: { darkErosion: 0.1, scum: 0.5 }, MREBL: { darkErosion: 0.3, scum: 0.5 }, ARN7520: { darkErosion: 0.5, scum: 0.5 } };
+const LIB_FILM = { PMMA50K: { darkErosion: 1, scum: 2 }, ARP617: { darkErosion: 1, scum: 1 }, CSAR: { darkErosion: 0.1, scum: 1 }, ZEP: { darkErosion: 0.3, scum: 1 }, PMMA: { darkErosion: 0.5, scum: 2 }, HSQ: { darkErosion: 0.1, scum: 0.5 }, MEDUSA: { darkErosion: 0.1, scum: 0.5 }, MREBL: { darkErosion: 0.3, scum: 0.5 }, ARN7520: { darkErosion: 0.5, scum: 0.5 } };
 export const FAB_LEVELS = { learning: 'Learning', advanced: 'Advanced' };
 // The e-beam resists of the resist library (core/resists/builtin.js): the library's reference curve
 // and development, so Fab Studio, Analysis and the Resists tab agree. `lib` ties a preset to the

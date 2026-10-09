@@ -56,6 +56,14 @@ function showTab(t) {
 app.showTab = showTab;
 
 // ---------------------------------------------------------------- About (click the name in the title bar)
+// Pro: does the native core run? (the macOS quarantine can block it; the Workbench then computes in JavaScript)
+function coreStatus() {
+  const h = app.backendInfo;
+  if (!h) return '';
+  return h.core
+    ? `<p><b>Pro:</b> the native core runs (${esc(String(h.core.version))}, ${h.core.threads} threads) — Monte Carlo, correction and KOH run on all processor cores.</p>`
+    : `<p style="color:#b45309"><b>Pro, without the native core:</b> the backend runs, but its native core does not start, so the heavy parts compute in JavaScript (everything works, but slower). On macOS this is usually the download quarantine: in Terminal, type <code>xattr -dr com.apple.quarantine&nbsp;</code>, drag the EBL Workbench Pro folder into the window, press Enter, and start again.</p>`;
+}
 function showAbout() {
   openModal({ title: 'About the EBL Workbench', narrow: false, html: `<div class="about">
     <p>The EBL Workbench is for teaching and learning electron-beam lithography — self-study and experimentation — and for serious pattern design, testing and preparation: pattern, point spread function, resist, proximity correction, fabrication, analysis and the write itself.</p>
@@ -63,6 +71,7 @@ function showAbout() {
     <p><b>The current version is designed to match the machine (the JEOL JBX-9500FS), the processes and the resists available in the DTU Nanolab cleanroom at DTU.</b> Elsewhere, the physics holds, but the machine module, the process presets and the resist library's anchors will not apply as they are.</p>
     <p>The tutorial videos (the green <b>T</b> beside each tab) are AI-generated.</p>
     <p>Free to use for students and staff at DTU. Users outside DTU must ask for permission first: Peter Bøggild, <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a>. Questions, bug reports and suggestions are welcome at the same address.</p>
+    ${coreStatus()}
     <p class="hint">Build ${esc(BUILD)}${document.title.includes('Pro') ? ' · Pro (desktop backend)' : ''} · <a href="https://dex-2dphys.github.io/ebl-workbench/" target="_blank" rel="noopener">dex-2dphys.github.io/ebl-workbench</a></p></div>`,
     buttons: [{ label: 'Close', primary: true }] });
 }
@@ -78,7 +87,10 @@ for (const [k, [title, items]] of Object.entries(SOON)) {
     + `<p class="hint">Not built yet. This tab will hold:</p><ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`;
 }
 
-function staleWriting(why) { const w = app.project.writing; if (w && w.active) { w.active = false; w.stale = why; } }
+function staleWriting(why) {
+  const w = app.project.writing; if (w && w.active) { w.active = false; w.stale = why; }
+  const p = app.project.pershape; if (p && p.applied && !p.stale) p.stale = why;      // applied per-shape doses: flag them (they stay on the shapes)
+}
 
 // ---------------------------------------------------------------- project files
 // The whole working state, for Save and autosave (full = false: large rasters only if small).
@@ -199,6 +211,7 @@ const tutorials = installTutorials();            // green T beside each tab: tha
 // served by the Pro backend: say so in the title bar (and how many threads its native core has)
 localBackend().then((h) => {
   if (!h) return;
+  app.backendInfo = h;
   const brand = document.querySelector('.brand');
   if (brand && !brand.querySelector('.pro')) {
     brand.insertAdjacentHTML('beforeend', ` <span class="pro" title="${h.core ? `Native core ${esc(String(h.core.version))}: Monte Carlo, short range, solve and KOH in C++ on ${h.core.threads} threads.` : 'The Pro backend runs the fractured correction; no native core was found, so it runs in JavaScript.'} The computer's memory (${h.memGB} GB) is available to the correction." style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:#c0122b;color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;vertical-align:middle;">PRO${h.core ? ` · ${h.core.threads} threads` : ''}</span>`);

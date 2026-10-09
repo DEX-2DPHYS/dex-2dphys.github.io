@@ -2,8 +2,9 @@
 // mesh from core/fab/mesh.js. The mesh is rebuilt only when the grid or the quality changes;
 // a frame projects the quads, culls those facing away, sorts back to front and fills.
 // The view is framed on the material (the air head-room above the stack is left out), the
-// layer labels sit in a column left of the block, and scale bars on the block's front edges
-// give the lateral and the (possibly exaggerated) vertical scale.
+// layer labels sit in a column left of the block, each with the layer's thickness at that edge; scale
+// bars set apart from the block's front corner give the lateral and the (possibly exaggerated) vertical
+// scale — marked "scale", so that they are not read as a layer's thickness (Peter, 2026-10-08).
 
 import { buildMesh, FACE_NX, FACE_NY, FACE_NZ } from '../../core/fab/mesh.js';
 import { M, MAT_NAMES, MAT_COLOR } from '../../core/fab/materials.js';
@@ -46,7 +47,7 @@ export function createIso(canvas, { onFrame } = {}) {
     // room for the label column on the left
     const fs = Math.max(11, Math.round(12.5 * (cw / 700)));
     let labelW = 0;
-    if (opts.labels) { cx.font = `600 ${fs}px system-ui`; for (const m of new Set(mesh.mat)) if (m !== M.AIR) labelW = Math.max(labelW, cx.measureText(MAT_NAMES[m]).width); labelW = labelW ? labelW + fs * 3.2 : 0; }
+    if (opts.labels) { cx.font = `600 ${fs}px system-ui`; for (const m of new Set(mesh.mat)) if (m !== M.AIR) labelW = Math.max(labelW, cx.measureText(`${MAT_NAMES[m]} · 0000 nm`).width); labelW = labelW ? labelW + fs * 3.2 : 0; }
     const sc = (Math.min(cw - labelW, ch) / (modelR * 1.3)) * cam.zoom;
     const hwx = labelW + (cw - labelW) / 2, hwy = ch / 2, fov = 600;
     const project = (x, y, z) => {
@@ -109,14 +110,17 @@ export function createIso(canvas, { onFrame } = {}) {
       for (let yy = 0; yy < H;) { const m = gCol[yy * W + colX]; if (m === M.AIR) { yy++; continue; } let yE = yy + 1; while (yE < H && gCol[yE * W + colX] === m) yE++; runs.push({ m, y0: yy, y1: yE }); yy = yE; }
       if (runs.length) {
         const lineH = fs * 1.35;
-        const items = runs.map((r) => { const pt = project(best.cn.ex, (r.y0 + r.y1) / 2, best.cn.ez); return { m: r.m, ax: pt.sx, ay: pt.sy, ty: pt.sy }; });
+        const thk = (vox) => { const nm = vox * state.nmVert; return nm >= 1000 ? `${+(nm / 1000).toPrecision(3)} µm` : `${+nm.toPrecision(3)} nm`; };
+        const items = runs.map((r) => { const pt = project(best.cn.ex, (r.y0 + r.y1) / 2, best.cn.ez); return { m: r.m, ax: pt.sx, ay: pt.sy, ty: pt.sy, t: thk(r.y1 - r.y0) }; });
         const seen = new Set(items.map((it) => it.m)), extra = new Map();
         for (let f = 0; f < n; f++) {
           const m = mesh.mat[f];
           if (m === M.AIR || seen.has(m)) continue;
           for (let k = 0; k < 4; k++) { const vx = px[f * 4 + k], prev = extra.get(m); if (!prev || vx < prev.ax) extra.set(m, { ax: vx, ay: py[f * 4 + k] }); }
         }
-        extra.forEach((pt, m) => items.push({ m, ax: pt.ax, ay: pt.ay, ty: pt.ay }));
+        // a material not in the corner column (e.g. resist lines): its thickest run in the same slice
+        const thickest = (m) => { let best = 0; for (let x = 0; x < W; x++) { let run = 0; for (let yy = 0; yy < H; yy++) { if (gCol[yy * W + x] === m) { run++; if (run > best) best = run; } else run = 0; } } return best; };
+        extra.forEach((pt, m) => { const v = thickest(m); items.push({ m, ax: pt.ax, ay: pt.ay, ty: pt.ay, t: v ? thk(v) : null }); });
         items.sort((a, b) => a.ty - b.ty);
         for (let i = 1; i < items.length; i++) if (items[i].ty - items[i - 1].ty < lineH) items[i].ty = items[i - 1].ty + lineH;
         const over = items[items.length - 1].ty - (ch - fs); if (over > 0) for (const it of items) it.ty -= over;
@@ -129,8 +133,9 @@ export function createIso(canvas, { onFrame } = {}) {
           cx.strokeStyle = 'rgba(15,23,42,0.35)'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(it.ax, it.ay); cx.lineTo(tx + (toLeft ? 5 : -5), it.ty); cx.stroke();
           const c = MAT_COLOR[it.m];
           cx.beginPath(); cx.arc(it.ax, it.ay, Math.max(2.5, fs * 0.18), 0, Math.PI * 2); cx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; cx.fill(); cx.strokeStyle = 'rgba(15,23,42,0.55)'; cx.lineWidth = 1; cx.stroke();
-          cx.lineWidth = Math.max(3, fs * 0.3); cx.strokeStyle = 'rgba(255,255,255,0.92)'; cx.strokeText(MAT_NAMES[it.m], tx, it.ty);
-          cx.fillStyle = '#0f172a'; cx.fillText(MAT_NAMES[it.m], tx, it.ty);
+          cx.lineWidth = Math.max(3, fs * 0.3); cx.strokeStyle = 'rgba(255,255,255,0.92)'; const text = it.t ? `${MAT_NAMES[it.m]} · ${it.t}` : MAT_NAMES[it.m];      // the layer's thickness at this edge
+          cx.strokeText(text, tx, it.ty);
+          cx.fillStyle = '#0f172a'; cx.fillText(text, tx, it.ty);
         }
         cx.restore();
       }
@@ -143,7 +148,7 @@ export function createIso(canvas, { onFrame } = {}) {
       const lenX = nice((W * state.nmLat) / 4), nX = lenX / state.nmLat, dirX = front.x === 0 ? 1 : -1;
       const contentNm = (contentH / yS) * state.nmVert, lenV = nice(contentNm / 2.5), nV = lenV / state.nmVert;
       const topRow = meshTopY / yS;
-      const off = Math.max(2, W * 0.02);
+      const off = Math.max(4, W * 0.06);                                  // set apart from the block: a scale, not a layer's dimension
       const a0 = project(front.x, H, front.z + (front.z === 0 ? -off : off)), a1 = project(front.x + dirX * nX, H, front.z + (front.z === 0 ? -off : off));
       const v0 = project(front.x + (front.x === 0 ? -off : off), H, front.z), v1 = project(front.x + (front.x === 0 ? -off : off), H - nV, front.z);
       const bfs = Math.max(10, Math.round(11 * (cw / 700)));
@@ -158,8 +163,8 @@ export function createIso(canvas, { onFrame } = {}) {
         cx.strokeText(label, tx2, ty2); cx.fillText(label, tx2, ty2); cx.lineWidth = Math.max(2, cw / 500); cx.strokeStyle = '#111';
       };
       const fmt = (nm) => (nm >= 1000 ? `${+(nm / 1000).toPrecision(3)} µm` : `${+nm.toPrecision(3)} nm`);
-      bar(a0, a1, fmt(lenX), 'below');
-      if (topRow < H) bar(v0, v1, `${fmt(lenV)}${opts.exag > 1 ? ` (height ×${opts.exag})` : ''}`, v0.sx < front.p.sx ? 'left' : 'right');
+      bar(a0, a1, `scale ${fmt(lenX)}`, 'below');
+      if (topRow < H) bar(v0, v1, `scale ${fmt(lenV)}${opts.exag > 1 ? ` (height ×${opts.exag})` : ''}`, v0.sx < front.p.sx ? 'left' : 'right');
       cx.restore();
     }
     cx.fillStyle = 'rgba(17,24,39,0.5)'; cx.font = `${Math.max(10, Math.round(11 * (cw / 700)))}px system-ui`; cx.textAlign = 'right'; cx.textBaseline = 'alphabetic';

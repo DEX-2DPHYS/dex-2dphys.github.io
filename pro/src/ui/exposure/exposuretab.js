@@ -73,6 +73,7 @@ export function createExposureTab(app) {
         <div id="exPcShapeBox" style="margin-top:8px; display:none;">
         <div class="row"><button class="btn primary" id="exRun">Run correction</button><button class="btn" id="exApply" disabled>Apply to shapes</button><button class="btn" id="exClear">Clear correction</button></div>
         <div class="hint" id="exPcStatus" style="margin-top:6px;">Not run.</div>
+        <div class="hint" id="exPsStale" style="margin-top:4px;color:#b45309;"></div>
         <div id="exPcTable" style="margin-top:6px; max-height:260px; overflow:auto;"></div>
         </div>
         <div id="exPcFracBox" style="margin-top:8px;">
@@ -760,12 +761,14 @@ export function createExposureTab(app) {
   $('exApply').onclick = () => {
     if (!st.pc) return;
     const n = app.applyCorrection(new Map(st.pc.doses));
+    app.project.pershape = { applied: true, stale: null };       // after the apply (which itself changes the layout)
     toast(`Correction applied to ${n} shapes (undo in Pattern Studio). The map now shows the corrected delivered dose; the grey dashed profile is without correction.`, 5000);
     $('exApply').disabled = true;
     $('exPcStatus').innerHTML = `Applied to ${n} shapes. Run the correction again after changing the layout or the PSF.`;
     show();                                   // the layout changed: map and profile now
   };
   $('exClear').onclick = () => {
+    app.project.pershape = null;
     const n = app.clearCorrection(); toast(n ? `Cleared the writing doses of ${n} shapes.` : 'No shape carries a correction.');
     if (n) { st.pc = null; $('exApply').disabled = true; $('exPcStatus').textContent = ''; $('exPcTable').innerHTML = ''; show(); }
   };
@@ -972,7 +975,14 @@ export function createExposureTab(app) {
       $('exPsf').innerHTML = `${esc(r.label)}<br>short range exact up to ${(r.rMaxSR / 1000).toFixed(2)} µm (weight ${r.srWeight.toFixed(3)}); long range on ${r.gridN[0]} × ${r.gridN[1]} cells of ${(r.h / 1000).toFixed(2)} µm`;
     } catch (e) { $('exPsf').textContent = e.message; }
   }
+  // per-shape doses stay on the shapes when the layout or PSF changes (fractured data is taken out of use):
+  // say so, so that stale written doses are not trusted
+  function pershapeNote() {
+    const p = app.project.pershape;
+    $('exPsStale').innerHTML = p && p.applied && p.stale ? `⚠ The ${p.stale} changed after the per-shape correction was applied: the written doses on the shapes were solved for the old ${p.stale === 'PSF' ? 'PSF' : 'layout'}. Run the per-shape correction again and apply it (or clear it).` : '';
+  }
   function show() {
+    pershapeNote();
     resize();
     if (!st.view) { const v = app.editorView(); st.view = { s: v.s, ox: v.ox, oy: v.oy }; }
     if (!st.show3D) set3D(true, false);       // always present; computes only on Update / ↻

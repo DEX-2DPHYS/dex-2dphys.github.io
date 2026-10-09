@@ -25,7 +25,7 @@ export const DEV_NAMES = {
   MIBK_IPA: 'MIBK:IPA 1:3', MIBK_IPA_11: 'MIBK:IPA 1:1', IPA_H2O: 'IPA:H₂O 7:3', IPA: 'IPA (AR 600-60)', HEXYLAC: 'hexyl acetate',
   TMAH238: 'TMAH 2.38 % (AZ 726 MIF / MF-319)', TMAH25: 'TMAH 25 %', NAOH1: 'NaOH 1 %', SALTY: 'NaOH 1 % + NaCl 4 % (salty)', TMAH238_NACL: 'AZ 726 MIF + 4 % NaCl', AZ400K: 'AZ 400K',
   MRDEV600: 'mr-Dev 600', PC: 'propylene carbonate',
-  AR300_46: 'AR 300-46', AR300_47: 'AR 300-47 (0.20 N)', AR300_47_41: 'AR 300-47 : DIW 4:1', AR300_47_11: 'AR 300-47 : DIW 1:1 (≈ 0.10 N)', AR300_44: 'AR 300-44 (0.26 N TMAH)',
+  AR300_46: 'AR 300-46', AR300_47: 'AR 300-47 (0.20 N)', AR300_47_41: 'AR 300-47 : DIW 4:1', AR300_47_11: 'AR 300-47 : DIW 1:1 (≈ 0.10 N)', AR600_50: 'AR 600-50 (copolymer developer)', AR300_44: 'AR 300-44 (0.26 N TMAH)',
 };
 
 // A curve given as onset / D50 / clearing (positive) or gel / D50 / full thickness (negative) doses →
@@ -456,6 +456,48 @@ const MEDUSA = {
   ],
 };
 
+// ===================================================================== AR-P 617 (PMMA-co-MA copolymer)
+// The copolymer bottom layer of lift-off double layers (DTU: under CSAR). DTU measured contrast curves at
+// 100 kV after softbakes of 160 / 180 / 200 °C; the bake is this entry's extra condition (bakeC).
+const BAKE = (bakeC) => ({ prebake: `${bakeC} °C 120 s`, bakeC });
+const p617 = (bakeC, summary) => ds(`dtu-100kV-bake${bakeC}`, 'positive', summary, C(100, 295, 'AR600_50', 90, 21, BAKE(bakeC)), 'measured',
+  { lab: 'DTU Nanolab', tool: 'JEOL JBX-9500', sources: ['LA-617'], note: `AR-P 617.06 at 4000 rpm (≈ 295 nm), softbake ${bakeC} °C; AR 600-50 90 s, IPA 30 s; D50 and clearing read from the LabAdviser plot (approximate); development temperature not stated (21 °C assumed); the normalised thickness is already ≈ 0.93–0.96 at 5 µC/cm²` });
+const p617Ref = p617(200, { d50: 50, done: 75 });
+const ARP617 = {
+  id: 'ARP617', name: 'AR-P 617 (copolymer)', product: 'Allresist AR-P 617.03 / .06 / .08 (PMMA-co-methacrylic acid; 90 / 290 / 480 nm at 4000 rpm)', supplier: 'Allresist', tone: 'positive', family: 'PMMA-co-MA copolymer — more sensitive than PMMA, the bottom layer of lift-off double layers', atDTU: true,
+  summary: 'A PMMA copolymer, 3–4× more sensitive than PMMA, used as the bottom layer of double-layer stacks: under CSAR (DTU\'s recipe) or PMMA it develops wider and leaves the undercut that lift-off needs. DTU measured its contrast curve at 100 kV after three softbake temperatures; its dose depends on that bake.',
+  sources: {
+    'LA-617': { cite: 'DTU Nanolab LabAdviser: AR-P 617 (spin curve, 100 kV contrast curves at 160 / 180 / 200 °C bake, bilayer under CSAR, 2024)', url: 'https://labadviser.nanolab.dtu.dk/index.php?title=Specific_Process_Knowledge/Lithography/EBeamLithography/AR-P_617', kind: 'labadviser' },
+    'AR-617': { cite: 'Allresist, Product information AR-P 610 series / AR-P 617', url: 'https://www.allresist.com/wp-content/uploads/sites/2/2020/03/AR-P610_english_Allresist_product-information.pdf', kind: 'datasheet' },
+  },
+  window: { kV: [20, 100], thicknessNm: [90, 480], developers: ['AR600_50'], timeS: [60, 120], tempC: [20, 23], bakeC: [160, 200], sources: ['LA-617', 'AR-617'] },
+  model: {
+    ref: { ...ref(p617Ref), bakeC: 200 }, refBasis: 'measured at DTU (100 kV, ≈ 295 nm, softbake 200 °C, AR 600-50 90 s)', refUncertainty: 0.15, refSources: ['LA-617'], density: 1.2,
+    nE: { value: 0.9, sd: 0.2, sources: [] },
+    p: { value: 0.2, sd: 0.15, sources: [] },
+    q: { value: 0.25, sd: 0.15, sources: [] },
+    EDeV: { value: 0.2, sd: 0.15, sources: [] }, TsatC: -20,
+    cGamma: { value: 0, sd: 0.03, sources: [] },
+    // the sixth condition: the softbake temperature. DTU's series: hotter bake, MORE dose (+1 %/°C);
+    // Allresist states the opposite (80 → 58 µC/cm² from 180 → 210 °C for 617.08): the spread covers both
+    extra: [{ key: 'bakeC', name: 'softbake', short: 'bake', unit: '°C', value: 0.011, sd: 0.012, tol: 3, law: 'D₁₀₀ ∝ exp[k·(T_bake − T_ref)]', param: 'k (per °C)',
+      note: 'from DTU\'s 160 / 180 / 200 °C series (clearing ≈ 50 → 65 → 75 µC/cm²); Allresist reports the opposite trend — the spread covers both', sources: ['LA-617', 'AR-617'] }],
+    developers: {},
+    notes: 'Only the developer DTU used (AR 600-50) is known: others are unsupported. Voltage, time, thickness and temperature laws are generic placeholders with wide errors — no data. Allresist\'s 20 kV value (30 µC/cm², on 500 nm lines) is in the datasets for comparison.',
+  },
+  datasets: [
+    p617Ref,
+    p617(180, { d50: 45, done: 65 }),
+    p617(160, { d50: 31, done: 50 }),
+    ds('allresist-20kV-lines', 'positive', { done: 30 }, C(20, 290, 'AR600_50', 60, 21, BAKE(180)), 'datasheet', { sources: ['AR-617'], note: 'E0 = 30 µC/cm² for AR-P 617.06 at 20 kV on 500 nm lines; bake and development time not stated (180 °C and 60 s assumed)' }),
+  ],
+  advice: [
+    { topic: 'At DTU: the bilayer under CSAR', text: 'AR-P 617 at 4000 rpm, bake 200 °C 120 s (≈ 295 nm); then CSAR (250 nm, Gamma recipe 2325-DCH). Expose 400 µC/cm² at 100 kV (29 nA). Develop ZED-N50 90 s for the CSAR, then AR 600-50 90 s and IPA 30 s for the copolymer; a longer AR 600-50 step gives more undercut (≈ 70–90 nm per side in DTU\'s SEM image).', sources: ['LA-617'] },
+    { topic: 'The bake', text: 'DTU measured the copolymer less sensitive after a hotter bake (clearing ≈ 50 / 65 / 75 µC/cm² after 160 / 180 / 200 °C; contrast 4.3 / 4.2 / 3.7); Allresist states the opposite. Keep the bake of your dose test.', sources: ['LA-617', 'AR-617'] },
+    { topic: 'Sensitivity', text: 'About 3–4× more sensitive than PMMA (Allresist); contrast ≈ 5–6 in Allresist\'s definition. Its curve starts dropping at very low doses (≈ 0.95 of the film left at 5 µC/cm²): the halo of the top layer\'s exposure develops it too — that is the undercut.', sources: ['AR-617', 'LA-617'] },
+  ],
+};
+
 // ---- the test structures, as the sources state them (see model.js structureVerdict). A clearing dose is
 // the large-area value only on pads ≫ β; most sources do not say — then 'unknown', never a guess.
 const STATED = {
@@ -473,11 +515,11 @@ const STATED = {
   ARN7520: { 'dtu-100kV-7520.17new': { kind: 'unknown', text: 'not stated on LabAdviser' } },
   MEDUSA: { 'dtu-eline-30kV-peb170': { kind: 'unknown', text: 'area elements of the eLINE dose test; their size is not stated' }, ...Object.fromEntries([170, 160, 150, 130].map((t) => [`dtu-100kV-peb${t}`, { kind: 'pads', sizeUm: 150, text: '150 µm × 300 µm rectangles (LabAdviser, AR-N 8200)' }])) },
 };
-for (const r of [CSAR, ZEP, PMMA, PMMA50K, HSQ, MREBL, ARN7520, MEDUSA]) {
+for (const r of [CSAR, ZEP, PMMA, PMMA50K, ARP617, HSQ, MREBL, ARN7520, MEDUSA]) {
   for (const d of r.datasets) d.structure = STATED[r.id]?.[d.id] || { kind: 'unknown', text: d.quality === 'estimate' ? 'a best guess assembled from several sources' : 'not stated in the source' };
   // the reference curve carries the structure of the dataset it was taken from
   const from = r.datasets.find((d) => d.conditions.kV === r.model.ref.kV && d.conditions.thicknessNm === r.model.ref.thicknessNm && d.conditions.developer === r.model.ref.developer && d.conditions.timeS === r.model.ref.timeS);
   r.model.refStructure = from ? from.structure : { kind: 'unknown', text: 'a best guess' };
 }
 
-export const BUILTIN_RESISTS = [CSAR, ZEP, PMMA, PMMA50K, HSQ, MREBL, ARN7520, MEDUSA];
+export const BUILTIN_RESISTS = [CSAR, ZEP, PMMA, PMMA50K, ARP617, HSQ, MREBL, ARN7520, MEDUSA];

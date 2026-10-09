@@ -36,7 +36,7 @@ export function createFabTab(app) {
     <div class="col">
       <div class="panel">
         <div class="section-title fab-fold-head"><button type="button" class="fab-tw" id="fabSampleToggle" title="Fold or unfold the sample settings">▾</button> Sample <span class="q" data-tip="<b>What Fab Studio simulates.</b><br><b>Device area</b> — a gold rectangle drawn in Pattern Studio (tool 5). In <b>3D</b> the whole area is a voxel block; as a <b>2D cut</b> only a cross-section along its long side, which is far cheaper and answers most questions (undercut, lift-off, sidewalls).<br><b>Exposure cut-line</b> — the line of the Exposure tab's profile, as a 2D cut.<br><b>Free sample</b> — no layout: the studio's own patterns, as before.<br><br>The lateral voxel size follows a fixed column budget, so a 2 µm gate and a 200 µm pad are simulated with the same number of columns and the voxel size tells you what the simulation can resolve.">?</span></div>
-        <div class="row fab-exec"><button class="btn primary" id="fabBuild">Build sample</button><span class="hint" id="fabSampleSum"></span></div>
+        <div class="row fab-exec"><button class="btn primary" id="fabBuild" title="Build a new sample from these settings — clears the process flow">Build sample</button><button class="btn" id="fabRebuild" title="Rebuild the sample from these settings (substrate, voxels, wafer) and run the process steps on it again — the recipe is kept">Rebuild &amp; replay</button><span class="hint" id="fabSampleSum"></span></div>
         <div id="fabSampleBody">
         <div class="label">Simulate</div>
         <select class="field" id="fabSource"></select>
@@ -79,6 +79,7 @@ export function createFabTab(app) {
           <button class="btn" id="fabUndo2" disabled title="Undo the last step of the flow (Ctrl+Z)">← Undo</button>
           <button class="btn" id="fabRedo2" disabled title="Redo the step just undone (Ctrl+Y or Ctrl+Shift+Z)">Redo →</button>
         </div>
+        <div class="hint" id="fabRunHint" style="margin:0 0 4px;">Run step adds a new step at the end. To change a step already in the flow, click its card.</div>
         <div class="hint" id="fabStatus" style="margin:2px 0 8px;"></div>
         <select class="field" id="fabStep">${opt(STEP_LABELS)}</select>
         <div id="fabParams" style="margin-top:8px;"></div>
@@ -806,6 +807,7 @@ export function createFabTab(app) {
   $('fabRedo').onclick = async () => { if (!st.future.length) return; st.history.push({ flow: st.flow, thumbs: st.thumbs }); const f = st.future.pop(); await replayAll(f.flow); };
   // rebuild from the form as it is now (sample, voxel sizes, substrate), keeping the flow
   $('fabReplay').onclick = () => { buildFromForm(true); updateSampleInfo(); replayAll(st.flow); };
+  $('fabRebuild').onclick = () => $('fabReplay').click();          // the same action, next to Build sample
   $('fabClear').onclick = () => { if (!st.flow.length || !confirm('Clear the process flow?')) return; snapshotHistory(); replayAll([]); };
 
   // flow list
@@ -885,6 +887,7 @@ export function createFabTab(app) {
       exitInsert(false);
       st.editIdx = i; $('fabStep').value = st.flow[i].type; showParams(st.flow[i].type, st.flow[i].type === 'spinresist' ? (st.flow[i].params?.lib ? 'advanced' : 'learning') : null); fillParams(st.flow[i].type, st.flow[i].params);
       $('fabRun').style.display = 'none'; $('fabApplyEdit').style.display = ''; $('fabCancelEdit').style.display = '';
+      $('fabRunHint').innerHTML = `Editing step ${i + 1}: change its settings and press <b>Apply edit</b> — the flow is replayed from there.`;
       $('fabStatus').innerHTML = `Editing step ${i + 1}: change the parameters, then <b>Apply edit</b> (the steps after it are replayed).`;
       renderFlow(); return;
     }
@@ -901,7 +904,7 @@ export function createFabTab(app) {
     cancelEdit(false); await replayAll(f);
   };
   function exitInsert(render = true) { if (st.insertIdx < 0) return; st.insertIdx = -1; $('fabRun').textContent = 'Run step'; $('fabCancelEdit').style.display = 'none'; if (render) renderFlow(); }
-  function cancelEdit(render = true) { exitInsert(false); st.editIdx = -1; $('fabRun').style.display = ''; $('fabApplyEdit').style.display = 'none'; $('fabCancelEdit').style.display = 'none'; if (render) renderFlow(); }
+  function cancelEdit(render = true) { exitInsert(false); st.editIdx = -1; $('fabRunHint').textContent = 'Run step adds a new step at the end. To change a step already in the flow, click its card.'; $('fabRun').style.display = ''; $('fabApplyEdit').style.display = 'none'; $('fabCancelEdit').style.display = 'none'; if (render) renderFlow(); }
   $('fabCancelEdit').onclick = () => cancelEdit();
 
   // ---------------------------------------------------------------- recipes

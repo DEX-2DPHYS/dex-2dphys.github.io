@@ -200,7 +200,7 @@ export const REGIME_TEXT = {
 };
 
 export function describeConditions(c) {
-  return `${c.kV} kV, ${c.thicknessNm} nm, ${c.developer}, ${c.timeS} s, ${c.tempC} °C${c.pebC != null ? `, PEB ${c.pebC} °C` : ''}`;
+  return `${c.kV} kV, ${c.thicknessNm} nm, ${c.developer}, ${c.timeS} s, ${c.tempC} °C${c.pebC != null ? `, PEB ${c.pebC} °C` : ''}${c.bakeC != null ? `, bake ${c.bakeC} °C` : ''}`;
 }
 
 // ---------------------------------------------------------------- fitting a measured curve
