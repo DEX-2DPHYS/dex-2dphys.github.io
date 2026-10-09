@@ -5,9 +5,10 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2234';
-import { analysePoly } from './poly.js?v=20261009.2234';
-import { describePolyrhythm, METERS } from './notation.js?v=20261009.2234';
+import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261009.2239';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2239';
+import { analysePoly } from './poly.js?v=20261009.2239';
+import { describePolyrhythm, METERS } from './notation.js?v=20261009.2239';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -39,6 +40,7 @@ export function parseTuning(text) {
 const T = (name, strings, opts = {}) => ({ name, strings, ...opts });
 export const TUNINGS = {
   free: T('Free · any note', [], { fmin: 25, fmax: 4200, W: 4096 }),
+  scale: T('Intonation trainer (scales)', [], { fmin: 50, fmax: 2100, W: 4096, scale: true }),
   guitar: T('Guitar · standard', ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
   dropd: T('Guitar · drop D', ['D2', 'A2', 'D3', 'G3', 'B3', 'E4']),
   dropc: T('Guitar · drop C', ['C2', 'G2', 'C3', 'F3', 'A3', 'D4']),
@@ -94,7 +96,7 @@ export const DEFAULTS = {
   // scope
   win: 10, sgain: 'auto', trig: 'auto',
   // tuner
-  tuning: 'free', custom: [], tgain: 0,
+  tuning: 'free', custom: [], tgain: 0, prevTuning: 'free', sroot: 0, sscale: 'major', stemp: 'equal',
   // tone generator (the page plays it; listed here so all settings live in one place)
   genMode: 'note', genWave: 'sine', genLevel: -18, genHz: 440, genMidi: 69,
   // rhythm
@@ -141,6 +143,7 @@ export class Engine {
     this.hCents = new Float32Array(HIST).fill(NaN);      // cents from the tuner's target per block
     this.hI = 0;
     this.lockString = -1; this.target = null; this.centsSm = 0; this.settledAt = 0;
+    this.nlog = new NoteLog(); this.modeBoxes = []; this.clearBox = null;
     this.hAtk = new Uint8Array(HIST); this.coach = []; this.strStatus = []; this.learn = null;
     // tone
     this.toneFFT = null; this.toneAcc = 0;
@@ -188,6 +191,9 @@ export class Engine {
         this.pointer = d.active ? { id: d.id, x: d.x, y: d.y } : null;
         if (d.down && d.id === 'tuner') {
           const hit = list => (list || []).find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
+          const mb = hit(this.modeBoxes), cb = hit(this.clearBox ? [this.clearBox] : []);
+          if (mb) { this.setTunerMode(mb.mode); return; }
+          if (cb) { this.nlog.clear(); this.strStatus = []; return; }
           const lb = this.learn && hit(this.learnBtns), c = !this.learn && hit(this.tunerCells), nb = hit(this.noteBox ? [this.noteBox] : []);
           if (lb) { // learn my tuning: Undo / Done / Cancel
             if (lb.id === 'undo') { this.learn.notes.pop(); this.learn.capT = -9; }
@@ -234,6 +240,8 @@ export class Engine {
     if (key === 'gain' || key === 'range') this.repaintWaterfall();
     if (key === 'scale' || key === 'fmin' || key === 'fmax') { this.mapDirty = true; }
     if (key === 'weight' || key === 'tw' || key === 'unit') this.resetStats();
+    if (key === 'sroot' || key === 'sscale' || key === 'stemp') { this.nlog.clear(); this.strStatus = []; this.pRecent.length = 0; }
+    if (key === 'tuning' && value === 'scale') this.nlog.clear();
     if (key === 'tuning' || key === 'custom') { this.lockString = -1; this.pRecent.length = 0; this.strStatus = []; this.tunCache = null; }
     if (key === 'view') { this.pRecent.length = 0; }
     if (key === 'meter' && this.rh) { this.rh.notation = null; this.updateNotation(); }
@@ -525,13 +533,16 @@ export class Engine {
     // the tuner's target: a locked string, the nearest string, or (free) the nearest note
     let cents = NaN;
     if (isFinite(midi)) {
-      let tm = Math.round(midi), idx = -1;
-      if (S.view === 'tuner' && tun.midi.length) {
+      let tm = Math.round(midi), idx = -1, kk = tm;
+      if (S.view === 'tuner' && tun.scale) {
+        const st = targetFor(midi, S.sroot, S.sscale, S.stemp);
+        if (st) { tm = st.midi; idx = st.idx; kk = st.k; }
+      } else if (S.view === 'tuner' && tun.midi.length) {
         idx = this.lockString >= 0 && this.lockString < tun.midi.length ? this.lockString
           : tun.midi.reduce((b, x, i) => (Math.abs(x - midi) < Math.abs(tun.midi[b] - midi) ? i : b), 0);
         tm = tun.midi[idx];
       }
-      this.target = { midi: tm, idx };
+      this.target = { midi: tm, idx, k: kk };
       cents = (midi - tm) * 100;
     }
     if (S.view === 'tuner') {
@@ -549,6 +560,7 @@ export class Engine {
       }
       if (this.learn) this.learnStep(midi, attack, t);
     }
+    if (S.view === 'tuner' && tun.scale) this.nlog.feed(isFinite(cents) && this.target ? { midi, cents, k: this.target.k, idx: this.target.idx } : null, attack);
     this.hMidi[this.hI] = midi; this.hCents[this.hI] = cents; this.hAtk[this.hI] = attack ? 1 : 0; this.hI = (this.hI + 1) % HIST;
   }
   // learn my tuning: each open string played and held; a note that stays within a quarter tone for
@@ -1032,15 +1044,132 @@ export class Engine {
   // Top to bottom: the strings (each with its last measured state; tap to lock), a strobe band (still =
   // in tune), the note, what to do now (with coaching while the peg turns), any warning, the gauge and
   // the last 10 s. Tap the note for a reference tone of the target.
+  // The intonation trainer: play the notes of a scale; each note is judged against its target (equal
+  // temperament or just intonation) in cents. The scale as cells with the last error of each degree, the
+  // note now sounding with its error on a bar, and the log of the last notes (sharp up, flat down).
+  drawIntonation(v) {
+    const { ctx, w, h, dpr } = v, S = this.S, pad = 14 * dpr, cx = w / 2, sc = SCALES[S.sscale] || SCALES.major;
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`${NOTE_NAMES[S.sroot]} ${sc.name.toLowerCase()} · ${S.stemp === 'just' ? 'just intonation' : 'equal temperament'}`, pad, 20 * dpr);
+    ctx.textAlign = 'right'; ctx.fillText(`A4 = ${S.a4} Hz`, w - pad, 20 * dpr);
+    let y = this.drawModeChips(v, 30 * dpr);
+    const p = this.pitch, live = p && this.w - p.at < this.sr * 0.35, recent = p && this.w - p.at < this.sr * 2.5;
+    // the scale: one cell per degree and the octave
+    const pcs = sc.pcs, m = pcs.length + 1, gap = 4 * dpr, cw = (w - 2 * pad - gap * (m - 1)) / m, ch = 48 * dpr;
+    for (let i = 0; i < m; i++) {
+      const idx = i % pcs.length, name = NOTE_NAMES[(S.sroot + pcs[idx]) % 12], st = this.strStatus[idx], x = pad + i * (cw + gap);
+      const on = this.target && this.target.idx === idx && recent && (i < pcs.length || (this.target.k - S.sroot) % 12 === 0);
+      ctx.fillStyle = on ? 'rgba(62,232,255,0.18)' : C.panel; ctx.fillRect(x, y, cw, ch);
+      ctx.strokeStyle = on ? C.cyan : C.grid2; ctx.lineWidth = dpr; ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
+      ctx.textAlign = 'center'; ctx.fillStyle = on ? C.bright : C.text; ctx.font = `600 ${(m > 8 ? 11 : 15) * dpr}px ${FONT}`;
+      ctx.fillText(name, x + cw / 2, y + 19 * dpr);
+      if (st) {
+        const a = Math.abs(st.cents), col = a <= TOL.good ? C.green : a <= TOL.ok ? C.amber : C.red;
+        ctx.fillStyle = col; ctx.fillRect(x + 3 * dpr, y + ch - 6 * dpr, cw - 6 * dpr, 3 * dpr);
+        ctx.font = `600 ${(m > 8 ? 8 : 10) * dpr}px ${FONT}`; ctx.fillText(a <= TOL.good ? '✓' : `${st.cents > 0 ? '+' : '−'}${a.toFixed(0)}`, x + cw / 2, y + ch - 12 * dpr);
+      }
+    }
+    y += ch + 14 * dpr;
+    // the note now
+    const c = this.centsSm, ok = recent && this.settledAt && this.target, adv = ok ? intonationAdvice(c) : null;
+    const col = !ok ? C.text : adv.level === 'good' ? C.green : adv.level === 'ok' ? C.amber : C.red;
+    const big = Math.min(w * 0.22, h * 0.1);
+    y += big;
+    ctx.textAlign = 'center'; ctx.font = `700 ${big}px ${FONT}`; ctx.fillStyle = ok ? col : C.grid2;
+    const tn = ok ? midiName(this.target.k) : '', letter = tn.replace(/-?\d+$/, ''), oct = tn.replace(/^[^\d-]+/, '');
+    ctx.fillText(ok ? letter : '—', cx, y);
+    if (ok) { const lw = ctx.measureText(letter).width; ctx.font = `600 ${big * 0.32}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(oct, cx + lw / 2 + 4 * dpr, y); }
+    this.noteBox = ok ? { x: cx - big, y: y - big, w: 2 * big, h: big + 8 * dpr, dpr } : null;
+    ctx.textAlign = 'center'; ctx.font = `600 ${16 * dpr}px ${MONO}`; ctx.fillStyle = ok ? C.bright : C.text;
+    ctx.fillText(ok ? `${fmtHz(p.f)}   ${c > 0 ? '+' : c < 0 ? '−' : '±'}${Math.abs(c).toFixed(0)} ¢` : 'play a note of the scale', cx, y + 24 * dpr);
+    ctx.font = `700 ${20 * dpr}px ${FONT}`; ctx.fillStyle = col; ctx.fillText(ok ? adv.text : '', cx, y + 50 * dpr);
+    ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(ok ? adv.sub : '', cx, y + 68 * dpr);
+    y += 84 * dpr;
+    // the bar: ±50 ¢, green within 5, amber within 15
+    const bx = pad + 6 * dpr, bw = w - 2 * pad - 12 * dpr, bh = 12 * dpr, X = d => bx + bw * (0.5 + clamp(d, -50, 50) / 100);
+    ctx.fillStyle = C.panel; ctx.fillRect(bx, y, bw, bh);
+    ctx.fillStyle = 'rgba(255,176,32,0.35)'; ctx.fillRect(X(-TOL.ok), y, X(TOL.ok) - X(-TOL.ok), bh);
+    ctx.fillStyle = 'rgba(61,255,138,0.75)'; ctx.fillRect(X(-TOL.good), y, X(TOL.good) - X(-TOL.good), bh);
+    ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`;
+    ctx.textAlign = 'left'; ctx.fillText('◀ flat', bx, y + bh + 12 * dpr); ctx.textAlign = 'right'; ctx.fillText('sharp ▶', bx + bw, y + bh + 12 * dpr);
+    if (ok) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X(c), y - 2 * dpr); ctx.lineTo(X(c) - 6 * dpr, y - 11 * dpr); ctx.lineTo(X(c) + 6 * dpr, y - 11 * dpr); ctx.fill(); }
+    y += bh + 26 * dpr;
+    // the log of the last notes
+    const sum = this.nlog.summary(12), log = this.nlog.log.slice(-16), liveC = this.nlog.live();
+    ctx.textAlign = 'left'; ctx.font = `600 ${12 * dpr}px ${FONT}`; ctx.fillStyle = C.bright;
+    ctx.fillText(sum ? `last ${sum.n} notes: ${sum.mean.toFixed(0)} ¢ off on average · ${sum.within} within ±${TOL.good}` : 'your notes will be logged here', pad, y);
+    this.clearBox = null;
+    if (sum || log.length) {
+      const cbw = 52 * dpr, cbh = 22 * dpr, cbx = w - pad - cbw;
+      ctx.strokeStyle = C.grid2; ctx.lineWidth = dpr; ctx.strokeRect(cbx + 0.5, y - 15 * dpr + 0.5, cbw - 1, cbh - 1);
+      ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillText('Clear', cbx + cbw / 2, y);
+      this.clearBox = { x: cbx, y: y - 15 * dpr, w: cbw, h: cbh, dpr };
+    }
+    if (sum) {
+      ctx.textAlign = 'left'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+      const lean = Math.abs(sum.lean) < 3 ? 'no lean' : `leaning ${sum.lean > 0 ? 'sharp' : 'flat'} (${sum.lean > 0 ? '+' : '−'}${Math.abs(sum.lean).toFixed(0)} ¢)`;
+      ctx.fillText(`${lean} · worst ${midiName(sum.worst.k).replace(/-?\d+$/, '')} ${sum.worst.cents > 0 ? '+' : '−'}${Math.abs(sum.worst.cents).toFixed(0)} ¢`, pad, y + 17 * dpr);
+    }
+    y += 28 * dpr;
+    const gx = pad, gw = w - 2 * pad, gy0 = y, gh = h - y - 70 * dpr;
+    if (gh > 50 * dpr) {
+      ctx.fillStyle = C.panel; ctx.fillRect(gx, gy0, gw, gh);
+      const mid = gy0 + gh / 2, Y = d => mid - clamp(d, -50, 50) / 50 * (gh / 2 - 4 * dpr);
+      ctx.fillStyle = 'rgba(61,255,138,0.10)'; ctx.fillRect(gx, Y(TOL.good), gw, Y(-TOL.good) - Y(TOL.good));
+      ctx.strokeStyle = C.grid; ctx.lineWidth = dpr; ctx.beginPath();
+      for (const d of [-25, 25]) { ctx.moveTo(gx, Y(d)); ctx.lineTo(gx + gw, Y(d)); }
+      ctx.stroke(); ctx.strokeStyle = C.grid2; ctx.beginPath(); ctx.moveTo(gx, mid); ctx.lineTo(gx + gw, mid); ctx.stroke();
+      ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`; ctx.textAlign = 'left';
+      ctx.fillText('+50 sharp', gx + 3 * dpr, gy0 + 11 * dpr); ctx.fillText('−50 flat', gx + 3 * dpr, gy0 + gh - 4 * dpr);
+      const cols = 16, bwid = gw / cols, items = log.map(e => ({ ...e, live: false }));
+      if (liveC != null && this.target) items.push({ cents: liveC, k: this.target.k, live: true });
+      const shown = items.slice(-cols);
+      shown.forEach((e, i) => {
+        const x = gx + gw - (shown.length - i) * bwid + bwid * 0.18, bw2 = bwid * 0.64, a = Math.abs(e.cents);
+        const bc = a <= TOL.good ? C.green : a <= TOL.ok ? C.amber : C.red;
+        ctx.fillStyle = bc; ctx.globalAlpha = e.live ? 0.45 : 1;
+        const y1 = Y(e.cents); ctx.fillRect(x, Math.min(mid, y1), bw2, Math.max(2 * dpr, Math.abs(y1 - mid)));
+        ctx.globalAlpha = 1;
+        ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`;
+        ctx.fillText(midiName(e.k).replace(/-?\d+$/, ''), x + bw2 / 2, gy0 + gh + 12 * dpr);
+        ctx.fillStyle = C.bright; ctx.fillText(`${e.cents > 0 ? '+' : e.cents < 0 ? '−' : ''}${a.toFixed(0)}`, x + bw2 / 2, e.cents >= 0 ? y1 - 3 * dpr : y1 + 11 * dpr);
+      });
+    }
+  }
+  // Tuner | Intonation: two chips under the title; tapping one switches the tuner's mode (the last
+  // instrument is remembered)
+  setTunerMode(mode) {
+    const S = this.S;
+    if (mode === 'scale' && S.tuning !== 'scale') { S.prevTuning = S.tuning; this.set('tuning', 'scale'); }
+    else if (mode === 'tuner' && S.tuning === 'scale') this.set('tuning', S.prevTuning && S.prevTuning !== 'scale' ? S.prevTuning : 'free');
+    this.post({ type: 'saved', settings: { tuning: S.tuning, prevTuning: S.prevTuning } });
+  }
+  drawModeChips(v, y) {
+    const { ctx, w, dpr } = v, pad = 14 * dpr, scale = this.S.tuning === 'scale', bw = (w - 2 * pad - 6 * dpr) / 2, bh = 26 * dpr;
+    this.modeBoxes = [];
+    [['tuner', 'Tuner', !scale], ['scale', 'Intonation', scale]].forEach(([mode, label, on], i) => {
+      const x = pad + i * (bw + 6 * dpr);
+      ctx.fillStyle = on ? C.cyan : C.panel; ctx.fillRect(x, y, bw, bh);
+      ctx.strokeStyle = on ? C.cyan : C.grid2; ctx.lineWidth = dpr; ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, bh - 1);
+      ctx.fillStyle = on ? '#001018' : C.text; ctx.font = `${on ? 600 : 400} ${13 * dpr}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + bw / 2, y + bh / 2 + dpr);
+      this.modeBoxes.push({ mode, x, y, w: bw, h: bh, dpr });
+    });
+    ctx.textBaseline = 'alphabetic';
+    return y + bh + 8 * dpr;
+  }
   drawTuner(v) {
     const { ctx, w, h, dpr } = v, S = this.S, tun = this.tuning(), free = !tun.midi.length;
+    if (tun.scale) { this.drawIntonation(v); return; }
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
     const pad = 14 * dpr, cx = w / 2;
     const p = this.pitch, live = p && this.w - p.at < this.sr * 0.35, recent = p && this.w - p.at < this.sr * 2.5;
     ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(tun.name, pad, 20 * dpr);
     ctx.textAlign = 'right'; ctx.fillText(`A4 = ${S.a4} Hz`, w - pad, 20 * dpr);
-    let y = 30 * dpr;
+    let y = this.drawModeChips(v, 30 * dpr);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     this.tunerCells = []; this.learnBtns = [];
     if (this.learn) { y = this.drawLearn(v, y); }
     else if (tun.midi.length) {
@@ -1647,6 +1776,7 @@ export class Engine {
       level: { Z: this.level('Z', 'fast', true), A: this.level('A', 'fast', true), C: this.level('C', 'fast', true), Zslow: this.level('Z', 'slow', true) },
       peakDb: 20 * Math.log10(this.peakMax + 1e-12), specPeak: pk, rows: this.rowCount, scopeFreq: this.scopeFreq, view: this.S.view,
       pitch: this.pitch, target: this.target, cents: this.centsSm, lock: this.lockString,
+      intonation: this.S.tuning === 'scale' ? { log: this.nlog.log.map(e => ({ k: midiName(e.k), cents: Math.round(e.cents * 10) / 10 })), live: this.nlog.live(), target: this.target && { name: midiName(this.target.k), idx: this.target.idx }, cents: this.centsSm, summary: this.nlog.summary(12), status: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), modeBoxes: (this.modeBoxes || []).map(b => ({ mode: b.mode, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), clear: this.clearBox && { x: (this.clearBox.x + this.clearBox.w / 2) / this.clearBox.dpr, y: (this.clearBox.y + this.clearBox.h / 2) / this.clearBox.dpr } } : null,
       tuner: this.S.view === 'tuner' ? { advice: this.advice(this.centsSm, !!(this.pitch && this.w - this.pitch.at < this.sr * 0.35 && this.settledAt), this.tuning()).text, next: this.nextString(this.tuning()), strings: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), learn: this.learn ? this.learn.notes.map(midiName) : null,
         learnBtns: (this.learnBtns || []).map(b => ({ id: b.id, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), cells: (this.tunerCells || []).map(b => ({ x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), noteBox: this.noteBox && { x: (this.noteBox.x + this.noteBox.w / 2) / this.noteBox.dpr, y: (this.noteBox.y + this.noteBox.h / 2) / this.noteBox.dpr } } : null,
       chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, chordFull: this.chord ? this.chord.full : null, chordAlt: this.chord ? this.chord.alt : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
