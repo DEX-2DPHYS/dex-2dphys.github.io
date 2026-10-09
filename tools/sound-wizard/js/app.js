@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.1623';
-import { CMAP_NAMES } from './dsp.js?v=20261009.1623';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.1707';
+import { CMAP_NAMES } from './dsp.js?v=20261009.1707';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -51,6 +51,8 @@ const CONTROLS = {
     { type: 'note', text: 'Free finds any note by itself. With an instrument: tap a string to lock onto it (again to let go), otherwise it follows the nearest string. The strobe stands still when in tune; the words say what to do, and while you turn the peg they coach you ("keep going", "slow down", "✓"). Each string keeps its last reading; ▼ marks the next one to tune. Tap the big note to hear the target. Learn my tuning: play each open string once, lowest first. Type a tuning: notes low to high, e.g. A1 E2 A2 D3 G3 B3 E4, or just AEADGBE.' },
   ],
   rhythm: [
+    { type: 'buttons', items: [['copynotation', 'Copy the notation text']] },
+    { type: 'note', text: 'Scroll the view for all of it. Tempo: the candidate pulses are the chips under the number; tap one to make it the main pulse (the polyrhythm is read against it), tap it again for automatic. Time signature: auto reads the accents; set it yourself and the notation follows. A polyrhythm is claimed only when its second layer puts sound on its own grid in most cycles and is not just a subdivision (eighths, triplets).' },
     { type: 'note', text: 'Tempo comes from the onsets (where new sound starts) over the last ~10 s: give it a few bars. Tap the tempo box in time for tap tempo. Repetition rate: how often the loudness repeats (engines, insects, tremolo, a ticking clock). Main frequencies: the strongest tones of the last two seconds.' },
   ],
   tone: [
@@ -136,6 +138,13 @@ function saveCustom(name, strings) {
 }
 function action(act) {
   if (act === 'reset') send({ type: 'reset' });
+  if (act === 'copynotation') {
+    window.soundWizard.stats().then(st => {
+      const t = st && st.rhythm && st.rhythm.notation && st.rhythm.notation.text;
+      if (!t) { alert('No polyrhythm to describe at the moment.'); return; }
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('Copied.'), () => prompt('Copy this:', t));
+    });
+  }
   if (act === 'learn') {
     for (const sh of $$('.sheet.open')) { sh.classList.remove('open'); sh.parentElement.querySelector('.gear').classList.remove('on'); }
     send({ type: 'learnStart' });
@@ -225,7 +234,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.1623', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.1707', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -242,7 +251,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.1623');
+    const { Engine } = await import('./engine.js?v=20261009.1707');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -264,7 +273,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1623');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1707');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
