@@ -5,7 +5,27 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut } from './dsp.js?v=20261009.1453';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, estimateChord, NOTE_NAMES } from './dsp.js?v=20261009.1504';
+
+// instruments for the tuner: strings low to high, the pitch range searched and the analysis window
+// (a bass needs 8192 samples: two periods of a low B are 65 ms)
+const nm = s => { const m = /^([A-G])([#♯b♭]?)(-?\d)$/.exec(s); const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' || m[2] === '♯' ? 1 : m[2] ? -1 : 0); return base + 12 * (+m[3] + 1); };
+export const TUNINGS = {
+  chromatic: { name: 'Chromatic', strings: [], fmin: 25, fmax: 4200, W: 4096 },
+  guitar: { name: 'Guitar · standard', strings: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'], fmin: 60, fmax: 1400, W: 4096 },
+  dropd: { name: 'Guitar · drop D', strings: ['D2', 'A2', 'D3', 'G3', 'B3', 'E4'], fmin: 55, fmax: 1400, W: 4096 },
+  dadgad: { name: 'Guitar · DADGAD', strings: ['D2', 'A2', 'D3', 'G3', 'A3', 'D4'], fmin: 55, fmax: 1400, W: 4096 },
+  openg: { name: 'Guitar · open G', strings: ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'], fmin: 55, fmax: 1400, W: 4096 },
+  halfdown: { name: 'Guitar · ½ step down', strings: ['E♭2', 'A♭2', 'D♭3', 'G♭3', 'B♭3', 'E♭4'], fmin: 55, fmax: 1400, W: 4096 },
+  bass4: { name: 'Bass · 4 strings', strings: ['E1', 'A1', 'D2', 'G2'], fmin: 25, fmax: 500, W: 8192 },
+  bass5: { name: 'Bass · 5 strings', strings: ['B0', 'E1', 'A1', 'D2', 'G2'], fmin: 25, fmax: 500, W: 8192 },
+  ukulele: { name: 'Ukulele', strings: ['G4', 'C4', 'E4', 'A4'], fmin: 180, fmax: 2000, W: 4096 },
+  violin: { name: 'Violin', strings: ['G3', 'D4', 'A4', 'E5'], fmin: 150, fmax: 3000, W: 4096 },
+  cello: { name: 'Cello', strings: ['C2', 'G2', 'D3', 'A3'], fmin: 50, fmax: 1500, W: 4096 },
+};
+for (const t of Object.values(TUNINGS)) t.midi = t.strings.map(nm);
+const midiName = m => { const n = Math.round(m); return `${NOTE_NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}`; };
+const HIST = 480; // pitch history: 480 blocks of 1024 samples ≈ 10 s
 
 const RING = 1 << 18;          // ~5.5 s at 48 kHz: enough for the largest FFT and the scope
 const MASK = RING - 1;
@@ -21,6 +41,8 @@ export const DEFAULTS = {
   layout: 'both', fft: 4096, speed: 60, gain: 0, range: 100, scale: 'log', fmin: 20, fmax: 20000, cmap: 'spectro', hold: true, a4: 440,
   // scope
   win: 10, sgain: 'auto', trig: 'auto',
+  // tuner
+  tuning: 'guitar',
 };
 
 const C = {
@@ -53,6 +75,18 @@ export class Engine {
     this.rowAcc = 0; this.rowCount = 0; this.specFresh = false;
     this.setupFFT();
     this.lut = lut(this.S.cmap);
+    // pitch (tuner and tone)
+    this.pm = null;
+    this.pRecent = [];                                   // the last few good estimates (median)
+    this.pitch = null;                                   // { f, midi, clarity, at }
+    this.hMidi = new Float32Array(HIST).fill(NaN);       // smoothed pitch per block
+    this.hCents = new Float32Array(HIST).fill(NaN);      // cents from the tuner's target per block
+    this.hI = 0;
+    this.lockString = -1; this.target = null; this.centsSm = 0;
+    // tone
+    this.toneFFT = null; this.toneAcc = 0;
+    this.chroma = new Float32Array(12); this.chromaFast = new Float32Array(12); this.chromaSlow = new Float32Array(12);
+    this.harm = new Float32Array(16).fill(-80); this.centroid = NaN; this.key = null; this.chord = null;
     // load
     this.busy = 0; this.loadT0 = now(); this.load = 0;
   }
@@ -91,7 +125,13 @@ export class Engine {
         break;
       }
       case 'set': this.set(d.key, d.value); break;
-      case 'pointer': this.pointer = d.active ? { id: d.id, x: d.x, y: d.y } : null; break;
+      case 'pointer':
+        this.pointer = d.active ? { id: d.id, x: d.x, y: d.y } : null;
+        if (d.down && d.id === 'tuner' && this.tunerCells) { // tap a string to lock onto it, again to let go
+          const c = this.tunerCells.find(q => d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h);
+          if (c) this.lockString = this.lockString === c.i ? -1 : c.i;
+        }
+        break;
       case 'pause': this.paused = !!d.on; break;
       case 'hidden': this.hidden = !!d.on; break;
       case 'reset': this.resetStats(); break;
@@ -113,6 +153,8 @@ export class Engine {
     if (key === 'gain' || key === 'range') this.repaintWaterfall();
     if (key === 'scale' || key === 'fmin' || key === 'fmax') { this.mapDirty = true; }
     if (key === 'weight' || key === 'tw' || key === 'unit') this.resetStats();
+    if (key === 'tuning') { this.lockString = -1; this.pRecent.length = 0; }
+    if (key === 'view') { this.pRecent.length = 0; }
   }
 
   // ---------------------------------------------------------------------------------- input
@@ -144,8 +186,85 @@ export class Engine {
     if (this.w > this.sr * 0.3) { if (lv < this.min) this.min = lv; if (lv > this.max) this.max = lv; }
     this.histAcc += n;
     while (this.histAcc >= this.sr * 0.1) { this.histAcc -= this.sr * 0.1; this.hist[this.histI] = lv; this.histI = (this.histI + 1) % this.hist.length; }
-    if (this.S.view === 'spec') this.specRows(n);
+    const view = this.S.view;
+    if (view === 'spec') this.specRows(n);
+    if (view === 'tuner' || view === 'tone') this.pitchStep();
+    if (view === 'tone') this.toneStep(n);
     this.busy += now() - t0;
+  }
+
+  // ---------------------------------------------------------------------------------- pitch
+  // one estimate per arriving block (~21 ms): McLeod pitch on the latest window, a median of the last
+  // five good estimates against stray readings, and a history for the traces
+  pitchStep() {
+    const S = this.S, tun = TUNINGS[S.tuning] || TUNINGS.guitar;
+    const cfg = S.view === 'tone' ? { W: 8192, fmin: 27, fmax: 2100 } : tun;
+    if (!this.pm || this.pm.W !== cfg.W) this.pm = new PitchMPM(cfg.W);
+    const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17;
+    const p = lvl > -65 ? this.pm.detect(this.ring, MASK, this.w, this.sr, cfg.fmin, cfg.fmax) : { f: NaN, clarity: 0 };
+    let midi = NaN;
+    if (p.clarity > 0.86 && isFinite(p.f)) {
+      const m = 69 + 12 * Math.log2(p.f / S.a4);
+      // a reading an octave or more away from the last ones is held back until it repeats
+      this.pRecent.push(m);
+      if (this.pRecent.length > 5) this.pRecent.shift();
+      const sorted = [...this.pRecent].sort((a, b) => a - b), med = sorted[sorted.length >> 1];
+      midi = Math.abs(m - med) < 0.6 ? m : med;
+      this.pitch = { f: S.a4 * Math.pow(2, (midi - 69) / 12), midi, clarity: p.clarity, at: this.w };
+    } else if (this.pitch && this.w - this.pitch.at > this.sr * 0.25) {
+      this.pRecent.length = 0;
+    }
+    // the tuner's target: a locked string, the nearest string, or the nearest note
+    let cents = NaN;
+    if (isFinite(midi)) {
+      let tm = Math.round(midi), idx = -1;
+      if (S.view === 'tuner' && tun.midi.length) {
+        idx = this.lockString >= 0 && this.lockString < tun.midi.length ? this.lockString
+          : tun.midi.reduce((b, x, i) => (Math.abs(x - midi) < Math.abs(tun.midi[b] - midi) ? i : b), 0);
+        tm = tun.midi[idx];
+      }
+      this.target = { midi: tm, idx };
+      cents = (midi - tm) * 100;
+    }
+    this.hMidi[this.hI] = midi; this.hCents[this.hI] = cents; this.hI = (this.hI + 1) % HIST;
+  }
+
+  // ----------------------------------------------------------------------------------- tone
+  // every ~85 ms: a 16384-point spectrum → the 12-note profile (fast for the chord, slow for the key),
+  // the harmonics of the current pitch, and the spectral centroid (brightness)
+  toneStep(n) {
+    this.toneAcc += n;
+    if (this.toneAcc < 4096) return;
+    this.toneAcc = 0;
+    const N = 16384;
+    if (!this.toneFFT) { this.toneFFT = new RealFFT(N); const h = hann(N); this.toneWin = h.w; this.toneBuf = new Float64Array(N); this.tonePow = new Float32Array(N / 2 + 1); }
+    const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17;
+    if (lvl < -65) return;
+    const buf = this.toneBuf, win = this.toneWin, ring = this.ring, start = this.w - N;
+    for (let i = 0; i < N; i++) buf[i] = ring[(start + i) & MASK] * win[i];
+    this.toneFFT.power(buf, this.tonePow);
+    const pow = this.tonePow, df = this.sr / N;
+    if (chromaFromSpectrum(pow, df, this.S.a4, this.chroma) > 0) {
+      for (let i = 0; i < 12; i++) { this.chromaFast[i] += (this.chroma[i] - this.chromaFast[i]) * 0.4; this.chromaSlow[i] += (this.chroma[i] - this.chromaSlow[i]) * 0.03; }
+      this.chord = estimateChord(this.chromaFast);
+      this.key = estimateKey(this.chromaSlow);
+    }
+    // harmonics of the current pitch, relative to the strongest
+    const p = this.pitch;
+    if (p && this.w - p.at < this.sr * 0.2) {
+      const db = new Float32Array(16);
+      for (let h = 1; h <= 16; h++) {
+        const f = p.f * h, k0 = Math.max(2, Math.floor((f * 0.985) / df)), k1 = Math.min(pow.length - 2, Math.ceil((f * 1.015) / df));
+        let mx = 0;
+        for (let k = k0; k <= k1; k++) if (pow[k] > mx) mx = pow[k];
+        db[h - 1] = f < this.sr / 2 ? 10 * Math.log10(mx + 1e-30) : -300;
+      }
+      const top = Math.max(...db);
+      for (let i = 0; i < 16; i++) this.harm[i] += (Math.max(-80, db[i] - top) - this.harm[i]) * 0.5;
+    }
+    let sa = 0, sf = 0;
+    for (let k = Math.floor(50 / df); k < Math.min(pow.length, 10000 / df); k++) { const a = Math.sqrt(pow[k]); sa += a; sf += a * k * df; }
+    this.centroid = sa > 0 ? sf / sa : NaN;
   }
 
   // level in dB for a weighting (Z, A, C) and time weighting (fast, slow)
@@ -268,6 +387,8 @@ export class Engine {
       if (this.S.view === 'meter') this.drawMeter(v);
       else if (this.S.view === 'spec') this.drawSpec(v);
       else if (this.S.view === 'scope') this.drawScope(v);
+      else if (this.S.view === 'tuner') this.drawTuner(v);
+      else if (this.S.view === 'tone') this.drawTone(v);
     }
     this.frames++;
     this.busy += now() - t0;
@@ -520,6 +641,182 @@ export class Engine {
     this.scopeFreq = freq;
   }
 
+  // ---------------------------------------------------------------------------------- tuner
+  drawTuner(v) {
+    const { ctx, w, h, dpr } = v, S = this.S, tun = TUNINGS[S.tuning] || TUNINGS.guitar;
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    const pad = 14 * dpr, cx = w / 2;
+    const p = this.pitch, live = p && this.w - p.at < this.sr * 0.35, recent = p && this.w - p.at < this.sr * 2.5;
+    // header: instrument and reference
+    ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(tun.name, pad, 20 * dpr);
+    ctx.textAlign = 'right'; ctx.fillText(`A4 = ${S.a4} Hz`, w - pad, 20 * dpr);
+    // strings (tap to lock)
+    let y = 30 * dpr;
+    this.tunerCells = [];
+    if (tun.midi.length) {
+      const n = tun.midi.length, gap = 6 * dpr, cw = (w - 2 * pad - gap * (n - 1)) / n, ch = 44 * dpr;
+      tun.strings.forEach((s, i) => {
+        const x = pad + i * (cw + gap), on = this.target && this.target.idx === i && recent, locked = this.lockString === i;
+        ctx.fillStyle = on ? 'rgba(62,232,255,0.18)' : C.panel; ctx.fillRect(x, y, cw, ch);
+        ctx.strokeStyle = locked ? C.amber : on ? C.cyan : C.grid2; ctx.lineWidth = (locked ? 2 : 1) * dpr; ctx.strokeRect(x + 0.5, y + 0.5, cw - 1, ch - 1);
+        ctx.textAlign = 'center'; ctx.fillStyle = on ? C.bright : C.text; ctx.font = `600 ${16 * dpr}px ${FONT}`;
+        ctx.fillText(s.replace(/\d/, ''), x + cw / 2, y + 23 * dpr);
+        ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillText(locked ? 'locked' : s.replace(/\D/g, ''), x + cw / 2, y + 37 * dpr);
+        this.tunerCells.push({ i, x, y, w: cw, h: ch, dpr });
+      });
+      y += ch;
+    }
+    // the note, the cents and the frequency
+    const cents = live ? (p.midi - this.target.midi) * 100 : NaN;
+    if (isFinite(cents)) this.centsSm += (cents - this.centsSm) * (Math.abs(cents - this.centsSm) > 30 ? 1 : 0.35);
+    const c = this.centsSm, inTune = live && Math.abs(c) < 3, close = live && Math.abs(c) < 10;
+    const col = !recent ? C.text : inTune ? C.green : close ? C.amber : C.red;
+    const big = Math.min(w * 0.3, h * 0.16);
+    y += big + 18 * dpr;
+    ctx.textAlign = 'center'; ctx.fillStyle = recent ? col : C.grid2; ctx.font = `700 ${big}px ${FONT}`;
+    const tname = this.target ? midiName(this.target.midi) : '—', letter = tname.replace(/-?\d+$/, ''), oct = tname.replace(/^[^\d-]+/, '');
+    ctx.fillText(recent ? letter : '—', cx, y);
+    if (recent) { const lw = ctx.measureText(letter).width; ctx.font = `600 ${big * 0.32}px ${FONT}`; ctx.textAlign = 'left'; ctx.fillText(oct, cx + lw / 2 + 4 * dpr, y); }
+    ctx.textAlign = 'center'; ctx.font = `600 ${17 * dpr}px ${MONO}`; ctx.fillStyle = recent ? C.bright : C.text;
+    ctx.fillText(recent ? `${fmtHz(p.f)}   ${c > 0 ? '+' : c < 0 ? '−' : '±'}${Math.abs(c).toFixed(1)} ¢` : 'play a note', cx, y + 28 * dpr);
+    if (recent && this.target) { ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(`target ${fmtHz(S.a4 * Math.pow(2, (this.target.midi - 69) / 12))}`, cx, y + 46 * dpr); }
+    // the gauge: ±50 cents on an arc, green within ±3
+    const gr = Math.min(w * 0.38, (h - y) * 0.36), gy = y + 96 * dpr + gr; // room for the tick labels above the arc
+    const A = 1.15; // half-angle of the arc (rad)
+    const ang = d => -Math.PI / 2 + clamp(d / 50, -1, 1) * A;
+    ctx.lineWidth = 10 * dpr; ctx.lineCap = 'butt';
+    ctx.strokeStyle = C.panel; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-50), ang(50)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,176,32,0.35)'; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-10), ang(10)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(61,255,138,0.75)'; ctx.beginPath(); ctx.arc(cx, gy, gr, ang(-3), ang(3)); ctx.stroke();
+    ctx.lineWidth = 1.5 * dpr; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text;
+    for (let d = -50; d <= 50; d += 10) {
+      const a = ang(d), r0 = gr + 9 * dpr, r1 = gr + (d % 50 === 0 || d === 0 ? 20 : 15) * dpr;
+      ctx.strokeStyle = d === 0 ? C.bright : C.grid2;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, gy + Math.sin(a) * r0); ctx.lineTo(cx + Math.cos(a) * r1, gy + Math.sin(a) * r1); ctx.stroke();
+      if (d % 25 === 0) ctx.fillText(d > 0 ? `+${d}` : String(d), cx + Math.cos(a) * (gr + 34 * dpr), gy + Math.sin(a) * (gr + 34 * dpr) + 4 * dpr);
+    }
+    if (recent) {
+      const a = ang(c);
+      ctx.strokeStyle = col; ctx.lineWidth = 4 * dpr; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * gr * 0.18, gy + Math.sin(a) * gr * 0.18); ctx.lineTo(cx + Math.cos(a) * (gr - 4 * dpr), gy + Math.sin(a) * (gr - 4 * dpr)); ctx.stroke();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, gy, 7 * dpr, 0, 2 * Math.PI); ctx.fill();
+      ctx.font = `600 ${14 * dpr}px ${FONT}`; ctx.fillStyle = col; ctx.textAlign = 'center';
+      ctx.fillText(inTune ? '✓ in tune' : c < 0 ? 'too low · tune up ▲' : 'too high · tune down ▼', cx, gy + 30 * dpr);
+    }
+    ctx.lineCap = 'butt';
+    // the trace: cents from the target over the last 10 s
+    const ty = gy + 48 * dpr, th = h - ty - 22 * dpr;
+    if (th > 50 * dpr) this.drawTrace(ctx, pad, ty, w - 2 * pad, th, dpr, 'cents');
+  }
+
+  // a history strip: 'cents' (−50 … +50 around the target) or 'notes' (a note grid around the recent pitch)
+  drawTrace(ctx, x, y, gw, gh, dpr, kind) {
+    ctx.fillStyle = C.panel; ctx.fillRect(x, y, gw, gh);
+    const n = HIST, data = kind === 'cents' ? this.hCents : this.hMidi;
+    let lo, hi, Y;
+    if (kind === 'cents') {
+      lo = -50; hi = 50;
+      Y = d => y + gh * (1 - (clamp(d, lo, hi) - lo) / (hi - lo));
+      ctx.fillStyle = 'rgba(61,255,138,0.12)'; ctx.fillRect(x, Y(3), gw, Y(-3) - Y(3));
+      ctx.font = `${10 * dpr}px ${FONT}`; ctx.textAlign = 'left';
+      for (const d of [-50, -25, 0, 25, 50]) { ctx.fillStyle = d ? C.grid : C.grid2; ctx.fillRect(x, Y(d), gw, 1); ctx.fillStyle = C.text; ctx.fillText(d > 0 ? `+${d}¢` : `${d}¢`, x + 3 * dpr, Y(d) - 3 * dpr); }
+    } else {
+      const vals = [];
+      for (let i = 0; i < n; i++) if (isFinite(data[i])) vals.push(data[i]);
+      vals.sort((a, b) => a - b);
+      const mid = vals.length ? Math.round(vals[vals.length >> 1]) : 60;
+      lo = mid - 7; hi = mid + 7;
+      Y = m => y + gh * (1 - (m - lo) / (hi - lo));
+      ctx.font = `${10 * dpr}px ${FONT}`; ctx.textAlign = 'left';
+      for (let m = lo; m <= hi; m++) {
+        const black = [1, 3, 6, 8, 10].includes(((m % 12) + 12) % 12);
+        ctx.fillStyle = black ? 'rgba(0,0,0,0.25)' : 'rgba(110,150,200,0.06)'; ctx.fillRect(x, Y(m + 0.5), gw, Y(m - 0.5) - Y(m + 0.5));
+        ctx.fillStyle = C.grid; ctx.fillRect(x, Y(m - 0.5), gw, 1);
+        if (!black) { ctx.fillStyle = C.text; ctx.fillText(midiName(m), x + 3 * dpr, Y(m) + 3 * dpr); }
+      }
+    }
+    ctx.textAlign = 'center'; ctx.fillStyle = C.text;
+    for (const s of [10, 5, 0]) ctx.fillText(s ? `−${s} s` : 'now', x + gw * (1 - s / 10.24) - (s ? 0 : 10 * dpr), y + gh + 14 * dpr);
+    ctx.beginPath();
+    let pen = false;
+    for (let i = 0; i < n; i++) {
+      const val = data[(this.hI + i) % n];
+      if (!isFinite(val)) { pen = false; continue; }
+      const px = x + gw * i / (n - 1), py = Y(val);
+      if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; }
+    }
+    ctx.strokeStyle = C.cyan; ctx.lineWidth = 2 * dpr; ctx.lineJoin = 'round'; ctx.stroke();
+  }
+
+  // ----------------------------------------------------------------------------------- tone
+  drawTone(v) {
+    const { ctx, w, h, dpr } = v, S = this.S;
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    const pad = 14 * dpr, cx = w / 2;
+    const p = this.pitch, live = p && this.w - p.at < this.sr * 0.4, recent = p && this.w - p.at < this.sr * 3;
+    // the base note: the pitch when there is one clear note, else the chord's root
+    const big = Math.min(w * 0.22, h * 0.11);
+    let y = pad + big;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = `${12 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText('base note', cx, pad + 4 * dpr);
+    y += 8 * dpr;
+    if (recent) {
+      const q = noteOf(p.f, S.a4), ct = Math.round(q.cents);
+      ctx.font = `700 ${big}px ${FONT}`; ctx.fillStyle = live ? C.bright : C.text;
+      ctx.fillText(`${q.name}${q.octave}`, cx, y);
+      ctx.font = `600 ${15 * dpr}px ${MONO}`; ctx.fillStyle = C.cyan;
+      ctx.fillText(`${fmtHz(p.f)}  ${ct > 0 ? '+' : ct < 0 ? '−' : '±'}${Math.abs(ct)}¢  clarity ${(p.clarity * 100).toFixed(0)}%`, cx, y + 24 * dpr);
+    } else if (this.chord && this.chord.score > 0.8) {
+      ctx.font = `700 ${big}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(NOTE_NAMES[this.chord.root], cx, y);
+      ctx.font = `${13 * dpr}px ${FONT}`; ctx.fillText('(root of the chord: no single clear note)', cx, y + 24 * dpr);
+    } else { ctx.font = `700 ${big}px ${FONT}`; ctx.fillStyle = C.grid2; ctx.fillText('—', cx, y); }
+    y += 46 * dpr;
+    // chord and key
+    const half = (w - 3 * pad) / 2;
+    const box = (x, title, main, sub, conf) => {
+      ctx.fillStyle = C.panel; ctx.fillRect(x, y, half, 62 * dpr);
+      ctx.textAlign = 'left'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(title, x + 10 * dpr, y + 16 * dpr);
+      ctx.font = `700 ${22 * dpr}px ${FONT}`; ctx.fillStyle = main ? C.bright : C.grid2; ctx.fillText(main || '—', x + 10 * dpr, y + 42 * dpr);
+      ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(sub || '', x + 10 * dpr, y + 56 * dpr);
+      ctx.fillStyle = C.cyan; ctx.fillRect(x, y + 60 * dpr, half * clamp(conf || 0, 0, 1), 2 * dpr);
+    };
+    const ch = this.chord, k = this.key;
+    box(pad, 'chord', ch && ch.score > 0.75 ? NOTE_NAMES[ch.root] + ch.name : '', ch ? `match ${(ch.score * 100).toFixed(0)}%` : '', ch ? (ch.score - 0.6) / 0.4 : 0);
+    box(2 * pad + half, 'key (last few seconds)', k && k.score > 0.5 ? `${NOTE_NAMES[k.root]} ${k.mode}` : '', k ? `fit ${(k.score * 100).toFixed(0)}% · lead ${(k.margin * 100).toFixed(0)}` : '', k ? k.margin * 4 : 0);
+    y += 62 * dpr + 18 * dpr;
+    // the 12-note profile
+    const chH = Math.max(60 * dpr, h * 0.14), bw = (w - 2 * pad) / 12;
+    const tones = ch && ch.score > 0.75 ? new Set(estimateChordTones(ch)) : new Set();
+    const mx = Math.max(1e-6, ...this.chromaFast);
+    ctx.font = `${11 * dpr}px ${FONT}`; ctx.textAlign = 'center';
+    for (let i = 0; i < 12; i++) {
+      const v2 = this.chromaFast[i] / mx, x = pad + i * bw, bh = v2 * (chH - 16 * dpr);
+      ctx.fillStyle = C.panel; ctx.fillRect(x + 2 * dpr, y, bw - 4 * dpr, chH - 16 * dpr);
+      ctx.fillStyle = tones.has(i) ? C.cyan : 'rgba(142,164,188,0.55)';
+      ctx.fillRect(x + 2 * dpr, y + chH - 16 * dpr - bh, bw - 4 * dpr, bh);
+      if (k && k.score > 0.5 && k.root === i) { ctx.strokeStyle = C.magenta; ctx.lineWidth = 2 * dpr; ctx.strokeRect(x + 2 * dpr, y, bw - 4 * dpr, chH - 16 * dpr); }
+      ctx.fillStyle = tones.has(i) ? C.bright : C.text; ctx.fillText(NOTE_NAMES[i], x + bw / 2, y + chH - 2 * dpr);
+    }
+    y += chH + 30 * dpr;
+    // harmonics of the base note
+    const hh = Math.max(56 * dpr, h * 0.12), hw = (w - 2 * pad) / 16;
+    ctx.textAlign = 'left'; ctx.fillStyle = C.text; ctx.font = `${11 * dpr}px ${FONT}`;
+    ctx.fillText(`harmonics (dB, strongest = 0)${isFinite(this.centroid) ? ` · brightness ${fmtHz(this.centroid)}` : ''}`, pad, y - 4 * dpr);
+    ctx.textAlign = 'center';
+    for (let i = 0; i < 16; i++) {
+      const x = pad + i * hw, val = recent ? clamp((this.harm[i] + 60) / 60, 0, 1) : 0, bh = val * (hh - 14 * dpr);
+      ctx.fillStyle = C.panel; ctx.fillRect(x + 1.5 * dpr, y, hw - 3 * dpr, hh - 14 * dpr);
+      ctx.fillStyle = i === 0 ? C.bright : i % 2 ? C.cyan : C.magenta;
+      ctx.fillRect(x + 1.5 * dpr, y + hh - 14 * dpr - bh, hw - 3 * dpr, bh);
+      ctx.fillStyle = C.text; ctx.font = `${9 * dpr}px ${FONT}`; ctx.fillText(String(i + 1), x + hw / 2, y + hh - 2 * dpr);
+    }
+    y += hh + 12 * dpr;
+    // the pitch over time on a note grid
+    const th = h - y - 22 * dpr;
+    if (th > 50 * dpr) this.drawTrace(ctx, pad, y, w - 2 * pad, th, dpr, 'notes');
+  }
+
   // ---------------------------------------------------------------------------------- stats (tests, status)
   stats() {
     const pk = this.specFresh !== undefined && this.fftN ? this.specPeak() : null;
@@ -527,9 +824,14 @@ export class Engine {
       sr: this.sr, samples: this.w, load: this.load,
       level: { Z: this.level('Z', 'fast', true), A: this.level('A', 'fast', true), C: this.level('C', 'fast', true), Zslow: this.level('Z', 'slow', true) },
       peakDb: 20 * Math.log10(this.peakMax + 1e-12), specPeak: pk, rows: this.rowCount, scopeFreq: this.scopeFreq, view: this.S.view,
+      pitch: this.pitch, target: this.target, cents: this.centsSm, lock: this.lockString,
+      chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
+      harmonics: Array.from(this.harm), centroid: this.centroid,
       weighting: { A: [100, 1000, 10000].map(f => 20 * Math.log10(this.wA.response(f, this.sr))), C: [100, 1000, 10000].map(f => 20 * Math.log10(this.wC.response(f, this.sr))) },
     };
   }
 }
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const CHORD_IV = { '': [0, 4, 7], m: [0, 3, 7], 7: [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], dim: [0, 3, 6], aug: [0, 4, 8], sus2: [0, 2, 7], sus4: [0, 5, 7], 5: [0, 7] };
+function estimateChordTones(ch) { return (CHORD_IV[ch.name] || [0]).map(d => (ch.root + d) % 12); }

@@ -1,8 +1,8 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS } from './engine.js?v=20261009.1453';
-import { CMAP_NAMES } from './dsp.js?v=20261009.1453';
+import { DEFAULTS, TUNINGS } from './engine.js?v=20261009.1504';
+import { CMAP_NAMES } from './dsp.js?v=20261009.1504';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -41,6 +41,15 @@ const CONTROLS = {
     { key: 'win', label: 'Window', type: 'select', num: true, options: [1, 2, 5, 10, 20, 50, 100, 200, 500].map(ms => [ms, `${ms} ms`]) },
     { key: 'sgain', label: 'Gain', type: 'select', options: [['auto', 'Auto'], ['1', '×1'], ['2', '×2'], ['4', '×4'], ['8', '×8'], ['16', '×16'], ['64', '×64']] },
     { key: 'trig', label: 'Trigger', type: 'seg', options: [['auto', 'Rising edge'], ['free', 'Free run']] },
+  ],
+  tuner: [
+    { key: 'tuning', label: 'Instrument', type: 'select', options: Object.entries(TUNINGS).map(([k, t]) => [k, t.name]) },
+    { key: 'a4', label: 'A4', type: 'range', min: 415, max: 466, step: 1, fmt: v => `${v} Hz` },
+    { type: 'note', text: 'Tap a string to lock the tuner onto it (tap again to let go); otherwise it follows the nearest string. Green within ±3 cents. The strip below shows the last ten seconds.' },
+  ],
+  tone: [
+    { key: 'a4', label: 'A4', type: 'range', min: 415, max: 466, step: 1, fmt: v => `${v} Hz` },
+    { type: 'note', text: 'Base note: the fundamental of a single note (or the root when several notes sound). Chord: from the last half second. Key: from the last few seconds, so let a phrase play. Harmonics: the overtones of the base note, odd ones cyan, even ones magenta.' },
   ],
 };
 
@@ -144,7 +153,7 @@ for (const cv of $$('canvas.cv')) ro.observe(cv);
 for (const cv of $$('canvas.cv')) {
   const id = cv.dataset.id;
   const at = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); send({ type: 'pointer', id, active: true, ...at(e) }); });
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); send({ type: 'pointer', id, active: true, down: true, ...at(e) }); });
   cv.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'mouse') send({ type: 'pointer', id, active: true, ...at(e) }); });
   const end = () => send({ type: 'pointer', id, active: false });
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end); cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') end(); });
@@ -174,7 +183,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.1453', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261009.1504', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -191,7 +200,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.1453');
+    const { Engine } = await import('./engine.js?v=20261009.1504');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -213,7 +222,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1453');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.1504');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
