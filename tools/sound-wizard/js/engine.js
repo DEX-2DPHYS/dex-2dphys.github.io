@@ -5,9 +5,9 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2153';
-import { analysePoly } from './poly.js?v=20261009.2153';
-import { describePolyrhythm, METERS } from './notation.js?v=20261009.2153';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2200';
+import { analysePoly } from './poly.js?v=20261009.2200';
+import { describePolyrhythm, METERS } from './notation.js?v=20261009.2200';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -200,7 +200,7 @@ export class Engine {
           const chip = hit(this.chipBoxes), mb = hit(this.meterBoxes), sg = hit(this.sugBoxes), tb = this.tapBox && hit([this.tapBox]);
           if (chip) { // choose the main pulse (the chosen one again: back to automatic)
             R.mainLock = R.mainLock && Math.abs(Math.log(chip.bpm / R.mainLock)) < 0.04 ? null : chip.bpm;
-            R.polyShown = null; R.polyLast = null; R.polyCount = 0; R.notation = null;
+            R.polyShown = null; R.polyLast = null; R.polyCount = 0; R.polyEv = {}; R.notation = null;
             R.polyNow = true; // the next frame runs the analysis
           } else if (mb) { this.set('meter', mb.meter); this.post({ type: 'saved', settings: { meter: mb.meter } }); }
           else if (sg) { R.sugSel = sg.i; }
@@ -351,16 +351,27 @@ export class Engine {
     const cycle = res.poly ? res.poly.q * P : beats ? beats * P : P;
     const cycleStart = res.poly ? lastBeat - (((nPts - 1 - d) % res.poly.q + res.poly.q) % res.poly.q) * P : beats ? down : lastBeat;
     R.polyAbs = { P, cycle, gridStart: lastBeat, cycleStart, beats };
-    // hysteresis on the claim
-    const same = (a, b) => a && b && a.p === b.p && a.q === b.q;
+    // running evidence per ratio: every estimate adds its score (x1.6 when the tempogram agrees: a quick
+    // read), all fade by a quarter each time. A ratio is shown at 0.3 (one agreeing estimate or two plain
+    // ones), kept until it falls under 0.15 (one bad bar does not drop it), and replaced only by a ratio
+    // with 1.2x the evidence. A new main pulse starts the tally again.
+    if (R.evMain && Math.abs(Math.log(res.main.bpm / R.evMain)) > 0.06) { R.polyEv = {}; R.polyShown = null; }
+    R.evMain = res.main.bpm;
+    const ev = R.polyEv || (R.polyEv = {});
+    for (const k of Object.keys(ev)) { ev[k].v *= 0.75; if (ev[k].v < 0.05) delete ev[k]; }
     if (res.poly) {
-      R.polyCount = same(res.poly, R.polyLast) ? R.polyCount + 1 : 1;
-      R.polyLast = res.poly; R.polyMiss = 0;
-      if (R.polyCount >= 2) R.polyShown = { ...res.poly };
-    } else {
-      R.polyMiss++;
-      if (R.polyMiss >= 3) { R.polyShown = null; R.polyLast = null; R.polyCount = 0; }
+      const k = res.poly.p + ':' + res.poly.q, boost = res.poly.vote >= 0.5 && res.poly.score >= 0.7 ? 1.6 : 1;
+      const cur = ev[k] || { v: 0 };
+      ev[k] = { v: cur.v + 0.25 * Math.min(1, res.poly.score) * boost, poly: res.poly };
     }
+    let top = null;
+    for (const k of Object.keys(ev)) if (!top || ev[k].v > ev[top].v) top = k;
+    const shownKey = R.polyShown ? R.polyShown.p + ':' + R.polyShown.q : null;
+    if (shownKey && (!ev[shownKey] || ev[shownKey].v < 0.15)) { R.polyShown = null; }
+    if (top && ev[top].v >= 0.3 && top !== shownKey && (!R.polyShown || ev[top].v > 1.2 * ev[shownKey].v)) R.polyShown = { ...ev[top].poly };
+    else if (R.polyShown && ev[shownKey] && ev[shownKey].poly === res.poly) R.polyShown = { ...res.poly };
+    else if (R.polyShown && ev[shownKey]) R.polyShown = { ...ev[shownKey].poly, d: R.polyShown.d };
+    R.polyConf = R.polyShown && ev[R.polyShown.p + ':' + R.polyShown.q] ? Math.min(1, ev[R.polyShown.p + ':' + R.polyShown.q].v) : 0;
     this.updateNotation();
   }
   updateNotation() {

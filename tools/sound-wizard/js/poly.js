@@ -123,6 +123,22 @@ function registerStats(o) {
   return { sorted, median, top, spikiness, spiky: spikiness > 4 && top > 0, refFor: k => cum[Math.max(1, Math.min(n, k))] / Math.max(1, Math.min(n, k)) };
 }
 
+// The tempogram vote: the Hann-windowed Fourier magnitude of a register's onset strength at a tempo,
+// against the register's typical magnitude over 40-400 BPM (z = how far the tempo stands above the
+// typical level). Independent of the grid tests: it only asks whether there is a periodicity there.
+function tempoMag(o, fr, bpm) {
+  const n = o.length, w = 2 * Math.PI * bpm / 60 / fr;
+  let re = 0, im = 0;
+  for (let i = 0; i < n; i++) { const h = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)), v = o[i] * h; re += v * Math.cos(w * i); im += v * Math.sin(w * i); }
+  return Math.hypot(re, im);
+}
+function tempoBase(o, fr) {
+  const mags = [];
+  for (let k = 0; k < 40; k++) mags.push(tempoMag(o, fr, 40 * Math.pow(10, k / 39)));
+  mags.sort((a, b) => a - b);
+  return mags[20] + 1e-9; // the median
+}
+
 // the whole analysis. env: { all, low, mid, high } Float32Arrays (oldest first, same length), fr: frames/s
 //   opts.mainBpm: a pulse the player chose (kept even when the sound changes), else the strongest
 export function analysePoly(env, fr, opts = {}) {
@@ -160,6 +176,12 @@ export function analysePoly(env, fr, opts = {}) {
     for (const t of mainPts) m += at(o[b], t);
     st[b] = { reg, mainE: m / mainPts.length, base: reg.median, sd: reg.top };
   }
+  for (const b of BANDS) st[b].tbase = tempoBase(o[b], fr);
+  const vote = (bpmX) => { // 0..1: the strongest register's periodicity at this tempo
+    let z = 0;
+    for (const b of BANDS) if (st[b].reg.spiky) z = Math.max(z, tempoMag(o[b], fr, bpmX) / st[b].tbase);
+    return Math.max(0, Math.min(1, (z - 1.5) / 3));
+  };
   const span = Math.max(1e-6, st.all.mainE);
   const mainBand = ['low', 'mid', 'high'].reduce((a, b) => (st[b].mainE > st[a].mainE ? b : a), 'low');
   // the best register's statistics; the register named is the specific one (low / mid / high) where the
@@ -231,7 +253,8 @@ export function analysePoly(env, fr, opts = {}) {
     const byLayer = best.ok && !explained, byUnion = !!union && union.score >= 0.4;
     if (byUnion && !byLayer) best = { ...best, score: union.score, cov: union.cov, prom: Math.max(best.prom, 0.3), band: union.band, d: union.d, union: true };
     else if (byUnion && byLayer) best = { ...best, score: Math.max(best.score, union.score), union: true };
-    ratios.push({ p, q, ...best, ok: byLayer || byUnion, explained });
+    const v = (byLayer || byUnion) ? Math.min(vote(bpm * p / q), vote(bpm / q)) : 0; // both the layer's rate and the cycle's
+    ratios.push({ p, q, ...best, ok: byLayer || byUnion, explained, vote: v });
   }
   // a coarser layer whose grid lies inside a well-populated denser one is that denser layer
   for (const r of ratios) {
@@ -275,7 +298,7 @@ export function analysePoly(env, fr, opts = {}) {
   if (meter) { for (let i = mainPts.length - 1; i >= 0; i--) if (i % meter.beats === meter.down) { downFrame = mainPts[i]; break; } }
   return {
     cands, main: { bpm, P, phi, e, band: mainBand, locked, pts: mainPts.length }, st,
-    subdiv, poly: poly && { p: poly.p, q: poly.q, score: poly.score, prom: poly.prom, cov: poly.cov, band: poly.band, d: poly.d, bpm2: bpm * poly.p / poly.q },
+    subdiv, poly: poly && { p: poly.p, q: poly.q, score: poly.score, prom: poly.prom, cov: poly.cov, band: poly.band, d: poly.d, vote: poly.vote, bpm2: bpm * poly.p / poly.q },
     others: good.slice(1, 3).map(r => ({ p: r.p, q: r.q, score: r.score })),
     meter: meter && { beats: meter.beats, down: meter.down, contrast: meter.contrast, downFrame },
     subs: opts.debug ? subs : undefined, ratios: opts.debug ? ratios : undefined,
