@@ -1,11 +1,12 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261009.2302';
-import { CMAP_NAMES } from './dsp.js?v=20261009.2302';
-import { Metronome } from './metronome.js?v=20261009.2302';
-import { POLY_PRESETS } from './practice.js?v=20261009.2302';
-import { sweepSignal } from './room.js?v=20261009.2302';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261010.1112';
+import { CMAP_NAMES } from './dsp.js?v=20261010.1112';
+import { Metronome } from './metronome.js?v=20261010.1112';
+import { POLY_PRESETS } from './practice.js?v=20261010.1112';
+import { sweepSignal } from './room.js?v=20261010.1112';
+import { playChord } from './piano.js?v=20261010.1112';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -75,7 +76,7 @@ const CONTROLS = {
   ],
   tone: [
     { key: 'a4', label: 'A4', type: 'range', min: 415, max: 466, step: 1, fmt: v => `${v} Hz` },
-    { type: 'note', text: 'Base note: the fundamental of a single note (or the root when several notes sound). Chord: from the last half second. Key: from the last few seconds, so let a phrase play. Harmonics: the overtones of the base note, odd ones cyan, even ones magenta.' },
+    { type: 'note', text: 'Base note: the fundamental of a single note (or the root when several notes sound). Tap the chord box to hear the chord on a piano and compare. Chord: from the last half second. Key: from the last few seconds, so let a phrase play. Harmonics: the overtones of the base note, odd ones cyan, even ones magenta.' },
   ],
 };
 
@@ -263,6 +264,13 @@ function onEngine(d) {
   }
   if (d.type === 'ref') refTone(d.midi);
   if (d.type === 'roomPlay') roomPlay(d);
+  if (d.type === 'chordPlay') {
+    iosUnlock();
+    if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+    G.ctx.resume();
+    playChord(G.ctx, d.midis, { a4: S.a4 });
+    G.lastChord = { at: performance.now(), midis: d.midis, name: d.name };
+  }
   if (d.type === 'latency') {
     if (d.ms != null) { S.mLat = Math.max(0, Math.min(300, d.ms)); save(); send({ type: 'set', key: 'mLat', value: S.mLat }); syncControls(); prNote(`Round trip measured: ${S.mLat} ms (${d.n} of ${d.of} clicks heard). It is now taken off every note.`); }
     else prNote('Nothing heard: turn the media volume up, take the headphones off and hold the phone near its own speaker. Then measure again.');
@@ -278,7 +286,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261009.2302', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261010.1112', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -295,7 +303,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261009.2302');
+    const { Engine } = await import('./engine.js?v=20261010.1112');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -317,7 +325,7 @@ async function start() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
     });
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261009.2302');
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261010.1112');
     const src = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
@@ -628,6 +636,7 @@ window.soundWizard = {
   view: showView,
   mode: () => mode,
   lastRef: () => G.lastRef || null,
+  lastChord: () => G.lastChord || null,
   generator: () => ({ playing: G.playing, type: G.osc?.type, freq: G.osc ? G.osc.frequency.value : null, target: genFreq(), level: S.genLevel, ctx: G.ctx?.state }),
 };
 

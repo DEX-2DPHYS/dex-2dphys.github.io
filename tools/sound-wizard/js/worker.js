@@ -1,6 +1,6 @@
 // Sound Wizard analysis worker: owns the engine and the views' OffscreenCanvases. Audio arrives on a
 // MessagePort straight from the AudioWorklet; the page sends settings, sizes and touch positions.
-import { Engine } from './engine.js?v=20261009.2302';
+import { Engine } from './engine.js?v=20261010.1112';
 
 let eng = null;
 const post = m => self.postMessage(m);

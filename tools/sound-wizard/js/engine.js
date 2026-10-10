@@ -5,12 +5,13 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261009.2302';
-import { clickEvents, analyseTake, describeTake, parsePoly } from './practice.js?v=20261009.2302';
-import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261009.2302';
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261009.2302';
-import { analysePoly } from './poly.js?v=20261009.2302';
-import { describePolyrhythm, METERS } from './notation.js?v=20261009.2302';
+import { chordVoicing } from './piano.js?v=20261010.1112';
+import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261010.1112';
+import { clickEvents, analyseTake, describeTake, parsePoly } from './practice.js?v=20261010.1112';
+import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261010.1112';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261010.1112';
+import { analysePoly } from './poly.js?v=20261010.1112';
+import { describePolyrhythm, METERS } from './notation.js?v=20261010.1112';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -206,6 +207,14 @@ export class Engine {
             if (lb.id === 'done' && this.learn.notes.length) { this.post({ type: 'learned', strings: this.learn.notes.map(midiName) }); this.learn = null; }
           } else if (c) this.lockString = this.lockString === c.i ? -1 : c.i; // tap a string to lock onto it, again to let go
           else if (nb && this.target) this.post({ type: 'ref', midi: this.target.midi }); // the target as a reference tone
+        }
+        if (d.down && d.id === 'tone' && this.chordBox && this.chord) {
+          const q = this.chordBox;
+          if (d.x * q.dpr >= q.x && d.x * q.dpr <= q.x + q.w && d.y * q.dpr >= q.y && d.y * q.dpr <= q.y + q.h) {
+            const ch = this.chord;
+            this.chordHold = now() + 3800; this.chordFlash = now();
+            this.post({ type: 'chordPlay', midis: chordVoicing(ch.root, ch.tones, ch.bass), name: ch.full });
+          }
         }
         if (d.down && d.id === 'room' && this.roomBoxes) {
           const q = this.roomBoxes.find(b => d.x * b.dpr >= b.x && d.x * b.dpr <= b.x + b.w && d.y * b.dpr >= b.y && d.y * b.dpr <= b.y + b.h);
@@ -658,6 +667,7 @@ export class Engine {
     this.toneAcc += n;
     if (this.toneAcc < 4096) return;
     this.toneAcc = 0;
+    if (this.chordHold && now() < this.chordHold) return; // the chord being played back is not listened to
     const N = 16384;
     if (!this.toneFFT) { this.toneFFT = new RealFFT(N); const h = hann(N); this.toneWin = h.w; this.toneBuf = new Float64Array(N); this.tonePow = new Float32Array(N / 2 + 1); }
     const lvl = 10 * Math.log10(this.ms.Z[0] + 1e-20) + AES17;
@@ -1723,12 +1733,14 @@ export class Engine {
     const box = (x, title, main, sub, conf) => {
       ctx.fillStyle = C.panel; ctx.fillRect(x, y, half, 62 * dpr);
       ctx.textAlign = 'left'; ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(title, x + 10 * dpr, y + 16 * dpr);
+      if (title === 'chord' && main) { ctx.textAlign = 'right'; ctx.fillStyle = this.chordHold && now() < this.chordHold ? C.cyan : C.text; ctx.fillText(this.chordHold && now() < this.chordHold ? '♪ playing' : '▶ tap to hear', x + half - 8 * dpr, y + 16 * dpr); ctx.textAlign = 'left'; ctx.fillStyle = C.text; }
       ctx.font = `700 ${22 * dpr}px ${FONT}`; ctx.fillStyle = main ? C.bright : C.grid2; ctx.fillText(main || '—', x + 10 * dpr, y + 42 * dpr);
       ctx.font = `${10 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(sub || '', x + 10 * dpr, y + 56 * dpr);
       ctx.fillStyle = C.cyan; ctx.fillRect(x, y + 60 * dpr, half * clamp(conf || 0, 0, 1), 2 * dpr);
     };
     const ch = this.chord, k = this.key;
     const chOk = ch && ch.score > 0.85;
+    this.chordBox = chOk ? { x: pad, y, w: half, h: 62 * dpr, dpr } : null;
     box(pad, 'chord', chOk ? NOTE_NAMES[ch.root] + ch.name : '', chOk ? `${ch.bass >= 0 && ch.bass !== ch.root ? `bass ${NOTE_NAMES[ch.bass]} · ` : ''}or ${ch.alt.join(' · ')}` : '', ch ? (ch.score - 0.8) / 0.18 : 0);
     box(2 * pad + half, 'key (last few seconds)', k && k.score > 0.5 ? `${NOTE_NAMES[k.root]} ${k.mode}` : '', k ? `fit ${(k.score * 100).toFixed(0)}% · lead ${(k.margin * 100).toFixed(0)}` : '', k ? k.margin * 4 : 0);
     y += 62 * dpr + 18 * dpr;
@@ -2142,6 +2154,7 @@ export class Engine {
       intonation: this.S.tuning === 'scale' ? { log: this.nlog.log.map(e => ({ k: midiName(e.k), cents: Math.round(e.cents * 10) / 10 })), live: this.nlog.live(), target: this.target && { name: midiName(this.target.k), idx: this.target.idx }, cents: this.centsSm, summary: this.nlog.summary(12), status: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), modeBoxes: (this.modeBoxes || []).map(b => ({ mode: b.mode, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), clear: this.clearBox && { x: (this.clearBox.x + this.clearBox.w / 2) / this.clearBox.dpr, y: (this.clearBox.y + this.clearBox.h / 2) / this.clearBox.dpr } } : null,
       tuner: this.S.view === 'tuner' ? { advice: this.advice(this.centsSm, !!(this.pitch && this.w - this.pitch.at < this.sr * 0.35 && this.settledAt), this.tuning()).text, next: this.nextString(this.tuning()), strings: this.strStatus.map(x => x && Math.round(x.cents * 10) / 10), learn: this.learn ? this.learn.notes.map(midiName) : null,
         learnBtns: (this.learnBtns || []).map(b => ({ id: b.id, x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), cells: (this.tunerCells || []).map(b => ({ x: (b.x + b.w / 2) / b.dpr, y: (b.y + b.h / 2) / b.dpr })), noteBox: this.noteBox && { x: (this.noteBox.x + this.noteBox.w / 2) / this.noteBox.dpr, y: (this.noteBox.y + this.noteBox.h / 2) / this.noteBox.dpr } } : null,
+      chordBox: this.chordBox && { x: (this.chordBox.x + this.chordBox.w / 2) / this.chordBox.dpr, y: (this.chordBox.y + this.chordBox.h / 2) / this.chordBox.dpr },
       chord: this.chord ? NOTE_NAMES[this.chord.root] + this.chord.name : null, chordFull: this.chord ? this.chord.full : null, chordAlt: this.chord ? this.chord.alt : null, key: this.key ? `${NOTE_NAMES[this.key.root]} ${this.key.mode}` : null,
       harmonics: Array.from(this.harm), centroid: this.centroid,
       rhythm: this.rh ? { bpm: this.rh.bpmSm, raw: this.rh.bpm, conf: this.rh.conf, onsets: this.rh.onsets.length, mod: this.rh.mod && { f: this.rh.mod.f, share: this.rh.mod.share }, peaks: this.rh.peaks.slice(0, 6), tap: this.tapBpm(),
