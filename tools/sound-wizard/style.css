@@ -122,7 +122,11 @@ input[type=range] { flex: 1; min-width: 0; accent-color: var(--cyan); height: 30
 .pr-sel select { padding: 7px 6px; font-size: 14px; }
 .pr-row .seg { flex: 1; }
 .pr-row .seg button { padding: 8px 4px; font-size: 13px; }
-#prTap { flex: none; width: 56px; }
+#prTap, #prRamp { flex: none; width: 52px; }
+#prRamp.on { background: var(--cyan); border-color: var(--cyan); color: #001018; font-weight: 600; }
+.pr-lbl { color: var(--text); font-size: 13px; flex: none; }
+#prBpm2 { flex: .8; min-width: 0; width: 44px; background: var(--panel); color: var(--bright); border: 1px solid var(--line); border-radius: 10px; padding: 7px 2px; font-size: 16px; text-align: center; font-weight: 600; }
+#prRampRow select { padding: 7px 4px; font-size: 12.5px; }
 .pr-note { font-size: 12px; color: var(--amber); min-height: 0; }
 .pr-note:empty { display: none; }
 @media (max-width: 560px) { .brand span { display: none; } #status { display: none; } }

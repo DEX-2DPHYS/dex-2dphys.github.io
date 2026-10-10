@@ -2,9 +2,12 @@
 // plays the clicks) and the engine (which measures the player against the same schedule).
 //
 // The click schedule is a pure function of a configuration, so both sides can generate the same events:
-//   cfg = { t0, bpm, beats, sub, poly }      t0: context time (s) of beat 0; beats: beats per bar (1 = no accent);
-//   sub: 0 | 2 | 3 | 4 quiet subdivision clicks; poly: null | { p, q }: p evenly spaced notes in the time of q
-//   beats, in a voice of its own (a polyrhythm to play against).
+//   cfg = { t0, bpm, beats, sub, poly, ramp }   t0: context time (s) of beat 0; beats: beats per bar (1 = no
+//   accent); sub: 0 | 2 | 3 | 4 quiet subdivision clicks; poly: null | { p, q }: p evenly spaced notes in
+//   the time of q beats, in a voice of its own; ramp: null | { bpm2, bars, loop, step }: the tempo goes from
+//   bpm to bpm2 over `bars` bars (smooth: a little faster every beat; steps: constant within a bar, a step
+//   at each bar), then loop = 'loop' (back to bpm, again), 'pingpong' (down again, and so on) or 'stop'
+//   (stays at bpm2).
 // Event kinds: accent (beat 1 of the bar), beat, sub, poly.
 
 export const POLY_PRESETS = ['off', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '5:3', '3:5', '7:4', '5:2', '7:5'];
@@ -15,19 +18,55 @@ export function parsePoly(s) {
   return p >= 2 && q >= 2 && p <= 12 && q <= 12 ? { p, q } : null;
 }
 
+// ---- the tempo map: beat position (fractional beats since t0) ⇄ time
+export function tempoMap(cfg) {
+  const A = cfg.bpm, r = cfg.ramp, beats = Math.max(1, cfg.beats | 0);
+  if (!r || !(r.bars >= 1) || !(r.bpm2 > 0) || r.bpm2 === A) {
+    const d = 60 / A;
+    return { constant: true, mean: d, time: x => cfg.t0 + x * d, beat: t => (t - cfg.t0) / d, bpmAt: () => A, meanBpm: A };
+  }
+  const Nb = Math.round(r.bars) * beats, B = r.bpm2;
+  const fwd = [];
+  for (let j = 0; j < Nb; j++) {
+    const f = r.step === 'steps' ? Math.floor(j / beats) / Math.max(1, Math.round(r.bars) - 1) : (Nb > 1 ? j / (Nb - 1) : 0);
+    fwd.push(A + (B - A) * f);
+  }
+  const seq = r.loop === 'pingpong' ? fwd.concat(fwd.slice().reverse()) : fwd, Nc = seq.length, stop = r.loop === 'stop';
+  const dur = seq.map(b => 60 / b), P = new Float64Array(Nc + 1);
+  for (let j = 0; j < Nc; j++) P[j + 1] = P[j] + dur[j];
+  const D = P[Nc], dB = 60 / B;
+  const find = tau => { let lo = 0, hi = Nc - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (P[m] <= tau) lo = m; else hi = m - 1; } return lo; };
+  const time = x => {
+    if (x < 0) return cfg.t0 + x * dur[0];
+    const k = Math.floor(x), fr = x - k;
+    if (stop) return cfg.t0 + (k < Nc ? P[k] + fr * dur[k] : D + (x - Nc) * dB);
+    const cyc = Math.floor(k / Nc), j = k - cyc * Nc;
+    return cfg.t0 + cyc * D + P[j] + fr * dur[j];
+  };
+  const beat = t => {
+    const tau = t - cfg.t0;
+    if (tau < 0) return tau / dur[0];
+    if (stop) { if (tau >= D) return Nc + (tau - D) / dB; const j = find(tau); return j + (tau - P[j]) / dur[j]; }
+    const cyc = Math.floor(tau / D), rr = tau - cyc * D, j = find(rr);
+    return cyc * Nc + j + (rr - P[j]) / dur[j];
+  };
+  const bpmAt = x => { const k = Math.max(0, Math.floor(x)); return stop ? (k < Nc ? seq[k] : B) : seq[k % Nc]; };
+  return { constant: false, mean: D / Nc, time, beat, bpmAt, meanBpm: 60 * Nc / D, Nc, D };
+}
+
 // the events with t in [from, to), time-ordered
 export function clickEvents(cfg, from, to) {
-  const out = [], B = 60 / cfg.bpm, beats = Math.max(1, cfg.beats | 0);
-  const k0 = Math.max(0, Math.floor((from - cfg.t0) / B) - 1), k1 = Math.ceil((to - cfg.t0) / B) + 1;
+  const out = [], tm = tempoMap(cfg), beats = Math.max(1, cfg.beats | 0);
+  const k0 = Math.max(0, Math.floor(tm.beat(from)) - 1), k1 = Math.ceil(tm.beat(to)) + 1;
   for (let k = k0; k <= k1; k++) {
-    const t = cfg.t0 + k * B;
+    const t = tm.time(k);
     if (t >= from && t < to) out.push({ t, kind: beats > 1 && k % beats === 0 ? 'accent' : 'beat', beat: k });
-    if (cfg.sub > 1) for (let j = 1; j < cfg.sub; j++) { const ts = t + j * B / cfg.sub; if (ts >= from && ts < to) out.push({ t: ts, kind: 'sub', beat: k }); }
+    if (cfg.sub > 1) for (let j = 1; j < cfg.sub; j++) { const ts = tm.time(k + j / cfg.sub); if (ts >= from && ts < to) out.push({ t: ts, kind: 'sub', beat: k }); }
   }
   if (cfg.poly) {
-    const { p, q } = cfg.poly, cyc = q * B, c0 = Math.max(0, Math.floor((from - cfg.t0) / cyc) - 1), c1 = Math.ceil((to - cfg.t0) / cyc) + 1;
+    const { p, q } = cfg.poly, c0 = Math.max(0, Math.floor(tm.beat(from) / q) - 1), c1 = Math.ceil(tm.beat(to) / q) + 1;
     for (let c = c0; c <= c1; c++) for (let j = 0; j < p; j++) {
-      const t = cfg.t0 + c * cyc + j * cyc / p;
+      const t = tm.time(c * q + j * q / p);
       if (t >= from && t < to) out.push({ t, kind: 'poly', beat: c * q, j });
     }
   }
@@ -48,12 +87,13 @@ const sd = a => { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) **
 // Match the player's onsets (context times, s) to the target events and measure how they sit.
 //   opts: { target: 'beats'|'layer2'|'all', comp: latency in ms removed from every onset, now: context time
 //   (targets later than this are not yet due), maxOff: furthest a note may be from its target (s) }
-// Returns { hits: [{t, off (ms, + = late), kind, beat, target}], extras (unmatched onsets), missed,
+// Returns { hits: [{t, off (ms, + = late), kind, beat}], extras (unmatched onsets), missed,
 //   n, mean, sd, mad, worst, early, late, ontime, drift (ms per bar), swing }
 export function analyseTake(onsets, cfg, opts = {}) {
   const target = TARGETS[opts.target] || TARGETS.beats, comp = (opts.comp || 0) / 1000, now = opts.now ?? Infinity;
-  const B = 60 / cfg.bpm, last = Math.min(now, onsets.length ? onsets[onsets.length - 1] + 1 : cfg.t0);
-  const evs = clickEvents(cfg, cfg.t0 - B, last + B).filter(target);
+  const tm = tempoMap(cfg), B = tm.mean, last = Math.min(now, onsets.length ? onsets[onsets.length - 1] + 1 : cfg.t0);
+  const margin = 60 / Math.min(cfg.bpm, cfg.ramp ? cfg.ramp.bpm2 || cfg.bpm : cfg.bpm);
+  const evs = clickEvents(cfg, cfg.t0 - margin, last + margin).filter(target);
   const hits = [], extras = [];
   const used = new Set();
   const adj = onsets.map(t => t - comp);
@@ -87,7 +127,7 @@ export function analyseTake(onsets, cfg, opts = {}) {
     res.mean = mean(offs); res.sd = sd(offs); res.mad = mean(offs.map(Math.abs));
     res.worst = offs.reduce((w, x) => (Math.abs(x) > Math.abs(w) ? x : w), 0);
     res.early = offs.filter(x => x < -10).length; res.late = offs.filter(x => x > 10).length; res.ontime = offs.length - res.early - res.late;
-    // drift: the slope of the offsets over time, in ms per bar (the bar = beats × beat length)
+    // drift: the slope of the offsets over time, in ms per bar (the bar = beats × the mean beat length)
     if (hits.length >= 6) {
       const ts = hits.map(h => h.t), mt = mean(ts), mo = mean(offs);
       let num = 0, den = 0;
@@ -103,9 +143,9 @@ export function analyseTake(onsets, cfg, opts = {}) {
 // the swing ratio: where the off-beat notes sit between two beats. Notes at 0.3–0.8 of a beat (not near a
 // beat) count; their mean position f gives long:short = f/(1−f): 1:1 straight, 2:1 triplet swing.
 export function swingOf(times, cfg) {
-  const B = 60 / cfg.bpm, fr = [];
+  const tm = tempoMap(cfg), fr = [];
   for (const t of times) {
-    const x = (t - cfg.t0) / B, f = x - Math.floor(x);
+    const x = tm.beat(t), f = x - Math.floor(x);
     if (x >= 0 && f >= 0.3 && f <= 0.8) fr.push(f);
   }
   if (fr.length < 4) return null;
