@@ -2,13 +2,13 @@
 // (look-ahead scheduling: a timer every 25 ms schedules everything due in the next 150 ms, so the timer's
 // jitter never reaches the sound). The same context is the one the microphone is captured on whenever
 // listening is on, so the engine can measure the player against exactly these times.
-import { clickEvents } from './practice.js?v=20261010.1112';
+import { clickEvents } from './practice.js?v=20261010.1117';
 
 const VOICES = {
-  accent: { f: 1568, type: 'sine', g: 1.0, d: 0.05 },
-  beat: { f: 1046.5, type: 'sine', g: 0.8, d: 0.045 },
-  sub: { f: 1046.5, type: 'sine', g: 0.3, d: 0.03 },
-  poly: { f: 659.25, type: 'triangle', g: 0.9, d: 0.07 },
+  accent: { f: 1568, type: 'sine', g: 1.7, d: 0.06 },
+  beat: { f: 1046.5, type: 'sine', g: 1.4, d: 0.055 },
+  sub: { f: 1046.5, type: 'sine', g: 0.55, d: 0.035 },
+  poly: { f: 659.25, type: 'triangle', g: 1.5, d: 0.08 },
 };
 export class Metronome {
   constructor() { this.timer = null; this.ctx = null; this.cfg = null; this.upTo = 0; this.vol = -12; this.count = 0; }
@@ -16,7 +16,9 @@ export class Metronome {
   start(ctx, cfg, volDb) {
     this.stop();
     this.ctx = ctx; this.cfg = cfg; this.vol = volDb; this.upTo = cfg.t0 - 0.001; this.count = 0;
-    this.out = ctx.createGain(); this.out.gain.value = Math.pow(10, volDb / 20); this.out.connect(ctx.destination);
+    // the clicks are louder than full scale at the top of the slider: a limiter catches the peaks
+    this.lim = ctx.createDynamicsCompressor(); this.lim.threshold.value = -4; this.lim.knee.value = 3; this.lim.ratio.value = 20; this.lim.attack.value = 0.001; this.lim.release.value = 0.05;
+    this.out = ctx.createGain(); this.out.gain.value = Math.pow(10, volDb / 20); this.out.connect(this.lim); this.lim.connect(ctx.destination);
     this.tick();
     this.timer = setInterval(() => this.tick(), 25);
   }
@@ -48,7 +50,7 @@ export class Metronome {
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    try { this.out && this.out.disconnect(); } catch { /* the context may be gone */ }
-    this.out = null;
+    try { this.out && this.out.disconnect(); this.lim && this.lim.disconnect(); } catch { /* the context may be gone */ }
+    this.out = null; this.lim = null;
   }
 }

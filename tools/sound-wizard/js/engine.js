@@ -5,13 +5,13 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { chordVoicing } from './piano.js?v=20261010.1112';
-import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261010.1112';
-import { clickEvents, analyseTake, describeTake, parsePoly } from './practice.js?v=20261010.1112';
-import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261010.1112';
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261010.1112';
-import { analysePoly } from './poly.js?v=20261010.1112';
-import { describePolyrhythm, METERS } from './notation.js?v=20261010.1112';
+import { chordVoicing } from './piano.js?v=20261010.1117';
+import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261010.1117';
+import { clickEvents, analyseTake, describeTake, parsePoly, tempoMap } from './practice.js?v=20261010.1117';
+import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261010.1117';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261010.1117';
+import { analysePoly } from './poly.js?v=20261010.1117';
+import { describePolyrhythm, METERS } from './notation.js?v=20261010.1117';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).
@@ -108,7 +108,8 @@ export const DEFAULTS = {
   room: 'sound', lastIn: {},
   // practice
   rT: 6, rAmp: -12,
-  mBpm: 100, mBeats: 4, mSub: 0, mPoly: 'off', mTarget: 'beats', mVol: -12, mLat: 0,
+  mBpm: 100, mBeats: 4, mSub: 0, mPoly: 'off', mTarget: 'beats', mVol: -6, mLat: 0,
+  mRamp: false, mBpm2: 140, mRBars: 8, mRLoop: 'loop', mRStep: 'smooth',
 };
 
 const C = {
@@ -243,7 +244,8 @@ export class Engine {
       case 'pause': this.paused = !!d.on; break;
       case 'practice': { // the metronome started, changed or stopped on the page: a new take
         const P = this.prac();
-        P.cfg = d.run ? { t0: d.t0, bpm: d.bpm, beats: d.beats, sub: d.sub, poly: parsePoly(d.poly) } : null;
+        P.cfg = d.run ? { t0: d.t0, bpm: d.bpm, beats: d.beats, sub: d.sub, poly: parsePoly(d.poly), ramp: d.ramp || null } : null;
+        P.tm = P.cfg ? tempoMap(P.cfg) : null;
         P.sync = !!d.sync; P.on.length = 0; P.an = null; P.anAt = 0;
         break;
       }
@@ -1324,11 +1326,12 @@ export class Engine {
       this.prResetBox = null;
       return;
     }
-    const tn = this.tNow(), B = 60 / cfg.bpm, beats = Math.max(1, cfg.beats | 0), poly = cfg.poly;
-    const cycBeats = poly ? poly.q : beats, Tc = cycBeats * B;
+    const tm = P.tm || (P.tm = tempoMap(cfg)), tn = this.tNow(), beats = Math.max(1, cfg.beats | 0), poly = cfg.poly;
+    const cycBeats = poly ? poly.q : beats, Tc = cycBeats * tm.mean;
+    const phaseAt = t => (((tm.beat(t) % cycBeats) + cycBeats) % cycBeats) / cycBeats; // where in the cycle (0..1) a time falls, through the tempo changes
     const an = P.sync ? this.practiceAnalysis(P, tn) : null;
     // the wheel
-    const R = Math.min(w * 0.3, h * 0.2), cy = 22 * dpr + R + 14 * dpr, ph = isFinite(tn) ? (((tn - cfg.t0) % Tc) + Tc) % Tc / Tc : 0;
+    const R = Math.min(w * 0.3, h * 0.2), cy = 22 * dpr + R + 14 * dpr, ph = isFinite(tn) ? phaseAt(tn) : 0;
     const ang = f => -Math.PI / 2 + f * 2 * Math.PI;
     ctx.strokeStyle = C.grid2; ctx.lineWidth = 1.5 * dpr; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.stroke();
     const sinceNode = f => { const d = ph - f; return (d + 1) % 1 * Tc; }; // seconds since the hand passed a node
@@ -1342,6 +1345,12 @@ export class Engine {
       node(f, R, (acc ? 7 : 5) * dpr, acc ? C.amber : C.cyan);
     }
     if (poly) for (let j = 0; j < poly.p; j++) node(j / poly.p, R * 0.72, 5 * dpr, C.magenta);
+    // the tempo now (and the ramp)
+    if (isFinite(tn)) {
+      const nowBpm = tm.bpmAt(tm.beat(tn));
+      ctx.textAlign = 'left'; ctx.fillStyle = C.bright; ctx.font = `700 ${20 * dpr}px ${FONT}`; ctx.fillText(`${nowBpm.toFixed(0)}`, pad, 24 * dpr);
+      ctx.font = `${11 * dpr}px ${FONT}`; ctx.fillStyle = C.text; ctx.fillText(tm.constant ? 'BPM' : `BPM · ramp ${cfg.bpm} → ${cfg.ramp.bpm2} over ${cfg.ramp.bars} bars`, pad + (String(nowBpm.toFixed(0)).length * 12 + 8) * dpr, 24 * dpr);
+    }
     // the hand
     const a = ang(ph);
     ctx.strokeStyle = 'rgba(230,243,255,0.8)'; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * (R - 8 * dpr), cy + Math.sin(a) * (R - 8 * dpr)); ctx.stroke();
@@ -1352,7 +1361,7 @@ export class Engine {
     for (const o of P.on) {
       const age = tn - o.t;
       if (!(age >= 0 && age < 3 * Tc) || o.t < cfg.t0 - 0.25) continue;
-      const hh = hitAt.get(Math.round((o.t - comp) * 1e4)), f = ((((o.t - comp) - cfg.t0) % Tc) + Tc) % Tc / Tc, aa = ang(f);
+      const hh = hitAt.get(Math.round((o.t - comp) * 1e4)), f = phaseAt(o.t - comp), aa = ang(f);
       const off = hh ? hh.off : null, col = off == null ? C.text : Math.abs(off) <= 10 ? C.green : off < 0 ? '#5aa8ff' : C.amber;
       ctx.globalAlpha = Math.max(0.15, 1 - age / (3 * Tc)); ctx.fillStyle = col;
       const r = R + 13 * dpr + clamp((o.db + 50) / 10, 0, 4) * dpr;
