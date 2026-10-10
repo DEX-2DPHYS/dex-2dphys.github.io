@@ -2,7 +2,7 @@
 // (look-ahead scheduling: a timer every 25 ms schedules everything due in the next 150 ms, so the timer's
 // jitter never reaches the sound). The same context is the one the microphone is captured on whenever
 // listening is on, so the engine can measure the player against exactly these times.
-import { clickEvents } from './practice.js?v=20261009.2302';
+import { clickEvents } from './practice.js?v=20261010.1112';
 
 const VOICES = {
   accent: { f: 1568, type: 'sine', g: 1.0, d: 0.05 },

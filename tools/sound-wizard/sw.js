@@ -1,10 +1,10 @@
 // Sound Wizard offline support (installed to the home screen, it works without a connection).
-// The published copy has a version stamp instead of 20261009.2302 (tools/publish.cjs), and its pages ask
+// The published copy has a version stamp instead of 20261010.1112 (tools/publish.cjs), and its pages ask
 // for the files with that same stamp, so a new version is a new set of cache entries. The page itself
 // is fetched from the network first (so an update shows at once when online), from the cache when offline.
-const VERSION = '20261009.2302';
+const VERSION = '20261010.1112';
 const CACHE = `sound-wizard-${VERSION}`;
-const STAMPED = ['style.css', 'js/app.js', 'js/engine.js', 'js/dsp.js', 'js/poly.js', 'js/notation.js', 'js/intonation.js', 'js/practice.js', 'js/room.js', 'js/metronome.js', 'js/worker.js', 'js/capture.worklet.js', 'icons/icon.svg', 'icons/icon-180.png', 'manifest.webmanifest'];
+const STAMPED = ['style.css', 'js/app.js', 'js/engine.js', 'js/dsp.js', 'js/poly.js', 'js/notation.js', 'js/intonation.js', 'js/practice.js', 'js/room.js', 'js/piano.js', 'js/metronome.js', 'js/worker.js', 'js/capture.worklet.js', 'icons/icon.svg', 'icons/icon-180.png', 'manifest.webmanifest'];
 const PLAIN = ['./', 'index.html', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png'];
 
 self.addEventListener('install', e => {
