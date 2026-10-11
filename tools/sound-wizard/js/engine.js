@@ -5,13 +5,13 @@
 // Timing: analysis that has a time axis (the waterfall, the level history) is driven by the samples
 // as they arrive, so its time scale is exact whatever the screen does; drawing happens once per screen
 // frame and only for the view that is showing.
-import { chordVoicing } from './piano.js?v=20261010.1117';
-import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261010.1117';
-import { clickEvents, analyseTake, describeTake, parsePoly, tempoMap } from './practice.js?v=20261010.1117';
-import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261010.1117';
-import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261010.1117';
-import { analysePoly } from './poly.js?v=20261010.1117';
-import { describePolyrhythm, METERS } from './notation.js?v=20261010.1117';
+import { chordVoicing } from './piano.js?v=20261011.2209';
+import { analyseSweep, analysePop, BANDS as RT_BANDS } from './room.js?v=20261011.2209';
+import { clickEvents, analyseTake, describeTake, parsePoly, tempoMap } from './practice.js?v=20261011.2209';
+import { targetFor, NoteLog, intonationAdvice, SCALES, TOL } from './intonation.js?v=20261011.2209';
+import { RealFFT, hann, peakInterp, Weighting, noteOf, fmtHz, lut, PitchMPM, chromaFromSpectrum, estimateKey, ChordListener, NOTE_NAMES } from './dsp.js?v=20261011.2209';
+import { analysePoly } from './poly.js?v=20261011.2209';
+import { describePolyrhythm, METERS } from './notation.js?v=20261011.2209';
 
 // instruments for the tuner: strings low to high. The pitch range searched and the analysis window follow
 // from the strings (below ~40 Hz the window is 8192 samples: two periods of a low B are 65 ms).

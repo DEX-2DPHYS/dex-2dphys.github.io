@@ -1,12 +1,12 @@
 // Sound Wizard: the page. Starts the microphone (inside the tap, as iPhones require), hands the audio
 // and the views' canvases to the analysis worker, and runs the controls. Everything that moves on screen
 // is drawn by the engine (engine.js); this file only touches the DOM.
-import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261010.1117';
-import { CMAP_NAMES } from './dsp.js?v=20261010.1117';
-import { Metronome } from './metronome.js?v=20261010.1117';
-import { POLY_PRESETS } from './practice.js?v=20261010.1117';
-import { sweepSignal } from './room.js?v=20261010.1117';
-import { playChord } from './piano.js?v=20261010.1117';
+import { DEFAULTS, TUNINGS, parseTuning, midiName } from './engine.js?v=20261011.2209';
+import { CMAP_NAMES } from './dsp.js?v=20261011.2209';
+import { Metronome } from './metronome.js?v=20261011.2209';
+import { POLY_PRESETS } from './practice.js?v=20261011.2209';
+import { sweepSignal } from './room.js?v=20261011.2209';
+import { playChord } from './piano.js?v=20261011.2209';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -246,7 +246,9 @@ for (const cv of $$('canvas.cv')) {
 
 // ---------------------------------------------------------------------------- engine and audio
 let worker = null, eng = null, mode = '', engineStarted = false;
-let ac = null, stream = null, node = null, running = false, wakeLock = null;
+let ac = null, stream = null, node = null, running = false, wakeLock = null, micSrc = null, micRestarting = false;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const MIC = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false };
 function send(msg, transfer) {
   if (worker) worker.postMessage(msg, transfer || []);
   else if (eng) eng.message(msg);
@@ -266,15 +268,12 @@ function onEngine(d) {
   if (d.type === 'ref') refTone(d.midi);
   if (d.type === 'roomPlay') roomPlay(d);
   if (d.type === 'chordPlay') {
-    iosUnlock();
-    if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
-    G.ctx.resume();
-    playChord(G.ctx, d.midis, { a4: S.a4 });
+    playChord(outCtx(), d.midis, { a4: S.a4 });
     G.lastChord = { at: performance.now(), midis: d.midis, name: d.name };
   }
   if (d.type === 'latency') {
     if (d.ms != null) { S.mLat = Math.max(0, Math.min(300, d.ms)); save(); send({ type: 'set', key: 'mLat', value: S.mLat }); syncControls(); prNote(`Round trip measured: ${S.mLat} ms (${d.n} of ${d.of} clicks heard). It is now taken off every note.`); }
-    else prNote('Nothing heard: turn the media volume up, take the headphones off and hold the phone near its own speaker. Then measure again.');
+    else prNote('Nothing heard: turn the volume up while the clicks play (on Android, while listening, the volume buttons may set the call volume), take the headphones off and hold the phone near its own speaker. Then measure again.');
   }
   if (d.type === 'stats' && statsWait.has(d.id)) { statsWait.get(d.id)(d.stats); statsWait.delete(d.id); }
 }
@@ -287,7 +286,7 @@ async function startEngine(sr) {
   const canvases = $$('canvas.cv');
   if ('transferControlToOffscreen' in HTMLCanvasElement.prototype && typeof Worker !== 'undefined') {
     try {
-      const wk = new Worker('js/worker.js?v=20261010.1117', { type: 'module' });
+      const wk = new Worker('js/worker.js?v=20261011.2209', { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker did not start')), 5000);
         wk.onmessage = e => { if (e.data.type === 'ready') { clearTimeout(t); res(); } };
@@ -304,7 +303,7 @@ async function startEngine(sr) {
     worker.postMessage({ type: 'init', sr, settings: S, canvases: offs, sizes: canvases.filter(c => c.clientWidth).map(sizeOf) }, transfer);
   } else {
     mode = 'page';
-    const { Engine } = await import('./engine.js?v=20261010.1117');
+    const { Engine } = await import('./engine.js?v=20261011.2209');
     eng = new Engine(sr, S, onEngine);
     for (const cv of canvases) { eng.attach(cv.dataset.id, cv); if (cv.clientWidth) eng.message({ type: 'resize', ...sizeOf(cv) }); }
     const loop = () => { eng.frame(); requestAnimationFrame(loop); };
@@ -322,12 +321,10 @@ async function start() {
     // created and resumed inside the tap: iPhones only start audio from a user gesture
     ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
     const resumed = ac.resume();
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }, video: false,
-    });
+    stream = await navigator.mediaDevices.getUserMedia(MIC);
     await resumed;
-    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261010.1117');
-    const src = ac.createMediaStreamSource(stream);
+    await ac.audioWorklet.addModule('js/capture.worklet.js?v=20261011.2209');
+    const src = micSrc = ac.createMediaStreamSource(stream);
     node = new AudioWorkletNode(ac, 'sound-wizard-capture', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 1, channelCountMode: 'explicit' });
     const mute = ac.createGain();
     mute.gain.value = 0; // the worklet only runs when connected to the output; nothing is played
@@ -341,6 +338,7 @@ async function start() {
       node.port.onmessage = e => { if (e.data && e.data.clock !== undefined) eng.clock(e.data.clock); else eng.push(e.data); };
     }
     ac.onstatechange = () => { if (running && ac.state !== 'running') showResume(); };
+    watchMic();
     running = true;
     send({ type: 'pause', on: false });
     if (metro.running) setTimeout(() => prStart(), 0); // a click that was playing moves to the microphone's clock
@@ -363,17 +361,48 @@ function stop() {
   metro.stop(); prSync();
   try { stream?.getTracks().forEach(t => t.stop()); } catch { /* */ }
   try { ac?.close(); } catch { /* */ }
-  ac = null; stream = null; node = null;
+  ac = null; stream = null; node = null; micSrc = null;
   $('#power').classList.remove('on');
   $('#overlay').hidden = false;
   $('#startBig').querySelector('span').textContent = 'Tap to listen';
   wakeLock?.release?.().catch(() => {}); wakeLock = null;
+}
+// Android stops or mutes the microphone while the page is in the background, or when a call or
+// an assistant takes it, and the AudioContext then runs on silence: the screen looks alive and
+// reads nothing. Watch the track; when it has ended (or come back muted) open the microphone
+// again into the same graph - permission is already given, so no tap is needed.
+function micTrack() { return stream && stream.getAudioTracks()[0]; }
+function micDead() { const t = micTrack(); return !t || t.readyState === 'ended' || t.muted; }
+function watchMic() {
+  const t = micTrack();
+  if (!t) return;
+  t.onended = () => { if (running && !document.hidden) reopenMic(); };
+  t.onunmute = () => { if (running && !document.hidden && ac && ac.state !== 'running') resume(); };
+}
+async function reopenMic() {
+  if (micRestarting || !running || !ac || !node) return false;
+  micRestarting = true;
+  try {
+    const s = await navigator.mediaDevices.getUserMedia(MIC);
+    try { micSrc && micSrc.disconnect(); } catch { /* already gone */ }
+    try { stream && stream.getTracks().forEach(t => t.stop()); } catch { /* */ }
+    stream = s;
+    micSrc = ac.createMediaStreamSource(stream);
+    micSrc.connect(node);
+    watchMic();
+    if (ac.state !== 'running') { try { await ac.resume(); } catch { /* */ } }
+    return ac.state === 'running';
+  } catch (e) {
+    $('#err').textContent = 'The microphone stopped (another app may be using it). Tap to listen again.';
+    return false;
+  } finally { micRestarting = false; }
 }
 function showResume() {
   $('#overlay').hidden = false;
   $('#startBig').querySelector('span').textContent = 'Tap to continue';
 }
 async function resume() {
+  if (running && micDead() && !(await reopenMic())) return false;
   if (ac && ac.state !== 'running') { try { await ac.resume(); } catch { /* */ } }
   if (ac && ac.state === 'running') { $('#overlay').hidden = true; keepAwake(); return true; }
   return false;
@@ -435,7 +464,7 @@ let unlocked = false;
 function iosUnlock() {
   // iPhones play Web Audio through the "ambient" session, which the silent switch mutes. A looping,
   // silent <audio> element started from a tap moves the page to the "playback" session.
-  if (unlocked) return;
+  if (unlocked || !IOS) return;   // on Android a playing <audio> takes the audio focus from other apps, for as long as the page is open
   unlocked = true;
   try {
     const n = 4800, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
@@ -447,14 +476,21 @@ function iosUnlock() {
   } catch { /* fine without */ }
 }
 // a 2.5 s sine of the tuner's target note, through the generator's audio context
-function refTone(midi) {
+// while listening, sound goes out through the microphone's own context (Android then opens one
+// output stream, not two); otherwise through the generator's
+function outCtx() {
+  if (running && ac) { if (ac.state !== 'running') ac.resume(); return ac; }
   iosUnlock();
   if (!G.ctx) G.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
   G.ctx.resume();
-  const t = G.ctx.currentTime, o = G.ctx.createOscillator(), g = G.ctx.createGain();
+  return G.ctx;
+}
+function refTone(midi) {
+  const ctx = outCtx();
+  const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
   o.frequency.value = S.a4 * Math.pow(2, (midi - 69) / 12);
   g.gain.setValueAtTime(0, t); g.gain.setTargetAtTime(dbGain(-20), t, 0.02); g.gain.setTargetAtTime(0, t + 2.3, 0.08);
-  o.connect(g).connect(G.ctx.destination); o.start(t); o.stop(t + 2.8);
+  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 2.8);
   G.lastRef = { midi, at: performance.now() };
 }
 function genStart() {
@@ -630,6 +666,7 @@ document.addEventListener('visibilitychange', () => {
   send({ type: 'hidden', on: document.hidden });
   if (!running) return;
   if (document.hidden) ac?.suspend();
+  else if (micDead()) reopenMic().then(ok => { if (ok) { $('#overlay').hidden = true; keepAwake(); } else showResume(); });
   else resume().then(ok => { if (!ok) showResume(); });
 });
 
@@ -643,6 +680,9 @@ window.soundWizard = {
   mode: () => mode,
   lastRef: () => G.lastRef || null,
   lastChord: () => G.lastChord || null,
+  // the microphone, for tests: is it live, and stop it as Android does in the background
+  mic: () => ({ running, dead: running ? micDead() : null, state: micTrack() ? micTrack().readyState : null, ctx: ac ? ac.state : null }),
+  dropMic: () => { const t = micTrack(); if (t) t.stop(); return !!t; },
   generator: () => ({ playing: G.playing, type: G.osc?.type, freq: G.osc ? G.osc.frequency.value : null, target: genFreq(), level: S.genLevel, ctx: G.ctx?.state }),
 };
 
