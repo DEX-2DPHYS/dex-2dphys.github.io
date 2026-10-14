@@ -98,10 +98,11 @@
       </table></div>
       <h3>What is in it</h3>
       <ul>
-        <li><b>Pattern Studio</b> — draw shapes, arrays and dose ramps; import and export GDSII (with dose tables for corrected files).</li>
+        <li><b>Pattern Studio</b> — draw shapes (rectangles, circles, polygons, and CleWin's regular polygons, ellipses, rings, arcs, crosses and rounded rectangles, all editable by their sizes), arrays and dose ramps; combine shapes with Merge, Subtract, Intersect and XOR; import and export GDSII (with dose tables for corrected files).</li>
+        <li><b>AI assistant</b> — describe a pattern in words (<i>a 10 × 10 array of 2 µm hexagons, each with a 1 µm hole, 1 µm gaps</i>) or a change to the selection (<i>shrink by 10 nm</i>), and see the result on the map before you accept it. The model only writes the operations; the Workbench builds the exact geometry. Uses your own API key for Claude, OpenAI or Mistral (⚙ Settings); the key stays in your browser.</li>
         <li><b>PSF</b> — double/triple Gaussian and exponential models, or a built-in Monte Carlo of electron scattering in resist and substrate.</li>
         <li><b>Exposure</b> — delivered dose maps and cut-lines; per-shape, raster and fractured proximity correction.</li>
-        <li><b>Fab Studio</b> — spin, expose, develop, deposit, lift-off, RIE, isotropic and KOH etching on a voxel sample in 2D or 3D; KOH follows the crystal planes of the wafer.</li>
+        <li><b>Fab Studio</b> — spin, expose, develop, deposit, lift-off, RIE, isotropic and KOH etching on a voxel sample in 2D or 3D; KOH follows the crystal planes of the wafer. A process can also be written in words (<i>PMMA lift-off of 5 nm Cr and 50 nm Au</i>) and is simulated as a new flow.</li>
         <li><b>Resists</b> — a library of the e-beam resists in the DTU Nanolab cleanroom: contrast curves with their conditions and sources, process advice, and a documented model for other conditions. Every number says whether it is calibrated, inside the process window, or extrapolated. Users can add their own curves and share them.</li>
         <li><b>Analysis</b> — will it print? Developed widths, dose to size, dose windows and the common process window, and calibration from a dose test.</li>
         <li><b>JEOL 9500</b> — a machine-specific module for the JEOL JBX-9500FS at DTU Nanolab: beam current, write time, dose ranks and the job files.</li>
