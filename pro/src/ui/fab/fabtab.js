@@ -1016,6 +1016,126 @@ export function createFabTab(app) {
   };
   $('fabFlowName').onchange = () => { const fl = activeFlow(), v = $('fabFlowName').value.trim(); fl.name = v || fl.name; app.markDirty?.('fab'); renderFlowList(); };
 
+  // ---------------------------------------------------------------- a process written in words (ui/ai/fabassistant.js)
+  // Each written step goes through the step form, so it gets exactly the parameters a hand-made step
+  // would get (the resist's preset or library curve, the develop conditions, KOH defaults). Names
+  // (materials, resists, developers) are matched loosely; an unknown one is an error listing what exists.
+  const norm = (v) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ALIAS = { gold: 'AU', chromium: 'CR', chrome: 'CR', aluminium: 'AL', aluminum: 'AL', oxide: 'SIO2', silicondioxide: 'SIO2', thermaloxide: 'SIO2', siliconoxide: 'SIO2', nitride: 'SI3N4', siliconnitride: 'SI3N4', sin: 'SI3N4', polysilicon: 'POLYSI', poly: 'POLYSI', silicon: 'SI',
+    pmma950k: 'PMMA', pmmaa4: 'PMMA', pmmaa2: 'PMMA', pmmaa6: 'PMMA', pmma50k: 'PMMA50K', csar62: 'CSAR', arp6200: 'CSAR', csar: 'CSAR', zep520a: 'ZEP', zep520: 'ZEP', mrebl: 'MREBL', mrebl6000: 'MREBL', arn7520: 'ARN7520', arn7520new: 'ARN7520', medusa82: 'MEDUSA', arp617: 'ARP617', su8: 'SU8', man2400: 'MAN2400', az5214: 'AZ5214E',
+    hbngraphenehbn: 'HBN_GRAPHENE_HBN', encapsulatedgraphene: 'HBN_GRAPHENE_HBN', mos2: 'MOS2', molybdenumdisulfide: 'MOS2',
+    mibkipa: 'MIBK_IPA', mibkipa13: 'MIBK_IPA', mibkipa11: 'MIBK_IPA_11', mf319: 'MF319', azmif: 'MF319', ipa: 'IPA', ipawater: 'IPA_H2O', ipah2o: 'IPA_H2O', ipah2o73: 'IPA_H2O', amylacetate: 'AR600_546', ar600546: 'AR600_546', zedn50: 'ZEDN50', oxylene: 'OXYLENE', xylene: 'XYLENE', tmah: 'TMAH238', tmah238: 'TMAH238', az726mif: 'TMAH238', pgmea: 'SU8_DEV', mad525: 'MAD525' };
+  function pick(dict, v, what) {
+    if (v == null || v === '') return null;
+    const n = norm(v), keys = Object.keys(dict);
+    let k = keys.find((x) => norm(x) === n) || (ALIAS[n] && keys.includes(ALIAS[n]) ? ALIAS[n] : null)
+      || keys.find((x) => norm(String(dict[x]).replace(/\(.*?\)/g, '').split('—')[0]) === n) || keys.find((x) => norm(dict[x]).startsWith(n) && n.length >= 3);
+    if (!k) throw new Error(`${what} "${v}" is not known here; choose one of: ${keys.filter((x) => x !== 'custom').map((x) => `${x} (${String(dict[x]).replace(/<[^>]+>/g, '')})`).join(', ')}`);
+    return k;
+  }
+  const setV = (id, v) => { if (v != null && $(id)) $(id).value = v; };
+  const n0 = (v) => (v == null || v === '' ? null : +v);
+  function stepFromWords(w, i) {
+    const type = { spin: 'spinresist', spin_resist: 'spinresist', resist: 'spinresist', ebl: 'expose', expose_ebl: 'expose', uv: 'uv_expose', rie: 'etch_rie', dry_etch: 'etch_rie', wet_etch: 'etch_wet', koh: 'etch_koh', sf6: 'etch_sf6', lift_off: 'liftoff', o2_plasma: 'descum', plasma: 'descum', evaporate: 'deposit', sputter: 'deposit', transfer: 'transfer_2d' }[String(w.type || '').toLowerCase()] || String(w.type || '').toLowerCase();
+    if (!STEP_LABELS[type]) throw new Error(`step ${i + 1}: type "${w.type}" is not known; use one of ${Object.keys(STEP_LABELS).join(', ')}`);
+    const notes = [];
+    let lvl = level();
+    if (type === 'spinresist') {
+      const r = pick(RESIST_LABELS, w.resist || 'PMMA', `step ${i + 1}: resist`);
+      if (lvl === 'learning' && !LEARNING_RESISTS.includes(r)) lvl = 'advanced';               // a library resist: the Advanced form
+      if (lvl === 'advanced' && !LIBRARY_PRESETS[r]) lvl = 'learning';
+      showParams(type, lvl);
+      setV('fpPreset', r); $('fpPreset').onchange?.();
+      setV('fpRThick', n0(w.thickness_nm));
+    } else {
+      showParams(type, lvl);
+      switch (type) {
+        case 'deposit': setV('fpMat', pick(DEPOSIT_MATERIALS, w.material || 'AU', `step ${i + 1}: material`)); setV('fpThick', n0(w.thickness_nm)); setV('fpMethod', w.method ? (/conf|sput|cvd|ald/i.test(w.method) ? 'conformal' : 'directional') : null); break;
+        case 'transfer_2d': setV('fpTMat', pick(TRANSFER_MATERIALS, w.material || 'GRAPHENE', `step ${i + 1}: material`)); setV('fpTSize', n0(w.flake_size_nm)); setV('fpTThick', n0(w.layer_nm)); break;
+        case 'expose': case 'uv_expose': {
+          let src = String(w.source || (w.pattern ? 'pattern' : 'layout')).toLowerCase();
+          if (src === 'layout' && (!st.sample || st.sample.source === 'free')) { src = 'pattern'; notes.push(`step ${i + 1}: the sample is free-standing (no layout under it), so a built-in pattern is exposed instead of the layout`); }
+          setV('fpSource', src === 'layout' ? 'layout' : 'pattern'); syncExposeRows();
+          if (src === 'layout') setV('fpScale', n0(w.scale));
+          else {
+            const P = { grating: 'grating', lines: 'grating', line: 'single', single_line: 'single', trench: 'iso_trench', isolated_trench: 'iso_trench', dots: 'dots', holes: 'dots', blanket: 'blanket', flood: 'blanket' };
+            setV('fpPattern', P[String(w.pattern || 'grating').toLowerCase()] || 'grating');
+            setV('fpDose', n0(w.dose)); setV('fpPitch', n0(w.pitch_nm)); setV('fpDuty', n0(w.duty_percent)); setV('fpLineW', n0(w.line_width_nm)); setV('fpDotPitch', n0(w.dot_pitch_nm)); setV('fpDotDiam', n0(w.dot_diameter_nm));
+          }
+          break;
+        }
+        case 'develop': {
+          const tgt = pick(RESIST_LABELS, w.resist || sampleResist()?.name || 'PMMA', `step ${i + 1}: resist`);
+          setV('fpTarget', tgt); $('fpChem').innerHTML = developerOptionsFor(tgt);
+          if (w.developer) { const opts = Object.fromEntries([...$('fpChem').options].map((o) => [o.value, o.textContent])); setV('fpChem', pick(opts, w.developer, `step ${i + 1}: developer for ${tgt}`)); }
+          setV('fpTime', n0(w.time_s)); setV('fpTemp', n0(w.temp_c)); break;
+        }
+        case 'descum': setV('fpDTime', n0(w.time_s)); break;
+        case 'etch_rie': setV('fpETarget', pick(ETCH_MATERIALS, w.target || 'SIO2', `step ${i + 1}: target`)); setV('fpEDepth', n0(w.depth_nm)); setV('fpESel', n0(w.selectivity)); break;
+        case 'etch_sf6': setV('fpSDepth', n0(w.depth_nm)); break;
+        case 'etch_wet': setV('fpWTarget', pick(ETCH_MATERIALS, w.target || 'SIO2', `step ${i + 1}: target`)); setV('fpWDepth', n0(w.depth_nm)); break;
+        case 'etch_koh': { const c = n0(w.concentration_percent); if (c != null) setV('fpKConc', [30, 40, 50].reduce((a, b) => (Math.abs(b - c) < Math.abs(a - c) ? b : a))); setV('fpKTemp', n0(w.temp_c)); setV('fpKTime', n0(w.time_s)); break; }
+        default: break;
+      }
+    }
+    return { type, params: readParams(type), notes };
+  }
+  // what a model needs to know about the Fab tab now
+  function wordsContext() {
+    const smp = st.sample, s = eng.state.substrate || substrateForm();
+    return {
+      level: level(), built: !!st.built,
+      sample: !smp ? 'not built yet (a free sample will be built)' : smp.source === 'free' ? `free sample (no layout), ${eng.state.W * eng.state.nmLat} nm wide` : smp.source === 'line' ? 'the Exposure tab\'s cut-line through the layout' : `device area "${smp.areaName || ''}" of the layout (${smp.mode === '3d' ? '3D' : '2D cut'})`,
+      layoutExposure: !!(smp && smp.source !== 'free'),
+      substrate: `Si ${s.si} nm, SiO₂ ${s.ox} nm, poly-Si ${s.poly} nm, Au ${s.met} nm`,
+      flowName: activeFlow().name, steps: st.flow.map((x, k) => `${k + 1}. ${headline(x)}${x.ok === false ? ' (could not run)' : ''}`),
+      resists: Object.entries(RESIST_LABELS).filter(([k]) => k !== 'custom').map(([k, v]) => `${k} = ${v}`),
+      developers: Object.entries(DEVELOPERS).map(([k, v]) => `${k} = ${v}`), deposit: Object.keys(DEPOSIT_MATERIALS), etch: Object.keys(ETCH_MATERIALS), transfer: Object.keys(TRANSFER_MATERIALS),
+      layoutDose: layoutDose(),
+    };
+  }
+  // Build the steps, then show them: as a NEW flow (Discard deletes it) or appended to this one
+  // (Discard replays the flow as it was). Returns what ran.
+  async function previewWords(words, { mode = 'new', name = 'Written flow', substrate = null } = {}) {
+    if (st.wordsPreview) await discardWords();
+    cancelEdit(false);
+    const keepType = $('fabStep').value, out = [], notes = [];
+    try {
+      words.forEach((w, i) => { const r = stepFromWords(w, i); out.push({ type: r.type, params: r.params }); notes.push(...r.notes); });
+    } finally { $('fabStep').value = keepType; showParams(keepType); }
+    const f = fabStore(), prev = { active: f.active, flow: st.flow.map((x) => ({ type: x.type, params: x.params })) };
+    if (mode === 'new') {
+      const fl = { id: newFlowId(), name, recipe: null };
+      f.flows.push(fl); f.active = fl.id; clearActiveState();
+      if (substrate) { setV('fabSi', n0(substrate.si_nm)); setV('fabOx', n0(substrate.sio2_nm)); setV('fabPoly', n0(substrate.polysi_nm)); setV('fabMet', n0(substrate.au_nm)); }
+      if (!buildFromForm(false)) throw new Error('the sample could not be built (choose a sample on the left first)');
+      st.wordsPreview = { mode, prev, flowId: fl.id };
+      await replayAll(out);
+    } else {
+      if (!st.built) buildFromForm(false);
+      snapshotHistory();
+      st.wordsPreview = { mode, prev, flowId: f.active };
+      await replayAll([...prev.flow, ...out]);
+    }
+    renderFlowList();
+    const ran = st.flow.slice(mode === 'new' ? 0 : prev.flow.length);
+    return { steps: ran.map((x) => ({ headline: headline(x), ok: x.ok !== false, error: x.error || null, uncertain: !!x.uncertain })), notes };
+  }
+  async function keepWords(name) {
+    const p = st.wordsPreview; if (!p) return;
+    st.wordsPreview = null;
+    if (name && p.mode === 'new') { activeFlow().name = name; renderFlowList(); }
+    persist();
+  }
+  async function discardWords() {
+    const p = st.wordsPreview; if (!p) return;
+    st.wordsPreview = null;
+    const f = fabStore();
+    if (p.mode === 'new') { f.flows = f.flows.filter((x) => x.id !== p.flowId); app.markDirty?.('fab'); await openFlow(p.prev.active); }
+    else { st.history.pop(); await replayAll(p.prev.flow); }
+    renderFlowList();
+  }
+
   // ---------------------------------------------------------------- views
   $('fabViewCross').onclick = () => setView('cross');
   $('fabView3D').onclick = () => setView('3d');
@@ -1132,5 +1252,7 @@ export function createFabTab(app) {
     if (o.view === '3d' || o.view === 'cross') setView(o.view);
     renderFlow();
   }
-  return { show, reset, engine: eng, state: st, getSession, setSession, _test: { runStep, replayAll, loadRecipe, buildFromForm, readParams, describeSample, openFlow, fabStore } };
+  return { show, reset, engine: eng, state: st, getSession, setSession,
+    words: { context: wordsContext, preview: previewWords, keep: keepWords, discard: discardWords, previewing: () => st.wordsPreview?.mode || null },
+    _test: { runStep, replayAll, loadRecipe, buildFromForm, readParams, describeSample, openFlow, fabStore } };
 }

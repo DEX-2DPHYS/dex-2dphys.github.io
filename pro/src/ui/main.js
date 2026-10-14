@@ -16,6 +16,9 @@ import { installGdsIO } from './gdsio.js';
 import { installTutorials } from './tutorials.js';
 import { BACKEND, nativeCore } from './native.js';
 import { localBackend } from './local.js';
+import { installSettings } from './settings.js';
+import { installAssistant } from './ai/assistant.js';
+import { installFabAssistant } from './ai/fabassistant.js';
 
 /* global __BUILD_DATE__ */
 const BUILD = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : 'dev';
@@ -195,6 +198,8 @@ function scheduleAutosave() {
 // ---------------------------------------------------------------- start
 initTips();
 const editor = createLayoutEditor(app);
+installSettings();                               // ⚙ Settings in the title bar (the AI assistant's provider and key)
+const assistant = installAssistant(app, editor); // ✦ AI assistant in Pattern Studio
 const psfTab = createPsfTab(app);
 { const css = document.createElement('style'); css.textContent = RESISTS_CSS; document.head.appendChild(css); }
 const resistsTab = createResistsTab(app);       // the resist library (before Fab and Analysis, which read it)
@@ -202,6 +207,7 @@ app.resists = resistsTab;
 const exposureTab = createExposureTab(app);
 app.exposure = exposureTab.client;
 const fabTab = createFabTab(app);
+const fabAi = installFabAssistant(app, fabTab);   // ✦ a process written in words, at the top of the flow column
 { const css = document.createElement('style'); css.textContent = JEOL_CSS; document.head.appendChild(css); }
 const jeolTab = createJeolTab(app);             // machine-specific module (amber tab)
 { const css = document.createElement('style'); css.textContent = ANALYSIS_CSS; document.head.appendChild(css); }
@@ -218,7 +224,7 @@ localBackend().then((h) => {
   }
   document.title = 'EBL Workbench Pro';
 }).catch(() => {});
-window.__workbench = { app, editor, psfTab, resistsTab, exposureTab, fabTab, jeolTab, analysisTab, tutorials, BUILD, backend: BACKEND, native: nativeCore,     // inspection hook
+window.__workbench = { app, editor, assistant, fabAi, psfTab, resistsTab, exposureTab, fabTab, jeolTab, analysisTab, tutorials, BUILD, backend: BACKEND, native: nativeCore,     // inspection hook
   saveText: () => snapshot(true), openText: (text, name) => setProject(projectFromJSON(text), name) };
 // session-only changes (views, cut-line, 3D settings) do not trigger an autosave: save on leaving
 const saveNow = () => { try { store.set(AUTOSAVE_KEY, JSON.stringify({ name: app.fileName, json: snapshot(false) })); } catch { /* storage full or blocked */ } };

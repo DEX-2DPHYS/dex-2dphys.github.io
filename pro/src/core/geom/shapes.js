@@ -10,6 +10,10 @@
 //     dose              target dose, µC/cm² (what the pattern asks for)
 //     writeDose         dose the beam writes after correction; null = write the target
 //     groupId }         fused object (union, one uniform dose); null = on its own
+//     gen               (poly only, optional) the parameters of a parametric shape — an N-gon,
+//                       ellipse, ring, arc, cross or rounded rectangle (primitives.js)
+
+import { scaleGen, mirrorGen, describeGen, genHandles } from './primitives.js';
 
 let uidN = 0;
 export const uid = (p) => `${p}${(++uidN).toString(36)}_${Date.now().toString(36)}`;
@@ -33,6 +37,7 @@ export function makePoly(worldPts, dose, layer = '1/0') {
 export function cloneShape(s) {
   const c = { ...s };
   if (s.pts) c.pts = s.pts.map((p) => [p[0], p[1]]);
+  if (s.gen) c.gen = { ...s.gen };
   return c;
 }
 
@@ -107,6 +112,7 @@ export const outlineWorld = (s, tol = 1) => outlineLocal(s, tol).map(([x, y]) =>
 export function handlesLocal(s) {
   if (s.kind === 'rect') return [[-s.hw, -s.hh], [s.hw, -s.hh], [s.hw, s.hh], [-s.hw, s.hh]];
   if (s.kind === 'circle') return [[s.r, 0], [0, s.r], [-s.r, 0], [0, -s.r]];
+  if (s.gen) return genHandles(s.gen);
   return s.pts;
 }
 
@@ -146,6 +152,7 @@ export function describe(s) {
   const b = bboxLocal(s);
   if (s.kind === 'rect') return `rectangle ${um(2 * s.hw)} × ${um(2 * s.hh)} µm, ${s.rot.toFixed(1)}°`;
   if (s.kind === 'circle') return `circle Ø ${um(2 * s.r)} µm`;
+  if (s.gen) return `${describeGen(s.gen)}${s.rot ? `, ${s.rot.toFixed(1)}°` : ''}`;
   return `polygon, ${s.pts.length} corners, bbox ${um(b.x2 - b.x1)} × ${um(b.y2 - b.y1)} µm, ${s.rot.toFixed(1)}°`;
 }
 
@@ -169,7 +176,10 @@ export function transformShape(s, { x = 0, y = 0, rot = 0, mag = 1, mirrorX = fa
   c.rot = (mirrorX ? -s.rot : s.rot) + rot;
   if (s.kind === 'rect') { c.hw = s.hw * mag; c.hh = s.hh * mag; }
   else if (s.kind === 'circle') c.r = s.r * mag;
-  else c.pts = s.pts.map(([px, py]) => [px * mag, (mirrorX ? -py : py) * mag]);
+  else {
+    c.pts = s.pts.map(([px, py]) => [px * mag, (mirrorX ? -py : py) * mag]);
+    if (s.gen) c.gen = scaleGen(mirrorX ? mirrorGen(s.gen, 'v') : s.gen, mag);
+  }
   return c;
 }
 

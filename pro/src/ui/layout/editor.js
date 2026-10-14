@@ -7,7 +7,7 @@
 
 import {
   makeRect, makeCircle, makePoly, cloneShape, groupKeyOf, isCorrected, toLocal, toWorld,
-  signedDistance, inside, outlineWorld, handlesLocal, bboxLocal, bboxWorld, describe, roundToDbu, rdp, uid,
+  signedDistance, inside, outlineWorld, handlesLocal, bboxLocal, bboxWorld, describe, roundToDbu, rdp, uid, area,
 } from '../../core/geom/shapes.js';
 import {
   cellBBox, refBBox, visibleRange, elementTransform, hitRef, flatStats, makeArrayCell, explodeRef,
@@ -17,6 +17,23 @@ import {
 import { compose, invert, apply, applyBBox, scaleOf, unionBBox, IDENTITY } from '../../core/geom/transform.js';
 import { $, esc, openMenu, closeMenu, openModal, numField, readNum, toast, modalOpen } from '../dom.js';
 import { makeRampArray, updateRampArray, rampGroupRefs, rampLabel, describeRamp } from '../../core/geom/ramp.js';
+import { makeGenShapes, genPolygons, genFromDrag, applyGenHandle, mirrorGen, regen, normGen, DRAWN_FROM_CENTRE, NGON_NAME, flatPhase, arcSpan } from '../../core/geom/primitives.js';
+import { booleanObjects, componentShapes, unionOutline, polyOnGrid } from '../../core/geom/boolean.js';
+
+// The Shape tool's shapes (CleWin's standard shapes and a few more), in the order of its menu.
+export const SHAPE_TOOLS = [
+  { key: 'tri', label: 'Triangle', type: 'ngon', sides: 3 },
+  { key: 'pent', label: 'Pentagon', type: 'ngon', sides: 5 },
+  { key: 'hex', label: 'Hexagon', type: 'ngon', sides: 6 },
+  { key: 'oct', label: 'Octagon', type: 'ngon', sides: 8 },
+  { key: 'ngon', label: 'N-gon (choose the sides)', type: 'ngon' },
+  { key: 'ellipse', label: 'Ellipse', type: 'ellipse' },
+  { key: 'ring', label: 'Ring (donut)', type: 'ring' },
+  { key: 'arc', label: 'Arc / sector', type: 'arc' },
+  { key: 'cross', label: 'Cross', type: 'cross' },
+  { key: 'rrect', label: 'Rounded rectangle', type: 'rrect' },
+];
+const shapeToolLabel = (st, opts) => (st.type === 'ngon' ? (NGON_NAME[opts.sides] ? NGON_NAME[opts.sides][0].toUpperCase() + NGON_NAME[opts.sides].slice(1) : `${opts.sides}-gon`) : st.label.replace(/ \(.*\)$/, '').replace(' / sector', ''));
 
 // Dose-ramp block of the array dialogs (one per axis).
 function rampBlock(p, axisLabel, r, baseDose) {
@@ -47,6 +64,9 @@ export function createLayoutEditor(app) {
     cell: app.project.library.top, cellStack: [], cellPick: null,
     s: 200, ox: 0, oy: 0, W: 800, H: 500, dpr: 1,
     tool: 'select', placeCell: null,
+    // the Shape tool: which shape, and its options (sides, inner diameter as a fraction of the outer, arc angles …)
+    shapeKey: 'hex', shapeOpts: { sides: 6, pointy: false, innerFrac: 0.5, a0: 0, a1: 90, armFrac: 0.3, cornerFrac: 0.25 },
+    preview: null,                              // an AI suggestion on show: { lib, ids, onExit } (assistant.js)
     selection: new Set(),
     draft: null, pendingPoly: null, marquee: null, drag: null, hover: null,
     nominalDose: 100, activeLayer: '1/0',
@@ -56,7 +76,8 @@ export function createLayoutEditor(app) {
     structVersion: 0, shapeIx: null, dirty: new Set(), dirtyIdx: null, labelCache: null, dirtyGen: 0, interactUntil: 0,
   };
 
-  const lib = () => app.project.library;
+  // while an AI suggestion is on show, the map draws the suggested library (it is only applied on Accept)
+  const lib = () => (ed.preview ? ed.preview.lib : app.project.library);
   const cellObj = () => lib().cells[ed.cell];
   const shapes = () => cellObj().shapes;
   const refs = () => cellObj().refs;
@@ -216,7 +237,7 @@ export function createLayoutEditor(app) {
   // ---------------------------------------------------------------- hit testing
   function hitLineHandle() { return null; }   // cut-lines arrive with the Exposure tab
   function hitHandle(w) {
-    const t = tolW(), sel = selectedShapes();
+    const t = tolW(), sel = selectedShapes().filter(hasHandles);
     if (sel.length > 60) return null;
     for (const s of sel) {
       const [rx, ry] = rotHandleWorld(s);
@@ -305,6 +326,28 @@ export function createLayoutEditor(app) {
       }
     } else for (let i = 1; i < pts.length; i++) p.lineTo(pts[i][0] - dx, pts[i][1] - dy);
     if (many) p.lineTo(pts[0][0] - dx, pts[0][1] - dy); else p.closePath();
+  }
+
+  // A body: a ring or a shape with a hole, stored as hole-free pieces in a 'gb…' group (primitives.js,
+  // boolean.js). It behaves as one shape: drawn plainly (not as a user's fused object) and named as one.
+  const isBody = (gid) => typeof gid === 'string' && gid.startsWith('gb');
+  // The union outline of a fused object, in world coordinates, cached until the layout changes.
+  function groupPath(gid, dx, dy) {
+    let gc = ed.groupCache;
+    if (!gc || gc.v !== ed.version || gc.cell !== ed.cell || gc.lib !== lib()) {
+      const members = new Map();
+      for (const t of shapes()) if (t.groupId) { let m = members.get(t.groupId); if (!m) members.set(t.groupId, (m = [])); m.push(t); }
+      gc = ed.groupCache = { v: ed.version, cell: ed.cell, lib: lib(), members, outline: new Map() };
+    }
+    let polys = gc.outline.get(gid);
+    if (!polys) {
+      const m = gc.members.get(gid) || [];
+      try { polys = m.length > 1 ? unionOutline(m, 1) : m.map((t) => outlineWorld(t)); } catch { polys = m.map((t) => outlineWorld(t)); }
+      gc.outline.set(gid, polys);
+    }
+    const p = new Path2D();
+    for (const poly of polys) { p.moveTo(poly[0][0] - dx, poly[0][1] - dy); for (let i = 1; i < poly.length; i++) p.lineTo(poly[i][0] - dx, poly[i][1] - dy); p.closePath(); }
+    return p;
   }
 
   function dominantLayer(name) {
@@ -606,15 +649,24 @@ export function createLayoutEditor(app) {
     // used unchanged (overlaps darken, every outline stroked).
     const BATCH_FROM = 4000;
     if (visible.length > BATCH_FROM) paintShapes(ctx, ix, visBB, dx, dy, ed.s, true, false);
+    const groupsDrawn = new Set();
     for (const s of visible) {
       if (visible.length > BATCH_FROM) break;                // drawn in batches above
-      const p = new Path2D(); addShapePath(p, s, dx, dy);
+      // a fused object is drawn as ONE outline (the union of its members): a ring, or a shape with a
+      // hole made by a boolean, shows no seams where its hole-free pieces meet
+      let p;
+      if (s.groupId) {
+        if (groupsDrawn.has(s.groupId)) continue;
+        groupsDrawn.add(s.groupId);
+        p = groupPath(s.groupId, dx, dy);
+      } else { p = new Path2D(); addShapePath(p, s, dx, dy); }
       const sel = ed.selection.has(s.id), col = layerColor(s.layer), dev = isDeviceLayer(s.layer);
-      ctx.fillStyle = sel ? 'rgba(0,110,255,0.22)' : col; ctx.globalAlpha = sel ? 1 : dev ? 0.07 : 0.32; ctx.fill(p);
+      const fused = s.groupId && !isBody(s.groupId);         // fused by the user (dashed green); a body ('gb') looks like any shape
+      ctx.fillStyle = sel ? 'rgba(0,110,255,0.22)' : col; ctx.globalAlpha = sel ? 1 : dev ? 0.07 : 0.32; ctx.fill(p, 'nonzero');
       ctx.globalAlpha = 1;
       ctx.lineWidth = (sel ? 2 : dev ? 1.5 : 1) * ed.s;
-      ctx.strokeStyle = sel ? '#06f' : s.groupId ? '#3a7a1f' : col;
-      ctx.setLineDash(dev ? [8 * ed.s, 4 * ed.s] : s.groupId ? [6 * ed.s, 3 * ed.s] : []);
+      ctx.strokeStyle = sel ? '#06f' : fused ? '#3a7a1f' : col;
+      ctx.setLineDash(dev ? [8 * ed.s, 4 * ed.s] : fused ? [6 * ed.s, 3 * ed.s] : []);
       ctx.stroke(p);
       ctx.setLineDash([]);
     }
@@ -633,7 +685,7 @@ export function createLayoutEditor(app) {
 
     // handles for the selection
     const sel = selectedShapes();
-    if (sel.length <= 60) for (const s of sel) {
+    if (sel.length <= 60) for (const s of sel.filter(hasHandles)) {
       for (const h of handlesLocal(s)) { const [x, y] = toWorld(s, h[0], h[1]); const p = w2s(x, y); drawHandle(p.x, p.y, 'corner'); }
       const bb = bboxLocal(s);
       const [tx, ty] = toWorld(s, (bb.x1 + bb.x2) / 2, bb.y2), [rx, ry] = rotHandleWorld(s);
@@ -644,7 +696,13 @@ export function createLayoutEditor(app) {
 
     // shape being drawn
     if (ed.draft) {
-      const p = new Path2D(); addShapePath(p, ed.draft, ed.ox, ed.oy);
+      const p = new Path2D();
+      const g = ed.draft.gen;
+      if (g && g.type === 'ring') {                                // a ring: outer circle, inner circle the other way round
+        const x = ed.draft.cx - ed.ox, y = ed.draft.cy - ed.oy;
+        p.moveTo(x + g.ro, y); p.arc(x, y, g.ro, 0, TAU, false); p.closePath();
+        if (g.ri > 0) { p.moveTo(x + g.ri, y); p.arc(x, y, g.ri, 0, TAU, true); p.closePath(); }
+      } else addShapePath(p, ed.draft, ed.ox, ed.oy);
       ctx.setTransform(k, 0, 0, -k, 0, 0);
       ctx.fillStyle = 'rgba(0,120,255,0.12)'; ctx.fill(p); ctx.lineWidth = 1.5 * ed.s; ctx.strokeStyle = '#06f'; ctx.stroke(p);
       ctx.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0);
@@ -709,7 +767,7 @@ export function createLayoutEditor(app) {
       if (sb.x2 - sb.x1 < 26 && sb.y2 - sb.y1 < 26) continue;
       if (sb.x2 < 0 || sb.y2 < 0 || sb.x1 > ed.W || sb.y1 > ed.H) continue;
       const s = g.s, corr = isCorrected(s) && Math.abs(s.writeDose - s.dose) > 1e-9;
-      const txt = `${(s.dose ?? 0).toFixed(1)}${corr ? ' → ' + s.writeDose.toFixed(1) + ' written' : ''} µC/cm²${g.n > 1 ? ' · fused ×' + g.n : ''}`;
+      const txt = `${(s.dose ?? 0).toFixed(1)}${corr ? ' → ' + s.writeDose.toFixed(1) + ' written' : ''} µC/cm²${g.n > 1 && !isBody(s.groupId) ? ' · fused ×' + g.n : ''}`;
       const w = ctx.measureText(txt).width + 6;
       if (!free(sb.x1 + 2, sb.y1 + 2, w, 15)) continue;
       placed.push({ x: sb.x1 + 2, y: sb.y1 + 2, w, h: 15 });
@@ -780,10 +838,13 @@ export function createLayoutEditor(app) {
   }
 
   function updateSelectionUI() {
+    app.onSelectionChanged?.();
     const sel = selectedShapes(), rs = selectedRefs();
     const keys = new Set(sel.map(groupKeyOf));
-    $('btnFuse').disabled = new Set(sel.filter((s) => !isDeviceLayer(s.layer)).map(groupKeyOf)).size < 2 || rs.length > 0;
-    $('btnSplit').disabled = !sel.some((s) => s.groupId);
+    const nObj = new Set(sel.filter((s) => !isDeviceLayer(s.layer)).map(groupKeyOf)).size;
+    $('btnFuse').disabled = nObj < 2 || rs.length > 0;
+    $('btnSplit').disabled = !sel.some((s) => s.groupId && !isBody(s.groupId));
+    for (const id of ['btnMerge', 'btnSubtract', 'btnIntersect', 'btnXor']) $(id).disabled = nObj < 2 || rs.length > 0;
     $('btnDelete').disabled = !sel.length && !rs.length;
     $('btnDuplicate').disabled = !sel.length && !rs.length;
     const rampSel = selectedRampGroup();
@@ -809,11 +870,11 @@ export function createLayoutEditor(app) {
       const m = rampSel.ramp, steps = rs.length, ds = rs.map((r) => r.doseScale ?? 1);
       html = `<span class="pill">dose ramp</span> cell <b>${esc(rampSel.cell)}</b>, ${m.cols} × ${m.rows}, pitch ${umTxt(m.pitchX)} × ${umTxt(m.pitchY)} µm<br>${steps} dose steps: ${esc(describeRamp(m))}<br>`
         + `dose ${(m.base * Math.min(...ds)).toFixed(1)} – ${(m.base * Math.max(...ds)).toFixed(1)} µC/cm² (base ${m.base})`;
-    } else if (sel.length === 1 && !rs.length) {
-      const s = sel[0];
+    } else if ((sel.length === 1 || oneBody(sel)) && !rs.length) {
+      const s = primaryOf(sel);
       html = isZoneLayer(s.layer)
         ? `<span class="pill">high-resolution PEC zone</span> ${describe(s)}<br>centre (${umTxt(s.cx)}, ${umTxt(s.cy)}) µm<br><span class="hint">Objects inside are corrected in full when the Exposure tab corrects the high-resolution parts. Not exposed.</span>`
-        : `${isDeviceLayer(s.layer) ? '<span class="pill">device area</span> ' : ''}${describe(s)}<br>centre (${umTxt(s.cx)}, ${umTxt(s.cy)}) µm${isDeviceLayer(s.layer) ? '<br><span class="hint">Simulated in Fab Studio: pick it there. Not exposed.</span>' : ''}`;
+        : `${isDeviceLayer(s.layer) ? '<span class="pill">device area</span> ' : ''}${oneBody(sel) && !s.gen ? describeBody(sel) : describe(s)}<br>centre (${umTxt(s.cx)}, ${umTxt(s.cy)}) µm${isDeviceLayer(s.layer) ? '<br><span class="hint">Simulated in Fab Studio: pick it there. Not exposed.</span>' : ''}`;
     } else if (rs.length === 1 && !sel.length) {
       const r = rs[0], st = flatStats(lib(), r.cell, statsMemo());
       html = `instance of <b>${esc(r.cell)}</b>${r.cols * r.rows > 1 ? `, array ${r.cols} × ${r.rows}, pitch ${umTxt(Math.hypot(...r.colStep))} × ${umTxt(Math.hypot(...r.rowStep))} µm` : ''}<br>`
@@ -826,7 +887,27 @@ export function createLayoutEditor(app) {
     if (corr.length) html += `<br><span class="pill">corrected</span> writing ${corr.length === 1 ? corr[0].writeDose.toFixed(1) : corr.reduce((m, s) => Math.min(m, s.writeDose), Infinity).toFixed(1) + '–' + corr.reduce((m, s) => Math.max(m, s.writeDose), -Infinity).toFixed(1)} µC/cm²`;
     $('selGeom').innerHTML = html;
     $('btnEditGeom').textContent = (rs.length === 1 || rampSel) && !sel.length ? 'Properties…' : 'Size & rotation…';
-    $('btnEditGeom').disabled = !((sel.length === 1 && !rs.length) || (rs.length === 1 && !sel.length) || rampSel);
+    $('btnEditGeom').disabled = !(((sel.length === 1 || oneBody(sel)) && !rs.length) || (rs.length === 1 && !sel.length) || rampSel);
+  }
+  // the selection is exactly one body (a ring, a shape with a hole): it is edited as one shape
+  const oneBody = (sel) => sel.length > 1 && isBody(sel[0].groupId) && sel.every((s) => s.groupId === sel[0].groupId);
+  // the member that stands for a body: the ring half that carries the handles, else the first piece
+  const primaryOf = (sel) => sel.find((s) => s.gen && !s.gen.part) || sel[0];
+  // which selected shapes show handles: not the pieces of a body without parameters (moving one corner
+  // would tear the body), and of a ring only the half that carries them
+  const hasHandles = (s) => !(isBody(s.groupId) && (!s.gen || s.gen.part)) && !(s.kind === 'poly' && !s.gen && s.pts.length > 64);
+  // a ring is two halves: an edit of one (radius, rotation) is copied to the other
+  function syncBody(s) {
+    if (!isBody(s.groupId) || !s.gen || s.gen.type !== 'ring') return;
+    for (const t of shapes()) if (t !== s && t.groupId === s.groupId && t.gen && t.gen.type === 'ring') {
+      t.gen = { ...s.gen, part: t.gen.part }; t.rot = s.rot; t.cx = s.cx; t.cy = s.cy; regen(t);
+    }
+  }
+  function describeBody(sel) {
+    let bb = null; for (const s of sel) bb = unionBBox(bb, bboxWorld(s));
+    let holes = 0;
+    try { holes = unionOutline(sel).filter((p) => { let a = 0; for (let i = 0, j = p.length - 1; i < p.length; j = i++) a += p[j][0] * p[i][1] - p[i][0] * p[j][1]; return a < 0; }).length; } catch { /* drawn anyway */ }
+    return `shape with ${holes || 'a'} hole${holes === 1 || !holes ? '' : 's'}, ${umTxt(bb.x2 - bb.x1)} × ${umTxt(bb.y2 - bb.y1)} µm <span class="hint">(stored as ${sel.length} hole-free pieces)</span>`;
   }
 
   function updateCellList() {
@@ -986,6 +1067,7 @@ export function createLayoutEditor(app) {
       if (h) sh.cx = 2 * cx - sh.cx; else sh.cy = 2 * cy - sh.cy;
       sh.rot = normDeg(-(sh.rot || 0));
       if (sh.kind === 'poly') sh.pts = sh.pts.map(([x, y]) => (h ? [-x, y] : [x, -y])).reverse();
+      if (sh.gen) sh.gen = mirrorGen(sh.gen, h ? 'h' : 'v');
     }
     for (const r of selectedRefs()) {
       if (h) { r.x = 2 * cx - r.x; r.rot = normDeg(180 - (r.rot || 0)); r.colStep = [-r.colStep[0], r.colStep[1]]; r.rowStep = [-r.rowStep[0], r.rowStep[1]]; }
@@ -1060,11 +1142,58 @@ export function createLayoutEditor(app) {
     ed.selection = new Set(shapes().filter((s) => s.groupId === gid).map((s) => s.id));
     changed('fused');
   }
+  // ---------------------------------------------------------------- booleans (CleWin: merge, subtract, intersect, XOR)
+  // Each selected object (a shape, a fused group, a body) is one operand. The result replaces them:
+  // one new object per connected piece, on the layer and with the dose of the base object (for
+  // subtract the object cut from — by default the largest — otherwise the first in drawing order).
+  const BOOL_NAME = { merge: 'Merge', subtract: 'Subtract', intersect: 'Intersect', xor: 'XOR' };
+  function booleanSelection(op, baseKey = null) {
+    const sel = selectedShapes().filter((s) => !isDeviceLayer(s.layer));
+    if (selectedRefs().length) { toast('Booleans work on shapes: explode the instances or arrays first (right-click → Explode).'); return; }
+    const objs = new Map();
+    for (const s of shapes()) if (sel.includes(s)) { const k = groupKeyOf(s); if (!objs.has(k)) objs.set(k, []); objs.get(k).push(s); }
+    const keys = [...objs.keys()];
+    if (keys.length < 2) { toast(`${BOOL_NAME[op]} needs two or more objects selected.`); return; }
+    const areaOf = (m) => m.reduce((a, s) => a + Math.abs(area(s)), 0);
+    let base = keys.indexOf(baseKey);
+    if (base < 0) base = op === 'subtract' ? keys.reduce((bi, k, i) => (areaOf(objs.get(k)) > areaOf(objs.get(keys[bi])) ? i : bi), 0) : 0;
+    const b0 = objs.get(keys[base])[0];
+    // subtract: an object that does not touch the one cut from has nothing to cut; it is left as it is
+    let untouched = [];
+    if (op === 'subtract') {
+      untouched = keys.filter((k, i) => i !== base && !booleanObjects('intersect', [objs.get(keys[base]), objs.get(k)]).length);
+      if (untouched.length === keys.length - 1) { toast('Nothing to cut: the other objects do not overlap the largest one.'); return; }
+    }
+    const opKeys = keys.filter((k) => !untouched.includes(k));
+    let comps;
+    try { comps = booleanObjects(op, opKeys.map((k) => objs.get(k)), { base: opKeys.indexOf(keys[base]) }); } catch (e) { toast(esc(e.message)); return; }
+    pushUndo();
+    const gone = new Set(opKeys.flatMap((k) => objs.get(k).map((s) => s.id)));
+    const out = componentShapes(comps, { layer: b0.layer, dose: b0.dose ?? ed.nominalDose });
+    const c = cellObj();
+    const at = c.shapes.findIndex((s) => gone.has(s.id));             // the result takes the place of the first operand
+    c.shapes = c.shapes.filter((s) => !gone.has(s.id));
+    c.shapes.splice(Math.max(0, Math.min(at, c.shapes.length)), 0, ...out);
+    ed.selection = new Set(out.map((s) => s.id));
+    changed(`${BOOL_NAME[op].toLowerCase()}`);
+    const holes = comps.reduce((a, k) => a + k.holes.length, 0);
+    const what = !comps.length ? 'nothing is left (the objects do not overlap)' : `${comps.length} object${comps.length > 1 ? 's' : ''}${holes ? ` with ${holes} hole${holes > 1 ? 's' : ''}` : ''}`;
+    toast(`${BOOL_NAME[op]}: ${what}.${op === 'subtract' && comps.length ? ` Cut from the ${baseKey ? 'object you right-clicked' : 'largest object'}.` : ''}${untouched.length ? ` ${untouched.length} object${untouched.length > 1 ? 's do' : ' does'} not touch it and ${untouched.length > 1 ? 'were' : 'was'} left as ${untouched.length > 1 ? 'they were' : 'it was'}.` : ''} Ctrl+Z undoes it.`, 5000);
+  }
+
+  // drop the parameters: the corners become ordinary polygon corners (a ring stays a body of two pieces)
+  function convertToPolygon(s) {
+    pushUndo();
+    for (const t of groupMembers(s)) if (t.gen) delete t.gen;
+    changed('converted to polygon');
+    toast(isBody(s.groupId) ? 'Converted: now a plain shape with a hole, without size parameters. Ctrl+Z goes back.' : 'Converted: the corners can now be moved one by one. Ctrl+Z goes back to the parametric shape.');
+  }
+
   function splitSelection() {
     const sel = selectedShapes();
-    if (!sel.some((s) => s.groupId)) return;
+    if (!sel.some((s) => s.groupId && !isBody(s.groupId))) return;     // a body (ring, shape with a hole) is one shape, not a fusion
     pushUndo();
-    const keys = new Set(sel.map(groupKeyOf));
+    const keys = new Set(sel.filter((s) => !isBody(s.groupId)).map(groupKeyOf));
     shapes().forEach((s) => { if (keys.has(groupKeyOf(s))) s.groupId = null; });
     changed('un-fused');
   }
@@ -1082,20 +1211,95 @@ export function createLayoutEditor(app) {
   }
 
   // ---------------------------------------------------------------- dialogs
+  // the size fields of a parametric shape (µm, degrees), and reading them back into its parameters
+  function genFields(g) {
+    const u = (v) => umTxt(v, 4);
+    switch (g.type) {
+      case 'ngon': return `<div class="two">${numField('gN', 'Sides', g.n, 1, 'min="3" max="360"')}${numField('gSide', 'Side length (µm)', u(2 * g.r * Math.sin(Math.PI / g.n)), 0.01)}</div>`
+        + `<div class="two">${numField('gCirc', 'Circumradius (µm)', u(g.r), 0.01)}${numField('gF2F', g.n % 2 ? 'Height, flat to tip (µm)' : 'Flat to flat (µm)', u(g.n % 2 ? g.r * (1 + Math.cos(Math.PI / g.n)) : 2 * g.r * Math.cos(Math.PI / g.n)), 0.01)}</div>`;
+      case 'ellipse': return `<div class="two">${numField('gW', 'Width (µm)', u(2 * g.rx), 0.01)}${numField('gH', 'Height (µm)', u(2 * g.ry), 0.01)}</div>`;
+      case 'ring': return `<div class="two">${numField('gOD', 'Outer diameter (µm)', u(2 * g.ro), 0.01)}${numField('gID', 'Inner diameter (µm)', u(2 * g.ri), 0.01)}</div>`;
+      case 'arc': return `<div class="two">${numField('gOD', 'Outer diameter (µm)', u(2 * g.ro), 0.01)}${numField('gID', 'Inner diameter (µm, 0 = pie slice)', u(2 * g.ri), 0.01)}</div>`
+        + `<div class="two">${numField('gA0', 'From angle (°, anticlockwise from +x)', (+g.a0).toFixed(2), 1)}${numField('gA1', 'To angle (°)', (g.a0 + arcSpan(g)).toFixed(2), 1)}</div>`;
+      case 'cross': return `<div class="three">${numField('gW', 'Width (µm)', u(2 * g.hw), 0.01)}${numField('gH', 'Height (µm)', u(2 * g.hh), 0.01)}${numField('gArm', 'Arm width (µm)', u(g.aw), 0.01)}</div>`;
+      case 'rrect': return `<div class="three">${numField('gW', 'Width (µm)', u(2 * g.hw), 0.01)}${numField('gH', 'Height (µm)', u(2 * g.hh), 0.01)}${numField('gCr', 'Corner radius (µm)', u(g.cr), 0.01)}</div>`;
+      default: return '';
+    }
+  }
+  function readGenFields(box, g0) {
+    const v = (id) => { const x = readNum(box, id); return x == null ? null : x * 1000; }, g = { ...g0 };
+    switch (g.type) {
+      case 'ngon': {
+        const n = readNum(box, 'gN'); if (n != null) g.n = Math.max(3, Math.min(360, Math.round(n)));
+        // whichever size field was edited last decides (box.dataset.last)
+        const last = box.dataset.last || 'gCirc', x = v(last);
+        if (x != null) g.r = last === 'gSide' ? x / (2 * Math.sin(Math.PI / g.n)) : last === 'gF2F' ? (g.n % 2 ? x / (1 + Math.cos(Math.PI / g.n)) : x / (2 * Math.cos(Math.PI / g.n))) : x;
+        if (n != null && Math.round(n) !== g0.n && Math.abs(g0.phase - flatPhase(g0.n)) < 1e-6) g.phase = flatPhase(g.n);   // keep a flat bottom
+        break;
+      }
+      case 'ellipse': { const w = v('gW'), h = v('gH'); if (w != null) g.rx = w / 2; if (h != null) g.ry = h / 2; break; }
+      case 'ring': case 'arc': {
+        const o = v('gOD'), i = v('gID'); if (o != null) g.ro = o / 2; if (i != null) g.ri = i / 2;
+        if (g.type === 'arc') { const a0 = readNum(box, 'gA0'), a1 = readNum(box, 'gA1'); if (a0 != null) g.a0 = a0; if (a1 != null) g.a1 = a1; }
+        break;
+      }
+      case 'cross': { const w = v('gW'), h = v('gH'), a = v('gArm'); if (w != null) g.hw = w / 2; if (h != null) g.hh = h / 2; if (a != null) g.aw = a; break; }
+      case 'rrect': { const w = v('gW'), h = v('gH'), c = v('gCr'); if (w != null) g.hw = w / 2; if (h != null) g.hh = h / 2; if (c != null) g.cr = c; break; }
+      default: break;
+    }
+    return normGen(g);
+  }
+  // A body without parameters (made by a boolean): move it, turn it, set its dose — as one rigid object.
+  function openBodyDialog(members) {
+    let bb = null; for (const t of members) bb = unionBBox(bb, bboxWorld(t));
+    const cx0 = (bb.x1 + bb.x2) / 2, cy0 = (bb.y1 + bb.y2) / 2;
+    const html = `<div class="two">${numField('gX', 'Centre X (µm)', umTxt(cx0, 4), 0.01)}${numField('gY', 'Centre Y (µm)', umTxt(cy0, 4), 0.01)}</div>`
+      + `<div class="two">${numField('gRot', 'Turn by (°, anticlockwise)', '0', 1)}${numField('gDose', 'Dose (µC/cm²)', (members[0].dose ?? 0).toFixed(2), 1)}</div>`
+      + `<div class="hint">${describeBody(members)}. Made by a boolean, so it has no size parameters; to resize it, draw again or use the AI assistant (e.g. "grow by 20 nm").</div>`;
+    openModal({
+      title: 'Position, rotation & dose', html,
+      buttons: [{ label: 'Cancel' }, {
+        label: 'Apply', primary: true, fn: (box) => {
+          pushUndo();
+          const nx = readNum(box, 'gX'), ny = readNum(box, 'gY'), turn = readNum(box, 'gRot') || 0, dose = readNum(box, 'gDose');
+          const dx = nx == null ? 0 : nx * 1000 - cx0, dy = ny == null ? 0 : ny * 1000 - cy0;
+          const t = (turn * Math.PI) / 180, c = Math.cos(t), sn = Math.sin(t);
+          // turn the world corners and put them back on the 1 nm grid: pieces that share a cut line keep sharing it
+          for (const m of members) {
+            const w = outlineWorld(m).map(([x, y]) => { const rx = x - cx0, ry = y - cy0; return [cx0 + dx + rx * c - ry * sn, cy0 + dy + rx * sn + ry * c]; });
+            const q = polyOnGrid(w, m.dose, m.layer);
+            m.cx = q.cx; m.cy = q.cy; m.pts = q.pts; m.rot = 0;
+          }
+          if (dose != null) setDoseOf(members[0], dose);
+          changed('body edited');
+        },
+      }],
+    });
+  }
+
   function openGeomDialog(s) {
     if (!s) return;
+    if (isBody(s.groupId) && !s.gen) { openBodyDialog(shapes().filter((t) => t.groupId === s.groupId)); return; }
     const b = bboxLocal(s);
     let html = `<div class="two">${numField('gX', 'Centre X (µm)', umTxt(s.cx, 4), 0.01)}${numField('gY', 'Centre Y (µm)', umTxt(s.cy, 4), 0.01)}</div>`;
-    if (s.kind === 'rect') html += `<div class="two">${numField('gW', 'Width W (µm)', umTxt(2 * s.hw, 4), 0.01)}${numField('gH', 'Length L (µm)', umTxt(2 * s.hh, 4), 0.01)}</div>`;
+    if (s.gen) html += genFields(s.gen);
+    else if (s.kind === 'rect') html += `<div class="two">${numField('gW', 'Width W (µm)', umTxt(2 * s.hw, 4), 0.01)}${numField('gH', 'Length L (µm)', umTxt(2 * s.hh, 4), 0.01)}</div>`;
     else if (s.kind === 'circle') html += `<div class="two">${numField('gR', 'Radius (µm)', umTxt(s.r, 4), 0.01)}${numField('gD', 'Diameter (µm)', umTxt(2 * s.r, 4), 0.01)}</div>`;
     else html += `<div class="two">${numField('gW', 'Bounding W (µm)', umTxt(b.x2 - b.x1, 4), 0.01)}${numField('gH', 'Bounding L (µm)', umTxt(b.y2 - b.y1, 4), 0.01)}</div>`;
-    html += `<div class="two">${numField('gRot', 'Rotation (°, counter-clockwise)', s.rot.toFixed(2), 1)}${numField('gDose', 'Dose (µC/cm²)', (s.dose ?? 0).toFixed(2), 1)}</div>`;
-    html += `<div class="hint">${describe(s)}${s.groupId ? ' — part of a fused object; the dose applies to all its members.' : ''} Stored on a 1 nm grid.</div>`;
+    html += `<div class="two">${numField('gRot', 'Rotation (°, anticlockwise)', s.rot.toFixed(2), 1)}${numField('gDose', 'Dose (µC/cm²)', (s.dose ?? 0).toFixed(2), 1)}</div>`;
+    html += `<div class="hint">${describe(s)}${s.groupId && !isBody(s.groupId) ? ' — part of a fused object; the dose applies to all its members.' : ''}${s.gen ? ' Its corners are generated from these numbers; <i>Convert to polygon</i> (right-click) frees them.' : ''} Stored on a 1 nm grid.</div>`;
     openModal({
       title: 'Size & rotation', html,
       onOpen: (box) => {
         const r = box.querySelector('#gR'), d = box.querySelector('#gD');
         if (r && d) { r.oninput = () => (d.value = (2 * (parseFloat(r.value) || 0)).toFixed(4)); d.oninput = () => (r.value = ((parseFloat(d.value) || 0) / 2).toFixed(4)); }
+        // an N-gon's three size fields describe one number: the one typed in last decides, the others follow
+        if (s.gen?.type === 'ngon') {
+          const ids = ['gSide', 'gCirc', 'gF2F'], nEl = box.querySelector('#gN');
+          const sync = () => { const g = readGenFields(box, s.gen), u = (v) => (v / 1000).toFixed(4); for (const id of ids) if (id !== box.dataset.last) box.querySelector('#' + id).value = u(id === 'gSide' ? 2 * g.r * Math.sin(Math.PI / g.n) : id === 'gCirc' ? g.r : g.n % 2 ? g.r * (1 + Math.cos(Math.PI / g.n)) : 2 * g.r * Math.cos(Math.PI / g.n)); };
+          for (const id of ids) box.querySelector('#' + id).addEventListener('input', () => { box.dataset.last = id; sync(); });
+          nEl.addEventListener('input', () => { if (!box.dataset.last) box.dataset.last = 'gSide'; sync(); });
+        }
       },
       buttons: [
         { label: 'Cancel' },
@@ -1106,6 +1310,7 @@ export function createLayoutEditor(app) {
             const nx = g('gX'), ny = g('gY');
             if (nx !== null) s.cx = nx * 1000; if (ny !== null) s.cy = ny * 1000;
             const rot = g('gRot'); if (rot !== null) s.rot = rot;
+            if (s.gen) { s.gen = readGenFields(box, s.gen); regen(s); roundToDbu(s); syncBody(s); const dose = g('gDose'); if (dose !== null) setDoseOf(s, dose); changed('geometry edited'); return; }
             if (s.kind === 'rect') { const w = g('gW'), h = g('gH'); if (w !== null) s.hw = Math.max(w * 1000, 1) / 2; if (h !== null) s.hh = Math.max(h * 1000, 1) / 2; }
             else if (s.kind === 'circle') { const r = g('gR'); if (r !== null) s.r = Math.max(r * 1000, 1); }
             else {
@@ -1251,6 +1456,8 @@ export function createLayoutEditor(app) {
       <tr><td><b>Rectangle</b> <kbd>2</kbd></td><td>Drag draws a rectangle, corner to corner. With <i>Fixed size</i> on it stamps a W×L rectangle instead.</td></tr>
       <tr><td><b>Circle</b> <kbd>3</kbd></td><td>Drag draws a circle from its centre outwards.</td></tr>
       <tr><td><b>Polygon</b> <kbd>4</kbd></td><td>Drag traces a freehand outline (simplified on release), or click corner by corner and close with <kbd>Enter</kbd>, a double-click, or by clicking the first corner.</td></tr>
+      <tr><td><b>Shape ▾</b> <kbd>6</kbd></td><td>Triangle, pentagon, hexagon, octagon or any N-gon, ellipse, ring (donut), arc / sector, cross, rounded rectangle. Its options (sides, inner diameter, angles …) appear beside the tools. N-gons, rings and arcs are drawn from the centre outwards, the others corner to corner. Double-click a shape for its exact sizes; right-click → <i>Convert to polygon</i> frees its corners.</td></tr>
+      <tr><td>hold <kbd>Shift</kbd> while dragging</td><td>Equal sides: a square, a circle (Ellipse), a square cross.</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Back to Select, and cancels whatever was being drawn or placed.</td></tr></table>
       <h3>Selecting and editing</h3><table class="keytab">
       <tr><td><b>Click</b> a shape or array</td><td>Selects it. Clicking empty space deselects.</td></tr>
@@ -1267,6 +1474,8 @@ export function createLayoutEditor(app) {
       <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / redo.</td></tr></table>
       <h3>Fusing, arrays and cells</h3><table class="keytab">
       <tr><td><b>Fuse</b> / <b>Un-fuse</b></td><td>Fused shapes form one object with one uniform dose; overlaps are exposed once.</td></tr>
+      <tr><td><b>Merge · Subtract · Intersect · XOR</b></td><td>Boolean operations on two or more selected objects, as in CleWin. Subtract cuts the others out of the largest; right-click an object to cut the others out of that one. A result with a hole is one object.</td></tr>
+      <tr><td><b>✦ AI assistant</b> <kbd>A</kbd></td><td>Describe a pattern, or a change to the selection, in words; the result is shown as a suggestion (<kbd>Enter</kbd> accepts, <kbd>Esc</kbd> discards). Needs your own API key (⚙ Settings, top right).</td></tr>
       <tr><td><b>Array…</b></td><td>Moves the selected shapes into a new <b>cell</b> and places it back as a columns × rows array. The array is stored once, so 10⁶ elements cost no more memory than one. Far away, arrays are drawn as a tinted area whose density shows the fill factor; zoom in to see the elements.</td></tr>
       <tr><td><b>Dose ramp</b> (Array…)</td><td>Optional dose steps along x (left → right) and/or y (top → bottom), linear or logarithmic, in µC/cm² or × the shape dose — a dose test. Clicking any step selects the whole ramp; <i>Properties…</i> changes it; each step is labelled with its dose.</td></tr>
       <tr><td><b>Cells panel</b></td><td><b>Edit</b> opens a cell (changes appear in every instance), <b>Place</b> drops instances with each click, <b>Explode</b> (array menu) turns an instance back into plain shapes.</td></tr>
@@ -1297,7 +1506,7 @@ export function createLayoutEditor(app) {
   // ---------------------------------------------------------------- tools
   const TOOL_HINT = {
     select: 'drag on empty space → rubber-band select',
-    rect: 'drag on empty space → new rectangle',
+    rect: 'drag on empty space → new rectangle · hold Shift while dragging = square',
     circle: 'drag on empty space → new circle (centre outwards)',
     poly: 'drag → freehand outline, or click corner by corner',
     device: 'drag on empty space → new device area for Fab Studio (not exposed)',
@@ -1307,14 +1516,111 @@ export function createLayoutEditor(app) {
     ed.tool = t;
     if (t !== 'poly') ed.pendingPoly = null;
     ed.placeCell = t === 'place' ? cell : null;
-    for (const [id, k] of [['toolSelect', 'select'], ['toolRect', 'rect'], ['toolCircle', 'circle'], ['toolPoly', 'poly'], ['toolDevice', 'device']]) $(id).classList.toggle('active', k === t);
-    $('toolHint').textContent = t === 'place' ? `click to place ${cell} · Esc to stop` : TOOL_HINT[t] || '';
+    for (const [id, k] of [['toolSelect', 'select'], ['toolRect', 'rect'], ['toolCircle', 'circle'], ['toolPoly', 'poly'], ['toolShape', 'shape'], ['toolDevice', 'device']]) $(id).classList.toggle('active', k === t);
+    $('toolHint').textContent = t === 'place' ? `click to place ${cell} · Esc to stop` : t === 'shape' ? shapeHint() : TOOL_HINT[t] || '';
+    $('toolHint').title = $('toolHint').textContent;
     canvas.style.cursor = t === 'select' ? 'default' : 'crosshair';
+    renderShapeOpts();
     scheduleRender();
+  }
+
+  // ---------------------------------------------------------------- the Shape tool
+  const shapeTool = () => SHAPE_TOOLS.find((x) => x.key === ed.shapeKey) || SHAPE_TOOLS[2];
+  function shapeHint() {
+    const st = shapeTool();
+    if (ed.fixed) return `click → stamp a ${shapeToolLabel(st, ed.shapeOpts).toLowerCase()} in the W × L box (Fixed size)`;
+    return DRAWN_FROM_CENTRE.has(st.type) ? 'drag from the centre outwards' : st.type === 'ellipse' ? 'drag corner to corner · Shift held = circle' : 'drag corner to corner · Shift held = equal sides';
+  }
+  function updateShapeButton() {
+    $('toolShape').innerHTML = `${esc(shapeToolLabel(shapeTool(), ed.shapeOpts))} <span style="font-size:10px;">▾</span>`;
+  }
+  function openShapeMenu() {
+    const r = $('toolShape').getBoundingClientRect();
+    openMenu(r.left, r.bottom + 4, SHAPE_TOOLS.map((st) => ({
+      label: (st.key === ed.shapeKey ? '✓ ' : ' ') + st.label,
+      fn: () => {
+        ed.shapeKey = st.key;
+        if (st.sides) ed.shapeOpts.sides = st.sides;
+        updateShapeButton(); setTool('shape');
+        if (st.key === 'ngon') setTimeout(() => $('shapeOptSides')?.focus(), 0);
+      },
+    })));
+  }
+  // the options of the shape being drawn, shown beside the tools while the Shape tool is on
+  function renderShapeOpts() {
+    const box = $('shapeOpts');
+    if (!box) return;
+    if (ed.tool !== 'shape') { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const st = shapeTool(), o = ed.shapeOpts, f = (id, label, v, extra, tip) => `<label class="sopt" title="${esc(tip)}">${label} <input class="field" id="${id}" type="number" value="${v}" ${extra}></label>`;
+    let h = '';
+    if (st.type === 'ngon') {
+      h = f('shapeOptSides', 'sides', o.sides, 'min="3" max="64" step="1" style="width:56px"', 'Number of sides (3 = triangle, 6 = hexagon …)')
+        + `<label class="sopt" title="Which way the polygon points"><select class="field" id="shapeOptPointy" style="width:auto"><option value="0"${o.pointy ? '' : ' selected'}>flat bottom</option><option value="1"${o.pointy ? ' selected' : ''}>point up</option></select></label>`;
+    } else if (st.type === 'ring') h = f('shapeOptInner', 'inner Ø', Math.round(o.innerFrac * 100), 'min="1" max="99" step="1" style="width:56px"', 'Inner diameter as a percentage of the outer one') + ' %';
+    else if (st.type === 'arc') {
+      h = f('shapeOptA0', 'from', o.a0, 'step="5" style="width:60px"', 'Start angle, degrees anticlockwise from +x') + '°'
+        + f('shapeOptA1', 'to', o.a1, 'step="5" style="width:60px"', 'End angle, degrees anticlockwise from +x') + '°'
+        + f('shapeOptInner', 'inner Ø', Math.round(o.innerFrac * 100), 'min="0" max="99" step="1" style="width:56px"', 'Inner diameter as a percentage of the outer one (0 = a pie slice)') + ' %';
+    } else if (st.type === 'cross') h = f('shapeOptArm', 'arm width', Math.round(o.armFrac * 100), 'min="2" max="100" step="1" style="width:56px"', 'Arm width as a percentage of the shorter side') + ' %';
+    else if (st.type === 'rrect') h = f('shapeOptCorner', 'corner r', Math.round(o.cornerFrac * 100), 'min="0" max="100" step="1" style="width:56px"', 'Corner radius as a percentage of the shorter half side') + ' %';
+    else h = '';
+    box.innerHTML = h;
+    box.title = 'These options set the next shape you draw, and the selected shapes of this kind. Exact sizes: double-click a shape.';
+    box.style.display = h ? 'inline-flex' : 'none';
+    const bind = (id, fn) => { const el = $(id); if (el) el.oninput = () => { const v = parseFloat(el.value); if (Number.isFinite(v)) { fn(v); updateShapeButton(); } }; };
+    bind('shapeOptSides', (v) => { o.sides = Math.max(3, Math.min(64, Math.round(v))); const k = { 3: 'tri', 5: 'pent', 6: 'hex', 8: 'oct' }[o.sides]; ed.shapeKey = k || 'ngon'; });
+    const pe = $('shapeOptPointy'); if (pe) pe.onchange = () => { o.pointy = pe.value === '1'; };
+    bind('shapeOptInner', (v) => { o.innerFrac = clamp(v / 100, st.type === 'arc' ? 0 : 0.01, 0.99); });
+    bind('shapeOptA0', (v) => { o.a0 = v; }); bind('shapeOptA1', (v) => { o.a1 = v; });
+    bind('shapeOptArm', (v) => { o.armFrac = clamp(v / 100, 0.02, 1); });
+    bind('shapeOptCorner', (v) => { o.cornerFrac = clamp(v / 100, 0, 1); });
+    // …and applies to the selected shapes of the same kind (typing 8 sides with a hexagon selected makes it an octagon)
+    for (const id of ['shapeOptSides', 'shapeOptInner', 'shapeOptA0', 'shapeOptA1', 'shapeOptArm', 'shapeOptCorner', 'shapeOptPointy']) {
+      const el = $(id); if (!el) continue;
+      el.addEventListener('focus', () => { ed.optUndo = false; });
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => applyOptsToSelection(st.type));
+    }
+  }
+  function applyOptsToSelection(type) {
+    const o = ed.shapeOpts, sel = selectedShapes().filter((s) => s.gen && (s.gen.type === type || (type === 'ring' && s.gen.type === 'ring')));
+    if (!sel.length) return;
+    if (!ed.optUndo) { pushUndo(); ed.optUndo = true; }               // one undo step per field edit
+    for (const s of sel) {
+      const g = { ...s.gen };
+      if (type === 'ngon') { const side = 2 * g.r * Math.sin(Math.PI / g.n); g.n = o.sides; g.r = side / (2 * Math.sin(Math.PI / g.n)); g.phase = o.pointy ? 90 : flatPhase(g.n); }
+      else if (type === 'ring') g.ri = g.ro * o.innerFrac;
+      else if (type === 'arc') { g.a0 = o.a0; g.a1 = o.a1; g.ri = g.ro * o.innerFrac; }
+      else if (type === 'cross') g.aw = 2 * Math.min(g.hw, g.hh) * o.armFrac;
+      else if (type === 'rrect') g.cr = Math.min(g.hw, g.hh) * o.cornerFrac;
+      s.gen = normGen(g); regen(s); roundToDbu(s); syncBody(s);
+    }
+    changed('shape options');
+  }
+  // the shape being drawn: a polygon whose corners follow its parameters
+  function genDraft(type, size, cx, cy) {
+    const gen = normGen(genFromDrag(type, size, ed.shapeOpts));
+    return { id: uid('p'), kind: 'poly', layer: ed.activeLayer, cx, cy, rot: 0, gen, pts: genPolygons(gen)[0], dose: ed.nominalDose, writeDose: null, groupId: null };
   }
 
   function startDraw(down, kind) {
     const dose = ed.nominalDose, L = ed.activeLayer;
+    if (kind === 'shape') {
+      const type = shapeTool().type;
+      if (ed.fixed) {                                        // stamp: the shape fills a W × L box whose top-left is at the pointer
+        const W = ed.fixedW * 1000, H = ed.fixedL * 1000;
+        ed.draft = genDraft(type, { r: Math.min(W, H) / 2, hw: W / 2, hh: H / 2 }, snapV(down.x) + W / 2, snapV(down.y) - H / 2);
+        ed.drag = { kind: 'stampGen' };
+      } else if (DRAWN_FROM_CENTRE.has(type)) {
+        const c = snapPt(down);
+        ed.draft = genDraft(type, { r: 0.5 }, c.x, c.y);
+        ed.drag = { kind: 'drawGen', centre: c };
+      } else {
+        const p = snapPt(down);
+        ed.draft = genDraft(type, { hw: 0.5, hh: 0.5 }, p.x, p.y);
+        ed.drag = { kind: 'drawGen', start: p };
+      }
+      return;
+    }
     if (kind === 'device') {
       const p = snapPt(down);
       ed.draft = makeRect(p.x, p.y, 0.1, 0.1, 0, ensureDeviceLayer());
@@ -1338,13 +1644,29 @@ export function createLayoutEditor(app) {
     if (g.kind === 'drawRect') {
       const p = snapPt(w);
       d.cx = (g.start.x + p.x) / 2; d.cy = (g.start.y + p.y) / 2;
-      d.hw = Math.max(Math.abs(p.x - g.start.x) / 2, 0.1); d.hh = Math.max(Math.abs(p.y - g.start.y) / 2, 0.1);
+      let hw = Math.abs(p.x - g.start.x) / 2, hh = Math.abs(p.y - g.start.y) / 2;
+      if (ed.shiftDown && d.kind === 'rect' && !ed.fixed) { hw = hh = Math.max(hw, hh); d.cx = g.start.x + Math.sign(p.x - g.start.x || 1) * hw; d.cy = g.start.y + Math.sign(p.y - g.start.y || 1) * hh; }   // Shift held while dragging: a square
+      d.hw = Math.max(hw, 0.1); d.hh = Math.max(hh, 0.1);
     } else if (g.kind === 'drawCircle') {
       d.r = Math.max(Math.hypot(w.x - g.centre.x, w.y - g.centre.y), 0.1);
       if (ed.snap) d.r = Math.max(snapV(d.r), gridNm() / 2);
-    } else if (g.kind === 'stamp') {
+    } else if (g.kind === 'stamp' || g.kind === 'stampGen') {
       const p = snapPt(w), W = ed.fixedW * 1000, H = ed.fixedL * 1000;
       d.cx = p.x + W / 2; d.cy = p.y - H / 2;
+    } else if (g.kind === 'drawGen') {
+      const type = d.gen.type;
+      if (g.centre) {
+        let r = Math.max(Math.hypot(w.x - g.centre.x, w.y - g.centre.y), 0.5);
+        if (ed.snap) r = Math.max(snapV(r), gridNm() / 2);
+        d.gen = normGen(genFromDrag(type, { r }, ed.shapeOpts));
+      } else {
+        const p = snapPt(w);
+        let hw = Math.abs(p.x - g.start.x) / 2, hh = Math.abs(p.y - g.start.y) / 2;
+        if (ed.shiftDown) { const m = Math.max(hw, hh); hw = hh = m; }
+        d.cx = g.start.x + Math.sign(p.x - g.start.x || 1) * hw; d.cy = g.start.y + Math.sign(p.y - g.start.y || 1) * hh;
+        d.gen = normGen(genFromDrag(type, { hw: Math.max(hw, 0.5), hh: Math.max(hh, 0.5) }, ed.shapeOpts));
+      }
+      d.pts = genPolygons(d.gen)[0];
     }
   }
 
@@ -1415,8 +1737,14 @@ export function createLayoutEditor(app) {
         '-',
         { label: 'Duplicate', fn: duplicateSelection },
         { label: 'Fuse selected', fn: fuseSelection, disabled: new Set(selectedShapes().map(groupKeyOf)).size < 2 },
-        { label: 'Un-fuse', fn: splitSelection, disabled: !s.groupId },
+        { label: 'Un-fuse', fn: splitSelection, disabled: !s.groupId || isBody(s.groupId) },
         { label: 'Make array…', fn: openArrayDialog },
+        ...(new Set(selectedShapes().map(groupKeyOf)).size >= 2 && !selectedRefs().length ? ['-',
+          { label: 'Merge selected', fn: () => booleanSelection('merge') },
+          { label: 'Subtract the others from this one', fn: () => booleanSelection('subtract', groupKeyOf(s)) },
+          { label: 'Intersect selected', fn: () => booleanSelection('intersect') },
+          { label: 'XOR selected', fn: () => booleanSelection('xor') }] : []),
+        ...(s.gen || (isBody(s.groupId) && groupMembers(s).some((t) => t.gen)) ? [{ label: 'Convert to polygon (free the corners)', fn: () => convertToPolygon(s) }] : []),
         '-',
         { label: 'Delete', fn: deleteSelection },
       ];
@@ -1459,6 +1787,7 @@ export function createLayoutEditor(app) {
     if (e.button === 2) { ed.drag = { kind: 'rightPress', down: w, sx, sy, clientX: e.clientX, clientY: e.clientY, shift: e.shiftKey }; e.preventDefault(); return; }
     if (e.button === 1 || e.altKey || (e.button === 0 && ed.spaceHeld)) { ed.drag = { kind: 'pan', sx, sy, o0: { x: ed.ox, y: ed.oy } }; canvas.style.cursor = 'grabbing'; e.preventDefault(); return; }
     if (e.button !== 0) return;
+    if (ed.preview) { app.onPreviewTouched?.(); return; }       // an AI suggestion is on show: accept or discard it first
 
     if (ed.tool === 'place') {
       const p = snapPt(w);
@@ -1514,11 +1843,23 @@ export function createLayoutEditor(app) {
   const lenTxt = (nm) => (nm >= 1000 ? `${umTxt(nm)} µm` : `${nm.toFixed(1)} nm`);
   function drawSizeText() {
     const d = ed.drag; if (!d) return null;
-    const sh = d.kind === 'drawRect' || d.kind === 'drawCircle' || d.kind === 'stamp' ? ed.draft : d.kind === 'corner' ? d.shape : null;
+    const sh = d.kind === 'drawRect' || d.kind === 'drawCircle' || d.kind === 'stamp' || d.kind === 'drawGen' || d.kind === 'stampGen' ? ed.draft : d.kind === 'corner' ? d.shape : null;
     if (!sh) return null;
     if (sh.kind === 'rect') return `Δx ${lenTxt(2 * sh.hw)} · Δy ${lenTxt(2 * sh.hh)}${sh.rot ? ` (rotated ${(+sh.rot).toFixed(0)}°)` : ''}`;
     if (sh.kind === 'circle') return `Δx = Δy = Ø ${lenTxt(2 * sh.r)}`;
+    if (sh.gen) return genSizeText(sh.gen);
     return null;
+  }
+  function genSizeText(g) {
+    switch (g.type) {
+      case 'ngon': return `${NGON_NAME[g.n] || g.n + '-gon'} · side ${lenTxt(2 * g.r * Math.sin(Math.PI / g.n))} · Ø ${lenTxt(2 * g.r)}`;
+      case 'ellipse': return `Δx ${lenTxt(2 * g.rx)} · Δy ${lenTxt(2 * g.ry)}`;
+      case 'ring': return `Ø ${lenTxt(2 * g.ro)} outer · ${lenTxt(2 * g.ri)} inner`;
+      case 'arc': return `Ø ${lenTxt(2 * g.ro)} · ${(+g.a0).toFixed(0)}° → ${(g.a0 + arcSpan(g)).toFixed(0)}°`;
+      case 'cross': return `Δx ${lenTxt(2 * g.hw)} · Δy ${lenTxt(2 * g.hh)} · arm ${lenTxt(g.aw)}`;
+      case 'rrect': return `Δx ${lenTxt(2 * g.hw)} · Δy ${lenTxt(2 * g.hh)} · r ${lenTxt(g.cr)}`;
+      default: return null;
+    }
   }
   function showDrawSize(e) {
     const t = drawSizeText();
@@ -1531,7 +1872,7 @@ export function createLayoutEditor(app) {
 
   function onPointerMove(e) {
     const { sx, sy } = evPt(e), w = s2w(sx, sy);
-    ed.hover = w;
+    ed.hover = w; ed.shiftDown = e.shiftKey;
     $('stCursor').innerHTML = `x <b>${umTxt(w.x)}</b> µm, y <b>${umTxt(w.y)}</b> µm`;
     queueMicrotask(() => showDrawSize(e));
     const d = ed.drag;
@@ -1588,6 +1929,7 @@ export function createLayoutEditor(app) {
           s.hw = Math.max(Math.abs(px - opp[0]) / 2, 0.5); s.hh = Math.max(Math.abs(py - opp[1]) / 2, 0.5);
           s.cx = cx; s.cy = cy;
         } else if (s.kind === 'circle') s.r = Math.max(Math.hypot(px, py), 0.5);
+        else if (s.gen) { applyGenHandle(s, d.index, [px, py], e.shiftKey); syncBody(s); }
         else s.pts[d.index] = [px, py];
         changed('reshaping', true);
         break;
@@ -1597,10 +1939,11 @@ export function createLayoutEditor(app) {
         let ang = d.rot0 + ((Math.atan2(w.y - s.cy, w.x - s.cx) - d.ang0) * 180) / Math.PI;
         if (e.shiftKey) ang = Math.round(ang / 15) * 15;
         s.rot = ((ang % 360) + 540) % 360 - 180;
+        syncBody(s);
         changed('rotating', true);
         break;
       }
-      case 'drawRect': case 'drawCircle': case 'stamp': updateDraw(w); scheduleRender(); break;
+      case 'drawRect': case 'drawCircle': case 'stamp': case 'drawGen': case 'stampGen': updateDraw(w); scheduleRender(); break;
       case 'lasso': {
         const last = d.pts[d.pts.length - 1];
         if (Math.hypot(w.x - last.x, w.y - last.y) > 1.5 * ed.s) { d.pts.push(w); d.moved = true; }
@@ -1639,6 +1982,15 @@ export function createLayoutEditor(app) {
         if (again) toast(`Picked ${k + 1} of ${all.length} objects here — click again for the next.`, 1500);
       }
       selectObj(hit, d.add); scheduleRender(); return;
+    }
+    if (d.kind === 'drawGen' || d.kind === 'stampGen') {
+      const dr = ed.draft, bb = dr && bboxLocal(dr);
+      const tiny = !dr || (d.kind !== 'stampGen' && Math.max(bb.x2 - bb.x1, bb.y2 - bb.y1) < 3 * ed.s);
+      if (!tiny) {
+        const made = makeGenShapes(dr.gen, Math.round(dr.cx), Math.round(dr.cy), dr.dose, dr.layer).map(roundToDbu);
+        shapes().push(...made); ed.selection = new Set(made.map((s) => s.id)); ed.draft = null; changed('shape added');
+      } else { ed.draft = null; dropLastUndo(); updateSelectionUI(); scheduleRender(); }
+      return;
     }
     if (d.kind === 'drawRect' || d.kind === 'drawCircle' || d.kind === 'stamp') {
       const dr = ed.draft;
@@ -1697,6 +2049,16 @@ export function createLayoutEditor(app) {
     if (!app.isTabActive('layout') || modalOpen()) return;
     const tag = (document.activeElement && document.activeElement.tagName) || '';
     const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
+    // an AI suggestion on show: Enter accepts, Esc discards, the view keys work, editing keys do nothing
+    if (ed.preview) {
+      if (ev.key === 'Escape') { ev.preventDefault(); app.onPreviewKey?.('discard'); return; }
+      if (ev.key === 'Enter' && !typing) { ev.preventDefault(); app.onPreviewKey?.('accept'); return; }
+      const kk = ev.key.toLowerCase();
+      if (!typing && !ev.ctrlKey && !ev.metaKey && (kk === 'f' || kk === 'r')) { if (kk === 'f') fitView(); else resetView(); return; }
+      if (!typing && ev.code === 'Space') { ev.preventDefault(); if (!ed.spaceHeld) { ed.spaceHeld = true; canvas.style.cursor = 'grab'; } return; }
+      if (!typing && (ev.ctrlKey || ev.metaKey || /^(Delete|Backspace|Arrow)/.test(ev.key) || /^[1-6g]$/.test(kk))) { ev.preventDefault(); app.onPreviewTouched?.(); }
+      return;
+    }
     if (ev.key === 'Escape') {
       closeMenu();
       if (ed.pendingPoly) { ed.pendingPoly = null; scheduleRender(); return; }
@@ -1727,6 +2089,7 @@ export function createLayoutEditor(app) {
     if (ev.key === '3') return setTool('circle');
     if (ev.key === '4') return setTool('poly');
     if (ev.key === '5') return setTool('device');
+    if (ev.key === '6') return setTool('shape');
     if (k === 'f') return fitView();
     if (k === 'r') return resetView();
     if (k === 'g') { ed.snap = !ed.snap; $('snapEnable').checked = ed.snap; return; }
@@ -1749,6 +2112,9 @@ export function createLayoutEditor(app) {
   $('toolCircle').onclick = () => setTool('circle');
   $('toolPoly').onclick = () => setTool('poly');
   $('toolDevice').onclick = () => setTool('device');
+  $('toolShape').onclick = openShapeMenu;
+  updateShapeButton();
+  for (const [id, op] of [['btnMerge', 'merge'], ['btnSubtract', 'subtract'], ['btnIntersect', 'intersect'], ['btnXor', 'xor']]) $(id).onclick = () => booleanSelection(op);
   $('btnHelp').onclick = openHelp;
   $('btnFuse').onclick = fuseSelection;
   $('btnSplit').onclick = splitSelection;
@@ -1766,7 +2132,7 @@ export function createLayoutEditor(app) {
   $('btnEditGeom').onclick = () => {
     const sel = selectedShapes(), rs = selectedRefs();
     const rg = selectedRampGroup();
-    if (rg) openRampDialog(rg); else if (sel.length === 1 && !rs.length) openGeomDialog(sel[0]); else if (rs.length === 1 && !sel.length) openRefDialog(rs[0]);
+    if (rg) openRampDialog(rg); else if ((sel.length === 1 || oneBody(sel)) && !rs.length) openGeomDialog(primaryOf(sel)); else if (rs.length === 1 && !sel.length) openRefDialog(rs[0]);
   };
   const doseEl = $('selDose');
   doseEl.onfocus = () => pushUndo();
@@ -1914,7 +2280,63 @@ export function createLayoutEditor(app) {
     updateLayerList(); scheduleRender();
   }
 
+  // ---------------------------------------------------------------- AI suggestions (ui/ai/assistant.js)
+  // While a suggestion is on show the map draws the suggested library (lib() returns it), editing is
+  // paused (the toolbars grey out), and Accept puts it in place as one undoable step.
+  function setPreview(p) {
+    ed.preview = p ? { ...p, sel0: [...ed.selection] } : null;
+    if (p) { ed.selection = new Set(p.ids.filter((id) => lib().cells[ed.cell]?.shapes.some((s) => s.id === id) || lib().cells[ed.cell]?.refs.some((r) => r.id === id))); ed.draft = null; ed.pendingPoly = null; }
+    $('tab-layout').classList.toggle('ai-preview', !!p);
+    invalidateCaches(); updateSelectionUI(); updateCellList(); updateStatus(); scheduleRender();
+  }
+  function discardPreview() {
+    const p = ed.preview; if (!p) return;
+    ed.preview = null;
+    const ids = new Set([...shapes().map((s) => s.id), ...refs().map((r) => r.id)]);
+    ed.selection = new Set(p.sel0.filter((id) => ids.has(id)));
+    $('tab-layout').classList.remove('ai-preview');
+    invalidateCaches(); updateSelectionUI(); updateCellList(); updateLayerList(); updateStatus(); scheduleRender();
+  }
+  function acceptPreview(reason) {
+    const p = ed.preview; if (!p) return;
+    ed.preview = null;
+    $('tab-layout').classList.remove('ai-preview');
+    pushUndo();                                    // the library as it was, so Ctrl+Z undoes the whole suggestion
+    app.project.library = p.lib;
+    const ids = new Set([...shapes().map((s) => s.id), ...refs().map((r) => r.id)]);
+    ed.selection = new Set(p.ids.filter((id) => ids.has(id)));
+    updateLayerList();
+    changed(reason || 'AI suggestion applied');
+  }
+  // what the assistant tells the model about the layout, and the selection it operates on
+  function aiContext() {
+    const L = app.project.library, c = L.cells[ed.cell], vr = viewRect();
+    const objs = new Map(), sel = [];
+    for (const s of c.shapes) if (ed.selection.has(s.id)) { const k = groupKeyOf(s); if (!objs.has(k)) objs.set(k, []); objs.get(k).push(s); sel.push(s.id); }
+    const rs = c.refs.filter((r) => ed.selection.has(r.id));
+    let bb = null; for (const m of objs.values()) for (const s of m) bb = unionBBox(bb, bboxWorld(s)); for (const r of rs) bb = unionBBox(bb, refBBox(L, r, ed.bboxCache));
+    const al = L.layers.find((l) => l.key === ed.activeLayer);
+    return {
+      cell: ed.cell, cellShapes: c.shapes.length, cellRefs: c.refs.length,
+      activeLayer: ed.activeLayer, activeLayerName: al?.name, nominalDose: ed.nominalDose, gridUm: ed.gridUm,
+      layers: L.layers.map((l) => ({ key: l.key, name: l.name, purpose: l.purpose })),
+      view: vr, selectionIds: [...sel, ...rs.map((r) => r.id)], selectionBBox: bb,
+      objects: [...objs.values()], refs: rs.map((r) => `instance of cell ${r.cell}${r.cols * r.rows > 1 ? ` as a ${r.cols} × ${r.rows} array` : ''}, origin (${(r.x / 1000).toFixed(3)}, ${(r.y / 1000).toFixed(3)}) µm`),
+    };
+  }
+  // bring a box into view (zooming out only if it does not fit)
+  function showBox(bb) {
+    if (!bb) return;
+    const vr = viewRect();
+    if (bb.x1 >= vr.x1 && bb.x2 <= vr.x2 && bb.y1 >= vr.y1 && bb.y2 <= vr.y2) return;
+    const w = Math.max(bb.x2 - bb.x1, 100), h = Math.max(bb.y2 - bb.y1, 100), pad = 0.15;
+    setScale(Math.max(ed.s, (w * (1 + 2 * pad)) / ed.W, (h * (1 + 2 * pad)) / ed.H));
+    ed.ox = (bb.x1 + bb.x2) / 2 - (ed.W * ed.s) / 2; ed.oy = (bb.y1 + bb.y2) / 2 + (ed.H * ed.s) / 2;
+    scheduleRender();
+  }
+
   return {
+    setPreview, discardPreview, acceptPreview, aiContext, showBox, previewing: () => !!ed.preview,
     loadProject, render: scheduleRender, resize, fitView, mutate, getSession, setSession,
     getView: () => ({ s: ed.s, ox: ed.ox, oy: ed.oy }),
     setView: (v) => { if (v && v.s > 0) { setScale(v.s); ed.ox = v.ox; ed.oy = v.oy; scheduleRender(); } },

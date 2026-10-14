@@ -7,7 +7,9 @@ const K = (...keys) => keys.map((k) => `<kbd>${k}</kbd>`).join('+');
 const SHEETS = {
   layout: ['Pattern Studio', [
     ['Tools', [
-      [`${K('1')} ${K('2')} ${K('3')} ${K('4')} ${K('5')}`, 'Select · Rectangle · Circle · Polygon · Device area'],
+      [`${K('1')} ${K('2')} ${K('3')} ${K('4')} ${K('5')} ${K('6')}`, 'Select · Rectangle · Circle · Polygon · Device area · Shape (N-gon, ellipse, ring, arc …)'],
+      ['hold ' + K('Shift') + ' while dragging', 'equal sides (square, circle)'],
+      [K('A'), '✦ AI assistant: describe a pattern or a change; ' + K('Enter') + ' accepts the suggestion, ' + K('Esc') + ' discards it'],
       [K('Esc'), 'back to Select; cancels what is being drawn'],
       [K('Enter') + ' · double-click', 'close a polygon drawn corner by corner'],
     ]],
@@ -21,6 +23,7 @@ const SHEETS = {
       [`${K('Ctrl', 'A')} · ${K('Ctrl', 'Z')} · ${K('Ctrl', 'Y')}`, 'select all · undo · redo'],
       [`${K('Ctrl', 'C')} · ${K('Ctrl', 'X')} · ${K('Ctrl', 'V')}`, 'copy · cut · paste in place, onto the active layer (cut, pick a layer, paste = move to that layer)'],
       ['Array… → dose ramp', 'dose steps along x and/or y, linear or log (a dose test); click a step selects the ramp'],
+      ['Merge · Subtract · Intersect · XOR', 'booleans on the selected objects (Subtract: from the largest; right-click: from this one)'],
     ]],
     ['View', [
       ['wheel · hold ' + K('Space') + ' + drag, ' + K('Alt') + '+drag, middle-drag', 'zoom at the pointer · pan'],
