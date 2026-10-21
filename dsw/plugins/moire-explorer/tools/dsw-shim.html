@@ -1,0 +1,137 @@
+<!-- ===== DSW native compute shim =====
+  The page used to farm its heavy kernels (CSL matching, van-der-Waals
+  energy scans) out to Web Workers. Under DSW those same worker calls are
+  answered by the native, OpenMP-parallel plugin core instead: this class
+  stands in for window.Worker and speaks the DEX WebSocket. If DSW is not
+  reachable (page opened as a plain file) the real Worker is used unchanged. -->
+<script src="/dex.js"></script>
+<script>
+(function () {
+  "use strict";
+  const RealWorker = window.Worker;
+  let dex = null, ready = false, nextId = 1, info = null, tasks = 0, nativeMs = 0;
+  const pending = new Map(); // id -> { worker, taskId }
+
+  function badge() {
+    let el = document.getElementById("dsw-badge");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "dsw-badge";
+      el.style.cssText = "position:fixed;right:10px;bottom:8px;z-index:9999;padding:3px 9px;" +
+        "border-radius:10px;font:600 11px/1.5 system-ui,sans-serif;color:#fff;opacity:.85;pointer-events:none";
+      document.body.appendChild(el);
+    }
+    if (ready && info) {
+      el.style.background = "#1b7f4b";
+      el.textContent = "DSW native · " + info.threads + " thread" + (info.threads === 1 ? "" : "s") +
+        (info.openmp ? " (OpenMP)" : "") + " · " + tasks + " tasks" +
+        (tasks ? " · " + nativeMs.toFixed(0) + " ms" : "");
+    } else {
+      el.style.background = "#8a5a00";
+      el.textContent = ready ? "DSW connecting…" : "DSW offline · browser workers";
+    }
+  }
+
+  function failAll(msg) {
+    for (const [, p] of pending) {
+      if (p.worker.onerror) p.worker.onerror({ message: msg });
+    }
+    pending.clear();
+  }
+
+  if (typeof DEX !== "undefined" && DEX.pluginId()) {
+    try {
+      dex = DEX.connect({
+        onStatus(s) {
+          ready = s === "open";
+          if (!ready) { failAll("DSW connection closed"); info = null; }
+          if (document.body) badge();
+        },
+        onMessage(m) {
+          if (m.t === "hello") { info = m; badge(); return; }
+          if (m.t !== "res") return;
+          const p = pending.get(m.id);
+          if (!p) return;
+          pending.delete(m.id);
+          p.worker.ids.delete(m.id);
+          tasks++; nativeMs += m.ms || 0; badge();
+          let data;
+          if (!m.ok) data = { taskId: p.taskId, ok: false, error: m.error };
+          else if (p.type === "csl") data = { taskId: p.taskId, ok: true, result: unpackCsl(m.result) };
+          else data = { taskId: p.taskId, ok: true, result: m.result };
+          if (p.worker.onmessage) p.worker.onmessage({ data });
+        },
+      });
+    } catch (e) { dex = null; }
+  }
+
+  function unpackCsl(r) {
+    const out = new Array(r.d2.length);
+    for (let i = 0; i < out.length; i++) {
+      out[i] = { aId: r.aId[i], bId: r.bId[i], ax: r.ax[i], ay: r.ay[i], bx: r.bx[i], by: r.by[i], d2: r.d2[i] };
+    }
+    return { candidates: out };
+  }
+
+  function packAtoms(atoms, elIndex) {
+    const n = atoms.length, x = new Array(n), y = new Array(n), z = new Array(n), e = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = atoms[i];
+      x[i] = a.x; y[i] = a.y; z[i] = a.z;
+      let k = elIndex.get(a.element);
+      if (k === undefined) { k = elIndex.size; elIndex.set(a.element, k); }
+      e[i] = k;
+    }
+    return { x, y, z, e };
+  }
+
+  function encode(id, type, p) {
+    if (type === "cslTile") {
+      const col = (list) => ({ x: list.map((a) => a.x), y: list.map((a) => a.y), id: list.map((a) => a.id) });
+      return { t: "task", id, type: "csl", a: col(p.anchorsA), b: col(p.anchorsB),
+               tol: p.tolerance, maxc: p.maxCandidatesPerAnchor };
+    }
+    if (type === "vdwTile" || type === "vdwWhole") {
+      const elIndex = new Map();
+      const top = packAtoms(p.topAtoms, elIndex), bottom = packAtoms(p.bottomAtoms, elIndex);
+      const lj = {};
+      for (const k of Object.keys(p.ljParams)) lj[k] = [p.ljParams[k].sigma, p.ljParams[k].epsilon];
+      return { t: "task", id, type: "vdw", elements: Array.from(elIndex.keys()), lj, top, bottom,
+               cutoff: p.cutoff, epsScale: p.epsilonScale, shifts: p.scanShifts,
+               topWeight: p.topWeight, bottomWeight: p.bottomWeight };
+    }
+    return null;
+  }
+
+  function NativeWorker() {
+    this.onmessage = null;
+    this.onerror = null;
+    this.ids = new Set();
+  }
+  NativeWorker.prototype.postMessage = function (msg) {
+    const id = nextId++;
+    const packet = encode(id, msg.type, msg.payload);
+    if (!packet) {
+      if (this.onmessage) this.onmessage({ data: { taskId: msg.taskId, ok: false, error: "Unknown worker task: " + msg.type } });
+      return;
+    }
+    pending.set(id, { worker: this, taskId: msg.taskId, type: packet.type });
+    this.ids.add(id);
+    dex.send(packet);
+  };
+  NativeWorker.prototype.terminate = function () {
+    for (const id of this.ids) {
+      if (pending.delete(id)) dex.send({ t: "cancel", id });
+    }
+    this.ids.clear();
+  };
+
+  // `new Worker(url)` keeps working everywhere in the page; it just resolves
+  // to the native backend whenever DSW is connected.
+  window.Worker = function (url, opts) {
+    return (dex && ready) ? new NativeWorker() : new RealWorker(url, opts);
+  };
+
+  document.addEventListener("DOMContentLoaded", badge);
+})();
+</script>

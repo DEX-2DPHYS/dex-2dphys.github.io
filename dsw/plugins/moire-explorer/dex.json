@@ -1,0 +1,6 @@
+{
+  "name": "Moiré Explorer",
+  "description": "Atom-level moiré superlattices for stacked 2D materials and perovskites. The interactive page runs in your browser; the coincidence-site and van-der-Waals interface scans run in a native, OpenMP-parallel C++ core.",
+  "accent": "#4da3ff",
+  "version": "1.0"
+}
