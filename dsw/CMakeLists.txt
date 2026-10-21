@@ -83,3 +83,6 @@ dsw_add_plugin(superlubricity)
 dsw_add_plugin(2dmd)
 dsw_add_plugin(klein-magnetometer)
 dsw_add_plugin(transim)
+
+# Moiré Explorer: the atom-view page with its LJ interface scan and CSL matching in an OpenMP core.
+dsw_add_plugin(moire-explorer)

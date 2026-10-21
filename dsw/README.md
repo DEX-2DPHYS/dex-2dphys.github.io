@@ -85,7 +85,7 @@ else is a category and is scanned deeper. Bundle folder names are the
 routing key, so they must be unique across both roots — a duplicate name is
 dropped from the listing (built-ins win).
 
-Ships with nine experiments — two small demonstrations of the plug-in idea (also the templates
+Ships with ten experiments — two small demonstrations of the plug-in idea (also the templates
 below), and the research and teaching set the workstation exists for:
 
 | Plugin | What it shows |
@@ -98,6 +98,7 @@ below), and the research and teaching set the workstation exists for:
 | `superlubricity` | Structural Superlubricity: the van der Waals energy of a real atomistic flake on graphene, summed pair by pair with a Hamaker tail; relax, sweep the twist, slide the flake, and run lateral MD to watch the moiré reconstruct. |
 | `klein-magnetometer` | Klein Magnetometer Workbench: a many-junction graphene Klein-collimation magnetometer — exact Dirac-equation junction transmission, cyclotron ray tracing, Monte-Carlo and flux engines, thermal averaging, noise-limited field resolution and a coherent Fabry–Pérot sidebar. |
 | `transim` | Graphene Transport Explorer: hybrid FEM and semiclassical ballistic transport in graphene devices — Hall and four-probe measurements, adaptive trajectories, editable contacts, density/mobility maps, magnetic focusing, parameter sweeps. |
+| `moire-explorer` | Moiré Explorer (atom view): twisted stacks of 2D materials and perovskites with coincidence-site lattices, interface Lennard-Jones energy scans and A → B energy paths. The page runs in the browser; the vdW scan and CSL matching run in an OpenMP core. See [its README](plugins/moire-explorer/README.md). |
 
 <p>
   <img src="docs/wave-tank.png" alt="Wave Tank: double-slit interference" width="49%">
