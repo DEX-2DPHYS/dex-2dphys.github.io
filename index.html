@@ -285,6 +285,14 @@
     }
     .card.live:hover::before { opacity: 1; }
     .card.soon { opacity: .86; }
+    /* Full applications (tag "app"): a red frame, an APPLICATION badge, and first in the grid. */
+    .card.is-app {
+      border: 1.5px solid color-mix(in srgb, var(--red) 55%, var(--border));
+      background: linear-gradient(180deg, color-mix(in srgb, var(--red) 5%, var(--card)), var(--card) 55%);
+    }
+    .card.is-app::before { opacity: 1; }
+    .badge.app { background: var(--red); color: #fff; }
+    .badge.app::before { content: "★ "; }
     .card-note {
       margin: .7rem 0 0;
       font-size: .8rem;
@@ -595,7 +603,8 @@
           // Cards are always <div>s so the interactive tag pills aren't nested
           // inside a link; live cards get whole-card click via a handler below.
           var el = document.createElement("div");
-          el.className = "card" + (live ? " live" : " soon");
+          var isApp = t.tags.indexOf("app") !== -1;
+          el.className = "card" + (live ? " live" : " soon") + (isApp ? " is-app" : "");
           if (live) { el.setAttribute("data-url", t.url); }
 
           var tagsHtml = t.tags.map(function (id) {
@@ -612,7 +621,7 @@
 
           var footHtml;
           if (live) {
-            footHtml = '<a class="card-cta" href="' + esc(t.url) + '">Open tool →</a>';
+            footHtml = '<a class="card-cta" href="' + esc(t.url) + '">' + (isApp ? "Open application" : "Open tool") + ' →</a>';
           } else if (t.repo) {
             footHtml = '<a class="card-cta card-source" href="' + esc(t.repo) +
               '" target="_blank" rel="noopener">View source →</a>';
@@ -622,8 +631,9 @@
 
           el.innerHTML =
             mediaHtml +
-            '<span class="badge ' + (live ? "live" : "soon") + '">' +
-              (live ? "Available" : "Coming soon") + "</span>" +
+            (isApp
+              ? '<span class="badge app">Application</span>'
+              : '<span class="badge ' + (live ? "live" : "soon") + '">' + (live ? "Available" : "Coming soon") + "</span>") +
             '<div class="card-icon" aria-hidden="true">' + svg(t.icon) + "</div>" +
             "<h3>" + esc(t.name) + "</h3>" +
             "<p>" + esc(t.description) + "</p>" +
@@ -714,6 +724,11 @@
             if (!t.preview && t.slug) t.preview = "assets/tool-previews/" + t.slug + ".png";
             return t;
           });
+          // Full applications lead the grid, whatever order the manifest lists them in (stable sort).
+          tools = tools.map(function (t, i) { return [t, i]; }).sort(function (a, b) {
+            var d = (b[0].tags.indexOf("app") !== -1) - (a[0].tags.indexOf("app") !== -1);
+            return d || a[1] - b[1];
+          }).map(function (p) { return p[0]; });
           loadingEl.hidden = true;
           buildChips();
           render();
