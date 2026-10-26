@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Presenter · DEX, 2DPHYS, DTU</title>
+  <meta name="description" content="Interactive Presenter: slides with live content on them - HTML simulations you operate during the talk, movies, PDFs and pictures. Runs in Chrome or Edge, offline. Try it in the browser or download it for Windows." />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23990000'/><text x='50' y='68' font-size='52' font-family='Arial,sans-serif' font-weight='700' text-anchor='middle' fill='white'>D</text></svg>" />
+  <style>
+    :root { --red:#990000; --bg:#ffffff; --bg-soft:#f5f5f4; --card:#ffffff; --border:#e5e3e0; --text:#1b1a19; --text-soft:#5c5955; --code:#f0efed; --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --red:#ff5a5f; --bg:#131211; --bg-soft:#1b1a18; --card:#1e1c1a; --border:#322f2c; --text:#f3f1ee; --text-soft:#a8a39d; --code:#23211f; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.4); } }
+    :root[data-theme="dark"] { --red:#ff5a5f; --bg:#131211; --bg-soft:#1b1a18; --card:#1e1c1a; --border:#322f2c; --text:#f3f1ee; --text-soft:#a8a39d; --code:#23211f; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.4); }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+    a { color: inherit; }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; max-width: 1040px; margin: 0 auto; flex-wrap: wrap; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--red); color: #fff; display: grid; place-items: center; font-weight: 700; }
+    .brand-name { font-weight: 700; } .brand-sub { font-size: 12px; color: var(--text-soft); }
+    .nav a.link { text-decoration: none; color: var(--text-soft); font-size: 14px; margin-left: 14px; }
+    .nav a.link.here { color: var(--text); font-weight: 600; }
+    header { padding: 28px 0 8px; }
+    h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; margin: 0 0 10px; letter-spacing: -.01em; }
+    .lead { color: var(--text-soft); font-size: 17px; max-width: 780px; margin: 0; }
+    .shot { margin: 22px 0 6px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    .shot img { width: 100%; display: block; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 24px 0; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+    .grid > * { min-width: 0; }
+    .opt { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: var(--shadow); }
+    .opt h2 { font-size: 19px; margin: 0 0 6px; } .opt p { color: var(--text-soft); font-size: 14px; margin: 0 0 12px; }
+    .btn { display: inline-block; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); text-decoration: none; font-weight: 600; font-size: 14px; margin: 0 6px 6px 0; }
+    .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+    .os { margin: 10px 0 0; font-size: 13.5px; color: var(--text-soft); }
+    .os b { color: var(--text); }
+    code { overflow-wrap: anywhere; background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+    section h3 { font-size: 17px; margin: 26px 0 6px; }
+    ul, ol { padding-left: 20px; color: var(--text-soft); } li { margin: 4px 0; }
+    pre { background: var(--code); border-radius: 8px; padding: 10px 14px; font-size: 13px; overflow-x: auto; color: var(--text); }
+    .intro { margin: 22px 0 0; max-width: 820px; } .intro p, p.body { font-size: 15.5px; margin: 0 0 12px; max-width: 820px; }
+    .note { background: var(--bg-soft); border-left: 3px solid var(--red); padding: 9px 12px; border-radius: 0 8px 8px 0; font-size: 14.5px; color: var(--text-soft); }
+    footer { border-top: 1px solid var(--border); margin-top: 32px; padding: 18px 0 30px; color: var(--text-soft); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a class="brand" href="../" aria-label="DEX home"><div class="brand-mark">D</div><div><div class="brand-name">DEX · Interactive Presenter</div><div class="brand-sub">2DPHYS, DTU</div></div></a>
+    <div><a class="link" href="../">Tools</a><a class="link here" href="./">Interactive Presenter</a><a class="link" href="../ebl-workbench/">EBL Workbench</a><a class="link" href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io" target="_blank" rel="noopener">GitHub →</a></div>
+  </div>
+  <main class="wrap">
+    <header>
+      <h1>Interactive Presenter</h1>
+      <p class="lead">Slides with live content on them: HTML simulations you operate during the talk, movies, PDFs and pictures, placed in boxes on your slides. It runs in Chrome or Edge, entirely offline, and a presentation is one file you can copy anywhere.</p>
+    </header>
+    <div class="shot"><img src="../assets/tool-previews/interactive-presenter.png" alt="Interactive Presenter editing the demo presentation: a live wave simulation on a slide" loading="lazy" /></div>
+
+    <section class="intro">
+      <p>Interactive Presenter is made for teaching and for talks where you want to show, not just tell: change a parameter in a simulation while the audience watches, play a movie, scroll through a paper. Your slides can be pictures (for example exported from PowerPoint), or PowerPoint files imported with their text and pictures still editable. On top of them go movable boxes with the live content.</p>
+      <p class="note"><b>This is a test version</b>, shared as it is for trying out. Questions and suggestions are welcome at <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a>.</p>
+    </section>
+
+    <div class="grid">
+      <div class="opt">
+        <h2>Try it in the browser</h2>
+        <p>Opens the demo presentation straight away: a title page with a live simulation, a figure, a movie and a PDF. Press <b>Present</b> (or F5) to present, the arrow keys to move on and Esc to go back to editing. Nothing is uploaded; it all runs in your browser.</p>
+        <a class="btn primary" href="app/InteractivePresenter.html?deck=Demo/Demo.ipe">Open the demo</a>
+        <a class="btn" href="app/InteractivePresenter.html">Start empty</a>
+        <p class="os">In the browser, Browse… (choosing a folder) and Import PowerPoint… are not available: they need the Windows version.</p>
+      </div>
+      <div class="opt">
+        <h2>Download for Windows</h2>
+        <p>The full version: the app, a Demo folder to start from, and an installer that makes .ipe files open on double-click, adds a desktop icon and enables PowerPoint import (needs PowerPoint) and the folder dialog. About 4 MB.</p>
+        <a class="btn primary" href="Interactive-Presenter-2026-10-26.zip">Download (zip)</a>
+        <ol class="os">
+          <li>Unzip it somewhere it can stay, for example in Documents.</li>
+          <li>Double-click <i>Install Interactive Presenter.cmd</i> (no administrator rights needed). If Windows warns about an unrecognised app: <i>More info → Run anyway</i>.</li>
+          <li>Double-click <i>Demo\Demo.ipe</i>, and read <i>README.txt</i>.</li>
+        </ol>
+        <p class="os">Needs Google Chrome or Microsoft Edge. The first time you use Browse… or Import PowerPoint…, the browser asks to open the Interactive Presenter helper: allow it.</p>
+      </div>
+    </div>
+
+    <section>
+      <h3>A presentation folder</h3>
+      <p class="body">The Demo shows the layout that keeps a presentation portable. Pictures, movies and PDFs are copied into the .ipe file when you add them; HTML simulations are linked and load live from the HTML folder next to it. Copy the whole folder and everything keeps working, on any PC.</p>
+<pre>My talk\
+  My talk.ipe     the presentation (one file)
+  HTML\           live simulations, linked from the slides
+  Figures\        pictures
+  PDF\            PDFs
+  Movies\         movies</pre>
+      <h3>What is in it</h3>
+      <ul>
+        <li><b>Live content on slides</b> — HTML simulations, movies, PDFs (scroll and zoom while presenting), pictures, image sequences and rich text, in boxes you draw, move and resize. They keep their place on any screen.</li>
+        <li><b>Slides</b> — slide pictures, PowerPoint import (Windows with PowerPoint), title pages, section dividers with a progress bar, summary slides and an automatic table of contents.</li>
+        <li><b>Builds</b> — animation steps: boxes and single paragraphs appear and disappear on a click.</li>
+        <li><b>Credits</b> — portraits and names of the people behind the work, and acknowledgements.</li>
+        <li><b>Safe by default</b> — Save writes one .ipe file; autosave keeps a backup in the browser every 5 minutes.</li>
+      </ul>
+      <h3>About</h3>
+      <p class="body">Interactive Presenter is made by Peter Bøggild at 2DPHYS, Department of Physics, Technical University of Denmark (DTU), for teaching and for talks with live simulations.</p>
+    </section>
+    <footer>DEX — digital experiments from the 2DPHYS group, Department of Physics, DTU · Questions: <a href="mailto:pbog@dtu.dk">pbog@dtu.dk</a> · <a href="https://github.com/DEX-2DPHYS/dex-2dphys.github.io">Source on GitHub</a></footer>
+  </main>
+  <script>
+    try { const t = localStorage.getItem('dex-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</body>
+</html>

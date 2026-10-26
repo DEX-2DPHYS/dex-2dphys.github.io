@@ -1,0 +1,13 @@
+{
+  "slug": "interactive-presenter",
+  "name": "Interactive Presenter",
+  "description": "Slides with live content on them: HTML simulations you operate during the talk, movies, PDFs and pictures in boxes on your slides. Runs in Chrome or Edge, offline; a presentation is one file.",
+  "status": "live",
+  "url": "interactive-presenter/",
+  "icon": "book",
+  "tags": [
+    "educational",
+    "visualisations"
+  ],
+  "note": "Try the demo in the browser, or download the Windows version (PowerPoint import, double-click .ipe files)."
+}

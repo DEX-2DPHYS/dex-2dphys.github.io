@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Presenter</title>
+  <link rel="stylesheet" href="stylesX.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <img class="topbar-dtu-logo" src="./DTUlogo.png" alt="DTU logo" data-tooltip="DTU" />
+      <div class="brand">Interactive Presenter</div>
+    </div>
+    <div class="topbar-right">
+      <label class="theme-picker" for="themeSelect">
+        <span>Theme</span>
+        <select id="themeSelect">
+          <option value="editorial">Editorial clean</option>
+          <option value="executive">Executive dark-blue</option>
+          <option value="studio">Studio glass</option>
+        </select>
+      </label>
+      <div class="topbar-actions">
+        <button id="editModeBtn" class="active">Edit</button>
+        <button id="presentModeBtn">Present</button>
+        <button id="floatingToolbarToggleBtn" data-tooltip="Show or hide floating edit toolbar">Tools</button>
+        <button id="manualHelpBtn" data-tooltip="Open v8 manual">Help</button>
+        <button id="aboutBtn" data-tooltip="Open prototype and permission notice">About</button>
+        <button id="fullscreenBtn">Fullscreen</button>
+      </div>
+      <div class="topbar-logos" aria-label="DEX logo">
+        <img src="./DEXlogo.png" alt="DEX logo" data-tooltip="DEX" />
+      </div>
+    </div>
+  </header>
+
+  <main class="app" id="appRoot">
+    <aside class="sidebar">
+      <section class="panel deck-panel">
+        <h2>Deck</h2>
+        <div class="deck-file-row">
+          <button id="newDeckBtn" type="button">New</button>
+          <button id="loadZipBtn" type="button">Open…</button>
+          <button id="saveZipBtn" type="button">Save</button>
+          <button id="saveAsZipBtn" type="button">Save as…</button>
+          <button id="printDeckBtn" type="button">Print</button>
+          <button id="importPptxBtn" class="deck-span3" type="button">Import PowerPoint…</button>
+          <input id="loadZipInput" type="file" accept=".ipe,.zip,application/zip" hidden />
+        </div>
+        <label class="field">
+          <span>Title <small class="deck-note">(also the file name)</small></span>
+          <input id="deckTitleInput" type="text" placeholder="Deck title" spellcheck="false" />
+        </label>
+        <div id="deckFileStatus" class="hint deck-path">Not saved yet.</div>
+        <div class="deck-check-line">
+          <label class="check-row">
+            <input id="autosaveEnabledCheckbox" type="checkbox" checked />
+            <span>Autosave every 5 min</span>
+          </label>
+          <button id="deckBackupsBtn" class="deck-link-btn" type="button">Backups…</button>
+        </div>
+        <div id="autosaveHint" class="hint">Autosave on.</div>
+
+        <h3 class="deck-sub">Linked files</h3>
+        <label class="field">
+          <span>Sims and PDFs load from</span>
+          <select id="rootModeSelect">
+            <option value="deck">the folder of the .ipe file</option>
+            <option value="custom">another folder…</option>
+          </select>
+        </label>
+        <div class="deck-root-row" id="rootCustomRow">
+          <input id="presentationRootInput" type="text" placeholder="C:\Talks\My talk\" spellcheck="false" />
+          <button id="pickRootBtn" type="button">Browse…</button>
+        </div>
+        <div id="presentationRootHint" class="hint deck-path"></div>
+        <button id="checkLinksBtn" class="deck-wide-btn" type="button">Check links</button>
+        <button id="applyPresentationRootBtn" type="button" hidden>Set</button>
+        <button id="deckRootBtn" type="button" hidden>.ipe folder</button>
+
+        <h3 class="deck-sub">Slide size</h3>
+        <label class="field">
+          <span>Canvas</span>
+          <select id="scaleLockModeSelect">
+            <option value="off">No fixed reference size</option>
+            <option value="notes960">960 × 640 (10321 notes)</option>
+            <option value="xga1024">1024 × 768 (4:3 classroom)</option>
+            <option value="hd720">1280 × 720 (HD)</option>
+            <option value="hd1080">1920 × 1080 (Full HD)</option>
+            <option value="laptop1366">1366 × 768 (laptop)</option>
+            <option value="qhd1440">2560 × 1440 (QHD)</option>
+            <option value="uwqhd3440">3440 × 1440 (ultra-wide)</option>
+            <option value="uhd4k">3840 × 2160 (4K)</option>
+            <option value="custom">Custom size…</option>
+          </select>
+        </label>
+        <div class="row deck-custom-size" id="customRefSizeRow">
+          <label class="field"><span>Width</span><input id="customRefWidthInput" type="number" min="320" max="7680" step="1" value="960" /></label>
+          <label class="field"><span>Height</span><input id="customRefHeightInput" type="number" min="180" max="4320" step="1" value="640" /></label>
+        </div>
+        <label class="field">
+          <span>Content size <b id="globalContentScaleValue" class="deck-value">100%</b></span>
+          <div class="deck-scale-row">
+            <input id="globalContentScaleInput" type="range" min="0.5" max="2" step="0.05" value="1" />
+            <button id="globalContentScaleResetBtn" type="button" data-tooltip="Back to 100%">100%</button>
+          </div>
+        </label>
+        <div id="scaleContextHint" class="hint compact-hidden"></div>
+
+        <details class="deck-advanced">
+          <summary>Inside the .ipe file</summary>
+          <label class="field check-row">
+            <input id="unpackedAssetsCheckbox" type="checkbox" />
+            <span>Keep pictures and sims as separate files</span>
+          </label>
+          <div id="unpackedAssetsHint" class="hint">Off: one self-contained deck (robust). On: the same deck with its pictures and sims as separate files you can edit inside the .ipe (a zip).</div>
+        </details>
+      </section>
+
+      <section class="panel">
+        <h2>Slides</h2>
+        <div class="chooser-group">
+          <label class="chooser-row" for="importSlidesInput">
+            <span>Import slide images</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="importSlidesInput" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpg,.jpeg,.gif,.svg" multiple />
+          </label>
+          <label class="chooser-row" for="remapSlidesInput">
+            <span>Re-import with remap</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="remapSlidesInput" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpg,.jpeg,.gif,.svg" multiple />
+          </label>
+          <label class="chooser-row" for="importSlidePackageInput">
+            <span>Import slide package</span>
+            <span class="choose-files-btn">Choose .ipslide</span>
+            <input id="importSlidePackageInput" type="file" accept=".ipslide,.zip,application/zip" />
+          </label>
+        </div>
+        <div class="row section-slide-controls">
+          <button id="addWhiteSlideBtn" type="button" data-tooltip="Insert an empty white slide after the current slide">+ White</button>
+          <button id="addTocSlideBtn" type="button" data-tooltip="Insert an automatically updated table-of-contents slide">+ TOC</button>
+          <button id="addSectionDividerBtn" type="button" data-tooltip="Insert a new section divider slide after the current slide">+ Section</button>
+          <button id="addSummarySlideBtn" type="button" data-tooltip="Insert a new summary slide after the current slide">+ Summary</button>
+          <button id="addTitleSlideBtn" type="button" data-tooltip="Insert a new title-page slide after the current slide">+ Title</button>
+          <button id="addDtuwritePageBtn" type="button" data-tooltip="Insert a DTUwrite whiteboard page after the current slide. Writing on it needs DTUwrite on this PC; what you write is saved inside the deck">+ DTUwrite</button>
+        </div>
+        <label class="field check-row">
+          <input id="showSectionDividersToggle" type="checkbox" checked />
+          <span>Show section-divider slides during presentation</span>
+        </label>
+        <label class="field check-row">
+          <input id="sectionProgressToggle" type="checkbox" checked />
+          <span>Show bottom TOC line on section dividers</span>
+        </label>
+        <label class="field check-row">
+          <input id="ordinarySectionProgressToggle" type="checkbox" />
+          <span>Show bottom TOC line on ordinary slides</span>
+        </label>
+        <label class="field check-row">
+          <input id="includeFrontEndToggle" type="checkbox" checked />
+          <span>Include front / end matter in progress bar</span>
+        </label>
+        <label class="field">
+          <span>Section progress bar zoom <span id="sectionProgressScaleValue" class="hint">100%</span></span>
+          <input id="sectionProgressScaleRange" type="range" min="0.5" max="2.5" step="0.05" value="1" />
+        </label>
+        <ol id="slideList" class="slide-list"></ol>
+      </section>
+
+      <section class="panel" id="sectionDividerPanel" hidden>
+        <h2>Section Divider</h2>
+        <div id="sectionDividerHint" class="hint">Editing the current section divider slide.</div>
+        <label class="field">
+          <span>Role in deck structure</span>
+          <select id="sectionRoleSelect">
+            <option value="front">Front matter (title / intro)</option>
+            <option value="section" selected>Section</option>
+            <option value="end">End matter (summary / thanks)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Long title (shown on slide)</span>
+          <input id="sectionTitleLongInput" type="text" placeholder="e.g. Part II — Numerical Methods" />
+        </label>
+        <label class="field">
+          <span>Short title (shown in progress bar)</span>
+          <input id="sectionTitleShortInput" type="text" placeholder="e.g. Numerics" />
+        </label>
+        <label class="field check-row">
+          <input id="sectionEyebrowVisibleToggle" type="checkbox" checked />
+          <span>Show the small label above the title</span>
+        </label>
+        <label class="field">
+          <span>Label text (blank = default for role)</span>
+          <input id="sectionEyebrowTextInput" type="text" placeholder="Section" />
+        </label>
+        <label class="field">
+          <span>Visual style</span>
+          <select id="sectionStyleSelect">
+            <option value="minimal-left">Minimal · white, title left</option>
+            <option value="minimal-center">Minimal · white, centered</option>
+            <option value="band">Accent band · title on band</option>
+            <option value="overlay">Image full-bleed · title overlay</option>
+            <option value="split">Split · panel + image</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Divider media (image or live HTML sim)</span>
+          <select id="sectionMediaSelect">
+            <option value="">— None —</option>
+          </select>
+        </label>
+        <label class="chooser-row" for="sectionImageInput">
+          <span>Add image as media</span>
+          <span class="choose-files-btn">Choose file</span>
+          <input id="sectionImageInput" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpg,.jpeg,.gif,.svg" />
+        </label>
+        <label class="chooser-row" for="sectionSimInput">
+          <span>Add HTML sim as media</span>
+          <span class="choose-files-btn">Choose file</span>
+          <input id="sectionSimInput" type="file" accept="text/html,.html" />
+        </label>
+        <div class="row">
+          <button id="convertToRegularSlideBtn" type="button" data-tooltip="Turn this section divider back into a normal slide">Convert to normal slide</button>
+        </div>
+      </section>
+
+      <section class="panel" id="tocPanel" hidden>
+        <h2>Table of Contents</h2>
+        <div class="hint">The overview updates automatically from the deck's section-divider slides.</div>
+        <label class="field">
+          <span>Title</span>
+          <input id="tocTitleInput" type="text" placeholder="Overview" />
+        </label>
+        <label class="field">
+          <span>Optional take-home message, punchline, or learning goal</span>
+          <textarea id="tocMessageInput" rows="4" placeholder="Leave blank if no highlighted message is needed"></textarea>
+        </label>
+        <div class="row">
+          <button id="convertTocToRegularBtn" type="button" data-tooltip="Turn this TOC slide back into a normal slide">Convert to normal slide</button>
+        </div>
+      </section>
+
+      <section class="panel" id="summaryPanel" hidden>
+        <h2>Summary Slide</h2>
+        <div id="summaryPanelHint" class="hint">Editing the current summary slide. Drag the ⠿ grip to move the block, the corner to resize. Click a cell to edit its figure &amp; text.</div>
+        <label class="field">
+          <span>Title (shown on slide)</span>
+          <input id="summaryTitleInput" type="text" placeholder="Summary" />
+        </label>
+        <label class="field">
+          <span>Small label above title (optional)</span>
+          <input id="summaryEyebrowInput" type="text" placeholder="e.g. In summary" />
+        </label>
+        <label class="field">
+          <span>Design (matches the section dividers)</span>
+          <select id="summaryStyleSelect">
+            <option value="minimal-left">Minimal · white, title left</option>
+            <option value="minimal-center">Minimal · white, centered</option>
+            <option value="band">Accent band · title on band</option>
+            <option value="overlay">Image overlay · dark canvas</option>
+            <option value="split">Split · panel + cells</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Layout of figures &amp; text</span>
+          <select id="summaryLayoutSelect">
+            <option value="stack">Vertical · text to the right</option>
+            <option value="alt">Vertical · alternating sides</option>
+            <option value="lateral">Lateral · figure above, text below</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Reveal in presentation</span>
+          <select id="summaryRevealSelect">
+            <option value="all">All cells at once</option>
+            <option value="sequential">One at a time · click, 0.5 s fade-in</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>Figure cells (1–6)</span>
+          <div class="row">
+            <button id="summaryRemoveCellBtn" type="button" data-tooltip="Remove the selected cell">− Cell</button>
+            <span id="summaryCellCountHint" class="hint">3 / 6 cells</span>
+            <button id="summaryAddCellBtn" type="button" data-tooltip="Add another figure / text cell">+ Cell</button>
+          </div>
+        </div>
+        <label class="field">
+          <span>Image zoom (all cells) <span id="summaryImageZoomValue" class="hint">100%</span></span>
+          <input id="summaryImageZoomRange" type="range" min="0.4" max="3" step="0.05" value="1" />
+        </label>
+        <label class="field">
+          <span>Text zoom (all cells) <span id="summaryTextZoomValue" class="hint">100%</span></span>
+          <input id="summaryTextZoomRange" type="range" min="0.4" max="3" step="0.05" value="1" />
+        </label>
+        <div class="summary-cell-editor">
+          <div id="summarySelectedCellHint" class="hint">Click a cell on the slide to edit it here.</div>
+          <div class="row">
+            <button id="summaryCellImageBtn" type="button" data-tooltip="Set the selected cell's figure to an image">🖼 Image</button>
+            <button id="summaryCellHtmlBtn" type="button" data-tooltip="Set the selected cell's figure to an HTML file">◧ HTML</button>
+            <button id="summaryCellClearBtn" type="button" data-tooltip="Clear the selected cell's figure">Clear</button>
+          </div>
+          <div id="summaryCellFigureHint" class="hint">No figure set.</div>
+          <label class="field">
+            <span>Cell text (HTML allowed; also editable on the slide)</span>
+            <textarea id="summaryCellTextInput" rows="3" placeholder="Type the text for the selected cell…"></textarea>
+          </label>
+        </div>
+        <div class="row">
+          <button id="summaryResetLayoutBtn" type="button" data-tooltip="Reset the summary block to its default position and size">Reset position</button>
+          <button id="convertSummaryToRegularBtn" type="button" data-tooltip="Turn this summary slide back into a normal slide">Convert to normal slide</button>
+        </div>
+      </section>
+
+      <section class="panel" id="titlePanel" hidden>
+        <h2>Title Page</h2>
+        <div id="titlePanelHint" class="hint">Editing the current title-page slide. Five styles &times; two variants (light / dark).</div>
+        <label class="field">
+          <span>Main title</span>
+          <input id="titleMainInput" type="text" placeholder="e.g. The physics of twisted bilayer graphene" />
+        </label>
+        <label class="field">
+          <span>Main-title font</span>
+          <select id="titleFontSelect">
+            <option value="system">System Sans &middot; recommended</option>
+            <option value="arial">Arial / Helvetica</option>
+            <option value="verdana">Verdana / Geneva</option>
+            <option value="trebuchet">Trebuchet MS / Arial</option>
+            <option value="georgia">Georgia / Times</option>
+            <option value="times">Times New Roman / Times</option>
+          </select>
+        </label>
+        <label class="field check-row">
+          <input id="titleBoldToggle" type="checkbox" checked />
+          <span>Bold main title</span>
+        </label>
+        <label class="field">
+          <span>Subtitle (optional)</span>
+          <input id="titleSubtitleInput" type="text" placeholder="e.g. Recent developments and open questions" />
+        </label>
+        <label class="field">
+          <span>Event / venue / date line (optional)</span>
+          <input id="titleEventInput" type="text" placeholder="e.g. Spain Summer School &middot; Bilbao &middot; July 2026" />
+        </label>
+        <label class="field">
+          <span>Visual style</span>
+          <select id="titleStyleSelect">
+            <option value="classic">Classic &middot; centered title &amp; presenters</option>
+            <option value="banner">Banner &middot; accent header, presenters below</option>
+            <option value="hero">Hero &middot; full-bleed media, title overlaid</option>
+            <option value="split">Split &middot; panel + media</option>
+            <option value="poster">Poster &middot; large title, presenters aside</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Colour variant</span>
+          <select id="titleVariantSelect">
+            <option value="light">Light &middot; white background</option>
+            <option value="dark">Dark &middot; navy background</option>
+          </select>
+        </label>
+        <label class="field check-row">
+          <input id="titleLogoToggle" type="checkbox" checked />
+          <span>Show prominent DTU logo on this slide</span>
+        </label>
+        <div class="field">
+          <span>Presenters (1&ndash;4)</span>
+          <div class="row">
+            <button id="titleRemovePresenterBtn" type="button" data-tooltip="Remove the last presenter row">&minus; Presenter</button>
+            <span id="titlePresenterCountHint" class="hint">1 / 4 presenters</span>
+            <button id="titleAddPresenterBtn" type="button" data-tooltip="Add another presenter">+ Presenter</button>
+          </div>
+          <div id="titlePresentersList" class="title-presenters-list"></div>
+        </div>
+        <label class="field">
+          <span>Media on the slide (image or live HTML sim, optional)</span>
+          <select id="titleMediaSelect">
+            <option value="">— None —</option>
+          </select>
+        </label>
+        <label class="chooser-row" for="titleImageInput">
+          <span>Add image as media</span>
+          <span class="choose-files-btn">Choose file</span>
+          <input id="titleImageInput" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpg,.jpeg,.gif,.svg" />
+        </label>
+        <label class="chooser-row" for="titleSimInput">
+          <span>Add HTML sim as media</span>
+          <span class="choose-files-btn">Choose file</span>
+          <input id="titleSimInput" type="file" accept="text/html,.html" />
+        </label>
+        <div class="row">
+          <button id="convertTitleToRegularBtn" type="button" data-tooltip="Turn this title-page back into a normal slide">Convert to normal slide</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>DTU Logo</h2>
+        <label class="field check-row">
+          <input id="logoEnabledCheckbox" type="checkbox" />
+          <span>Show DTU logo on slides</span>
+        </label>
+        <label class="field">
+          <span>Colour</span>
+          <select id="logoColorSelect">
+            <option value="red">DTU red</option>
+            <option value="black">Black</option>
+            <option value="white">White</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Show on</span>
+          <select id="logoScopeSelect">
+            <option value="all">All slides</option>
+            <option value="sections-title">Section slides + title slide (first slide)</option>
+            <option value="sections">Section slides only</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Position</span>
+          <select id="logoPositionSelect">
+            <option value="top-left">Top left</option>
+            <option value="top-right">Top right</option>
+            <option value="bottom-left">Bottom left</option>
+            <option value="bottom-right">Bottom right</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Height <span id="logoScaleValue" class="hint">8%</span></span>
+          <input id="logoScaleRange" type="range" min="0.01" max="0.2" step="0.01" value="0.08" />
+        </label>
+        <label class="field">
+          <span>Opacity <span id="logoOpacityValue" class="hint">90%</span></span>
+          <input id="logoOpacityRange" type="range" min="0.05" max="1" step="0.05" value="0.9" />
+        </label>
+      </section>
+
+      <section class="panel" id="peopleCreditsPanel">
+        <h2>People &amp; Credits</h2>
+        <label class="chooser-row" for="peopleFolderInput">
+          <span>Scan People folder</span>
+          <span class="choose-files-btn">Choose folder</span>
+          <input id="peopleFolderInput" type="file" webkitdirectory />
+        </label>
+        <div id="peopleScanHint" class="hint">No people scanned yet.</div>
+        <label class="field check-row">
+          <input id="creditsEnabledCheckbox" type="checkbox" />
+          <span>Credits on this slide</span>
+        </label>
+        <label class="field check-row">
+          <input id="ackEnabledCheckbox" type="checkbox" />
+          <span>Acknowledgements on this slide</span>
+        </label>
+        <label class="field check-row">
+          <input id="creditsInvertCheckbox" type="checkbox" />
+          <span>Invert (white text on this slide)</span>
+        </label>
+        <div class="row">
+          <button id="creditsPickerOpenBtn" type="button" data-tooltip="Open the movable people picker window">People picker</button>
+        </div>
+        <label class="field">
+          <span>References (this slide, bottom of screen)</span>
+          <input id="referencesTextInput" type="text" placeholder="e.g. A. Author et al., Nature 000, 000 (2026)" />
+        </label>
+        <label class="field check-row">
+          <input id="referencesInvertCheckbox" type="checkbox" />
+          <span>Invert references text (this slide)</span>
+        </label>
+        <label class="field">
+          <span>Credits position (this slide)</span>
+          <select id="creditsPositionSelect">
+            <option value="">— Deck default —</option>
+            <option value="bottom-left">Bottom left</option>
+            <option value="bottom-right">Bottom right</option>
+            <option value="top-left">Top left</option>
+            <option value="top-right">Top right</option>
+            <option value="right-column">Right side (top to bottom)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Name style (all slides)</span>
+          <select id="creditsNameStyleSelect">
+            <option value="full">Full name</option>
+            <option value="last">Last name only</option>
+          </select>
+        </label>
+        <label class="field check-row">
+          <input id="creditsNarrowFontCheckbox" type="checkbox" />
+          <span>Narrow name font (all slides)</span>
+        </label>
+        <label class="field check-row">
+          <input id="creditsShadeCheckbox" type="checkbox" />
+          <span>Shade behind portraits (all slides)</span>
+        </label>
+        <label class="field check-row">
+          <input id="creditsShowAffiliationCheckbox" type="checkbox" />
+          <span>Affiliation below credits names</span>
+        </label>
+        <label class="field">
+          <span>Credits zoom <span id="creditsScaleValue" class="hint">100%</span></span>
+          <input id="creditsScaleRange" type="range" min="0.4" max="2.5" step="0.05" value="1" />
+        </label>
+        <label class="field">
+          <span>Acknowledgements style (all slides)</span>
+          <select id="creditsAckStyleSelect">
+            <option value="columns">Columns · groups side by side</option>
+            <option value="card">Card · bordered panel with title</option>
+            <option value="banner">Banner · accent title band on top</option>
+            <option value="rail">Rail · affiliation label beside each row</option>
+            <option value="mosaic">Mosaic · all faces packed, no headings</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Acknowledgements portrait zoom <span id="ackPortraitScaleValue" class="hint">100%</span></span>
+          <input id="ackPortraitScaleRange" type="range" min="0.4" max="2.5" step="0.05" value="1" />
+        </label>
+        <label class="field">
+          <span>Acknowledgements area zoom <span id="ackAreaScaleValue" class="hint">100%</span></span>
+          <input id="ackAreaScaleRange" type="range" min="0.4" max="2" step="0.05" value="1" />
+        </label>
+        <label class="field">
+          <span>References zoom <span id="referencesScaleValue" class="hint">100%</span></span>
+          <input id="referencesScaleRange" type="range" min="0.5" max="2.5" step="0.05" value="1" />
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>Overlay Sources</h2>
+        <div class="source-file-group">
+          <label class="source-file-row" for="importOverlayImageInput">
+            <span>Add images</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="importOverlayImageInput" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpg,.jpeg,.gif,.svg" multiple />
+          </label>
+          <label class="source-file-row" for="importOverlaySequenceInput">
+            <span>Add sequence</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="importOverlaySequenceInput" type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,.png,.jpg,.jpeg,.gif,.svg" multiple />
+          </label>
+          <label class="source-file-row" for="importOverlayVideoInput">
+            <span>Add video</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="importOverlayVideoInput" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime,.mp4,.webm,.ogv,.mov,.m4v" multiple />
+          </label>
+          <label class="source-file-row" for="importOverlayPdfInput">
+            <span>Add PDF</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="importOverlayPdfInput" type="file" accept="application/pdf,.pdf" multiple />
+          </label>
+          <label class="source-file-row" for="importOverlayHtmlInput">
+            <span>Add HTML file</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="importOverlayHtmlInput" type="file" accept="text/html,.html" multiple />
+          </label>
+          <label class="source-file-row" for="addHtmlFileLinkInput">
+            <span>Add HTML file link</span>
+            <span class="choose-files-btn">Choose files</span>
+            <input id="addHtmlFileLinkInput" type="file" accept="text/html,.html" multiple />
+          </label>
+        </div>
+        <div class="field row">
+          <button id="addNotesBoardBtn">Add Notes Board source</button>
+          <button id="addNotebookPanelBtn">Add Notebook Panel source</button>
+          <button id="pruneUnusedDataBtn" type="button">Prune unused</button>
+          <button id="clearSourcesBtn" class="danger" type="button">Clear sources</button>
+        </div>
+        <div id="sourceList" class="source-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Overlay Editor</h2>
+        <div class="row">
+          <button id="drawRectBtn">Draw overlay</button>
+          <button id="severOverlaySourceBtn" type="button" title="Sever selected overlay source link">
+            <span class="sever-overlay-icon"><span class="rect">▭</span><span class="cross">✕</span></span>
+          </button>
+          <button id="bringFrontBtn">Move forward</button>
+          <button id="sendBackBtn">Move backward</button>
+        </div>
+
+        <label class="field">
+          <span>Source</span>
+          <select id="overlaySourceSelect"></select>
+        </label>
+
+        <div class="overlay-option-grid">
+          <label class="field check-row option-chip">
+            <input id="overlayFramedCheckbox" type="checkbox" checked />
+            <span>Framed</span>
+          </label>
+
+          <label class="field check-row option-chip">
+            <input id="overlayShadedCheckbox" type="checkbox" />
+            <span>Shaded</span>
+          </label>
+
+          <label class="field check-row option-chip">
+            <input id="overlayAllowWritingCheckbox" type="checkbox" />
+            <span>Pen</span>
+          </label>
+
+          <label class="field check-row option-chip">
+            <input id="overlayLockedCheckbox" type="checkbox" />
+            <span>Locked</span>
+          </label>
+
+          <label class="field check-row option-chip">
+            <input id="overlayAllowKeyControlCheckbox" type="checkbox" />
+            <span>Key control</span>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Opacity</span>
+          <input id="overlayOpacityRange" type="range" min="0.1" max="1" step="0.05" value="1" />
+        </label>
+
+        <label class="field">
+          <span>Local zoom <span id="overlayLocalScaleValue">100%</span></span>
+          <div class="local-zoom-row">
+            <input id="overlayLocalScaleRange" type="range" min="0.25" max="3" step="0.05" value="1" />
+            <button id="overlayLocalScaleResetBtn" type="button">Reset 100%</button>
+          </div>
+        </label>
+
+        <div class="geometry-grid">
+          <label class="field"><span>X%</span><input id="overlayXInput" type="number" min="0" max="100" step="0.1" /></label>
+          <label class="field"><span>Y%</span><input id="overlayYInput" type="number" min="0" max="100" step="0.1" /></label>
+          <label class="field"><span>W%</span><input id="overlayWInput" type="number" min="1" max="100" step="0.1" /></label>
+          <label class="field"><span>H%</span><input id="overlayHInput" type="number" min="1" max="100" step="0.1" /></label>
+        </div>
+
+      </section>
+
+      <section class="panel" id="animationPanel">
+        <h2>Animation Events</h2>
+
+        <div class="row animation-step-controls">
+          <button id="animPrevStepBtn" type="button">Prev step</button>
+          <button id="animNextStepBtn" type="button">Next step</button>
+          <button id="animResetStepBtn" type="button">Reset</button>
+        </div>
+
+        <label class="field check-row">
+          <input id="animAutoplayCheckbox" type="checkbox" />
+          <span>Autoplay in presenter mode</span>
+        </label>
+
+        <label class="field">
+          <span>Autoplay delay (ms)</span>
+          <input id="animAutoplayDelayInput" type="number" min="100" max="5000" step="50" value="900" />
+        </label>
+
+        <div id="animStepStatus" class="hint">No animation events on this slide.</div>
+
+        <div class="row animation-add-row">
+          <button id="animAddAppearInstantBtn" type="button">+ Appear after click</button>
+          <button id="animAddAppearFadeBtn" type="button">+ Appear with previous</button>
+          <button id="animAddDisappearInstantBtn" type="button">+ Remove after click</button>
+          <button id="animAddDisappearFadeBtn" type="button">+ Remove with previous</button>
+        </div>
+
+        <div id="animationEventList" class="animation-event-list"></div>
+
+        <details class="animation-diagnostics">
+          <summary>Remap diagnostics</summary>
+          <div id="remapReport" class="remap-report">No remap run yet.</div>
+        </details>
+      </section>
+    </aside>
+
+    <section class="stage-wrap">
+      <div class="stage-meta">
+        <div id="slideCounter">Slide 0 / 0</div>
+        <div id="slideTitleBar" class="slide-title-bar" hidden>
+          <label class="slide-title-toggle" title="Show a title strip on this slide (on/off per slide)">
+            <input id="slideTitleToggle" type="checkbox" />
+            <span>Title</span>
+          </label>
+          <input id="slideTitleInput" type="text" placeholder="Slide title (optional)" spellcheck="true" />
+          <select id="slideTitleStyleSelect" title="Title design, the same for every slide in the deck">
+            <option value="section">Design: match section</option>
+            <option value="minimal-left">Minimal · left</option>
+            <option value="minimal-center">Minimal · centered</option>
+            <option value="band">Accent band</option>
+            <option value="overlay">Dark fade</option>
+            <option value="split">Navy band</option>
+          </select>
+        </div>
+        <div id="modeHint">Edit mode: draw rectangle then set source.</div>
+      </div>
+      <div id="stage" class="stage"></div>
+      <div class="nav-row">
+        <button id="prevSlideBtn">Prev</button>
+        <button id="textToolBtn" data-tooltip="Add text to slide (click to place)">Text</button>
+        <button id="nextSlideBtn">Next</button>
+      </div>
+      <div id="thumbnailGridPanel" class="thumbnail-grid-panel">
+        <div id="thumbnailGridContainer" class="thumbnail-grid-container"></div>
+      </div>
+      <div id="textToolbox" class="text-toolbox hidden">
+        <select id="textFontSelect" data-tooltip="Font family">
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="Verdana, sans-serif">Verdana</option>
+          <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+          <option value="Trebuchet MS, sans-serif">Trebuchet MS</option>
+          <option value="'Segoe UI', sans-serif">Segoe UI</option>
+          <option value="'Windings'">Wingdings</option>
+          <option value="'Symbol'">Symbol</option>
+        </select>
+        <span class="text-toolbox-size">
+          <input id="textSizeInput" type="number" min="6" max="240" step="1" value="24"
+                 list="textSizePresets" data-tooltip="Text size (slide points). Ctrl+Shift+&gt; / &lt; to step." />
+          <datalist id="textSizePresets">
+            <option value="10"></option><option value="12"></option><option value="14"></option>
+            <option value="16"></option><option value="18"></option><option value="20"></option>
+            <option value="24"></option><option value="28"></option><option value="32"></option>
+            <option value="36"></option><option value="40"></option><option value="44"></option>
+            <option value="54"></option><option value="66"></option><option value="80"></option>
+            <option value="96"></option><option value="120"></option><option value="160"></option>
+          </datalist>
+          <button id="textSizeDownBtn" class="text-style-btn text-size-step" type="button" data-tooltip="Shrink text (Ctrl+Shift+&lt;)">A−</button>
+          <button id="textSizeUpBtn" class="text-style-btn text-size-step" type="button" data-tooltip="Grow text (Ctrl+Shift+&gt;)">A+</button>
+        </span>
+        <span class="text-toolbox-sep"></span>
+        <button id="textBoldBtn" class="text-style-btn" type="button" data-tooltip="Bold (Ctrl+B)">B</button>
+        <button id="textItalicBtn" class="text-style-btn" type="button" data-tooltip="Italic (Ctrl+I)">I</button>
+        <button id="textUnderlineBtn" class="text-style-btn" type="button" data-tooltip="Underline (Ctrl+U)">U</button>
+        <button id="textSubBtn" class="text-style-btn" type="button" data-tooltip="Subscript (Ctrl+,)">X₂</button>
+        <button id="textSupBtn" class="text-style-btn" type="button" data-tooltip="Superscript (Ctrl+.)">X²</button>
+        <input type="color" id="textColorInput" data-tooltip="Text colour (applies to selection)" />
+        <span class="text-toolbox-sep"></span>
+        <button id="textAlignLeftBtn" class="text-style-btn" type="button" data-tooltip="Align left">▤</button>
+        <button id="textAlignCenterBtn" class="text-style-btn" type="button" data-tooltip="Align centre">▥</button>
+        <button id="textAlignRightBtn" class="text-style-btn" type="button" data-tooltip="Align right">▦</button>
+        <button id="textBulletBtn" class="text-style-btn" type="button" data-tooltip="Bulleted list">• ≡</button>
+        <select id="textBulletStyleSelect" data-tooltip="Bullet marker style for this text box (• ≡ toggles the list on/off)">
+          <option value="disc">● circle</option>
+          <option value="dash">– dash</option>
+          <option value="chevron">› chevron</option>
+          <option value="diamond">◆ diamond</option>
+          <option value="glow">◉ glow</option>
+          <option value="bar">▬ bar</option>
+          <option value="slash">// slash</option>
+          <option value="spark">✦ spark</option>
+          <option value="enum">01 numbers</option>
+        </select>
+        <span class="text-toolbox-sep"></span>
+        <button id="textVAlignBtn" class="text-style-btn text-style-wide" type="button" data-tooltip="Vertical anchor: top / middle / bottom">⊤</button>
+        <button id="textAutoFitBtn" class="text-style-btn text-style-wide" type="button" data-tooltip="Autofit: grow box / shrink text / off">Grow</button>
+        <span class="text-toolbox-sep"></span>
+        <label class="text-toolbox-fill">
+          <input type="checkbox" id="textShadingCheckbox" />
+          <span data-tooltip="Background fill behind the text">Fill</span>
+        </label>
+        <input type="color" id="textFillColorInput" data-tooltip="Fill colour" />
+        <input id="textFillOpacityInput" type="range" min="0" max="100" step="5" value="30" data-tooltip="Fill opacity" />
+        <span class="text-toolbox-sep"></span>
+        <button id="textClearFormatBtn" class="text-style-btn text-style-wide" type="button" data-tooltip="Clear formatting on selection">⌫ Fmt</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="zoomModal" class="zoom-modal hidden">
+    <div class="zoom-modal-backdrop" id="zoomBackdrop"></div>
+    <div class="zoom-modal-content">
+      <button id="zoomCloseBtn" class="zoom-close">Close</button>
+      <div id="zoomViewport" class="zoom-viewport"></div>
+    </div>
+  </div>
+
+  <div id="manualModal" class="manual-modal hidden" role="dialog" aria-modal="true" aria-labelledby="manualTitle">
+    <div class="manual-modal-backdrop" id="manualBackdrop"></div>
+    <div id="manualDialog" class="manual-modal-content">
+      <div id="manualHeader" class="manual-modal-header">
+        <h2 id="manualTitle">Interactive Presenter v8 Manual</h2>
+        <button id="manualCloseBtn" class="manual-close" type="button" aria-label="Close manual">&times;</button>
+      </div>
+      <div id="manualScroller" class="manual-scroller"></div>
+      <div id="manualResizeHandle" class="manual-resize-handle" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <div id="aboutModal" class="manual-modal hidden" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="manual-modal-backdrop" id="aboutBackdrop"></div>
+    <div id="aboutDialog" class="manual-modal-content about-modal-content">
+      <div class="manual-modal-header about-modal-header">
+        <h2 id="aboutTitle">About Interactive Presenter v8</h2>
+        <button id="aboutCloseBtn" class="manual-close" type="button" aria-label="Close about dialog">&times;</button>
+      </div>
+      <div id="aboutScroller" class="manual-scroller"></div>
+    </div>
+  </div>
+
+  <div id="creditsPicker" class="credits-picker hidden" role="dialog" aria-label="People picker">
+    <div class="credits-picker-header">
+      <button id="creditsPickerDragHandle" class="credits-picker-drag" type="button" data-tooltip="Drag people picker" aria-label="Drag people picker">⠿</button>
+      <span class="credits-picker-title">People on this slide</span>
+      <button id="creditsPickerCloseBtn" class="credits-picker-close" type="button" aria-label="Hide people picker">&times;</button>
+    </div>
+    <div id="creditsPickerHint" class="credits-picker-hint">Check people in the order they should appear.</div>
+    <div id="creditsPickerList" class="credits-picker-list"></div>
+    <div class="credits-picker-footer">
+      <button id="creditsPickerClearBtn" type="button">Uncheck all</button>
+    </div>
+  </div>
+
+  <div id="floatingToolbar" class="floating-toolbar" aria-label="Floating edit toolbar">
+    <button id="ftDragHandle" class="floating-toolbar-drag-handle" type="button" data-tooltip="Drag toolbar" aria-label="Drag toolbar">⠿</button>
+    <button id="floatingToolbarCloseBtn" class="floating-toolbar-close" type="button" data-tooltip="Hide floating toolbar">&times;</button>
+
+    <button id="ftSaveBtn" class="floating-toolbar-btn" type="button" data-proxy="saveZipBtn" data-tooltip="Save">💾</button>
+    <button id="ftSaveAsBtn" class="floating-toolbar-btn" type="button" data-proxy="saveAsZipBtn" data-tooltip="Save As">📁</button>
+    <button id="ftTextBtn" class="floating-toolbar-btn" type="button" data-proxy="textToolBtn" data-tooltip="Text tool">A</button>
+    <button id="ftDrawBtn" class="floating-toolbar-btn" type="button" data-proxy="drawRectBtn" data-tooltip="Draw Overlay">▭</button>
+    <button id="ftSeverSourceBtn" class="floating-toolbar-btn" type="button" data-proxy="severOverlaySourceBtn" data-tooltip="Sever selected overlay source link">
+      <span class="sever-overlay-icon"><span class="rect">▭</span><span class="cross">✕</span></span>
+    </button>
+    <button id="ftForwardBtn" class="floating-toolbar-btn" type="button" data-proxy="bringFrontBtn" data-tooltip="Move Forward">⬆</button>
+    <button id="ftBackwardBtn" class="floating-toolbar-btn" type="button" data-proxy="sendBackBtn" data-tooltip="Move Backward">⬇</button>
+
+    <button id="ftStyleMenuToggleBtn" class="floating-toolbar-btn" type="button" data-tooltip="Overlay style and control options">⚙</button>
+
+    <label class="floating-toolbar-zoom" data-tooltip="Overlay local zoom">
+      <span>🔎</span>
+      <input id="ftZoomRange" type="range" min="0.25" max="3" step="0.05" value="1" />
+    </label>
+
+    <button id="ftAppearAfterClickBtn" class="floating-toolbar-btn" type="button" data-proxy="animAddAppearInstantBtn" data-tooltip="Appear after click">✨</button>
+
+    <div id="ftStyleMenu" class="floating-toolbar-submenu hidden">
+      <button id="ftToggleFramedBtn" class="floating-toolbar-submenu-btn" type="button" data-check-id="overlayFramedCheckbox" data-tooltip="Framed">🖼 Framed</button>
+      <button id="ftTogglePenBtn" class="floating-toolbar-submenu-btn" type="button" data-check-id="overlayAllowWritingCheckbox" data-tooltip="Pen">✍ Pen</button>
+      <button id="ftToggleKeyBtn" class="floating-toolbar-submenu-btn" type="button" data-check-id="overlayAllowKeyControlCheckbox" data-tooltip="Key control">⌨ Key</button>
+      <button id="ftToggleShadedBtn" class="floating-toolbar-submenu-btn" type="button" data-check-id="overlayShadedCheckbox" data-tooltip="Shaded">◪ Shaded</button>
+      <button id="ftToggleLockedBtn" class="floating-toolbar-submenu-btn" type="button" data-check-id="overlayLockedCheckbox" data-tooltip="Locked">🔒 Locked</button>
+      <label class="floating-toolbar-submenu-select" data-tooltip="Bullet marker style for the selected text box">
+        <span>• style</span>
+        <select id="ftBulletStyleSelect">
+          <option value="disc">● circle</option>
+          <option value="dash">– dash</option>
+          <option value="chevron">› chevron</option>
+          <option value="diamond">◆ diamond</option>
+          <option value="glow">◉ glow</option>
+          <option value="bar">▬ bar</option>
+          <option value="slash">// slash</option>
+          <option value="spark">✦ spark</option>
+          <option value="enum">01 numbers</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <script src="./jszip.min.js"></script>
+  <script src="appX.js"></script>
+  <script src="slide-transfer.js"></script>
+  <script src="project-canvas-copy.js"></script>
+  <script src="dtuwrite-board.js"></script>
+  <script src="deck-links.js"></script>
+  <script src="deck-panel.js"></script>
+  <script>
+  // Open the deck named by ?deck=... (relative to this page, or an absolute file:// address) on start.
+  // open-ipe.ps1 uses this when a .ipe file is double-clicked.
+  (async function () {
+    const rel = new URLSearchParams(location.search).get("deck");
+    if (!rel) return;
+    try {
+      const res = await fetch(new URL(rel, location.href).href);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const blob = await res.blob();
+      const name = decodeURIComponent(rel.split("/").pop());
+      const abs = new URL(rel, location.href).href;
+      await loadDeckZip(new File([blob], name, { type: "application/zip" }), { deckFileUrl: /^file:/i.test(abs) ? abs : "" });
+    } catch (err) {
+      alert("Could not open the presentation automatically (" + err.message + ").\nUse Load project to open it by hand.");
+    }
+  })();
+  // A PowerPoint file converted by open-ipe.ps1 (tools/pptx-export.ps1): ?pptx=<file address of manifest.json>
+  (async function () {
+    const src = new URLSearchParams(location.search).get("pptx");
+    if (!src) return;
+    try {
+      const r = await importPowerPointManifest(new URL(src, location.href).href);
+      if (dom.modeHint) dom.modeHint.textContent = `Imported ${r.slides - 1} PowerPoint slides after a title page` + (r.animations ? `, ${r.animations} animation${r.animations === 1 ? "" : "s"}` : "") + (r.animMerged ? ` (${r.animMerged} paragraph step${r.animMerged === 1 ? "" : "s"} on boxes that came in as pictures merged into one)` : "") + (r.animSkipped ? ` (${r.animSkipped} animation${r.animSkipped === 1 ? "" : "s"} skipped)` : "") + (r.notes ? ` (speaker notes on ${r.notes} slide${r.notes === 1 ? "" : "s"} were not carried over)` : "") + ". Save to keep it as an .ipe file.";
+    } catch (err) {
+      alert("Could not import the PowerPoint file (" + err.message + ").");
+    }
+  })();
+  </script>
+</body>
+</html>

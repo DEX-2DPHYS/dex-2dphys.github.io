@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notes Board</title>
+  <style>
+    /* ── Blue theme (default) ─────────────────────────────── */
+    :root {
+      --bg: #edf5ff;
+      --panel: rgba(255, 255, 255, 0.92);
+      --editor-bg: rgba(255, 255, 255, 0.88);
+      --line: rgba(116, 152, 192, 0.55);
+      --ink: #112846;
+      --muted: #4b6788;
+      --accent: #0b6cb8;
+      --shadow: 0 6px 18px rgba(18, 56, 94, 0.16);
+      --shell-pad: 6px;
+      --body-bg: radial-gradient(circle at 8% 0%, rgba(255,255,255,0.85), rgba(255,255,255,0) 40%),
+                 linear-gradient(160deg, #eff6ff 0%, #dcebf9 100%);
+    }
+
+    /* ── White theme ──────────────────────────────────────── */
+    body[data-theme="white"] {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --editor-bg: #ffffff;
+      --line: transparent;
+      --ink: #1a1a1a;
+      --muted: #767676;
+      --accent: #0b6cb8;
+      --shadow: none;
+      --shell-pad: 0px;
+      --body-bg: #ffffff;
+    }
+
+    /* ── Black theme ──────────────────────────────────────── */
+    body[data-theme="black"] {
+      --bg: #000000;
+      --panel: #0a0a0a;
+      --editor-bg: #000000;
+      --line: rgba(255, 255, 255, 0.18);
+      --ink: #f5f7fa;
+      --muted: #9ea7b3;
+      --accent: #69b9ff;
+      --shadow: none;
+      --shell-pad: 0px;
+      --body-bg: #000000;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      font-family: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--body-bg);
+      overflow: hidden;
+    }
+
+    .shell {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      padding: var(--shell-pad, 6px);
+    }
+
+    .toolbar-slot {
+      position: absolute;
+      top: var(--shell-pad, 6px);
+      left: var(--shell-pad, 6px);
+      right: var(--shell-pad, 6px);
+      height: 30px;
+      overflow: visible;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* ── Toolbar ──────────────────────────────────────────────
+       The previous board hid the toolbar on focus and again on every
+       keystroke, so it disappeared exactly when you wanted to change a
+       style. It now stays while the pointer is over the board or the
+       editor has focus, and can be pinned outright.                    */
+    .toolbar {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 5px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      backdrop-filter: blur(6px) saturate(110%);
+      box-shadow: var(--shadow);
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      transform: translateY(-120%);
+      opacity: 0;
+      transition: transform 140ms ease, opacity 140ms ease;
+      pointer-events: none;
+    }
+
+    .toolbar::-webkit-scrollbar { display: none; }
+
+    body.toolbar-visible .toolbar {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .toolbar button,
+    .toolbar select {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 6px;
+      background: var(--editor-bg);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.25;
+      flex-shrink: 0;
+    }
+
+    .toolbar select { font-weight: 400; padding: 2px 4px; }
+    .toolbar button:hover { border-color: var(--accent); }
+    .toolbar button:disabled { opacity: 0.4; cursor: default; }
+
+    .toolbar button.active {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, #eef7ff, #d8ebff);
+      color: #103f66;
+    }
+
+    body[data-theme="white"] .toolbar button.active { background: #e4f0ff; }
+
+    .toolbar .fmt-b { font-weight: 800; }
+    .toolbar .fmt-i { font-style: italic; }
+    .toolbar .fmt-u { text-decoration: underline; }
+
+    .size-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .size-value {
+      min-width: 24px;
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .sep {
+      width: 1px;
+      height: 16px;
+      background: var(--line);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
+    .status {
+      margin-left: auto;
+      padding-left: 6px;
+      font-size: 0.64rem;
+      color: var(--muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* A permanently visible hairline so the toolbar is discoverable without
+       having to guess that it lives under the top edge. */
+    .toolbar-hint {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 34px;
+      height: 3px;
+      margin-left: -17px;
+      border-radius: 0 0 3px 3px;
+      background: var(--line);
+      opacity: 0.8;
+      pointer-events: none;
+      transition: opacity 140ms ease;
+      z-index: 19;
+    }
+
+    body.toolbar-visible .toolbar-hint { opacity: 0; }
+
+    /* ── Editor ───────────────────────────────────────────── */
+    #editor {
+      width: 100%;
+      height: calc(100% - (var(--shell-pad, 6px) * 2));
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--editor-bg);
+      box-shadow: var(--shadow);
+      padding: 12px 15px;
+      outline: none;
+      overflow: auto;
+      line-height: 1.5;
+      /* Slide points converted to px by the host, so the board reads the same
+         on a laptop and on a 4K projector. The old board stored its size in
+         this browser's localStorage, which meant the same deck looked
+         different on a different machine and every board shared one size. */
+      font-size: calc(var(--fs-pt, 18) * var(--px-per-pt, 1) * 1px);
+      word-break: break-word;
+    }
+
+    #editor:focus { border-color: var(--accent); }
+
+    #editor h1 {
+      margin: 0.25em 0 0.3em;
+      font-size: 1.55em;
+      line-height: 1.2;
+      color: var(--accent);
+    }
+
+    #editor h2 {
+      margin: 0.3em 0 0.35em;
+      font-size: 1.2em;
+      line-height: 1.3;
+      color: var(--ink);
+      opacity: 0.85;
+    }
+
+    #editor p { margin: 0.25em 0; }
+    #editor ul, #editor ol { margin: 0.2em 0 0.2em 1.3em; padding: 0; }
+    #editor li { margin: 0.1em 0; }
+    #editor:empty::before {
+      content: "Type notes here…";
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    body[data-theme="white"] #editor {
+      border: none;
+      border-radius: 0;
+      background: #ffffff;
+      box-shadow: none;
+    }
+
+    body[data-theme="white"] .toolbar {
+      border: none;
+      border-radius: 0;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      backdrop-filter: none;
+    }
+
+    body[data-theme="black"] #editor {
+      border: none;
+      border-radius: 0;
+      background: #000000;
+      box-shadow: none;
+      color: #f5f7fa;
+    }
+
+    body[data-theme="black"] .toolbar {
+      border: none;
+      border-radius: 0;
+      background: #0a0a0a;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+      backdrop-filter: none;
+    }
+
+    body[data-theme="black"] .toolbar button,
+    body[data-theme="black"] .toolbar select {
+      border-color: rgba(255, 255, 255, 0.2);
+      background: #131313;
+      color: #f5f7fa;
+    }
+
+    body[data-theme="black"] .toolbar button.active {
+      border-color: #69b9ff;
+      background: linear-gradient(180deg, #0f2333, #12314a);
+      color: #dff0ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="toolbar-hint" aria-hidden="true"></div>
+    <div class="toolbar-slot">
+      <div class="toolbar">
+        <select id="blockStyleSelect" title="Paragraph style">
+          <option value="body">Body</option>
+          <option value="heading">Heading</option>
+          <option value="section">Section</option>
+        </select>
+        <button id="bulletBtn" type="button" title="Bulleted list (Ctrl+Shift+L)">•</button>
+        <button id="numberBtn" type="button" title="Numbered list (Ctrl+Shift+N)">1.</button>
+        <div class="sep"></div>
+        <button id="boldBtn" class="fmt-b" type="button" title="Bold (Ctrl+B)">B</button>
+        <button id="italicBtn" class="fmt-i" type="button" title="Italic (Ctrl+I)">I</button>
+        <button id="underlineBtn" class="fmt-u" type="button" title="Underline (Ctrl+U)">U</button>
+        <input id="colorInput" type="color" value="#112846" title="Text colour" style="width:26px;height:22px;padding:0;border:1px solid var(--line);border-radius:5px;background:none;cursor:pointer;flex-shrink:0" />
+        <div class="sep"></div>
+        <div class="size-group">
+          <button id="sizeDownBtn" type="button" title="Smaller text (Ctrl+Shift+&lt;)">A−</button>
+          <span id="sizeValue" class="size-value" title="Text size in slide points">18</span>
+          <button id="sizeUpBtn" type="button" title="Larger text (Ctrl+Shift+&gt;)">A+</button>
+        </div>
+        <div class="sep"></div>
+        <button id="alignLeftBtn" type="button" title="Align left">▤</button>
+        <button id="alignCenterBtn" type="button" title="Align centre">▥</button>
+        <button id="alignRightBtn" type="button" title="Align right">▦</button>
+        <div class="sep"></div>
+        <button id="undoBtn" type="button" title="Undo (Ctrl+Z)">↶</button>
+        <button id="redoBtn" type="button" title="Redo (Ctrl+Y)">↷</button>
+        <div class="sep"></div>
+        <button id="themeToggleBtn" type="button" title="Toggle theme">◑</button>
+        <button id="pinBtn" type="button" title="Keep this toolbar visible">📌</button>
+        <button id="loadBtn" type="button" title="Load Markdown">⤒</button>
+        <button id="saveBtn" type="button" title="Save as Markdown">⤓</button>
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+    <div id="editor" contenteditable="true" spellcheck="true" aria-label="Notes editor"></div>
+    <input id="loadInput" type="file" accept=".md,text/markdown,text/plain" style="display:none" />
+  </div>
+
+  <script>
+    const editor        = document.getElementById("editor");
+    const statusEl      = document.getElementById("status");
+    const blockStyleSel = document.getElementById("blockStyleSelect");
+    const bulletBtn     = document.getElementById("bulletBtn");
+    const numberBtn     = document.getElementById("numberBtn");
+    const boldBtn       = document.getElementById("boldBtn");
+    const italicBtn     = document.getElementById("italicBtn");
+    const underlineBtn  = document.getElementById("underlineBtn");
+    const colorInput    = document.getElementById("colorInput");
+    const sizeDownBtn   = document.getElementById("sizeDownBtn");
+    const sizeUpBtn     = document.getElementById("sizeUpBtn");
+    const sizeValue     = document.getElementById("sizeValue");
+    const alignLeftBtn  = document.getElementById("alignLeftBtn");
+    const alignCenterBtn = document.getElementById("alignCenterBtn");
+    const alignRightBtn = document.getElementById("alignRightBtn");
+    const undoBtn       = document.getElementById("undoBtn");
+    const redoBtn       = document.getElementById("redoBtn");
+    const themeBtn      = document.getElementById("themeToggleBtn");
+    const pinBtn        = document.getElementById("pinBtn");
+    const loadBtn       = document.getElementById("loadBtn");
+    const loadInput     = document.getElementById("loadInput");
+    const saveBtn       = document.getElementById("saveBtn");
+
+    // Only the toolbar pin is a per-person convenience, so it is the one thing
+    // still kept in this browser. Size and theme belong to the deck.
+    const LS_PIN       = "notesBoard.pinToolbar";
+    const THEME_ORDER  = ["blue", "white", "black"];
+    const SIZE_LADDER  = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 54, 66, 80, 96];
+    const SIZE_MIN     = 8;
+    const SIZE_MAX     = 96;
+
+    let notesKey  = "";
+    let saveTimer = 0;
+    let settings  = { fontSize: 18, theme: "blue" };
+    let suppressChange = false;
+
+    function clamp(n, lo, hi) { return Math.min(hi, Math.max(lo, n)); }
+
+    // ── Toolbar visibility ────────────────────────────────
+    let pointerInside = false;
+    let pinned = false;
+    try { pinned = localStorage.getItem(LS_PIN) === "1"; } catch {}
+
+    function refreshToolbar() {
+      const visible = pinned || pointerInside || document.activeElement === editor;
+      document.body.classList.toggle("toolbar-visible", visible);
+      pinBtn.classList.toggle("active", pinned);
+    }
+
+    document.addEventListener("pointerenter", () => { pointerInside = true; refreshToolbar(); });
+    document.addEventListener("pointermove", () => {
+      if (!pointerInside) { pointerInside = true; refreshToolbar(); }
+    }, { passive: true });
+    document.addEventListener("pointerleave", () => { pointerInside = false; refreshToolbar(); });
+    window.addEventListener("blur", () => { pointerInside = false; refreshToolbar(); });
+    editor.addEventListener("focus", refreshToolbar);
+    editor.addEventListener("blur", refreshToolbar);
+
+    pinBtn.addEventListener("click", () => {
+      pinned = !pinned;
+      try { localStorage.setItem(LS_PIN, pinned ? "1" : "0"); } catch {}
+      refreshToolbar();
+    });
+
+    // Toolbar buttons must not steal the caret, or the selection collapses
+    // before the command runs.
+    document.querySelector(".toolbar").addEventListener("mousedown", (ev) => {
+      if (ev.target.closest("button")) { ev.preventDefault(); }
+    });
+
+    // ── Helpers ───────────────────────────────────────────
+    function setStatus(text) { statusEl.textContent = text; }
+
+    function setDocHtml(html) {
+      editor.innerHTML = html && String(html).trim() ? String(html) : "";
+    }
+
+    function currentDocHtml() {
+      const html = editor.innerHTML || "";
+      return html.trim() ? html : "<p><br></p>";
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // ── postMessage ───────────────────────────────────────
+    function requestInit() {
+      window.parent.postMessage({ type: "notes:request-init" }, "*");
+    }
+
+    function flushChange() {
+      window.parent.postMessage({
+        type: "notes:change",
+        notesKey,
+        doc: currentDocHtml(),
+        settings: { ...settings },
+      }, "*");
+      setStatus("Saved");
+    }
+
+    function queueChange() {
+      if (suppressChange) { return; }
+      setStatus("Saving…");
+      window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(flushChange, 250);
+    }
+
+    window.addEventListener("message", (ev) => {
+      const data = ev.data;
+      if (!data || typeof data !== "object") { return; }
+
+      if (data.type === "notes:init") {
+        notesKey = String(data.notesKey || "");
+        suppressChange = true;
+        setDocHtml(data.doc);
+        applySettings(data.settings);
+        applyPxPerPoint(data.pxPerPoint);
+        suppressChange = false;
+        setStatus("");
+        refreshButtons();
+        return;
+      }
+
+      // The host re-sends the scale when the stage is resized, so the board
+      // keeps matching the rest of the slide without reloading.
+      if (data.type === "notes:scale") {
+        applyPxPerPoint(data.pxPerPoint);
+      }
+    });
+
+    function applyPxPerPoint(value) {
+      const n = Number(value);
+      document.documentElement.style.setProperty("--px-per-pt", String(Number.isFinite(n) && n > 0 ? n : 1));
+    }
+
+    // ── Settings (stored in the deck, not in this browser) ─
+    function applySettings(next) {
+      const incoming = next && typeof next === "object" ? next : {};
+      settings.fontSize = clamp(Number(incoming.fontSize) || 18, SIZE_MIN, SIZE_MAX);
+      settings.theme = THEME_ORDER.includes(incoming.theme) ? incoming.theme : "blue";
+      document.documentElement.style.setProperty("--fs-pt", String(settings.fontSize));
+      sizeValue.textContent = String(settings.fontSize);
+      document.body.dataset.theme = settings.theme === "blue" ? "" : settings.theme;
+      const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(settings.theme) + 1) % THEME_ORDER.length];
+      themeBtn.title = `Switch to ${nextTheme} theme`;
+    }
+
+    function updateSettings(patch) {
+      applySettings({ ...settings, ...patch });
+      queueChange();
+    }
+
+    function stepSize(direction) {
+      const current = settings.fontSize;
+      let next;
+      if (direction > 0) {
+        next = SIZE_LADDER.find((s) => s > current + 0.01);
+        if (next === undefined) { next = Math.round(current * 1.2); }
+      } else {
+        const lower = SIZE_LADDER.filter((s) => s < current - 0.01);
+        next = lower.length ? lower[lower.length - 1] : Math.round(current / 1.2);
+      }
+      updateSettings({ fontSize: clamp(next, SIZE_MIN, SIZE_MAX) });
+    }
+
+    sizeUpBtn.addEventListener("click", () => stepSize(1));
+    sizeDownBtn.addEventListener("click", () => stepSize(-1));
+
+    themeBtn.addEventListener("click", () => {
+      const nextTheme = THEME_ORDER[(THEME_ORDER.indexOf(settings.theme) + 1) % THEME_ORDER.length];
+      updateSettings({ theme: nextTheme });
+    });
+
+    // ── Formatting ────────────────────────────────────────
+    function exec(command, value = null, css = false) {
+      editor.focus();
+      try {
+        document.execCommand("styleWithCSS", false, css);
+        document.execCommand(command, false, value);
+      } catch {
+        return;
+      }
+      refreshButtons();
+      queueChange();
+    }
+
+    function applyBlock(tagName, styleName) {
+      editor.focus();
+      document.execCommand("formatBlock", false, tagName);
+      blockStyleSel.value = styleName;
+      queueChange();
+    }
+
+    blockStyleSel.addEventListener("change", () => {
+      const v = blockStyleSel.value;
+      if (v === "heading") applyBlock("H1", "heading");
+      else if (v === "section") applyBlock("H2", "section");
+      else applyBlock("P", "body");
+    });
+
+    bulletBtn.addEventListener("click", () => exec("insertUnorderedList"));
+    numberBtn.addEventListener("click", () => exec("insertOrderedList"));
+    boldBtn.addEventListener("click", () => exec("bold"));
+    italicBtn.addEventListener("click", () => exec("italic"));
+    underlineBtn.addEventListener("click", () => exec("underline"));
+    colorInput.addEventListener("input", () => exec("foreColor", colorInput.value, true));
+    alignLeftBtn.addEventListener("click", () => exec("justifyLeft", null, true));
+    alignCenterBtn.addEventListener("click", () => exec("justifyCenter", null, true));
+    alignRightBtn.addEventListener("click", () => exec("justifyRight", null, true));
+    undoBtn.addEventListener("click", () => exec("undo"));
+    redoBtn.addEventListener("click", () => exec("redo"));
+
+    function queryState(command) {
+      try { return document.queryCommandState(command); } catch { return false; }
+    }
+
+    function refreshButtons() {
+      boldBtn.classList.toggle("active", queryState("bold"));
+      italicBtn.classList.toggle("active", queryState("italic"));
+      underlineBtn.classList.toggle("active", queryState("underline"));
+      bulletBtn.classList.toggle("active", queryState("insertUnorderedList"));
+      numberBtn.classList.toggle("active", queryState("insertOrderedList"));
+      alignLeftBtn.classList.toggle("active", queryState("justifyLeft"));
+      alignCenterBtn.classList.toggle("active", queryState("justifyCenter"));
+      alignRightBtn.classList.toggle("active", queryState("justifyRight"));
+    }
+
+    document.addEventListener("selectionchange", () => {
+      if (document.activeElement !== editor && !editor.contains(document.activeElement)) { return; }
+      refreshButtons();
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) { return; }
+      let node = sel.getRangeAt(0).startContainer;
+      let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+      while (el && el !== editor) {
+        const tag = el.tagName ? el.tagName.toUpperCase() : "";
+        if (tag === "H1") { blockStyleSel.value = "heading"; return; }
+        if (tag === "H2") { blockStyleSel.value = "section"; return; }
+        el = el.parentElement;
+      }
+      blockStyleSel.value = "body";
+    });
+
+    // ── Keyboard ──────────────────────────────────────────
+    editor.addEventListener("keydown", (ev) => {
+      const mod = ev.ctrlKey || ev.metaKey;
+      const lower = String(ev.key || "").toLowerCase();
+
+      if (mod && !ev.altKey && ev.shiftKey && (ev.key === ">" || ev.key === "." )) {
+        ev.preventDefault(); stepSize(1); return;
+      }
+      if (mod && !ev.altKey && ev.shiftKey && (ev.key === "<" || ev.key === "," )) {
+        ev.preventDefault(); stepSize(-1); return;
+      }
+      if (mod && !ev.altKey && ev.shiftKey && lower === "l") {
+        ev.preventDefault(); exec("insertUnorderedList"); return;
+      }
+      if (mod && !ev.altKey && ev.shiftKey && lower === "n") {
+        ev.preventDefault(); exec("insertOrderedList"); return;
+      }
+      if (mod && !ev.altKey && !ev.shiftKey) {
+        if (lower === "b") { ev.preventDefault(); exec("bold"); return; }
+        if (lower === "i") { ev.preventDefault(); exec("italic"); return; }
+        if (lower === "u") { ev.preventDefault(); exec("underline"); return; }
+      }
+      if (ev.key === "Tab") {
+        ev.preventDefault();
+        document.execCommand("insertHTML", false, "&nbsp;&nbsp;&nbsp;&nbsp;");
+        queueChange();
+      }
+    });
+
+    // Paste keeps structure but drops the source document's own fonts, sizes
+    // and colours, which otherwise arrive as unreadable slabs on a slide.
+    editor.addEventListener("paste", (ev) => {
+      ev.preventDefault();
+      const clip = ev.clipboardData;
+      if (!clip) { return; }
+      const plain = clip.getData("text/plain") || "";
+      const rich = ev.shiftKey ? "" : (clip.getData("text/html") || "");
+      let markup;
+      if (rich) {
+        const holder = document.createElement("div");
+        holder.innerHTML = rich;
+        holder.querySelectorAll("*").forEach((node) => {
+          node.removeAttribute("style");
+          node.removeAttribute("class");
+          node.removeAttribute("width");
+          node.removeAttribute("height");
+        });
+        holder.querySelectorAll("script, style, img, table, iframe, object, svg").forEach((n) => n.remove());
+        markup = holder.innerHTML;
+      } else {
+        markup = escapeHtml(plain).replace(/\r\n?/g, "\n").replace(/\n/g, "<br>");
+      }
+      document.execCommand("insertHTML", false, markup);
+      queueChange();
+    });
+
+    editor.addEventListener("input", () => {
+      refreshButtons();
+      queueChange();
+    });
+
+    // ── Save as Markdown ──────────────────────────────────
+    function htmlToMarkdown(container) {
+      const lines = [];
+      container.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const t = node.textContent.trim();
+          if (t) { lines.push(t); }
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) { return; }
+        const tag  = node.tagName.toUpperCase();
+        const text = node.innerText || node.textContent || "";
+        const clean = text.replace(/​/g, "").trimEnd();
+        if (tag === "H1") {
+          if (lines.length && lines[lines.length - 1] !== "") { lines.push(""); }
+          lines.push("# " + clean);
+          lines.push("");
+        } else if (tag === "H2") {
+          if (lines.length && lines[lines.length - 1] !== "") { lines.push(""); }
+          lines.push("## " + clean);
+          lines.push("");
+        } else if (tag === "UL" || tag === "OL") {
+          if (lines.length && lines[lines.length - 1] !== "") { lines.push(""); }
+          const ordered = tag === "OL";
+          let index = 1;
+          node.querySelectorAll("li").forEach((li) => {
+            const liText = (li.innerText || li.textContent || "").replace(/​/g, "").trimEnd();
+            if (liText) { lines.push((ordered ? `${index++}. ` : "- ") + liText); }
+          });
+          lines.push("");
+        } else {
+          if (tag === "BR" || clean === "") {
+            if (lines.length && lines[lines.length - 1] !== "") { lines.push(""); }
+          } else {
+            lines.push(clean);
+          }
+        }
+      });
+      while (lines.length && lines[lines.length - 1] === "") { lines.pop(); }
+      return lines.join("\n");
+    }
+
+    function markdownToHtml(markdown) {
+      const source = String(markdown || "").replace(/\r\n?/g, "\n");
+      const lines = source.split("\n");
+      const blocks = [];
+      let paragraph = [];
+      let bulletItems = [];
+      let numberItems = [];
+
+      function flushParagraph() {
+        if (!paragraph.length) { return; }
+        blocks.push(`<p>${paragraph.map((line) => escapeHtml(line)).join("<br>")}</p>`);
+        paragraph = [];
+      }
+
+      function flushBullets() {
+        if (!bulletItems.length) { return; }
+        blocks.push(`<ul>${bulletItems.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`);
+        bulletItems = [];
+      }
+
+      function flushNumbers() {
+        if (!numberItems.length) { return; }
+        blocks.push(`<ol>${numberItems.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ol>`);
+        numberItems = [];
+      }
+
+      function flushLists() { flushBullets(); flushNumbers(); }
+
+      lines.forEach((line) => {
+        const cleanLine = line.replace(/​/g, "");
+        const h2 = cleanLine.match(/^##\s+(.+)$/);
+        const h1 = cleanLine.match(/^#\s+(.+)$/);
+        const bullet = cleanLine.match(/^[-*]\s+(.+)$/);
+        const number = cleanLine.match(/^\d+[.)]\s+(.+)$/);
+
+        if (h2) {
+          flushParagraph(); flushLists();
+          blocks.push(`<h2>${escapeHtml(h2[1].trim())}</h2>`);
+          return;
+        }
+        if (h1) {
+          flushParagraph(); flushLists();
+          blocks.push(`<h1>${escapeHtml(h1[1].trim())}</h1>`);
+          return;
+        }
+        if (bullet) {
+          flushParagraph(); flushNumbers();
+          bulletItems.push(bullet[1].trim());
+          return;
+        }
+        if (number) {
+          flushParagraph(); flushBullets();
+          numberItems.push(number[1].trim());
+          return;
+        }
+        if (!cleanLine.trim()) {
+          flushParagraph(); flushLists();
+          return;
+        }
+        paragraph.push(cleanLine.trimEnd());
+      });
+
+      flushParagraph();
+      flushLists();
+      return blocks.length ? blocks.join("") : "<p><br></p>";
+    }
+
+    async function loadMarkdownText(text) {
+      setDocHtml(markdownToHtml(text));
+      queueChange();
+      setStatus("Loaded ✓");
+    }
+
+    loadBtn.addEventListener("click", async () => {
+      if (typeof window.showOpenFilePicker === "function") {
+        try {
+          const handles = await window.showOpenFilePicker({
+            multiple: false,
+            types: [{ description: "Markdown file", accept: { "text/markdown": [".md"], "text/plain": [".txt"] } }],
+          });
+          if (!handles || !handles.length) { return; }
+          const file = await handles[0].getFile();
+          await loadMarkdownText(await file.text());
+          return;
+        } catch (err) {
+          if (err.name === "AbortError") { return; }
+        }
+      }
+      loadInput.value = "";
+      loadInput.click();
+    });
+
+    loadInput.addEventListener("change", async () => {
+      const file = loadInput.files && loadInput.files[0];
+      if (!file) { return; }
+      await loadMarkdownText(await file.text());
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      const md   = htmlToMarkdown(editor);
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+
+      if (typeof window.showSaveFilePicker === "function") {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: "notes.md",
+            types: [{ description: "Markdown file", accept: { "text/markdown": [".md"] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          setStatus("Saved ✓");
+          return;
+        } catch (err) {
+          if (err.name === "AbortError") { return; }
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "notes.md";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Saved ✓");
+    });
+
+    applySettings(settings);
+    applyPxPerPoint(1);
+    refreshToolbar();
+    requestInit();
+  </script>
+</body>
+</html>
