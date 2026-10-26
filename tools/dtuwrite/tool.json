@@ -1,0 +1,13 @@
+{
+  "slug": "dtuwrite",
+  "name": "DTUwrite",
+  "description": "A digital whiteboard for teaching: write with a pen, and each written region is transcribed into LaTeX beside the ink. Students follow the board live on their own devices.",
+  "status": "live",
+  "url": "teachingapps/ink2latex/board/",
+  "icon": "book",
+  "tags": [
+    "app",
+    "educational"
+  ],
+  "note": "Opens the published board. The full version runs on your own PC with your own AI key."
+}

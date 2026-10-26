@@ -1,6 +1,11 @@
 {
   "labels": [
     {
+      "id": "app",
+      "name": "Applications",
+      "description": "Full applications: larger programs with their own workflow, files and downloads - not single simulations. Shown first."
+    },
+    {
       "id": "funding",
       "name": "Funding",
       "description": "Tools tied to funded projects or grant deliverables."
@@ -22,7 +27,7 @@
     },
     {
       "id": "applications",
-      "name": "Applications",
+      "name": "Applied",
       "description": "Applied / device- and experiment-oriented tools."
     },
     {
@@ -58,6 +63,7 @@
     "graphene-phonons",
     "landau",
     "interactive-presenter",
+    "dtuwrite",
     "ebl-workbench",
     "ebl",
     "pattern-transfer",

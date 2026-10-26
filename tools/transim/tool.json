@@ -5,5 +5,10 @@
   "status": "live",
   "url": "tools/transim/TransportSimulator.html",
   "icon": "transport",
-  "tags": ["simulations", "visualisations", "educational"]
+  "tags": [
+    "app",
+    "simulations",
+    "visualisations",
+    "educational"
+  ]
 }
