@@ -57,6 +57,7 @@
     "graphene-bandstructure",
     "graphene-phonons",
     "landau",
+    "interactive-presenter",
     "ebl-workbench",
     "ebl",
     "pattern-transfer",

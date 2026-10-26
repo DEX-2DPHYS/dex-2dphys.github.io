@@ -1,0 +1,2 @@
+Portrait pictures for credit lines on slides (PEOPLE & CREDITS panel).
+Name each picture "First Last (Affiliation).png" (or .jpg).
