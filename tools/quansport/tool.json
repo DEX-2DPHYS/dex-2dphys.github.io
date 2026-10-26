@@ -1,0 +1,14 @@
+{
+  "slug": "quansport",
+  "name": "QuanSport",
+  "description": "Quantum transport through graphene devices with Kwant, on your own PC: open a TranSim device and see quantum transmissions and current maps side by side with TranSim's semiclassical trajectories.",
+  "status": "live",
+  "url": "quansport/",
+  "icon": "transport",
+  "tags": [
+    "app",
+    "simulations",
+    "educational"
+  ],
+  "note": "Download for Windows; the installer sets up its own Python with Kwant."
+}
