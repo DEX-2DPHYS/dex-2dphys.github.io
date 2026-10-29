@@ -2054,6 +2054,19 @@
       let pickPoints = [];
       let layerLayoutCache = null;
       let parallelWorkerUrl = null;
+      // Pre-rendered atom balls, keyed by colour, rounded device-pixel radius and alpha.
+      const atomSpriteCache = new Map();
+      const ATOM_SPRITE_CACHE_LIMIT = 4000;
+      const shadeColorCache = new Map();
+      // Pointer moves are drawn once per animation frame, not once per event.
+      let dragDrawFrame = 0;
+      // While dragging a scene with more atoms than this, the balls are copied pixel by pixel
+      // into one image (whole-pixel positions) instead of 37k canvas draws: canvas cost is per
+      // shape. The release redraws at full precision.
+      const DRAG_PIXEL_ATOMS_MIN = 6000;
+      const atomPixelCache = new Map();
+      let atomPixelCanvas = null;
+      let dragPixelFrame = null;
       const layerContextMenuState = {
         layerIndex: -1,
       };
@@ -2921,6 +2934,11 @@
       }
 
       function shadeColor(color, factor) {
+        const key = `${color}|${factor}`;
+        const cached = shadeColorCache.get(key);
+        if (cached) {
+          return cached;
+        }
         const rgb = parseColorToRgb(color);
         const shadeChannel = (value) => {
           if (factor >= 1) {
@@ -2928,7 +2946,145 @@
           }
           return clamp(Math.round(value * factor), 0, 255);
         };
-        return `rgb(${shadeChannel(rgb.r)}, ${shadeChannel(rgb.g)}, ${shadeChannel(rgb.b)})`;
+        const shaded = `rgb(${shadeChannel(rgb.r)}, ${shadeChannel(rgb.g)}, ${shadeChannel(rgb.b)})`;
+        if (shadeColorCache.size > 4000) {
+          shadeColorCache.clear();
+        }
+        shadeColorCache.set(key, shaded);
+        return shaded;
+      }
+
+      // The ball drawAtom paints (shadow, shaded body, highlight), painted once into a small
+      // canvas at a rounded device-pixel radius and stamped scaled to the exact radius.
+      // Source-over is associative, so the pre-composited stamp gives the same pixels as the
+      // three parts drawn one after another.
+      function getAtomSprite(radius, color, alpha) {
+        const dpr = window.devicePixelRatio || 1;
+        const devR = Math.max(0.25, Math.round(radius * dpr * 4) / 4);
+        const key = `${color}|${devR}|${alpha}`;
+        let sprite = atomSpriteCache.get(key);
+        if (!sprite) {
+          if (atomSpriteCache.size >= ATOM_SPRITE_CACHE_LIMIT) {
+            atomSpriteCache.clear();
+          }
+          const px = atomSpritePx(devR);
+          const canvas = document.createElement("canvas");
+          canvas.width = px;
+          canvas.height = px;
+          paintAtomBall(canvas.getContext("2d"), px / 2, devR, color, alpha);
+          sprite = { canvas, px, devR };
+          atomSpriteCache.set(key, sprite);
+        }
+        const size = (sprite.px / dpr) * ((radius * dpr) / sprite.devR);
+        return { canvas: sprite.canvas, size };
+      }
+
+      function atomSpritePx(devR) {
+        return Math.ceil(devR * 2.4) + 2; // the shadow reaches 1.18 r right/below
+      }
+
+      function paintAtomBall(g, m, r, color, alpha) {
+        g.beginPath();
+        g.arc(m + r * 0.22, m + r * 0.24, r * 0.94, 0, TWO_PI);
+        g.fillStyle = shadeColor(color, 0.46);
+        g.globalAlpha = alpha * 0.3;
+        g.fill();
+        const gradient = g.createRadialGradient(m - r * 0.38, m - r * 0.42, r * 0.22, m, m, r * 1.04);
+        gradient.addColorStop(0, shadeColor(color, 1.48));
+        gradient.addColorStop(0.55, shadeColor(color, 1.06));
+        gradient.addColorStop(1, shadeColor(color, 0.48));
+        g.beginPath();
+        g.arc(m, m, r, 0, TWO_PI);
+        g.fillStyle = gradient;
+        g.globalAlpha = alpha;
+        g.fill();
+        g.beginPath();
+        g.arc(m - r * 0.42, m - r * 0.46, r * 0.22, 0, TWO_PI);
+        g.fillStyle = "#ffffff";
+        g.globalAlpha = alpha * 0.45;
+        g.fill();
+        g.globalAlpha = 1;
+      }
+
+      // The same ball as RGBA pixels (straight alpha), for the drag frames.
+      function getAtomPixels(radius, color, alpha, dpr) {
+        const devR = Math.max(0.25, Math.round(radius * dpr * 4) / 4);
+        const key = `${color}|${devR}|${alpha}`;
+        let entry = atomPixelCache.get(key);
+        if (!entry) {
+          if (atomPixelCache.size >= ATOM_SPRITE_CACHE_LIMIT) {
+            atomPixelCache.clear();
+          }
+          const px = atomSpritePx(devR);
+          if (!atomPixelCanvas) {
+            atomPixelCanvas = document.createElement("canvas");
+          }
+          atomPixelCanvas.width = px; // also clears it
+          atomPixelCanvas.height = px;
+          const g = atomPixelCanvas.getContext("2d", { willReadFrequently: true });
+          paintAtomBall(g, px / 2, devR, color, alpha);
+          const data = g.getImageData(0, 0, px, px).data;
+          entry = { px, data, words: new Uint32Array(data.buffer) };
+          atomPixelCache.set(key, entry);
+        }
+        return entry;
+      }
+
+      // Draw frame while dragging: the queue (far to near) blended into one white image.
+      // Only drawBackground's white fill comes before the atoms, so the image replaces it.
+      function drawAtomQueueAsPixels(queue) {
+        const W = ui.canvas.width;
+        const H = ui.canvas.height;
+        const dpr = window.devicePixelRatio || 1;
+        if (!dragPixelFrame || dragPixelFrame.width !== W || dragPixelFrame.height !== H) {
+          dragPixelFrame = ctx.createImageData(W, H);
+        }
+        const out = dragPixelFrame.data;
+        const outWords = new Uint32Array(out.buffer);
+        out.fill(255);
+        for (let q = 0; q < queue.length; q += 1) {
+          const atom = queue[q];
+          const sprite = getAtomPixels(atom.radius, atom.color, atom.alpha, dpr);
+          const px = sprite.px;
+          const src = sprite.data;
+          const srcWords = sprite.words;
+          const x0 = Math.round(atom.x * dpr - px / 2);
+          const y0 = Math.round(atom.y * dpr - px / 2);
+          const sxStart = Math.max(0, -x0);
+          const sxEnd = Math.min(px, W - x0);
+          if (sxEnd <= sxStart) {
+            continue;
+          }
+          for (let sy = Math.max(0, -y0), syEnd = Math.min(px, H - y0); sy < syEnd; sy += 1) {
+            let s = (sy * px + sxStart) * 4;
+            let o = ((y0 + sy) * W + x0 + sxStart) * 4;
+            for (let sx = sxStart; sx < sxEnd; sx += 1, s += 4, o += 4) {
+              const a = src[s + 3];
+              if (a === 0) {
+                continue;
+              }
+              if (a === 255) {
+                outWords[o >> 2] = srcWords[s >> 2]; // opaque: copy the whole RGBA word
+              } else {
+                const k = a / 255;
+                out[o] += (src[s] - out[o]) * k;
+                out[o + 1] += (src[s + 1] - out[o + 1]) * k;
+                out[o + 2] += (src[s + 2] - out[o + 2]) * k;
+              }
+            }
+          }
+        }
+        ctx.putImageData(dragPixelFrame, 0, 0);
+      }
+
+      function drawAtomSprite(x, y, radius, color, alpha) {
+        if (radius < ATOM_SPHERE_MIN_RADIUS) {
+          drawAtom(x, y, radius, color, alpha);
+          return;
+        }
+        const sprite = getAtomSprite(radius, color, alpha);
+        const half = sprite.size * 0.5;
+        ctx.drawImage(sprite.canvas, x - half, y - half, sprite.size, sprite.size);
       }
 
       function drawAtom(x, y, radius, color, alpha) {
@@ -6872,7 +7028,8 @@
         const derivedReady = derivedComputation.key === derivedKey;
         const derivedPending = derivedComputation.pending && derivedComputation.pendingKey === derivedKey;
         const displayCslBudget = getCslComputationBudget(state.viewSpan, true);
-        const cslScoreSource = cslPair && layerData[cslPair.topIndex] && layerData[cslPair.referenceIndex]
+        // Only the CSL points and the heatmap use these scores; skip the neighbour search otherwise.
+        const cslScoreSource = (state.showCSL || (state.cslHeatmap && state.showAtoms)) && cslPair && layerData[cslPair.topIndex] && layerData[cslPair.referenceIndex]
           ? computeAtomProximityScores(
               layerData[cslPair.topIndex].atoms,
               layerData[cslPair.referenceIndex].atoms,
@@ -6975,9 +7132,16 @@
           }
 
           atomDrawQueue.sort((a, b) => b.depth - a.depth);
+          ctx.globalAlpha = 1;
+          const asPixels = dragState.active && atomDrawQueue.length > DRAG_PIXEL_ATOMS_MIN;
+          if (asPixels) {
+            drawAtomQueueAsPixels(atomDrawQueue);
+          }
           for (let idx = 0; idx < atomDrawQueue.length; idx += 1) {
             const atom = atomDrawQueue[idx];
-            drawAtom(atom.x, atom.y, atom.radius, atom.color, atom.alpha);
+            if (!asPixels) {
+              drawAtomSprite(atom.x, atom.y, atom.radius, atom.color, atom.alpha);
+            }
 
             if (pickPoints.length < MAX_PICK_POINTS) {
               pickPoints.push({ x: atom.x, y: atom.y, layerIndex: atom.layerIndex });
@@ -9161,7 +9325,12 @@
 
         updateGlobalOutputs();
 
-        drawScene();
+        if (!dragDrawFrame) {
+          dragDrawFrame = requestAnimationFrame(() => {
+            dragDrawFrame = 0;
+            drawScene();
+          });
+        }
       }
 
       function onPointerUp(event) {
@@ -9170,6 +9339,10 @@
         }
 
         event.preventDefault();
+        if (dragDrawFrame) {
+          cancelAnimationFrame(dragDrawFrame); // the final drawScene below covers it
+          dragDrawFrame = 0;
+        }
 
         if (dragState.changedLayer) {
           queueAutoRelaxInterfaceGaps(dragState.changeReason || "drag edit");

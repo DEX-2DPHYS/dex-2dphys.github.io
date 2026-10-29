@@ -1,10 +1,13 @@
 {
   "slug": "graphene-vdw",
-  "name": "Graphene vdW Visualizer",
-  "description": "3D visualiser of van der Waals interactions in graphene — render the interlayer vdW pair bonds across the lattice with adjustable cutoff, lighting, and perspective.",
+  "name": "VdW Explorer",
+  "description": "3D view of two stacked graphene sheets with adjustable separation, twist and offset: van der Waals attraction lines show where the layers bind, and in dynamic mode the top flake falls back into its energy minimum.",
   "status": "live",
   "url": "tools/graphene-vdw/index.html",
-  "preview": "assets/tool-previews/graphene-vdw.jpg",
+  "preview": "assets/tool-previews/graphene-vdw.png",
   "icon": "atom",
-  "tags": ["visualisations", "educational"]
+  "tags": [
+    "visualisations",
+    "educational"
+  ]
 }

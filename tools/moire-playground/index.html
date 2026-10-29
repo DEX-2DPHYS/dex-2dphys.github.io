@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moiré Playground</title>
+  <style>
+    :root {
+      --ink: #1d2733;
+      --muted: #5b6675;
+      --line: rgba(15, 23, 42, 0.14);
+      --chip: rgba(255, 255, 255, 0.9);
+    }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+    }
+    canvas#view {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      touch-action: none;
+    }
+    .column {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 8px;
+      background: var(--chip);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+    }
+    .column.left { left: 12px; }
+    .column.right { right: 12px; }
+    .column h3 {
+      margin: 0 0 2px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .column h3 .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .icon {
+      width: 62px;
+      padding: 3px 3px 2px;
+      border: 2px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      font: 600 10px "Segoe UI", sans-serif;
+      color: var(--muted);
+    }
+    .icon canvas { width: 50px; height: 50px; border-radius: 6px; display: block; }
+    .icon:hover { background: rgba(15, 23, 42, 0.05); }
+    .icon.on { color: var(--ink); }
+    .readout {
+      position: fixed;
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: calc(100vw - 220px);
+      padding: 7px 12px;
+      background: var(--chip);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+      font-size: 14px;
+    }
+    .readout b { font-variant-numeric: tabular-nums; }
+    .readout .sep { width: 1px; height: 20px; background: var(--line); }
+    .readout button, .settings button {
+      border: 1px solid rgba(15, 23, 42, 0.2);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.04);
+      color: var(--ink);
+      padding: 3px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .readout button:hover, .settings button:hover { background: rgba(15, 23, 42, 0.1); }
+    .readout button.magic { border-color: #c2255c; color: #c2255c; }
+    #gearBtn {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 6;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+      font-size: 19px;
+      line-height: 36px;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .settings {
+      position: fixed;
+      top: 58px;
+      right: 12px;
+      z-index: 6;
+      width: 290px;
+      padding: 12px 14px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16);
+      font-size: 13px;
+    }
+    .settings[hidden] { display: none; }
+    .settings h4 { margin: 0 0 8px; font-size: 13px; }
+    .settings .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin: 7px 0;
+    }
+    .settings .row.slider { grid-template-columns: 1fr 130px 52px; }
+    .settings input[type="color"] { width: 44px; height: 26px; border: 1px solid var(--line); border-radius: 6px; padding: 0; background: none; }
+    .settings input[type="range"] { width: 100%; accent-color: #1c7ed6; }
+    .settings .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+    .settings select { font-size: 12px; padding: 2px 4px; }
+    .settings .buttons { display: flex; gap: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.
+-->
+<script>
+  window.SIM_INFO = {
+    title: "Moiré playground",
+    about: "Two lattices on top of each other, in two colours. A small twist or a small difference in size makes a pattern far larger than either lattice: the moiré. For two lattices of the same kind its period is λ = a₁a₂ / √(a₁² + a₂² − 2a₁a₂ cos θ), which for equal lattices is a / (2 sin(θ/2)): the smaller the twist, the bigger the moiré. Two honeycomb layers are twisted bilayer graphene; near θ ≈ 1.1° (the 'magic angle') its moiré cell holds about ten thousand atoms.",
+    howto: [
+      "Pick the symmetry of the <b>top layer</b> on the left and of the <b>bottom layer</b> on the right.",
+      "<b>Drag near the edge</b> of the picture to <b>rotate</b> the top layer (the cursor turns into a rotation arrow); <b>drag near the centre</b> to <b>shift</b> it (a hand). Shift while rotating: fine. The <b>mouse wheel</b> changes the lattice size.",
+      "The bar at the bottom shows the angle, the size ratio and the moiré period, with a ruler of that length; the buttons step the angle.",
+      "<b>⚙</b> changes the background, the two colours, the lattice size, the size mismatch between the layers and the dot size."
+    ],
+    shortcuts: [
+      ["← / →", "rotate by 0.1° (Shift: 1°)"],
+      ["Wheel", "lattice size"],
+      ["0", "angle 0°"],
+      ["R", "reset the view"],
+      ["I", "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
+  <canvas id="view" aria-label="Two overlaid lattices and their moiré"></canvas>
+
+  <div class="column left" id="topColumn">
+    <h3><span class="dot" id="topDot"></span>Top layer</h3>
+  </div>
+  <div class="column right" id="bottomColumn">
+    <h3><span class="dot" id="bottomDot"></span>Bottom layer</h3>
+  </div>
+
+  <div class="readout" id="readout">
+    <span>θ = <b id="angleVal">0.00°</b></span>
+    <button data-step="-1" type="button">−1°</button>
+    <button data-step="-0.1" type="button">−0.1°</button>
+    <button data-set="0" type="button">0°</button>
+    <button data-step="0.1" type="button">+0.1°</button>
+    <button data-step="1" type="button">+1°</button>
+    <button id="magicBtn" class="magic" data-set="1.08" type="button" title="Twisted bilayer graphene's magic angle">magic 1.08°</button>
+    <div class="sep"></div>
+    <span>a<sub>top</sub>/a<sub>bottom</sub> = <b id="ratioVal">1.000</b></span>
+    <div class="sep"></div>
+    <span id="periodText">moiré period λ = <b id="periodVal">19.1 a</b></span>
+  </div>
+
+  <button id="gearBtn" type="button" title="Settings" aria-label="Settings">⚙</button>
+  <div class="settings" id="settings" hidden>
+    <h4>Settings</h4>
+    <div class="row"><span>Background</span><input id="bgColor" type="color" value="#ffffff" /></div>
+    <div class="row"><span>Top layer colour</span><input id="topColor" type="color" value="#52d42d" /></div>
+    <div class="row"><span>Bottom layer colour</span><input id="bottomColor" type="color" value="#f52b20" /></div>
+    <div class="row slider"><span>Lattice size</span><input id="sizeSlider" type="range" min="6" max="80" step="1" value="18" /><span class="val" id="sizeVal">18 px</span></div>
+    <div class="row slider"><span>Top layer size</span><input id="mismatchSlider" type="range" min="-10" max="10" step="0.1" value="0" /><span class="val" id="mismatchVal">±0%</span></div>
+    <div class="row slider"><span>Dot / line size</span><input id="dotSlider" type="range" min="0.1" max="0.9" step="0.01" value="0.9" /><span class="val" id="dotVal">0.90</span></div>
+    <div class="row"><span>Overlaps</span>
+      <select id="blendSelect">
+        <option value="auto">automatic</option>
+        <option value="multiply">darker (multiply)</option>
+        <option value="source-over">top covers bottom</option>
+        <option value="screen">lighter (screen)</option>
+      </select>
+    </div>
+    <div class="buttons">
+      <button id="resetViewBtn" type="button">Reset view</button>
+      <button id="defaultsBtn" type="button">Defaults</button>
+      <button id="closeSettingsBtn" type="button" style="margin-left:auto">Close</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+      const canvas = document.getElementById("view");
+      const ctx = canvas.getContext("2d");
+      const $ = (id) => document.getElementById(id);
+      const S3 = Math.sqrt(3);
+      const TO_RAD = Math.PI / 180;
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+      // ---- the lattices ---------------------------------------------------------------------------
+      // Each is drawn on a rectangular cell (w × h, in units of the lattice constant a) that tiles the
+      // plane; sites are listed in that cell, bonds join sites a bond length apart. The cell is painted
+      // once into a small canvas and repeated by the GPU as a pattern, with a transform that keeps the
+      // period exact (a rounded tile size alone would make a false moiré of its own).
+      function honeycombSites() {
+        const out = [];
+        for (const [x, y] of [[0, 0], [0.5, S3 / 2]]) {
+          out.push([x, y], [x, y + 1 / S3]);
+        }
+        return out.map(([x, y]) => [x + 0.25, y + 0.2]);
+      }
+      function kagomeSites() {
+        const out = [];
+        for (const [x, y] of [[0, 0], [0.5, S3 / 2]]) {
+          for (const [bx, by] of [[0, 0], [0.5, 0], [0.25, S3 / 4]]) out.push([x + bx, y + by]);
+        }
+        return out.map(([x, y]) => [x + 0.125, y + 0.15]);
+      }
+      const TYPES = {
+        lines: { name: "Lines", w: 1, h: 1, lines: true, sites: [], bond: 0, iso: true },
+        square: { name: "Square", w: 1, h: 1, sites: [[0.5, 0.5]], bond: 0, iso: true },
+        rect: { name: "Rectangle", w: 1, h: 1.6, sites: [[0.5, 0.8]], bond: 0, iso: false },
+        tri: { name: "Triangular", w: 1, h: S3, sites: [[0.25, S3 / 4], [0.75, (3 * S3) / 4]], bond: 0, iso: true },
+        honey: { name: "Honeycomb", w: 1, h: S3, sites: honeycombSites(), bond: 1 / S3, iso: true },
+        kagome: { name: "Kagome", w: 1, h: S3, sites: kagomeSites(), bond: 0.5, iso: true },
+      };
+      const ORDER = ["lines", "square", "rect", "tri", "honey", "kagome"];
+
+      const DEFAULTS = {
+        bg: "#ffffff",
+        topColor: "#52d42d",
+        bottomColor: "#f52b20",
+        size: 18,          // lattice constant a of the bottom layer, CSS px
+        mismatch: 0,       // top layer a = (1 + mismatch/100)·a: same size by default
+        dot: 0.9,          // dot diameter (or line width) as a fraction of the site spacing
+        blend: "auto",
+      };
+      const S = {
+        ...DEFAULTS,
+        top: "honey",
+        bottom: "honey",
+        angle: 0,          // degrees, top layer: starts untwisted
+        shift: { x: 0, y: 0 }, // CSS px, top layer
+        W: 0,
+        H: 0,
+        dpr: 1,
+        drag: null,
+        queued: false,
+        tiles: { top: null, bottom: null },
+      };
+      try {
+        const saved = JSON.parse(localStorage.getItem("moirePlayground.settings") || "null");
+        if (saved) for (const k of Object.keys(DEFAULTS)) if (k in saved) S[k] = saved[k];
+      } catch { /* private window: defaults */ }
+      function saveSettings() {
+        try {
+          const o = {};
+          for (const k of Object.keys(DEFAULTS)) o[k] = S[k];
+          localStorage.setItem("moirePlayground.settings", JSON.stringify(o));
+        } catch { /* fine */ }
+      }
+
+      // the cell, painted in lattice units onto a canvas of tw × th device pixels
+      function paintCell(g, type, color, tw, th, dot) {
+        const T = TYPES[type];
+        g.setTransform(tw / T.w, 0, 0, th / T.h, 0, 0);
+        g.clearRect(0, 0, T.w, T.h);
+        g.fillStyle = color;
+        g.strokeStyle = color;
+        if (T.lines) {
+          const lw = clamp(dot, 0.05, 0.95);
+          g.fillRect(0.5 - lw / 2, -1, lw, T.h + 2);
+          return;
+        }
+        const spacing = T.bond || 1; // nearest-neighbour distance
+        const r = (dot * spacing) / 2;
+        const images = [];
+        for (let dx = -1; dx <= 1; dx += 1) {
+          for (let dy = -1; dy <= 1; dy += 1) {
+            for (const [x, y] of T.sites) images.push([x + dx * T.w, y + dy * T.h]);
+          }
+        }
+        if (T.bond) {
+          g.lineWidth = r * 0.75;
+          g.lineCap = "round";
+          g.beginPath();
+          for (let i = 0; i < images.length; i += 1) {
+            for (let j = i + 1; j < images.length; j += 1) {
+              const d = Math.hypot(images[i][0] - images[j][0], images[i][1] - images[j][1]);
+              if (Math.abs(d - T.bond) < 1e-6) {
+                g.moveTo(images[i][0], images[i][1]);
+                g.lineTo(images[j][0], images[j][1]);
+              }
+            }
+          }
+          g.stroke();
+        }
+        g.beginPath();
+        for (const [x, y] of images) {
+          g.moveTo(x + r, y);
+          g.arc(x, y, r, 0, Math.PI * 2);
+        }
+        g.fill();
+      }
+
+      // one tile per layer, at about one tile pixel per screen pixel (no shimmer when it turns)
+      function layerA(which) {
+        return S.size * (which === "top" ? 1 + S.mismatch / 100 : 1);
+      }
+      function buildTile(which) {
+        const type = S[which];
+        const T = TYPES[type];
+        const aDev = layerA(which) * S.dpr;
+        const tw = Math.max(4, Math.round(T.w * aDev));
+        const th = Math.max(4, Math.round(T.h * aDev));
+        const c = document.createElement("canvas");
+        c.width = tw;
+        c.height = th;
+        paintCell(c.getContext("2d"), type, which === "top" ? S.topColor : S.bottomColor, tw, th, S.dot);
+        S.tiles[which] = { canvas: c, tw, th, pattern: ctx.createPattern(c, "repeat") };
+      }
+
+      function luminance(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+      }
+
+      // ---- the moiré period -----------------------------------------------------------------------
+      // Two lattices of the same kind, constants a₁ (bottom) and a₂ (top), twisted by θ:
+      // λ = a₁a₂ / √(a₁² + a₂² − 2a₁a₂ cos θ)   (= a / (2 sin(θ/2)) for a₁ = a₂).
+      function moirePeriod() {
+        const a1 = layerA("bottom");
+        const a2 = layerA("top");
+        const th = S.angle * TO_RAD;
+        const den = Math.sqrt(Math.max(0, a1 * a1 + a2 * a2 - 2 * a1 * a2 * Math.cos(th)));
+        return den < 1e-9 ? Infinity : (a1 * a2) / den; // CSS px
+      }
+
+      // ---- drawing --------------------------------------------------------------------------------
+      function render() {
+        S.queued = false;
+        const W = canvas.width;
+        const H = canvas.height;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = S.bg;
+        ctx.fillRect(0, 0, W, H);
+        const cx = W / 2;
+        const cy = H / 2;
+        // the bottom layer: fixed, centred
+        const b = S.tiles.bottom;
+        const Tb = TYPES[S.bottom];
+        const ab = layerA("bottom") * S.dpr;
+        b.pattern.setTransform(new DOMMatrix().translate(cx, cy).scale((Tb.w * ab) / b.tw, (Tb.h * ab) / b.th));
+        ctx.fillStyle = b.pattern;
+        ctx.fillRect(0, 0, W, H);
+        // the top layer: shifted and turned about its own centre
+        const t = S.tiles.top;
+        const Tt = TYPES[S.top];
+        const at = layerA("top") * S.dpr;
+        const ox = cx + S.shift.x * S.dpr;
+        const oy = cy + S.shift.y * S.dpr;
+        t.pattern.setTransform(new DOMMatrix().translate(ox, oy).rotate(S.angle).scale((Tt.w * at) / t.tw, (Tt.h * at) / t.th));
+        const blend = S.blend === "auto" ? (luminance(S.bg) > 0.5 ? "multiply" : "screen") : S.blend;
+        ctx.globalCompositeOperation = blend;
+        ctx.fillStyle = t.pattern;
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = "source-over";
+
+        drawRuler();
+        updateReadout();
+      }
+      function requestRender() {
+        if (S.queued) return;
+        S.queued = true;
+        requestAnimationFrame(render);
+      }
+
+      // "rotate" outside this radius around the top layer's centre, "shift" inside; the cursor says which
+      const rotateRadius = () => 0.3 * Math.min(S.W, S.H);
+      const ROTATE_CURSOR = (() => {
+        const arc = "M24.6 12.2 A9.5 9.5 0 1 0 25.2 19.4";
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'>`
+          + `<path d='${arc}' fill='none' stroke='white' stroke-width='6' stroke-linecap='round'/>`
+          + `<path d='${arc}' fill='none' stroke='#1d2733' stroke-width='2.6' stroke-linecap='round'/>`
+          + `<path d='M28.4 5.2 L27 14.6 L18.6 11.4 Z' fill='#1d2733' stroke='white' stroke-width='1.6' stroke-linejoin='round'/>`
+          + `</svg>`;
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, alias`;
+      })();
+      function setCursor(p) {
+        const mode = S.drag ? S.drag.mode : modeAt(p);
+        canvas.style.cursor = mode === "rotate" ? ROTATE_CURSOR : S.drag ? "grabbing" : "grab";
+      }
+
+      // a ruler of one moiré period, above the readout bar
+      function drawRuler() {
+        const lam = moirePeriod();
+        const ro = $("readout").getBoundingClientRect();
+        const d = S.dpr;
+        if (!Number.isFinite(lam) || !TYPES[S.top].iso || S.top !== S.bottom) return;
+        const maxLen = S.W * 0.55;
+        if (lam > maxLen || lam < layerA("bottom") * 1.5) return;
+        const x0 = (S.W / 2 - lam / 2) * d;
+        const x1 = (S.W / 2 + lam / 2) * d;
+        const y = (ro.top - 16) * d;
+        ctx.save();
+        ctx.strokeStyle = "#c2255c";
+        ctx.fillStyle = "#c2255c";
+        ctx.lineWidth = 3 * d;
+        ctx.beginPath();
+        ctx.moveTo(x0, y);
+        ctx.lineTo(x1, y);
+        ctx.moveTo(x0, y - 8 * d);
+        ctx.lineTo(x0, y + 8 * d);
+        ctx.moveTo(x1, y - 8 * d);
+        ctx.lineTo(x1, y + 8 * d);
+        ctx.stroke();
+        ctx.font = `700 ${13 * d}px Segoe UI, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        const txt = "one moiré period λ";
+        const tw = ctx.measureText(txt).width + 12 * d;
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.fillRect((x0 + x1) / 2 - tw / 2, y - 28 * d, tw, 18 * d);
+        ctx.fillStyle = "#c2255c";
+        ctx.fillText(txt, (x0 + x1) / 2, y - 11 * d);
+        ctx.restore();
+      }
+
+      function updateReadout() {
+        $("angleVal").textContent = `${S.angle.toFixed(2)}°`;
+        $("ratioVal").textContent = (1 + S.mismatch / 100).toFixed(3);
+        const lam = moirePeriod();
+        const a = layerA("bottom");
+        const same = S.top === S.bottom;
+        let txt;
+        if (!same) txt = "two different symmetries: no single moiré period";
+        else if (!Number.isFinite(lam)) txt = "aligned and equal: no moiré (λ = ∞)";
+        else if (!TYPES[S.top].iso) txt = `rectangles: λ ≈ ${(lam / a).toFixed(1)} a along the short side`;
+        else txt = `moiré period λ = ${(lam / a).toFixed(1)} a${lam > S.W ? " (larger than the screen)" : ""}`;
+        $("periodText").textContent = txt;
+        $("magicBtn").hidden = !(S.top === "honey" && S.bottom === "honey");
+      }
+
+      // ---- the symmetry icons ---------------------------------------------------------------------
+      function buildIcons() {
+        for (const [which, col] of [["top", $("topColumn")], ["bottom", $("bottomColumn")]]) {
+          col.querySelectorAll(".icon").forEach((n) => n.remove());
+          for (const type of ORDER) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "icon";
+            btn.dataset.type = type;
+            btn.title = `${which === "top" ? "Top" : "Bottom"} layer: ${TYPES[type].name}`;
+            const c = document.createElement("canvas");
+            const px = Math.round(50 * S.dpr);
+            c.width = px;
+            c.height = px;
+            btn.appendChild(c);
+            btn.appendChild(document.createTextNode(TYPES[type].name));
+            btn.addEventListener("click", () => {
+              S[which] = type;
+              buildTile(which);
+              syncIcons();
+              requestRender();
+            });
+            col.appendChild(btn);
+          }
+        }
+        paintIcons();
+        syncIcons();
+      }
+      function paintIcons() {
+        for (const [which, col] of [["top", $("topColumn")], ["bottom", $("bottomColumn")]]) {
+          const color = which === "top" ? S.topColor : S.bottomColor;
+          col.querySelectorAll(".icon").forEach((btn) => {
+            const type = btn.dataset.type;
+            const T = TYPES[type];
+            const c = btn.querySelector("canvas");
+            const g = c.getContext("2d");
+            const aPx = c.width / 3.2;
+            const tw = Math.max(4, Math.round(T.w * aPx));
+            const th = Math.max(4, Math.round(T.h * aPx));
+            const tile = document.createElement("canvas");
+            tile.width = tw;
+            tile.height = th;
+            paintCell(tile.getContext("2d"), type, color, tw, th, Math.max(S.dot, 0.35));
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            g.fillStyle = S.bg;
+            g.fillRect(0, 0, c.width, c.height);
+            const pat = g.createPattern(tile, "repeat");
+            pat.setTransform(new DOMMatrix().scale((T.w * aPx) / tw, (T.h * aPx) / th));
+            g.fillStyle = pat;
+            g.fillRect(0, 0, c.width, c.height);
+          });
+        }
+        $("topDot").style.background = S.topColor;
+        $("bottomDot").style.background = S.bottomColor;
+      }
+      function syncIcons() {
+        for (const [which, col] of [["top", $("topColumn")], ["bottom", $("bottomColumn")]]) {
+          const color = which === "top" ? S.topColor : S.bottomColor;
+          col.querySelectorAll(".icon").forEach((btn) => {
+            const on = btn.dataset.type === S[which];
+            btn.classList.toggle("on", on);
+            btn.style.borderColor = on ? color : "transparent";
+          });
+        }
+      }
+
+      // ---- interaction ----------------------------------------------------------------------------
+      const local = (e) => ({ x: e.clientX, y: e.clientY });
+      function modeAt(p) {
+        const cx = S.W / 2 + S.shift.x;
+        const cy = S.H / 2 + S.shift.y;
+        return Math.hypot(p.x - cx, p.y - cy) > rotateRadius() ? "rotate" : "shift";
+      }
+      canvas.addEventListener("pointerdown", (e) => {
+        const p = local(e);
+        const mode = modeAt(p);
+        const cx = S.W / 2 + S.shift.x;
+        const cy = S.H / 2 + S.shift.y;
+        S.drag = { mode, p0: p, angle0: S.angle, shift0: { ...S.shift }, a0: Math.atan2(p.y - cy, p.x - cx), last: Math.atan2(p.y - cy, p.x - cx), turned: 0 };
+        canvas.setPointerCapture(e.pointerId);
+        $("settings").hidden = true;
+        setCursor(p);
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        const p = local(e);
+        if (!S.drag) {
+          setCursor(p);
+          return;
+        }
+        const d = S.drag;
+        if (d.mode === "rotate") {
+          const cx = S.W / 2 + S.shift.x;
+          const cy = S.H / 2 + S.shift.y;
+          const a = Math.atan2(p.y - cy, p.x - cx);
+          let da = a - d.last;
+          if (da > Math.PI) da -= 2 * Math.PI;
+          if (da < -Math.PI) da += 2 * Math.PI;
+          d.last = a;
+          d.turned += (da / TO_RAD) * (e.shiftKey ? 0.1 : 1);
+          setAngle(d.angle0 + d.turned);
+        } else {
+          S.shift = { x: d.shift0.x + p.x - d.p0.x, y: d.shift0.y + p.y - d.p0.y };
+          requestRender();
+        }
+      });
+      function endDrag(e) {
+        if (!S.drag) return;
+        S.drag = null;
+        try { canvas.releasePointerCapture(e.pointerId); } catch { /* fine */ }
+        setCursor(local(e));
+        requestRender();
+      }
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", endDrag);
+      // the mouse wheel sets the lattice size (both layers; the slider in ⚙ follows)
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const factor = Math.exp(-e.deltaY * 0.0012);
+        const next = clamp(Math.round(S.size * factor * 10) / 10, 6, 80);
+        if (next === S.size) return;
+        S.size = next;
+        changed();
+      }, { passive: false });
+
+      function setAngle(v) {
+        let a = ((v + 180) % 360 + 360) % 360 - 180; // −180 … 180
+        if (Math.abs(a) < 1e-9) a = 0;
+        S.angle = a;
+        requestRender();
+      }
+      $("readout").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.step) setAngle(Math.round((S.angle + Number(b.dataset.step)) * 100) / 100);
+        if (b.dataset.set !== undefined) setAngle(Number(b.dataset.set));
+      });
+      window.addEventListener("keydown", (e) => {
+        const tag = (e.target?.tagName || "").toLowerCase();
+        if (tag === "input" || tag === "select") return;
+        if (e.key === "ArrowLeft") { setAngle(Math.round((S.angle - (e.shiftKey ? 1 : 0.1)) * 100) / 100); e.preventDefault(); }
+        else if (e.key === "ArrowRight") { setAngle(Math.round((S.angle + (e.shiftKey ? 1 : 0.1)) * 100) / 100); e.preventDefault(); }
+        else if (e.key === "0") setAngle(0);
+        else if (e.key === "r" || e.key === "R") resetView();
+      });
+      function resetView() {
+        S.angle = 0;
+        S.shift = { x: 0, y: 0 };
+        requestRender();
+      }
+
+      // ---- settings -------------------------------------------------------------------------------
+      function syncSettingsUi() {
+        $("bgColor").value = S.bg;
+        $("topColor").value = S.topColor;
+        $("bottomColor").value = S.bottomColor;
+        $("sizeSlider").value = String(S.size);
+        $("sizeVal").textContent = `${S.size} px`;
+        $("mismatchSlider").value = String(S.mismatch);
+        $("mismatchVal").textContent = S.mismatch === 0 ? "±0%" : `${S.mismatch > 0 ? "+" : "−"}${Math.abs(S.mismatch).toFixed(1)}%`;
+        $("dotSlider").value = String(S.dot);
+        $("dotVal").textContent = Number(S.dot).toFixed(2);
+        $("blendSelect").value = S.blend;
+        document.body.style.background = S.bg;
+      }
+      function changed(rebuild = true) {
+        if (rebuild) {
+          buildTile("top");
+          buildTile("bottom");
+          paintIcons();
+          syncIcons();
+        }
+        syncSettingsUi();
+        saveSettings();
+        requestRender();
+      }
+      $("gearBtn").addEventListener("click", () => { $("settings").hidden = !$("settings").hidden; });
+      $("closeSettingsBtn").addEventListener("click", () => { $("settings").hidden = true; });
+      $("bgColor").addEventListener("input", (e) => { S.bg = e.target.value; changed(); });
+      $("topColor").addEventListener("input", (e) => { S.topColor = e.target.value; changed(); });
+      $("bottomColor").addEventListener("input", (e) => { S.bottomColor = e.target.value; changed(); });
+      $("sizeSlider").addEventListener("input", (e) => { S.size = Number(e.target.value); changed(); });
+      $("mismatchSlider").addEventListener("input", (e) => { S.mismatch = Number(e.target.value); changed(); });
+      $("dotSlider").addEventListener("input", (e) => { S.dot = Number(e.target.value); changed(); });
+      $("blendSelect").addEventListener("change", (e) => { S.blend = e.target.value; changed(false); });
+      $("resetViewBtn").addEventListener("click", resetView);
+      $("defaultsBtn").addEventListener("click", () => {
+        Object.assign(S, DEFAULTS);
+        changed();
+        resetView();
+      });
+
+      function resize() {
+        S.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        S.W = window.innerWidth;
+        S.H = window.innerHeight;
+        canvas.width = Math.round(S.W * S.dpr);
+        canvas.height = Math.round(S.H * S.dpr);
+        buildTile("top");
+        buildTile("bottom");
+        requestRender();
+      }
+      window.addEventListener("resize", () => { resize(); buildIcons(); });
+
+      resize();
+      buildIcons();
+      syncSettingsUi();
+      requestRender();
+
+      // for checks
+      window.moirePlayground = {
+        state: () => ({ top: S.top, bottom: S.bottom, angle: S.angle, shift: { ...S.shift }, size: S.size, mismatch: S.mismatch, period: moirePeriod() / layerA("bottom") }),
+        set: (o) => { Object.assign(S, o); changed(); },
+        setAngle,
+      };
+    })();
+  </script>
+</body>
+</html>

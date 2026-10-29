@@ -1,0 +1,9 @@
+{
+  "slug": "moire-playground",
+  "name": "Moiré Playground",
+  "description": "Put two lattices on top of each other with a small twist or size difference and watch a moiré pattern appear that is far larger than either lattice, with the formula for its period.",
+  "status": "live",
+  "url": "tools/moire-playground/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational"]
+}

@@ -1,0 +1,9 @@
+{
+  "slug": "landau-fan",
+  "name": "Landau Fan",
+  "description": "The Landau fan of graphene: longitudinal resistivity against carrier density and magnetic field, with a Bohr–Sommerfeld orbit that counts the electron wavelengths around each cyclotron orbit.",
+  "status": "live",
+  "url": "tools/landau-fan/index.html",
+  "icon": "chart",
+  "tags": ["visualisations", "simulations", "educational"]
+}
