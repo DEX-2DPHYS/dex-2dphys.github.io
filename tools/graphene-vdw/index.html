@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -49,6 +49,67 @@
   #stage { position:relative; aspect-ratio:16/9; width:min(100vw, calc(100vh * 16 / 9)); height:min(100vh, calc(100vw * 9 / 16));
     max-width:100vw; max-height:100vh; border:none; border-radius:0; overflow:hidden; background:#fff; }
   #gl { display:block; width:100%; height:100%; }
+  #metrics {
+    position:absolute; left:20px; bottom:20px; z-index:10; min-width:308px;
+    padding:14px 17px; border:1.4px solid rgba(217,222,227,.9); border-radius:14px;
+    background:rgba(255,255,255,.9); box-shadow:0 2px 12px rgba(0,0,0,.06);
+    backdrop-filter:blur(5px); pointer-events:none; font-size:17px;
+  }
+  #metrics .metric { display:flex; justify-content:space-between; gap:25px; margin:3px 0; }
+  #metrics .metric-label { color:var(--muted); }
+  #metrics .metric-value { color:var(--fg); font-weight:700; font-variant-numeric:tabular-nums; }
+  #metrics .metric-note { color:var(--muted); font-size:14px; margin-top:7px; }
+  /* ---------- Dynamics additions ---------- */
+  .row select { width:100%; background:#fff; border:1px solid var(--edge); color:#111;
+    padding:4px 6px; border-radius:8px; font-size:12px; }
+  button.on { background:#dbeafe; color:#0b3ea8; font-weight:700; }
+  .metric.dyn-only { display:none; }
+  body.dyn-on .metric.dyn-only { display:flex; }
+
+  /* Height rail: a vertical slider on the left of the stage that sets the
+     interlayer height the way Ctrl-drag does and follows the flake. */
+  #hRail {
+    position:absolute; left:20px; top:64px; z-index:10;
+    height:calc(100% - 64px - 230px); max-height:420px; min-height:120px;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:10px 8px 8px; border:1.4px solid rgba(217,222,227,.9); border-radius:14px;
+    background:rgba(255,255,255,.9); box-shadow:0 2px 12px rgba(0,0,0,.06);
+    backdrop-filter:blur(5px);
+  }
+  #hRail .hr-label { font-size:15px; font-weight:700; color:var(--fg); line-height:1; }
+  #hRail .hr-sub { font-size:11px; color:var(--muted); line-height:1; margin-top:-2px; }
+  #hRail input[type=range] {
+    writing-mode:vertical-lr; direction:rtl;
+    flex:1 1 auto; min-height:60px; width:22px; margin:4px 0; cursor:ns-resize;
+    accent-color:var(--accent);
+  }
+  #hRail .hr-value { font-size:14px; font-weight:700; color:var(--fg);
+    font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1; }
+  #dynBadge {
+    position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:11;
+    padding:7px 14px; border-radius:999px; border:1px solid rgba(11,87,208,.35);
+    background:rgba(219,234,254,.92); color:#0b3ea8;
+    font-size:14px; font-weight:700; white-space:nowrap; pointer-events:none;
+    display:none;
+  }
+  body.dyn-on #dynBadge { display:block; }
+
+  #energyPanel {
+    position:absolute; right:20px; bottom:20px; z-index:12;
+    width:min(460px, 48%); height:270px;
+    padding:8px 10px 6px; border:1.4px solid rgba(217,222,227,.9); border-radius:14px;
+    background:rgba(255,255,255,.94); box-shadow:0 2px 12px rgba(0,0,0,.06);
+    backdrop-filter:blur(5px); display:none; flex-direction:column; gap:4px;
+  }
+  #energyPanel.visible { display:flex; }
+  #energyPanel .ep-head { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    cursor:grab; user-select:none; touch-action:none; }
+  #energyPanel.dragging .ep-head { cursor:grabbing; }
+  #energyPanel .ep-title::before { content:"\2725"; margin-right:7px; color:#9aa6ba; font-weight:400; }
+  #energyPanel .ep-title { font-size:13px; font-weight:700; color:var(--fg); }
+  #energyPanel .ep-head button { padding:3px 8px; font-size:11px; }
+  #energyPanel .ep-body { flex:1 1 auto; min-height:0; position:relative; }
+  #energyPanel canvas { width:100%; height:100%; display:block; }
 </style>
 </head>
 <body>
@@ -63,19 +124,25 @@
 <script>
   window.SIM_INFO = {
     title: "Graphene vdW visualizer",
-    about: "3D WebGL view of two graphene sheets stacked with a tunable interlayer separation, twist, and lateral offset. Draws van-der-Waals attraction lines between atom pairs whose 1/r⁶ interaction exceeds a threshold; the number and colour of the lines give a visual measure of the vdW binding energy.",
+    about: "3D WebGL view of two graphene sheets stacked with a tunable interlayer separation, twist, and lateral offset. Draws van-der-Waals attraction lines between atom pairs whose 1/r⁶ interaction exceeds a threshold; the number and colour of the lines give a visual measure of the vdW binding energy. In <b>dynamic mode</b> the top flake is a rigid body with mass: released, it falls back into the minimum of the Lennard-Jones energy landscape, oscillating in height and in registry until the damping has removed its energy.",
     howto: [
-      "Hover the right edge to open the control panel (lattice, rendering, vdW cutoff, utilities).",
+      "Hover the right edge to open the control panel (lattice, rendering, vdW cutoff, dynamics, utilities).",
       "<b>Drag</b> the scene to orbit; <b>right-drag</b> to pan; <b>wheel</b> to zoom.",
-      "Hold <b>Ctrl</b> while dragging to slide the bottom layer; hold <b>Shift</b> to slide the top layer.",
+      "Hold <b>Ctrl</b> while dragging up or down to change the top layer height, or use the <b>height slider</b> on the left of the view (it follows the layer); hold <b>Shift</b> to slide the top layer sideways.",
+      "Dynamics is on when the page opens: let go of the top flake and it relaxes to the nearest energy minimum, in height <i>and</i> in the plane. Press <b>Dynamics: OFF</b> (or <b>D</b>) for the original static visualizer.",
+      "Three models are available: <b>A — damped MD</b> integrates Newton's equations on the exact LJ surface, <b>B — damped normal modes</b> linearises the surface around the minimum, <b>C — overdamped</b> drops inertia so the flake slides straight into the minimum and stops there.",
+      "Press <b>Energy vs time</b> (or <b>E</b>) to watch potential, kinetic and total energy while the flake settles; drag the chart by its title bar to move it out of the way.",
       "Tweak the cutoff slider to trade drawing speed for accuracy."
     ],
     shortcuts: [
       ["Drag",         "orbit"],
       ["Right-drag",   "pan"],
       ["Wheel",        "zoom"],
-      ["Ctrl + drag",  "slide bottom layer"],
-      ["Shift + drag", "slide top layer"],
+      ["Ctrl + drag",  "move top layer up / down"],
+      ["Shift + drag", "move top layer sideways"],
+      ["D",            "toggle dynamic mode"],
+      ["E",            "show / hide the energy-vs-time chart"],
+      ["R",            "release the top layer again"],
       ["I",            "show / hide this info"]
     ]
   };
@@ -280,29 +347,29 @@
 <div id="shell">
   <div id="ui">
     <h1>Graphene vdW Visualizer — Inline WebGL2</h1>
-    <div class="small">16:9 viewport • drag orbit • right-drag pan • wheel zoom • hold Ctrl while dragging to slide the bottom layer • hold Shift while dragging to slide the top layer.</div>
+    <div class="small">16:9 viewport • drag orbit • right-drag pan • wheel zoom • Ctrl-drag or the height slider on the left to move the top layer up/down • Shift-drag to move it sideways.</div>
     <details class="group" open>
       <summary>Lattice</summary>
       <div class="gbody">
         <div class="row">
           <label for="nCells">N (unit cells)</label>
-          <input id="nCells" type="range" min="2" max="18" step="1" value="10">
-          <input id="nCellsNum" type="number" min="2" max="18" step="1" value="10">
+          <input id="nCells" type="range" min="2" max="30" step="1" value="10">
+          <input id="nCellsNum" type="number" min="2" max="30" step="1" value="10">
         </div>
         <div class="row">
           <label for="hSep">h (Å, separation)</label>
-          <input id="hSep" type="range" min="1" max="8" step="0.01" value="3.35">
-          <input id="hSepNum" type="number" min="1" max="8" step="0.01" value="3.35">
+          <input id="hSep" type="range" min="3.34" max="13.36" step="0.01" value="3.34">
+          <input id="hSepNum" type="number" min="3.34" max="13.36" step="0.01" value="3.34">
         </div>
         <div class="row">
           <label for="yShift">Top layer y-shift (Å)</label>
-          <input id="yShift" type="range" min="-7" max="7" step="0.01" value="-2.56">
-          <input id="yShiftNum" type="number" min="-7" max="7" step="0.01" value="-2.56">
+          <input id="yShift" type="range" min="-100" max="100" step="0.01" value="-2.56">
+          <input id="yShiftNum" type="number" min="-100" max="100" step="0.01" value="-2.56">
         </div>
         <div class="row">
           <label for="xShift">Top layer x-shift (Å)</label>
-          <input id="xShift" type="range" min="-7" max="7" step="0.01" value="-0.13">
-          <input id="xShiftNum" type="number" min="-7" max="7" step="0.01" value="-0.13">
+          <input id="xShift" type="range" min="-100" max="100" step="0.01" value="-0.13">
+          <input id="xShiftNum" type="number" min="-100" max="100" step="0.01" value="-0.13">
         </div>
         <div class="row">
           <label for="depthShift">Depth shift (Å)</label>
@@ -359,6 +426,63 @@
       </div>
     </details>
     <details class="group" open>
+      <summary>Pair potential</summary>
+      <div class="gbody">
+        <div class="row" style="grid-template-columns: 1fr;">
+          <select id="ljConv" title="How the 3.4 Å figure quoted for graphene is interpreted. This sets the repulsive coefficient B and therefore the equilibrium interlayer spacing.">
+            <option value="notes">r₀ = 3.42 Å is the zero crossing (Cho et al., lecture notes)</option>
+            <option value="legacy">r₀ = 3.40 Å is the pair minimum (original code)</option>
+          </select>
+        </div>
+        <div class="small" id="ljInfo">—</div>
+      </div>
+    </details>
+    <details class="group" open>
+      <summary>Dynamics</summary>
+      <div class="gbody">
+        <div class="row" style="grid-template-columns: 1fr 1fr;">
+          <button id="dynToggle" title="Switch between the original static visualizer and the dynamic mode, in which the top flake has mass and relaxes to the energy minimum.">Dynamics: OFF</button>
+          <button id="energyPlotToggle" title="Show the potential, kinetic and total energy of the top flake as a function of time.">Energy vs time</button>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr;">
+          <button id="hModeBtn" title="Lock the two in-plane directions and let the flake move only in height. The full binding-energy curve E(h) is plotted, with a marker that follows the flake.">E vs h mode: OFF</button>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr 2fr;">
+          <label for="dynModel">Model</label>
+          <select id="dynModel" title="A: Newton's equations integrated on the exact Lennard-Jones surface. B: the surface is replaced by its harmonic approximation around the minimum and the three normal modes are propagated analytically.">
+            <option value="lj">A — Damped MD (full LJ)</option>
+            <option value="harmonic">B — Damped normal modes</option>
+            <option value="sd">C — Overdamped (no oscillation)</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="dynGamma">Damping γ (ps⁻¹)</label>
+          <input id="dynGamma" type="range" min="0" max="20" step="0.05" value="1">
+          <input id="dynGammaNum" type="number" min="0" max="20" step="0.05" value="1">
+        </div>
+        <div class="row">
+          <label for="dynSpeed">Playback (ps per s)</label>
+          <input id="dynSpeed" type="range" min="0.05" max="10" step="0.05" value="1">
+          <input id="dynSpeedNum" type="number" min="0.05" max="10" step="0.05" value="1">
+        </div>
+        <div class="row">
+          <label for="dynDt">Time step (fs)</label>
+          <input id="dynDt" type="range" min="0.5" max="20" step="0.5" value="5">
+          <input id="dynDtNum" type="number" min="0.5" max="20" step="0.5" value="5">
+        </div>
+        <div class="row">
+          <label for="dynRc">Energy cutoff r<sub>c</sub> (Å)</label>
+          <input id="dynRc" type="range" min="8" max="40" step="0.5" value="25">
+          <input id="dynRcNum" type="number" min="8" max="40" step="0.5" value="25">
+        </div>
+        <div class="row" style="grid-template-columns: 1fr 1fr;">
+          <button id="releaseBtn" title="Zero the velocity and let the flake go from where it is now.">Release</button>
+          <button id="dynReset" title="Reset the clock and clear the recorded energy history.">Reset clock</button>
+        </div>
+        <div class="small" id="dynStatus">Dynamic mode is off — the sim behaves exactly as before.</div>
+      </div>
+    </details>
+    <details class="group" open>
       <summary>Utilities</summary>
       <div class="gbody">
         <div class="row" style="grid-template-columns: 1fr 1fr 1fr;">
@@ -372,6 +496,29 @@
   <div id="stageWrap">
     <div id="stage">
       <canvas id="gl"></canvas>
+      <div id="dynBadge">DYNAMICS ON</div>
+      <div id="hRail" aria-label="Interlayer height">
+        <div class="hr-label">h</div>
+        <div class="hr-sub">height</div>
+        <input id="hRailSlider" type="range" min="3.34" max="13.36" step="0.01" value="3.34"
+               aria-label="Interlayer height in angstrom"
+               title="Interlayer height h. Drag to lift or lower the top layer (the same as Ctrl-drag); with dynamics on, let go and the flake relaxes.">
+        <div class="hr-value" id="hRailValue">3.34 Å</div>
+      </div>
+      <div id="metrics" aria-live="polite">
+        <div class="metric"><span class="metric-label">Total vdW energy</span><span class="metric-value" id="energyText">—</span></div>
+        <div class="metric"><span class="metric-label">Interlayer height</span><span class="metric-value" id="heightText">3.34 Å</span></div>
+        <div class="metric"><span class="metric-label">Number of atoms</span><span class="metric-value" id="atomCount">0</span></div>
+        <div class="metric"><span class="metric-label">Number of C–C bonds</span><span class="metric-value" id="bondCount">0</span></div>
+        <div class="metric-note">C–C bond 1.420 Å · C₆ = 2.45×10⁻⁷⁸ J·m⁶</div>
+      </div>
+      <div id="energyPanel" aria-label="Energy versus time chart">
+        <div class="ep-head">
+          <span class="ep-title">Binding energy of the top flake vs time</span>
+          <button id="chartClear" type="button">Clear</button>
+        </div>
+        <div class="ep-body"><canvas id="energyChart"></canvas></div>
+      </div>
     </div>
   </div>
 </div>
@@ -647,29 +794,54 @@ function applyLayerDrag(dx, dy, targetLayer){
   // Convert screen drag to world-plane movement in lattice x/y coordinates.
   const moveX = (frame.right[0] * dx + frame.up[0] * (-dy)) * shiftScale;
   const moveY = (frame.right[2] * dx + frame.up[2] * (-dy)) * shiftScale;
-  if (targetLayer === 'bottom') {
-    state.xShift = clamp(state.xShift + moveX, -7, 7);
-    state.yShift = clamp(state.yShift + moveY, -7, 7);
-    byId('xShift').value = state.xShift.toFixed(2);
-    byId('xShiftNum').value = state.xShift.toFixed(2);
-    byId('yShift').value = state.yShift.toFixed(2);
-    byId('yShiftNum').value = state.yShift.toFixed(2);
-  } else if (targetLayer === 'top') {
-    state.topDragX = clamp(state.topDragX + moveX, -7, 7);
-    state.topDragY = clamp(state.topDragY + moveY, -7, 7);
+  if (targetLayer === 'top' && !hmode) {
+    state.topDragX = clamp(state.topDragX + moveX, -MAX_LATERAL_SHIFT, MAX_LATERAL_SHIFT);
+    state.topDragY = clamp(state.topDragY + moveY, -MAX_LATERAL_SHIFT, MAX_LATERAL_SHIFT);
   }
-  rebuildAtoms();
+  grabFlake();
+  syncTopLayer();
   updatePairs();
 }
 
+function moveTopLayerVertically(dy){
+  const shiftScale = radius * 0.002;
+  setTopLayerHeight(state.h - dy * shiftScale);
+}
+
+// Absolute form of the same move, used by Ctrl-drag and by the height rail.
+function setTopLayerHeight(h){
+  // Keep every bottom-layer coordinate fixed and change only the upper sheet.
+  const floor = dyn.on ? MIN_DYNAMIC_SEPARATION : MIN_LAYER_SEPARATION;
+  state.h = clamp(h, floor, MAX_LAYER_SEPARATION);
+  grabFlake();
+  for(const p of rightAtoms) p.z = state.h;
+  byId('hSep').value = state.h.toFixed(2);
+  byId('hSepNum').value = state.h.toFixed(2);
+  updateStructureMetrics();
+  updatePairs();
+  if(hmode && chartVisible) drawEnergyChart();
+}
+
+// While the user holds the flake the integrator is paused and the velocity
+// is discarded, so letting go always means "released from rest".
+function grabFlake(){
+  if(!dyn.on) return;
+  dyn.holding = true;
+  dyn.vx = dyn.vy = dyn.vz = 0;
+  dyn.f = null; dyn.energyFresh = false; dyn.settled = false; dyn.modes = null; dyn.eq = null; dyn.tHarm = 0;
+}
+
 canvas.addEventListener('mousedown', (e)=>{ dragging=true; rightDrag = (e.button===2); lastX=e.clientX; lastY=e.clientY; });
-window.addEventListener('mouseup', ()=>dragging=false);
+window.addEventListener('mouseup', ()=>{
+  dragging=false;
+  if(dyn.holding){ dyn.holding = false; releaseFlake(); }
+});
 window.addEventListener('mousemove', (e)=>{
   if(!dragging) return;
   const dx=(e.clientX-lastX), dy=(e.clientY-lastY);
   lastX=e.clientX; lastY=e.clientY;
   if(e.ctrlKey && !rightDrag){
-    applyLayerDrag(dx, dy, 'bottom');
+    moveTopLayerVertically(dy);
   } else if(e.shiftKey && !rightDrag){
     applyLayerDrag(dx, dy, 'top');
   } else if(rightDrag){
@@ -771,12 +943,45 @@ resize();
 
 // Scene objects (graphene + lines)
 const A_LATT = 2.46;
+const MAX_LATERAL_SHIFT = 100;
+const MIN_LAYER_SEPARATION = 3.34;
+const MAX_LAYER_SEPARATION = 4 * MIN_LAYER_SEPARATION; // 13.36 Å — four times the graphite spacing
+// Graphene C-C 12-6 pair model, U(r) = B/r^12 - A/r^6.
+//
+// The attractive coefficient is fixed by the London constant from the lecture
+// notes and is the same in every convention:  A = C6 = 2.45e-78 J*m^6.
+//
+// The repulsive coefficient is NOT: it depends on which distance the 3.4 Å
+// figure is taken to be. The notes (Cho et al.) quote r0 = 3.42 Å as the point
+// where the PAIR POTENTIAL CROSSES ZERO, i.e. the Lennard-Jones sigma, with the
+// pair minimum further out at r_e = 2^(1/6) r0 = 3.84 Å and a well depth
+// u = 2.387 meV. Reading 3.40 Å as the pair MINIMUM instead makes B smaller by
+// a factor ~2.07 and the well more than twice too deep, which pulls the
+// collective bilayer minimum down to ~3.03 Å instead of ~3.43 Å.
+const C6_J_M6 = 2.45e-78;
+const EV_J = 1.602176634e-19;
+const LJ_PAIR_MIN_ANG = 3.40;  // legacy reading: 3.40 Å treated as the pair minimum
+const LJ_R0_ZERO_ANG  = 3.42;  // course notes: 3.42 Å is the zero crossing (sigma)
+const LJ_A_EVA6 = C6_J_M6 * 1e60 / EV_J;
+
+// B = A*sigma^6 puts the zero crossing at sigma; B = A*r_m^6/2 puts the minimum
+// at r_m. Both follow from dU/dr = 0 / U = 0 respectively.
+const LJ_B_NOTES  = LJ_A_EVA6 * Math.pow(LJ_R0_ZERO_ANG, 6);
+const LJ_B_LEGACY = 0.5 * LJ_A_EVA6 * Math.pow(LJ_PAIR_MIN_ANG, 6);
+let LJ_B_EVA12 = LJ_B_NOTES;
+let ljConvention = 'notes';
+
+function setLJConvention(mode){
+  ljConvention = mode;
+  LJ_B_EVA12 = (mode === 'legacy') ? LJ_B_LEGACY : LJ_B_NOTES;
+  invalidateBottomHash();
+}
 const a1 = [A_LATT, 0];
 const a2 = [A_LATT/2, A_LATT*Math.sqrt(3)/2];
 const basis = [[0,0],[0, A_LATT/Math.sqrt(3)]]; // AA
 
 const state = {
-  N: 10, h: 3.35, yShift: -2.56, xShift: -0.13, depthShift: 0,
+  N: 10, h: 3.34, yShift: -2.56, xShift: -0.13, depthShift: 0,
   topDragX: 0, topDragY: 0,
   atomR: 0.59, lineScale: 2.24,
   cutMult: 0.006, showAtoms: true, showLines: true, sumAll: false,
@@ -784,6 +989,7 @@ const state = {
 };
 
 let leftAtoms=[], rightAtoms=[], pairs=[];
+let metricsN = null;
 
 function buildGraphene(N, z){
   const pts=[];
@@ -805,6 +1011,20 @@ function sheetDims(N){
   const miny=Math.min(...ys), maxy=Math.max(...ys);
   return {width:maxx-minx, height:maxy-miny};
 }
+// Reference (un-displaced) coordinates of the top flake. The rigid-body
+// displacement (topDragX, topDragY, h) is added on top of these, so the
+// dynamics can move the layer without rebuilding the lattice every step.
+let rightBase = [];
+
+function syncTopLayer(){
+  for(let k=0; k<rightAtoms.length; k++){
+    const b = rightBase[k], p = rightAtoms[k];
+    p.x = b.x + state.topDragX;
+    p.y = b.y + state.topDragY;
+    p.z = state.h;
+  }
+}
+
 function rebuildAtoms(){
   leftAtoms = buildGraphene(state.N, 0);
   rightAtoms= buildGraphene(state.N, state.h);
@@ -813,7 +1033,48 @@ function rebuildAtoms(){
   for(const p of leftAtoms){ p.x-=cx; p.y-=cy; }
   for(const p of rightAtoms){ p.x-=cx; p.y-=cy; }
   for(const p of leftAtoms){ p.y+=state.yShift; p.x+=state.xShift; p.z+=state.depthShift; }
-  for(const p of rightAtoms){ p.y+=state.topDragY; p.x+=state.topDragX; }
+  rightBase = rightAtoms.map(p=>({x:p.x, y:p.y}));
+  syncTopLayer();
+  invalidateBottomHash();
+  updateStructureMetrics();
+}
+
+function countIntralayerBonds(points){
+  const bondLength = A_LATT / Math.sqrt(3);
+  const maxR2 = Math.pow(bondLength * 1.05, 2);
+  let count = 0;
+  for(let i=0; i<points.length; i++){
+    for(let j=i+1; j<points.length; j++){
+      const dx=points[j].x-points[i].x, dy=points[j].y-points[i].y;
+      if(dx*dx + dy*dy <= maxR2) count++;
+    }
+  }
+  return count;
+}
+
+function updateStructureMetrics(){
+  document.getElementById('heightText').textContent = `${state.h.toFixed(2)} Å`;
+  const rail = document.getElementById('hRailSlider');
+  if(rail){
+    const v = state.h.toFixed(2);
+    if(rail.value !== v) rail.value = v;
+    document.getElementById('hRailValue').textContent = `${v} Å`;
+  }
+  document.getElementById('atomCount').textContent = (leftAtoms.length + rightAtoms.length).toLocaleString();
+  if(metricsN !== state.N){
+    // Both sheets have the same finite lattice topology.
+    document.getElementById('bondCount').textContent = (2 * countIntralayerBonds(leftAtoms)).toLocaleString();
+    metricsN = state.N;
+  }
+}
+
+function formatEnergy(eV){
+  const abs = Math.abs(eV);
+  if(abs === 0) return '0.000 eV';
+  if(abs < 0.001) return `${(eV * 1e6).toFixed(2)} µeV`;
+  if(abs < 1) return `${(eV * 1000).toFixed(2)} meV`;
+  if(abs < 1000) return `${eV.toFixed(3)} eV`;
+  return `${eV.toExponential(3)} eV`;
 }
 
 function buildHash(points, cell){
@@ -873,6 +1134,702 @@ function updatePairs(){
   const sumScaled = sumVDW * Math.pow(state.h,6);
   document.getElementById('sumText').textContent = sumScaled.toFixed(4);
   document.getElementById('sumMode').textContent = state.sumAll ? '(over all pairs within bounded radius)' : '(over drawn pairs)';
+
+  // Physical interlayer energy includes every atom pair within the interaction
+  // radius r_c, independent of the visual line cutoff used above.
+  lastEnergyEV = (dyn.on && dyn.energyFresh) ? dyn.U : interlayerInteraction().U;
+  document.getElementById('energyText').textContent = formatEnergy(lastEnergyEV);
+  updateDynamicReadouts();
+}
+
+/* ======================================================================
+   DYNAMICS OF THE TOP FLAKE
+   ----------------------------------------------------------------------
+   The top sheet is treated as one rigid body with three translational
+   degrees of freedom q = (X, Y, h): two in-plane (registry) and one
+   vertical (interlayer separation). Its potential energy is the same
+   Lennard-Jones sum that the static visualizer already reports,
+
+       U(q) = Σ_{i∈bottom} Σ_{j∈top} [ B/r_ij^12 − A/r_ij^6 ],
+
+   so the force on the flake is F = −∇_q U, obtained analytically from the
+   same pair loop. Units: energy eV, length Å, mass amu; the resulting time
+   unit is τ = Å·sqrt(amu/eV) = 10.1805 fs.
+   ====================================================================== */
+
+const TAU_FS = 10.180505; // 1 internal time unit, in femtoseconds
+const M_C_AMU = 12.011;   // carbon mass
+const MIN_DYNAMIC_SEPARATION = 2.20; // the LJ wall is the real floor in dynamic mode
+
+const dyn = {
+  on: false,
+  model: 'lj',        // 'lj' = damped MD on the exact surface, 'harmonic' = normal modes
+  gamma: 1.0,         // damping constant, ps^-1
+  speed: 1.0,         // ps of simulated time per second of wall clock
+  dtFs: 5.0,          // integration step, fs
+  rc: 25.0,           // interaction cutoff, Å — large enough that the reported
+                      // energy matches the exact all-pairs sum to the displayed
+                      // precision; lower it only to speed up very large flakes
+  vx: 0, vy: 0, vz: 0,// velocities, Å/τ
+  t: 0,               // simulated time, ps
+  holding: false,     // true while the user drags the flake
+  U: 0, K: 0,
+  f: null,            // cached force, valid between integrator steps
+  energyFresh: false, // true when dyn.U matches the current position
+  settled: false,     // model C only: the flake has reached the minimum
+  // harmonic model
+  eq: null,           // {X, Y, h, U0}
+  modes: null,        // {omega:[3], vec:[3][3]}
+  hq0: null,          // initial normal coordinates and velocities
+  tHarm: 0
+};
+
+let lastEnergyEV = 0;
+let bottomHash = null, bottomHashRc = -1;
+
+// Any change of the bottom lattice, of N or of r_c invalidates the cached
+// force and the linearisation used by model B.
+function invalidateBottomHash(){
+  bottomHash = null;
+  if(typeof dyn === 'object'){ dyn.f = null; dyn.energyFresh = false; dyn.modes = null; dyn.eq = null; dyn.tHarm = 0; }
+}
+function ensureBottomHash(rc){
+  if(bottomHash && bottomHashRc === rc) return bottomHash;
+  bottomHash = buildHash(leftAtoms, Math.max(A_LATT, rc));
+  bottomHashRc = rc;
+  return bottomHash;
+}
+
+// Potential energy and rigid-body force at an arbitrary displacement of the
+// top flake. Passing (X, Y, h) leaves the actual scene untouched, which is
+// what the relaxation and the Hessian need.
+function interlayerInteraction(X, Y, h){
+  const useState = (X === undefined);
+  const dX = useState ? state.topDragX : X;
+  const dY = useState ? state.topDragY : Y;
+  const dZ = useState ? state.h : h;
+  const rc = dyn.rc, rc2 = rc*rc;
+  const hash = ensureBottomHash(rc);
+  let U=0, fx=0, fy=0, fz=0;
+  for(let k=0; k<rightBase.length; k++){
+    const bx = rightBase[k].x + dX, by = rightBase[k].y + dY;
+    const cand = queryHash(hash, bx, by, rc);
+    for(const idx of cand){
+      const L = leftAtoms[idx];
+      const dx = bx - L.x, dy = by - L.y, dz = dZ - L.z;
+      const r2 = dx*dx + dy*dy + dz*dz;
+      if(r2 <= 1e-12 || r2 > rc2) continue;
+      const inv2 = 1/r2, inv6 = inv2*inv2*inv2, inv12 = inv6*inv6;
+      U += LJ_B_EVA12*inv12 - LJ_A_EVA6*inv6;
+      // F = −dU/dq = (12B/r^12 − 6A/r^6)·(d/r²)
+      const g = (12*LJ_B_EVA12*inv12 - 6*LJ_A_EVA6*inv6) * inv2;
+      fx += g*dx; fy += g*dy; fz += g*dz;
+    }
+  }
+  return {U, fx, fy, fz};
+}
+
+function flakeMass(){ return rightBase.length * M_C_AMU; }          // amu
+function kineticEnergy(){                                            // eV
+  return 0.5 * flakeMass() * (dyn.vx*dyn.vx + dyn.vy*dyn.vy + dyn.vz*dyn.vz);
+}
+
+function clampFlake(){
+  // In E vs h mode the two in-plane coordinates are held fixed: whatever the
+  // integrator did to them is undone here, and their velocities are zeroed, so
+  // the flake is a genuine one-degree-of-freedom system.
+  if(hmode && hcurve){
+    state.topDragX = hcurve.lockX;
+    state.topDragY = hcurve.lockY;
+    dyn.vx = 0; dyn.vy = 0;
+  }
+  state.topDragX = clamp(state.topDragX, -MAX_LATERAL_SHIFT, MAX_LATERAL_SHIFT);
+  state.topDragY = clamp(state.topDragY, -MAX_LATERAL_SHIFT, MAX_LATERAL_SHIFT);
+  const floor = dyn.on ? MIN_DYNAMIC_SEPARATION : MIN_LAYER_SEPARATION;
+  if(state.h < floor){ state.h = floor; if(dyn.vz < 0) dyn.vz = 0; }
+  if(state.h > MAX_LAYER_SEPARATION){ state.h = MAX_LAYER_SEPARATION; if(dyn.vz > 0) dyn.vz = 0; }
+}
+
+/* ---------- Model A: damped molecular dynamics (velocity Verlet) ---------- */
+// Splitting: half kick — drift — half kick — exact exponential drag.
+// The drag term −γ·M·v is the coarse-grained stand-in for the energy the
+// flake loses to phonons and to the substrate; without it the flake would
+// oscillate forever, because the LJ surface is conservative.
+function stepMD(dtTau, gammaTau){
+  const M = flakeMass();
+  // The force at the current position is the one left over by the previous
+  // step's second half-kick, so it is only recomputed after a drag.
+  let f = dyn.f || (dyn.f = interlayerInteraction());
+  dyn.vx += 0.5*dtTau*f.fx/M;
+  dyn.vy += 0.5*dtTau*f.fy/M;
+  dyn.vz += 0.5*dtTau*f.fz/M;
+
+  state.topDragX += dyn.vx*dtTau;
+  state.topDragY += dyn.vy*dtTau;
+  state.h        += dyn.vz*dtTau;
+  clampFlake();
+
+  f = dyn.f = interlayerInteraction();
+  dyn.vx += 0.5*dtTau*f.fx/M;
+  dyn.vy += 0.5*dtTau*f.fy/M;
+  dyn.vz += 0.5*dtTau*f.fz/M;
+
+  const decay = Math.exp(-gammaTau*dtTau);
+  dyn.vx *= decay; dyn.vy *= decay; dyn.vz *= decay;
+  // the final half-kick happens after clampFlake, so re-apply the constraint
+  // to the velocity or the reported kinetic energy would include phantom
+  // in-plane motion that the position is not allowed to have
+  if(hmode){ dyn.vx = 0; dyn.vy = 0; }
+
+  dyn.U = f.U;
+  dyn.K = kineticEnergy();
+  dyn.energyFresh = true;
+}
+
+/* ---------- Steepest descent: the minimum without inertia ---------- */
+// Used on its own ("Relax") and as the first step of model B.
+function findMinimum(X0, Y0, h0, maxIter=400){
+  let X=X0, Y=Y0, h=h0;
+  let step = 0.02;                       // Å per unit of normalised force
+  let cur = interlayerInteraction(X, Y, h);
+  for(let it=0; it<maxIter; it++){
+    const g = Math.hypot(cur.fx, cur.fy, cur.fz);
+    if(g < 1e-7) break;
+    const nx = X + step*cur.fx/g;
+    const ny = Y + step*cur.fy/g;
+    const nh = clamp(h + step*cur.fz/g, MIN_DYNAMIC_SEPARATION, MAX_LAYER_SEPARATION);
+    const trial = interlayerInteraction(nx, ny, nh);
+    if(trial.U < cur.U){ X=nx; Y=ny; h=nh; cur=trial; step = Math.min(step*1.2, 0.3); }
+    else { step *= 0.5; if(step < 1e-5) break; }
+  }
+  return {X, Y, h, U0: cur.U};
+}
+
+/* ---------- Model B: damped harmonic normal modes ---------- */
+// Around the minimum q* the surface is U ≈ U₀ + ½ (q−q*)ᵀ H (q−q*).
+// H is built from central differences of the analytic force, then
+// diagonalised; each normal coordinate is a textbook damped oscillator
+// with an exact closed-form solution, so the model is unconditionally
+// stable and lands exactly on the minimum.
+function hessianAt(eq, eps=0.01){
+  const H = [[0,0,0],[0,0,0],[0,0,0]];
+  const q = [eq.X, eq.Y, eq.h];
+  for(let j=0;j<3;j++){
+    const qp = q.slice(), qm = q.slice();
+    qp[j] += eps; qm[j] -= eps;
+    const fp = interlayerInteraction(qp[0], qp[1], qp[2]);
+    const fm = interlayerInteraction(qm[0], qm[1], qm[2]);
+    const Fp = [fp.fx, fp.fy, fp.fz], Fm = [fm.fx, fm.fy, fm.fz];
+    for(let i=0;i<3;i++) H[i][j] = -(Fp[i] - Fm[i]) / (2*eps);  // H = −∂F/∂q
+  }
+  for(let i=0;i<3;i++) for(let j=i+1;j<3;j++){
+    const s = 0.5*(H[i][j] + H[j][i]); H[i][j] = H[j][i] = s;
+  }
+  return H;
+}
+
+// Jacobi eigenvalue algorithm for a symmetric 3×3 matrix.
+function jacobiEigen(Ain){
+  const A = Ain.map(r=>r.slice());
+  let V = [[1,0,0],[0,1,0],[0,0,1]];
+  for(let sweep=0; sweep<24; sweep++){
+    let off = 0;
+    for(let i=0;i<3;i++) for(let j=i+1;j<3;j++) off += A[i][j]*A[i][j];
+    if(off < 1e-18) break;
+    for(let p=0;p<3;p++) for(let q=p+1;q<3;q++){
+      if(Math.abs(A[p][q]) < 1e-14) continue;
+      const theta = (A[q][q]-A[p][p]) / (2*A[p][q]);
+      const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta*theta+1));
+      const c = 1/Math.sqrt(t*t+1), s = t*c;
+      for(let k=0;k<3;k++){
+        const akp = A[k][p], akq = A[k][q];
+        A[k][p] = c*akp - s*akq; A[k][q] = s*akp + c*akq;
+      }
+      for(let k=0;k<3;k++){
+        const apk = A[p][k], aqk = A[q][k];
+        A[p][k] = c*apk - s*aqk; A[q][k] = s*apk + c*aqk;
+      }
+      for(let k=0;k<3;k++){
+        const vkp = V[k][p], vkq = V[k][q];
+        V[k][p] = c*vkp - s*vkq; V[k][q] = s*vkp + c*vkq;
+      }
+    }
+  }
+  return {values:[A[0][0], A[1][1], A[2][2]], vectors:V}; // column k of V ↔ values[k]
+}
+
+function prepareHarmonic(){
+  const eq = findMinimum(state.topDragX, state.topDragY, state.h);
+  const H = hessianAt(eq);
+  const {values, vectors} = jacobiEigen(H);
+  const M = flakeMass();
+  const omega = values.map(k => Math.sqrt(Math.max(k, 0)/M)); // 1/τ
+  // Project the release condition onto the normal coordinates.
+  const u = [state.topDragX - eq.X, state.topDragY - eq.Y, state.h - eq.h];
+  const v = [dyn.vx, dyn.vy, dyn.vz];
+  const c0 = [0,0,0], cd0 = [0,0,0];
+  for(let k=0;k<3;k++){
+    for(let i=0;i<3;i++){ c0[k] += vectors[i][k]*u[i]; cd0[k] += vectors[i][k]*v[i]; }
+  }
+  dyn.eq = eq;
+  dyn.modes = {omega, vectors, values};
+  dyn.hq0 = {c0, cd0};
+  dyn.tHarm = 0;
+}
+
+// Exact solution of  c̈ + γ ċ + ω² c = 0  for all three damping regimes.
+function dampedMode(c0, cd0, om, g, t){
+  const disc = 0.25*g*g - om*om;
+  const e = Math.exp(-0.5*g*t);
+  if(om < 1e-12){                       // no restoring force: pure drag
+    if(g < 1e-12) return [c0 + cd0*t, cd0];
+    const c = c0 + cd0*(1 - Math.exp(-g*t))/g;
+    return [c, cd0*Math.exp(-g*t)];
+  }
+  if(disc < -1e-12){                    // underdamped — this is the oscillating case
+    const wd = Math.sqrt(-disc);
+    const B = (cd0 + 0.5*g*c0)/wd;
+    const c  = e*(c0*Math.cos(wd*t) + B*Math.sin(wd*t));
+    const cd = e*((-0.5*g)*(c0*Math.cos(wd*t) + B*Math.sin(wd*t))
+                  + wd*(-c0*Math.sin(wd*t) + B*Math.cos(wd*t)));
+    return [c, cd];
+  }
+  if(disc > 1e-12){                     // overdamped
+    const r = Math.sqrt(disc);
+    const l1 = -0.5*g + r, l2 = -0.5*g - r;
+    const A2 = (cd0 - l2*c0)/(l1 - l2), B2 = c0 - A2;
+    const e1 = Math.exp(l1*t), e2 = Math.exp(l2*t);
+    return [A2*e1 + B2*e2, A2*l1*e1 + B2*l2*e2];
+  }
+  const B3 = cd0 + 0.5*g*c0;            // critically damped
+  return [e*(c0 + B3*t), e*(B3 - 0.5*g*(c0 + B3*t))];
+}
+
+function stepHarmonic(dtTau, gammaTau){
+  if(!dyn.modes) prepareHarmonic();
+  dyn.tHarm += dtTau;
+  const {omega, vectors} = dyn.modes;
+  const {c0, cd0} = dyn.hq0;
+  const q = [dyn.eq.X, dyn.eq.Y, dyn.eq.h];
+  const v = [0,0,0];
+  for(let k=0;k<3;k++){
+    const [c, cd] = dampedMode(c0[k], cd0[k], omega[k], gammaTau, dyn.tHarm);
+    for(let i=0;i<3;i++){ q[i] += vectors[i][k]*c; v[i] += vectors[i][k]*cd; }
+  }
+  state.topDragX = q[0]; state.topDragY = q[1]; state.h = q[2];
+  dyn.vx = v[0]; dyn.vy = v[1]; dyn.vz = v[2];
+  clampFlake();
+  dyn.U = interlayerInteraction().U;   // true energy, so the chart stays honest
+  dyn.K = kineticEnergy();
+  dyn.energyFresh = true;
+}
+
+/* ---------- Model C: overdamped relaxation (gradient flow) ---------- */
+// The γ → ∞ limit of model A: inertia is dropped altogether, so the equation
+// of motion degenerates to first order,
+//
+//     γ M q̇ = F(q)     ⇒     q̇ = F(q) / (γM),
+//
+// and the flake simply follows the steepest-descent path of U. It cannot
+// overshoot and cannot cross a barrier, so it stops in the first minimum it
+// meets and stays there. γ only rescales time here: it changes how fast the
+// path is traversed, never which path is taken.
+const SD_MAX_STEP_ANG = 0.004;   // keeps the glide visible and unconditionally stable
+const SD_FORCE_TOL = 1e-4;       // eV/Å — below this the flake is declared settled
+
+function stepSD(dtTau, gammaTau){
+  const M = flakeMass();
+  const f = dyn.f = interlayerInteraction();
+  const gm = Math.max(gammaTau, 1e-6) * M;
+  let dx = f.fx/gm*dtTau, dy = f.fy/gm*dtTau, dz = f.fz/gm*dtTau;
+  const len = Math.hypot(dx, dy, dz);
+  if(len > SD_MAX_STEP_ANG){
+    const s = SD_MAX_STEP_ANG/len; dx*=s; dy*=s; dz*=s;
+  }
+  const force = Math.hypot(f.fx, f.fy, f.fz);
+  if(force > SD_FORCE_TOL){
+    state.topDragX += dx; state.topDragY += dy; state.h += dz;
+    clampFlake();
+    dyn.settled = false;
+  } else {
+    dyn.settled = true;
+  }
+  dyn.vx = dyn.vy = dyn.vz = 0;    // no inertia in this model
+  dyn.U = f.U;
+  dyn.K = 0;
+  dyn.energyFresh = true;
+}
+
+/* ---------- Driver, called once per animation frame ---------- */
+let lastFrameMs = performance.now();
+
+function advanceDynamics(){
+  const nowMs = performance.now();
+  let wallDt = (nowMs - lastFrameMs)/1000;
+  lastFrameMs = nowMs;
+  if(!dyn.on || dyn.holding) return false;
+  wallDt = Math.min(wallDt, 0.05);              // ignore tab-switch gaps
+
+  const dtTau = dyn.dtFs / TAU_FS;
+  const gammaTau = dyn.gamma * 1e-3 * TAU_FS;   // ps⁻¹ → τ⁻¹
+  const psWanted = wallDt * dyn.speed;
+  let nSteps = Math.round(psWanted*1000 / dyn.dtFs);
+  nSteps = Math.max(0, Math.min(nSteps, 400));
+  if(nSteps === 0) return false;
+
+  for(let s=0; s<nSteps; s++){
+    if(dyn.model === 'harmonic') stepHarmonic(dtTau, gammaTau);
+    else if(dyn.model === 'sd') stepSD(dtTau, gammaTau);
+    else stepMD(dtTau, gammaTau);
+  }
+  dyn.t += nSteps * dyn.dtFs / 1000;            // ps
+
+  syncTopLayer();
+  syncLayerInputs();
+  updateStructureMetrics();
+  updatePairs();
+  recordEnergyPoint();
+  if(hmode && chartVisible && chartMode === 'height') drawEnergyChart();
+  const badge = byId('dynBadge');
+  if(badge) badge.textContent = badgeText();
+  return true;
+}
+
+function releaseFlake(){
+  dyn.vx = dyn.vy = dyn.vz = 0;
+  dyn.f = null; dyn.energyFresh = false; dyn.settled = false; dyn.modes = null; dyn.eq = null; dyn.tHarm = 0;
+  if(dyn.on && dyn.model === 'harmonic') prepareHarmonic();
+  dyn.U = interlayerInteraction().U;
+  dyn.K = 0;
+  updateDynStatus();
+}
+
+// Keep the sliders in step with whatever the dynamics did.
+function syncLayerInputs(){
+  if(dyn.on && state.h < Number(byId('hSep').min)) setLayerFloor();
+  byId('hSep').value = state.h.toFixed(2);
+  byId('hSepNum').value = state.h.toFixed(2);
+}
+
+function updateDynamicReadouts(){
+  // Kinetic / total energy and the clock live in the badge and in the chart,
+  // so the metrics box stays as short as it was in the static sim.
+}
+
+function updateDynStatus(){
+  const el = byId('dynStatus');
+  if(!el) return;
+  if(!dyn.on){
+    el.textContent = 'Dynamic mode is off — the sim behaves exactly as before.';
+    return;
+  }
+  const modelName = dyn.model === 'harmonic' ? 'B — damped normal modes'
+                  : dyn.model === 'sd'       ? 'C — overdamped relaxation'
+                  : 'A — damped MD (full LJ)';
+  let extra = '';
+  if(dyn.model === 'harmonic' && dyn.modes){
+    const f = dyn.modes.omega.map(o => (o/(2*Math.PI)/(TAU_FS*1e-15)/1e12));
+    extra = ` · mode frequencies ${f.map(v=>v.toFixed(2)).join(' / ')} THz`;
+  }
+  el.textContent = `${modelName} · M = ${(flakeMass()).toFixed(0)} amu${extra}`;
+  const badge = byId('dynBadge');
+  if(badge) badge.textContent = badgeText();
+}
+
+function badgeText(){
+  const tag = dyn.model === 'harmonic' ? 'normal modes'
+            : dyn.model === 'sd'       ? 'overdamped' + (dyn.settled ? ' · settled' : '')
+            : 'damped MD';
+  return `DYNAMICS ON · ${tag} · t = ${dyn.t.toFixed(2)} ps`;
+}
+
+/* ======================================================================
+   ENERGY-VS-TIME CHART
+   ====================================================================== */
+/* ======================================================================
+   E vs h MODE
+   ----------------------------------------------------------------------
+   The flake is frozen in X and Y and left free only in h, so the three
+   dimensional landscape collapses to the single curve E(h) — the
+   sheet-versus-sheet counterpart of the textbook two-atom Lennard-Jones
+   curve. The curve is computed once, when the mode is switched on; the
+   marker that rides along it is just the current height, so it follows
+   the flake whether it is being dragged or is moving under the dynamics.
+   ====================================================================== */
+const HCURVE_MIN = 2.6, HCURVE_MAX = 9.0, HCURVE_STEP = 0.02;
+let hmode = false;
+let hcurve = null;         // {pts:[{h,U}], hMin, uMin, atoms, lockX, lockY}
+
+function buildHCurve(){
+  const savedRc = dyn.rc;
+  dyn.rc = 40;                       // untruncated: the tail is part of the story
+  invalidateBottomHash();
+  const X = state.topDragX, Y = state.topDragY;
+  const pts = [];
+  let best = {h: 0, U: Infinity};
+  for(let h = HCURVE_MIN; h <= HCURVE_MAX + 1e-9; h += HCURVE_STEP){
+    const U = interlayerInteraction(X, Y, h).U;
+    pts.push({h: +h.toFixed(3), U});
+    if(U < best.U) best = {h: +h.toFixed(3), U};
+  }
+  hcurve = {pts, hMin: best.h, uMin: best.U, atoms: rightBase.length, lockX: X, lockY: Y};
+  dyn.rc = savedRc;
+  invalidateBottomHash();
+}
+
+// Linear interpolation of the stored curve, so the marker costs nothing.
+function hcurveEnergyAt(h){
+  if(!hcurve) return NaN;
+  const pts = hcurve.pts;
+  const f = (h - HCURVE_MIN)/HCURVE_STEP;
+  if(f <= 0) return pts[0].U;
+  if(f >= pts.length-1) return pts[pts.length-1].U;
+  const i = Math.floor(f), t = f - i;
+  return pts[i].U*(1-t) + pts[i+1].U*t;
+}
+
+function setHMode(on){
+  hmode = on;
+  const b = byId('hModeBtn');
+  b.textContent = on ? 'E vs h mode: ON' : 'E vs h mode: OFF';
+  b.classList.toggle('on', on);
+  if(on){
+    buildHCurve();
+    dyn.vx = dyn.vy = 0;
+    dyn.f = null; dyn.energyFresh = false; dyn.modes = null; dyn.eq = null; dyn.tHarm = 0;
+    chartMode = 'height';
+    setChartVisible(true);
+  } else {
+    chartMode = 'time';
+  }
+  updateChartTitle();
+  drawEnergyChart();
+}
+
+let chartMode = 'time';    // 'time' | 'height'
+
+const eseries = [];              // {t, U, K, E}
+const MAX_SERIES_POINTS = 1500;
+let chartVisible = false;
+
+function recordEnergyPoint(){
+  const U = dyn.U, K = dyn.K;
+  eseries.push({t: dyn.t, U, K, E: U + K});
+  if(eseries.length > MAX_SERIES_POINTS) eseries.shift();
+  if(chartVisible) drawEnergyChart();
+}
+
+function clearSeries(){ eseries.length = 0; if(chartVisible) drawEnergyChart(); }
+
+function niceNumber(value, round){
+  const exp = Math.floor(Math.log10(Math.max(Math.abs(value), 1e-30)));
+  const f = value / Math.pow(10, exp);
+  const nf = round ? (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10)
+                   : (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10);
+  return nf * Math.pow(10, exp);
+}
+function niceTickRange(min, max, count = 5){
+  if(!isFinite(min) || !isFinite(max) || min === max) return {min:min-1, max:max+1, step:1};
+  const span = niceNumber(max-min, false);
+  const step = niceNumber(span/Math.max(1, count-1), true);
+  return {min: Math.floor(min/step)*step, max: Math.ceil(max/step)*step, step};
+}
+
+function sizeChartCanvas(){
+  const c = byId('energyChart');
+  if(!c) return null;
+  const rect = c.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+  if(c.width !== Math.round(W*dpr) || c.height !== Math.round(H*dpr)){
+    c.width = Math.round(W*dpr); c.height = Math.round(H*dpr);
+  }
+  return {c, W, H, dpr};
+}
+
+function drawHCurveChart(ctx, W, H){
+  const padL = 66, padR = 14, padT = 14, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const axes = ()=>{
+    ctx.strokeStyle = '#22304a'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH);
+    ctx.stroke();
+    ctx.fillStyle = '#172033'; ctx.font = '600 12px ui-sans-serif, system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('h (Å)', padL + plotW/2, H - 8);
+    ctx.save(); ctx.translate(13, padT + plotH/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('E (eV)', 0, 0); ctx.restore();
+  };
+  if(!hcurve){ axes(); return; }
+
+  // Vertical range: the whole well plus a little of the repulsive rise, so the
+  // minimum is not squashed against the bottom of the box.
+  const yMin = hcurve.uMin, yMax = Math.abs(hcurve.uMin)*0.20;
+  const pad = 0.08*(yMax - yMin || 1);
+  const yLo = yMin - pad, yHi = yMax + pad;
+  const xStep = niceNumber((HCURVE_MAX - HCURVE_MIN)/5, true);
+  const yStep = niceNumber((yHi - yLo)/5, true);
+  const xR = {min: HCURVE_MIN, max: HCURVE_MAX, step: xStep,
+              first: Math.ceil(HCURVE_MIN/xStep)*xStep};
+  const yR = {min: yLo, max: yHi, step: yStep, first: Math.ceil(yLo/yStep)*yStep};
+  const xt = h => padL + ((h - xR.min)/(xR.max - xR.min))*plotW;
+  const yv = e => padT + plotH - ((e - yR.min)/(yR.max - yR.min))*plotH;
+
+  ctx.strokeStyle = 'rgba(108,126,154,0.20)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#40516c'; ctx.font = '500 11px ui-sans-serif, system-ui';
+  ctx.textAlign = 'center';
+  for(let h = xR.first; h <= xR.max + 1e-9; h += xR.step){
+    const x = xt(h); if(x < padL-1 || x > padL+plotW+1) continue;
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT+plotH); ctx.stroke();
+    ctx.fillText(h.toFixed(1), x, padT+plotH+15);
+  }
+  ctx.textAlign = 'right';
+  const yDec = yR.step >= 1 ? 1 : (yR.step >= 0.1 ? 2 : 3);
+  for(let e = yR.first; e <= yR.max + 1e-9; e += yR.step){
+    const y = yv(e); if(y < padT-1 || y > padT+plotH+1) continue;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+plotW, y); ctx.stroke();
+    ctx.fillText(e.toFixed(yDec), padL-8, y+4);
+  }
+  if(0 > yR.min && 0 < yR.max){
+    ctx.strokeStyle = 'rgba(34,48,74,0.30)'; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(padL, yv(0)); ctx.lineTo(padL+plotW, yv(0)); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  axes();
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(padL, padT, plotW, plotH); ctx.clip();
+
+  // the curve
+  ctx.strokeStyle = '#0b57d0'; ctx.lineWidth = 2.4;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath();
+  let started = false;
+  for(const q of hcurve.pts){
+    const x = xt(q.h), y = yv(q.U);
+    if(!started){ ctx.moveTo(x,y); started = true; } else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // the minimum of the curve
+  ctx.fillStyle = 'rgba(11,87,208,0.35)';
+  ctx.beginPath(); ctx.arc(xt(hcurve.hMin), yv(hcurve.uMin), 3.2, 0, 2*Math.PI); ctx.fill();
+
+  // the marker: where the flake is right now
+  const hNow = state.h, uNow = hcurveEnergyAt(hNow);
+  const mx = xt(hNow), my = yv(uNow);
+  ctx.strokeStyle = 'rgba(209,72,60,0.45)'; ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(mx, padT); ctx.lineTo(mx, padT+plotH); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#d1483c';
+  ctx.beginPath(); ctx.arc(mx, my, 5.2, 0, 2*Math.PI); ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.arc(mx, my, 5.2, 0, 2*Math.PI); ctx.stroke();
+  ctx.restore();
+
+  ctx.font = '600 10.5px ui-sans-serif, system-ui'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#31415a';
+  ctx.fillText(`minimum  h* = ${hcurve.hMin.toFixed(2)} Å   ·   U = ${hcurve.uMin.toFixed(3)} eV`
+               + `   ·   ${(hcurve.uMin/hcurve.atoms*1000).toFixed(2)} meV/atom`, padL + 6, padT + 12);
+  ctx.fillStyle = '#b03a2e';
+  ctx.fillText(`flake:  h = ${hNow.toFixed(2)} Å   ·   U = ${uNow.toFixed(3)} eV`, padL + 6, padT + 25);
+}
+
+function drawEnergyChart(){
+  const sized = sizeChartCanvas();
+  if(!sized) return;
+  const {c, W, H, dpr} = sized;
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W,H);
+
+  if(chartMode === 'height'){ drawHCurveChart(ctx, W, H); return; }
+
+  const padL = 64, padR = 12, padT = 14, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const axes = ()=>{
+    ctx.strokeStyle = '#22304a'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH);
+    ctx.stroke();
+    ctx.fillStyle = '#172033'; ctx.font = '600 12px ui-sans-serif, system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('t (ps)', padL + plotW/2, H - 8);
+    ctx.save(); ctx.translate(14, padT + plotH/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('E (eV)', 0, 0); ctx.restore();
+  };
+
+  if(eseries.length < 2){
+    axes();
+    ctx.fillStyle = '#6b7890'; ctx.font = '600 12px ui-sans-serif, system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(dyn.on ? 'Release the top layer to start recording…'
+                        : 'Turn dynamics on to record the energy.', padL + plotW/2, padT + plotH/2);
+    return;
+  }
+
+  let tMin = eseries[0].t, tMax = eseries[eseries.length-1].t;
+  if(tMax - tMin < 1e-6) tMax = tMin + 1e-6;
+  let yMin = Infinity, yMax = -Infinity;
+  for(const p of eseries){
+    const v = p.U;
+    if(isFinite(v)){ if(v<yMin) yMin=v; if(v>yMax) yMax=v; }
+  }
+  const pad = 0.08*(yMax - yMin || 1);
+  const xR = niceTickRange(tMin, tMax, 5);
+  // Keep the vertical axis tight on the data: U ~ -11 eV and K ~ 0.03 eV share
+  // one axis, so expanding out to round tick values would flatten K completely.
+  const yLo = yMin - pad, yHi = yMax + pad;
+  const yStep = niceNumber((yHi - yLo)/4, true);
+  const yR = {min: yLo, max: yHi, step: yStep, first: Math.ceil(yLo/yStep)*yStep};
+  const xt = t => padL + ((t - xR.min)/(xR.max - xR.min))*plotW;
+  const yv = e => padT + plotH - ((e - yR.min)/(yR.max - yR.min))*plotH;
+
+  ctx.strokeStyle = 'rgba(108,126,154,0.20)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#40516c'; ctx.font = '500 11px ui-sans-serif, system-ui';
+  ctx.textAlign = 'center';
+  for(let t = xR.min; t <= xR.max + xR.step*0.25; t += xR.step){
+    const x = xt(t);
+    if(x < padL-1 || x > padL+plotW+1) continue;
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT+plotH); ctx.stroke();
+    ctx.fillText(t.toFixed(1), x, padT+plotH+15);
+  }
+  ctx.textAlign = 'right';
+  const yDec = yR.step >= 1 ? 1 : (yR.step >= 0.1 ? 2 : 3);
+  for(let e = yR.first; e <= yR.max; e += yR.step){
+    const y = yv(e);
+    if(y < padT-1 || y > padT+plotH+1) continue;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+plotW, y); ctx.stroke();
+    ctx.fillText(e.toFixed(yDec), padL-8, y+4);
+  }
+  axes();
+
+  const drawCurve = (key, color, width)=>{
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    let started = false;
+    for(const p of eseries){
+      const x = xt(p.t), y = yv(p[key]);
+      if(!started){ ctx.moveTo(x,y); started = true; } else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  };
+  drawCurve('U', '#0b57d0', 2.4);
+
+  // legend
+  const items = [['U binding energy','#0b57d0']];
+  ctx.font = '600 11px ui-sans-serif, system-ui'; ctx.textAlign = 'left';
+  let lx = padL + 8;
+  for(const [label, col] of items){
+    ctx.fillStyle = col; ctx.fillRect(lx, padT+2, 14, 3);
+    ctx.fillStyle = '#31415a'; ctx.fillText(label, lx+19, padT+7);
+    lx += 19 + ctx.measureText(label).width + 14;
+  }
 }
 
 function drawMesh(vao, count, model, baseColor){
@@ -931,6 +1888,7 @@ function recenter(){
 }
 
 function render(){
+  advanceDynamics();
   updateCamera();
   gl.enable(gl.DEPTH_TEST);
   gl.clearColor(1,1,1,1); // white
@@ -1020,14 +1978,154 @@ bind(byId('lightIntensity'), byId('lightIntensityNum'), 'lightIntensity', ()=>{}
 byId('cutLog').addEventListener('input', e=>setCutFromLog(Number(e.target.value)));
 byId('cutMultNum').addEventListener('input', e=>setCutFromNumber(Number(e.target.value)));
 
-byId('showAtoms').addEventListener('change', e=>{});
-byId('showLines').addEventListener('change', e=>{});
-byId('sumAll').addEventListener('change', e=>{ updatePairs(); });
+byId('showAtoms').addEventListener('change', e=>{ state.showAtoms=e.target.checked; });
+byId('showLines').addEventListener('change', e=>{ state.showLines=e.target.checked; });
+byId('sumAll').addEventListener('change', e=>{ state.sumAll=e.target.checked; updatePairs(); });
 
 byId('metalness').addEventListener('input', e=>{ state.metalness=Number(e.target.value); byId('metalnessNum').value=state.metalness; });
 byId('metalnessNum').addEventListener('input', e=>{ state.metalness=Number(e.target.value); byId('metalness').value=state.metalness; });
 byId('roughness').addEventListener('input', e=>{ state.roughness=Number(e.target.value); byId('roughnessNum').value=state.roughness; });
 byId('roughnessNum').addEventListener('input', e=>{ state.roughness=Number(e.target.value); byId('roughness').value=state.roughness; });
+
+/* ---------------- Dynamics UI ---------------- */
+function setLayerFloor(){
+  // In dynamic mode the LJ wall, not the graphite spacing, is the real floor:
+  // the model's own minimum sits near 3.03 Å, so the flake must be free to go
+  // below 3.34 Å or it could never oscillate about its equilibrium.
+  const floor = Math.min(dyn.on ? MIN_DYNAMIC_SEPARATION : MIN_LAYER_SEPARATION, state.h);
+  for(const el of [byId('hSep'), byId('hSepNum'), byId('hRailSlider')]) el.min = floor.toFixed(2);
+}
+
+function setDynamics(on){
+  dyn.on = on;
+  document.body.classList.toggle('dyn-on', on);
+  const b = byId('dynToggle');
+  b.textContent = on ? 'Dynamics: ON' : 'Dynamics: OFF';
+  b.classList.toggle('on', on);
+  lastFrameMs = performance.now();
+  if(on){ releaseFlake(); }
+  else { dyn.vx = dyn.vy = dyn.vz = 0; dyn.K = 0; syncTopLayer(); syncLayerInputs(); }
+  setLayerFloor();
+  updateStructureMetrics();
+  updatePairs();
+  updateDynStatus();
+  if(chartVisible) drawEnergyChart();
+}
+
+function updateChartTitle(){
+  const el = document.querySelector('#energyPanel .ep-title');
+  if(!el) return;
+  el.textContent = (chartMode === 'height')
+    ? 'Binding energy vs interlayer height'
+    : 'Binding energy of the top flake vs time';
+}
+
+function setChartVisible(v){
+  chartVisible = v;
+  updateChartTitle();
+  byId('energyPanel').classList.toggle('visible', v);
+  byId('energyPlotToggle').classList.toggle('on', v);
+  if(v) drawEnergyChart();
+}
+
+function updateLJInfo(){
+  const el = byId('ljInfo');
+  if(!el) return;
+  const sigma = ljConvention === 'legacy'
+      ? LJ_PAIR_MIN_ANG / Math.pow(2, 1/6)
+      : LJ_R0_ZERO_ANG;
+  const rmin = sigma * Math.pow(2, 1/6);
+  const depth = LJ_A_EVA6*LJ_A_EVA6/(4*LJ_B_EVA12)*1000;   // meV
+  el.innerHTML = `B = ${LJ_B_EVA12.toFixed(0)} eV·Å<sup>12</sup> · pair minimum r<sub>e</sub> = ${rmin.toFixed(2)} Å · well depth u = ${depth.toFixed(3)} meV`;
+}
+
+byId('ljConv').addEventListener('change', e=>{
+  setLJConvention(e.target.value);
+  dyn.f = null; dyn.energyFresh = false; dyn.settled = false;
+  dyn.modes = null; dyn.eq = null; dyn.tHarm = 0;
+  updatePairs();
+  updateLJInfo();
+  updateDynStatus();
+  clearSeries();
+});
+
+byId('dynToggle').addEventListener('click', ()=> setDynamics(!dyn.on));
+byId('energyPlotToggle').addEventListener('click', ()=>{
+  if(chartMode === 'height'){ chartMode = 'time'; updateChartTitle(); setChartVisible(true); }
+  else setChartVisible(!chartVisible);
+});
+byId('hModeBtn').addEventListener('click', ()=> setHMode(!hmode));
+byId('chartClear').addEventListener('click', ()=>{ dyn.t = 0; clearSeries(); });
+
+/* The chart floats over the scene, so let the user park it wherever it is
+   least in the way: grab the title bar and drag. The panel is positioned with
+   right/bottom by default; on the first drag we switch to left/top. */
+(function makeChartDraggable(){
+  const panelEl = byId('energyPanel');
+  const head = panelEl.querySelector('.ep-head');
+  let drag = null;
+
+  head.addEventListener('pointerdown', (e)=>{
+    if(e.target.closest('button')) return;       // the Clear button keeps working
+    const stage = document.getElementById('stage').getBoundingClientRect();
+    const box = panelEl.getBoundingClientRect();
+    drag = {dx: e.clientX - box.left, dy: e.clientY - box.top, w: box.width, h: box.height, stage};
+    panelEl.style.right = 'auto';
+    panelEl.style.bottom = 'auto';
+    panelEl.style.left = (box.left - stage.left) + 'px';
+    panelEl.style.top  = (box.top  - stage.top ) + 'px';
+    panelEl.classList.add('dragging');
+    head.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+
+  head.addEventListener('pointermove', (e)=>{
+    if(!drag) return;
+    const s = drag.stage;
+    const x = clamp(e.clientX - drag.dx - s.left, 0, Math.max(0, s.width  - drag.w));
+    const y = clamp(e.clientY - drag.dy - s.top,  0, Math.max(0, s.height - drag.h));
+    panelEl.style.left = x + 'px';
+    panelEl.style.top  = y + 'px';
+  });
+
+  const stop = (e)=>{
+    if(!drag) return;
+    drag = null;
+    panelEl.classList.remove('dragging');
+    try { head.releasePointerCapture(e.pointerId); } catch(_){}
+  };
+  head.addEventListener('pointerup', stop);
+  head.addEventListener('pointercancel', stop);
+})();
+byId('dynReset').addEventListener('click', ()=>{ dyn.t = 0; clearSeries(); updateDynStatus(); });
+byId('releaseBtn').addEventListener('click', ()=>{ if(!dyn.on) setDynamics(true); else releaseFlake(); });
+
+byId('dynModel').addEventListener('change', e=>{
+  dyn.model = e.target.value;
+  dyn.f = null; dyn.energyFresh = false; dyn.settled = false; dyn.modes = null; dyn.eq = null; dyn.tHarm = 0;
+  if(dyn.on) releaseFlake();
+  updateDynStatus();
+});
+
+function bindDyn(rangeId, numId, key, after){
+  const r = byId(rangeId), n = byId(numId);
+  const sync = v=>{ const x = Number(v); dyn[key] = x; r.value = x; n.value = x; after && after(); };
+  r.addEventListener('input', e=>sync(e.target.value));
+  n.addEventListener('input', e=>sync(e.target.value));
+}
+bindDyn('dynGamma', 'dynGammaNum', 'gamma', ()=>{ if(dyn.on && dyn.model==='harmonic') { dyn.hq0 = null; releaseFlake(); } });
+bindDyn('dynSpeed', 'dynSpeedNum', 'speed');
+bindDyn('dynDt',    'dynDtNum',    'dtFs');
+bindDyn('dynRc',    'dynRcNum',    'rc', ()=>{ invalidateBottomHash(); updatePairs(); });
+
+window.addEventListener('keydown', (e)=>{
+  if(e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if(e.key === 'd' || e.key === 'D'){ setDynamics(!dyn.on); }
+  else if(e.key === 'e' || e.key === 'E'){ setChartVisible(!chartVisible); }
+  else if(e.key === 'r' || e.key === 'R'){ if(dyn.on) releaseFlake(); }
+});
+
+new ResizeObserver(()=>{ if(chartVisible) drawEnergyChart(); }).observe(byId('energyPanel'));
 
 byId('resetView').addEventListener('click', ()=>{ yaw=-Math.PI*0.25; pitch=Math.PI*0.15; radius=32.4; recenter(); });
 byId('recenter').addEventListener('click', ()=>{ recenter(); });
@@ -1040,10 +2138,32 @@ byId('downloadBtn').addEventListener('click', ()=>{
 });
 
 // Init
+// Keep the h controls in step with the clamp Ctrl-drag uses, so the two cannot drift apart.
+for(const el of [byId('hSep'), byId('hSepNum'), byId('hRailSlider')]){
+  el.min = MIN_LAYER_SEPARATION;
+  el.max = MAX_LAYER_SEPARATION;
+}
+
+// The height rail: dragging it holds the flake at the chosen height (like
+// Ctrl-drag); letting go releases it. The window mouseup handler already
+// releases a held flake, so only keyboard steps need the change handler.
+byId('hRailSlider').addEventListener('input', (e)=>{ setTopLayerHeight(Number(e.target.value)); });
+byId('hRailSlider').addEventListener('change', ()=>{ if(dyn.holding){ dyn.holding = false; releaseFlake(); } });
+byId('hRailSlider').addEventListener('keydown', (e)=>{ e.stopPropagation(); });
 setCutFromNumber(0.011);
 rebuildAtoms();
 updatePairs();
 recenter();
+
+setLayerFloor();
+updateLJInfo();
+updateDynStatus();
+drawEnergyChart();
+lastFrameMs = performance.now();
+
+// Dynamics is on by default; press D or the Dynamics button for the static visualizer.
+setDynamics(true);
+
 requestAnimationFrame(render);
 </script>
 </body>

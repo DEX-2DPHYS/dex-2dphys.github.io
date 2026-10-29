@@ -1,0 +1,642 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Landau Fan Panel</title>
+<style>
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #ffffff;
+    font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+  }
+
+  .panel {
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
+    margin: 0 auto;
+    position: relative;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <canvas id="fanCanvas"></canvas>
+  </div>
+
+<script>
+const E_CHARGE = 1.602176634e-19;
+const HBAR = 1.054571817e-34;
+const H_PLANCK = 6.62607015e-34;
+const K_B = 1.380649e-23;
+const TWO_PI = 2 * Math.PI;
+const E2_OVER_H = (E_CHARGE * E_CHARGE) / H_PLANCK;
+
+const FAN_L = 104, FAN_R = 22, FAN_T = 36, FAN_B = 80;
+const FAN_N_FIXED = 6e16;
+const TARGET_N_CM2 = -6e12;
+const TARGET_B = 4.0;
+
+const cfg = {
+  bMin: 0.08,
+  bMax: 12.0,
+  tempK: 14,
+  vFermiM: 1.0e6,
+  mu: 4.0,
+  tauQfs: 120,
+  alphaBMeV: 1.2,
+  peakE2h: 0.85,
+  nStar10cm2: 5.0,
+};
+
+const canvas = document.getElementById("fanCanvas");
+const ctx = canvas.getContext("2d");
+let size = { w: 1, h: 1 };
+let t0 = performance.now();
+let dragging = false;
+let fanPalette = "orange";
+let paletteDot = { x: 0, y: 0, r: 0 };
+let rhoRange = { min: null, max: null, next: "min" };
+let sel = { nM2: TARGET_N_CM2 * 1e4, b: TARGET_B };
+let fanCache = { key: "", canvas: null, nMinM2: -1, nMaxM2: 1, bMin: 0, bMax: 1, vMin: 0, vMax: 1 };
+let plot = { L: FAN_L, T: FAN_T, pW: 1, pH: 1 };
+
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+function erfApprox(x) {
+  const s = x < 0 ? -1 : 1;
+  const ax = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * ax);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-ax * ax);
+  return s * y;
+}
+
+function normCdf(x) { return 0.5 * (1 + erfApprox(x / Math.SQRT2)); }
+
+function niceTicks(lo, hi, count = 5) {
+  const span = hi - lo;
+  if (!(span > 0)) return [lo, hi];
+  const raw = span / Math.max(1, count - 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  let step = mag;
+  if (norm >= 7.5) step = 10 * mag;
+  else if (norm >= 3.5) step = 5 * mag;
+  else if (norm >= 1.5) step = 2 * mag;
+  const ticks = [];
+  const first = Math.ceil(lo / step) * step;
+  for (let v = first; v <= hi + 1e-12; v += step) ticks.push(+v.toFixed(10));
+  return ticks.length ? ticks : [lo, hi];
+}
+
+function heatColour(val, lo, hi, palette) {
+  const t = clamp((val - lo) / Math.max(hi - lo, 1e-20), 0, 1);
+  const stops = palette === "blue" ? [
+    [0.00, 30, 64, 175],
+    [0.22, 82, 143, 218],
+    [0.50, 255, 255, 255],
+    [0.78, 244, 130, 116],
+    [1.00, 185, 28, 37],
+  ] : [
+    [0.00, 0, 23, 45],
+    [0.12, 17, 75, 139],
+    [0.24, 42, 130, 181],
+    [0.36, 107, 181, 202],
+    [0.48, 185, 224, 234],
+    [0.60, 255, 247, 214],
+    [0.72, 255, 210, 122],
+    [0.84, 255, 154, 74],
+    [0.92, 231, 91, 58],
+    [1.00, 183, 34, 43],
+  ];
+  let i = 0;
+  while (i < stops.length - 1 && t > stops[i + 1][0]) i++;
+  const s0 = stops[i];
+  const s1 = stops[Math.min(i + 1, stops.length - 1)];
+  const f = (t - s0[0]) / Math.max(1e-9, s1[0] - s0[0]);
+  return [
+    Math.round(s0[1] + f * (s1[1] - s0[1])),
+    Math.round(s0[2] + f * (s1[2] - s0[2])),
+    Math.round(s0[3] + f * (s1[3] - s0[3])),
+  ];
+}
+
+function drawAxes(L, T, pW, pH) {
+  ctx.strokeStyle = "rgba(80,90,110,0.55)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(L, T);
+  ctx.lineTo(L, T + pH);
+  ctx.moveTo(L, T + pH);
+  ctx.lineTo(L + pW, T + pH);
+  ctx.moveTo(L + pW, T);
+  ctx.lineTo(L + pW, T + pH);
+  ctx.moveTo(L, T);
+  ctx.lineTo(L + pW, T);
+  ctx.stroke();
+}
+
+function landauEJ(n, vF, B) {
+  return n <= 0 ? 0 : vF * Math.sqrt(2 * E_CHARGE * HBAR * B * n);
+}
+
+function makeQHEParams() {
+  return {
+    vF: cfg.vFermiM,
+    mu: Math.max(cfg.mu, 0.02),
+    tauQB: Math.max(1e-15, cfg.tauQfs * 1e-15),
+    alphaJ: cfg.alphaBMeV * 1e-3 * E_CHARGE,
+    peakAmp: Math.max(0.1, cfg.peakE2h) * E2_OVER_H,
+    sigMin: 5e-7,
+    nStarM2: Math.max(0, cfg.nStar10cm2) * 1e14,
+    T: cfg.tempK,
+    gamma0: 0.35e-3 * E_CHARGE,
+  };
+}
+
+function qheFromDensity(nSigned, B, qp) {
+  const bA = Math.max(Math.abs(B), 1e-9);
+  const sB = B >= 0 ? 1 : -1;
+  const nRaw = Math.abs(nSigned);
+  const nE = Math.max(nRaw, qp.nStarM2, 1e8);
+  const sN = nSigned >= 0 ? 1 : -1;
+  const ef = nRaw > 0 ? sN * HBAR * qp.vF * Math.sqrt(Math.PI * nRaw) : 0;
+  const eA = HBAR * qp.vF * Math.sqrt(Math.PI * nE);
+
+  const tM = Math.max(1e-15, (qp.mu * eA) / (E_CHARGE * qp.vF * qp.vF));
+  const tQE = Math.min(qp.tauQB, tM);
+  const gM = HBAR / (2 * tM);
+  const gQ = HBAR / (2 * tQE);
+  const gT = 1.5 * K_B * qp.T;
+  const gB = qp.alphaJ * Math.sqrt(bA);
+  const g = Math.sqrt(gM * gM + gQ * gQ + gT * gT + gB * gB + qp.gamma0 * qp.gamma0);
+
+  const eCut = eA + 8 * g;
+  const nMx = Math.min(140, Math.max(1, Math.ceil((eCut * eCut) / (2 * E_CHARGE * HBAR * bA * qp.vF * qp.vF))));
+
+  let sxx = qp.sigMin + 0.25 * qp.peakAmp * Math.exp(-(ef * ef) / (2 * g * g));
+  let stair = 0.5 * Math.tanh(ef / (Math.SQRT2 * g));
+  for (let n = 1; n <= nMx; n++) {
+    const eN = landauEJ(n, qp.vF, bA);
+    const d1 = ef - eN;
+    const d2 = ef + eN;
+    sxx += qp.peakAmp * Math.exp(-(d1 * d1) / (2 * g * g));
+    sxx += qp.peakAmp * Math.exp(-(d2 * d2) / (2 * g * g));
+    stair += normCdf(d1 / g) - normCdf(-d2 / g);
+  }
+
+  const sxy = 4 * E2_OVER_H * sB * stair;
+  const den = sxx * sxx + sxy * sxy + 1e-30;
+  let rhoxx = sxx / den;
+  const llDegM2 = 4 * E_CHARGE * bA / H_PLANCK;
+  const n0Width = Math.sqrt(Math.pow(2e13, 2) + Math.pow(0.12 * llDegM2, 2));
+  const n0Ridge = Math.exp(-(nSigned * nSigned) / (2 * n0Width * n0Width));
+  rhoxx += 0.35 * (1 / E2_OVER_H) * n0Ridge;
+  return { rhoxx, sigxx: sxx, sigxy: sxy };
+}
+
+function rhoRangeText() {
+  if (rhoRange.min === null && rhoRange.max === null) return "";
+  const a = rhoRange.min === null ? "auto" : rhoRange.min.toFixed(2);
+  const b = rhoRange.max === null ? "auto" : rhoRange.max.toFixed(2);
+  return ` [${a}..${b}]`;
+}
+
+function buildFanCache(pW, pH) {
+  const qty = "rhoxx";
+  const nMaxM2 = FAN_N_FIXED;
+  const nMinM2 = -FAN_N_FIXED;
+  const key = [qty, fanPalette, rhoRange.min === null ? "auto" : rhoRange.min.toFixed(4), rhoRange.max === null ? "auto" : rhoRange.max.toFixed(4), cfg.bMin.toFixed(4), cfg.bMax.toFixed(4), nMaxM2.toExponential(3), cfg.tempK.toFixed(3), cfg.vFermiM.toFixed(0), cfg.mu.toFixed(3), cfg.tauQfs.toFixed(3), cfg.alphaBMeV.toFixed(3), cfg.peakE2h.toFixed(3), cfg.nStar10cm2.toFixed(3), pW, pH].join("|");
+  if (fanCache.key === key && fanCache.canvas) return;
+
+  const gW = 800;
+  const gH = 450;
+  const qp = makeQHEParams();
+
+  if (!fanCache.canvas) fanCache.canvas = document.createElement("canvas");
+  fanCache.canvas.width = gW;
+  fanCache.canvas.height = gH;
+
+  const bctx = fanCache.canvas.getContext("2d");
+  const img = bctx.createImageData(gW, gH);
+  const vals = new Float64Array(gW * gH);
+  let vMin = Infinity;
+  let vMax = -Infinity;
+
+  for (let y = 0; y < gH; y++) {
+    const bF = cfg.bMax - ((cfg.bMax - cfg.bMin) * y) / Math.max(gH - 1, 1);
+    const row = y * gW;
+    for (let x = 0; x < gW; x++) {
+      const nS = nMinM2 + ((nMaxM2 - nMinM2) * x) / Math.max(gW - 1, 1);
+      const q = qheFromDensity(nS, bF, qp);
+      const v = Math.log10(Math.max(q.rhoxx, 1e-24));
+      vals[row + x] = v;
+      if (v < vMin) vMin = v;
+      if (v > vMax) vMax = v;
+    }
+  }
+
+  if (!(vMax > vMin)) {
+    vMin -= 1;
+    vMax += 1;
+  }
+  if (rhoRange.min !== null) vMin = rhoRange.min;
+  if (rhoRange.max !== null) vMax = rhoRange.max;
+  if (!(vMax > vMin)) vMax = vMin + 0.01;
+
+  for (let i = 0; i < vals.length; i++) {
+    const c = heatColour(vals[i], vMin, vMax, fanPalette);
+    const j = 4 * i;
+    img.data[j] = c[0];
+    img.data[j + 1] = c[1];
+    img.data[j + 2] = c[2];
+    img.data[j + 3] = 255;
+  }
+
+  bctx.putImageData(img, 0, 0);
+  fanCache.key = key;
+  fanCache.nMinM2 = nMinM2;
+  fanCache.nMaxM2 = nMaxM2;
+  fanCache.bMin = cfg.bMin;
+  fanCache.bMax = cfg.bMax;
+  fanCache.vMin = vMin;
+  fanCache.vMax = vMax;
+}
+
+function orbitMetrics(nM2, bT) {
+  const bAbs = Math.max(Math.abs(bT), 1e-9);
+  const kF = Math.sqrt(Math.max(Math.abs(nM2), 1e8) * Math.PI);
+  const lamF = TWO_PI / Math.max(kF, 1e3);
+  const pF = HBAR * kF;
+  const rc = pF / (E_CHARGE * bAbs);
+  const circ = TWO_PI * rc;
+  const lPhi1 = 2.2e-6; // Match Landau2 default Lphi(1K)=2.2 um
+  const lPhi = lPhi1 / Math.sqrt(Math.max(cfg.tempK, 1));
+  const coh = lPhi / Math.max(circ, 1e-18);
+  return { rc, lamF, circ, lPhi, coh };
+}
+
+function interferenceScore(phys) {
+  const nBS = phys.circ / Math.max(2 * phys.lamF, 1e-20);
+  const frac = nBS - Math.round(nBS);
+  return Math.abs(frac);
+}
+
+function interferenceColour(phys, alpha) {
+  const score = interferenceScore(phys);
+  const t = 0.5 * (1 + Math.cos(Math.PI * score / 0.5));
+  const r = Math.round(220 * (1 - t) + 16 * t);
+  const g = Math.round(40 * (1 - t) + 185 * t);
+  const b = Math.round(40 * (1 - t) + 50 * t);
+  return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+}
+
+function drawInsetOrbit(x, y, w, h, phase, nM2, bT) {
+  const ref = orbitMetrics(TARGET_N_CM2 * 1e4, TARGET_B);
+  const now = orbitMetrics(nM2, bT);
+
+  const cx = x + w * 0.5;
+  const cy = y + h * 0.5;
+  const rcScale = clamp(Math.sqrt(now.rc / Math.max(ref.rc, 1e-18)), 0.62, 1.45);
+  const lamScale = clamp(Math.sqrt(now.lamF / Math.max(ref.lamF, 1e-18)), 0.75, 1.35);
+  const baseR = Math.min(w, h) * 0.28 * rcScale;
+  const waveAmp = clamp(baseR * (0.12 * lamScale), 2, 20);
+  const segs = 260;
+
+  ctx.strokeStyle = "rgba(60,92,132,0.62)";
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR, 0, TWO_PI);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  function waveR(f) {
+    const s = f * now.circ;
+    return baseR + waveAmp * Math.sin(Math.PI * s / Math.max(now.lamF, 1e-18));
+  }
+
+  function waveXY(f) {
+    const r = waveR(f);
+    const ang = f * TWO_PI;
+    return { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) };
+  }
+
+  ctx.beginPath();
+  for (let i = 0; i <= segs; i++) {
+    const p = waveXY(i / segs);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.strokeStyle = "rgba(40,110,220,0.55)";
+  ctx.lineWidth = 3.4;
+  ctx.stroke();
+
+  ctx.beginPath();
+  for (let i = 0; i <= segs; i++) {
+    const p = waveXY(1 + i / segs);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  if (now.coh < 1.0) {
+    ctx.setLineDash([5, 4]);
+  }
+  ctx.strokeStyle = interferenceColour(now, 0.82);
+  ctx.lineWidth = 3.4;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const seamA = waveXY(0);
+  const seamB = waveXY(2);
+  ctx.strokeStyle = "rgba(0,0,0,0.30)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(seamA.x, seamA.y);
+  ctx.lineTo(seamB.x, seamB.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "rgba(40,110,220,0.92)";
+  ctx.beginPath();
+  ctx.arc(seamA.x, seamA.y, 5.2, 0, TWO_PI);
+  ctx.fill();
+
+  ctx.fillStyle = interferenceColour(now, 0.92);
+  ctx.beginPath();
+  ctx.arc(seamB.x, seamB.y, 5.2, 0, TWO_PI);
+  ctx.fill();
+
+  const px = cx + baseR * Math.cos(phase);
+  const py = cy + baseR * Math.sin(phase);
+  ctx.fillStyle = "rgba(37,99,235,0.95)";
+  ctx.beginPath();
+  ctx.arc(px, py, 5.8, 0, TWO_PI);
+  ctx.fill();
+
+  // Number of wavelengths of the drawn wave around the orbit (two lobes = one wavelength),
+  // the same count interferenceScore() compares with an integer
+  const waves = now.circ / Math.max(2 * now.lamF, 1e-18);
+  const nearest = Math.round(waves);
+  if (Math.abs(waves - nearest) > 0.3) return; // only label orbits within 30% of closing
+  const numPx = Math.round(clamp(baseR * 0.55, 22, 64));
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `bold ${numPx}px Arial, Helvetica, sans-serif`;
+  ctx.fillStyle = "#1a2233";
+  ctx.fillText(String(nearest), cx, cy - numPx * 0.12);
+  ctx.font = `${Math.round(numPx * 0.3)}px Arial, Helvetica, sans-serif`;
+  ctx.fillStyle = "#4a5263";
+  ctx.fillText("wavelengths", cx, cy + numPx * 0.55);
+}
+
+function pointerToSelection(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const { L, T, pW, pH } = plot;
+
+  if (x < L || x > L + pW || y < T || y > T + pH) {
+    return false;
+  }
+
+  const fx = clamp((x - L) / Math.max(pW, 1), 0, 1);
+  const fy = clamp((y - T) / Math.max(pH, 1), 0, 1);
+  sel.nM2 = fanCache.nMinM2 + fx * (fanCache.nMaxM2 - fanCache.nMinM2);
+  sel.b = fanCache.bMax - fy * (fanCache.bMax - fanCache.bMin);
+  return true;
+}
+
+function setRhoRangeFromPointer(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const { L, T, pW, pH } = plot;
+  if (x < L || x > L + pW || y < T || y > T + pH) return false;
+
+  const fx = clamp((x - L) / Math.max(pW, 1), 0, 1);
+  const fy = clamp((y - T) / Math.max(pH, 1), 0, 1);
+  const nM2 = fanCache.nMinM2 + fx * (fanCache.nMaxM2 - fanCache.nMinM2);
+  const b = fanCache.bMax - fy * (fanCache.bMax - fanCache.bMin);
+  const q = qheFromDensity(nM2, b, makeQHEParams());
+  const v = Math.log10(Math.max(q.rhoxx, 1e-24));
+
+  if (rhoRange.next === "min") {
+    rhoRange.min = v;
+    rhoRange.next = "max";
+  } else {
+    rhoRange.max = v;
+    rhoRange.next = "min";
+  }
+  if (rhoRange.min !== null && rhoRange.max !== null && rhoRange.min > rhoRange.max) {
+    const tmp = rhoRange.min;
+    rhoRange.min = rhoRange.max;
+    rhoRange.max = tmp;
+  }
+  fanCache.key = "";
+  return true;
+}
+
+function setupCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  size = { w: rect.width, h: rect.height };
+}
+
+function drawFanPanel(ts) {
+  const w = size.w;
+  const h = size.h;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, w, h);
+
+  const L = FAN_L;
+  const R = FAN_R;
+  const T = FAN_T;
+  const B = FAN_B;
+  const pW = Math.max(30, w - L - R);
+  const pH = Math.max(30, h - T - B);
+  plot = { L, T, pW, pH };
+
+  buildFanCache(pW, pH);
+
+  const xN = (n) => L + ((n - fanCache.nMinM2) / Math.max(fanCache.nMaxM2 - fanCache.nMinM2, 1e-24)) * pW;
+  const yB = (b) => T + ((fanCache.bMax - b) / Math.max(fanCache.bMax - fanCache.bMin, 1e-24)) * pH;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(fanCache.canvas, L, T, pW, pH);
+
+  const x0 = xN(0);
+  if (x0 >= L && x0 <= L + pW) {
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x0, T);
+    ctx.lineTo(x0, T + pH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const xC = clamp(xN(sel.nM2), L, L + pW);
+  const yC = clamp(yB(sel.b), T, T + pH);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.90)";
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(xC, T);
+  ctx.lineTo(xC, T + pH);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(L, yC);
+  ctx.lineTo(L + pW, yC);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = "rgba(0,0,0,0.6)";
+  ctx.lineWidth = 1.5;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(xC, yC, 5.5, 0, TWO_PI);
+  ctx.fill();
+  ctx.stroke();
+
+  drawAxes(L, T, pW, pH);
+
+  ctx.font = "18px Arial, Helvetica, sans-serif";
+  ctx.fillStyle = "#334";
+  ctx.strokeStyle = "#444";
+  ctx.lineWidth = 1.5;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  const nTicks = niceTicks(fanCache.nMinM2 / 1e16, fanCache.nMaxM2 / 1e16, 7);
+  for (let i = 0; i < nTicks.length; i++) {
+    const xTk = xN(nTicks[i] * 1e16);
+    ctx.beginPath();
+    ctx.moveTo(xTk, T + pH);
+    ctx.lineTo(xTk, T + pH + 7);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(xTk, T);
+    ctx.lineTo(xTk, T - 7);
+    ctx.stroke();
+    ctx.fillText(nTicks[i].toFixed(1), xTk, T + pH + 8);
+  }
+
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const bTicks = niceTicks(fanCache.bMin, fanCache.bMax, 5);
+  for (let i = 0; i < bTicks.length; i++) {
+    const yTk = yB(bTicks[i]);
+    ctx.beginPath();
+    ctx.moveTo(L - 7, yTk);
+    ctx.lineTo(L, yTk);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(L + pW, yTk);
+    ctx.lineTo(L + pW + 7, yTk);
+    ctx.stroke();
+    ctx.fillText(bTicks[i].toFixed(1), L - 8, yTk);
+  }
+
+  ctx.font = "bold 24px Arial, Helvetica, sans-serif";
+  ctx.fillStyle = "#1a2233";
+  ctx.textAlign = "center";
+  ctx.fillText("Carrier density n (10¹² cm⁻²)", L + pW / 2, h - 22);
+
+  ctx.save();
+  ctx.translate(24, T + pH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("Magnetic field B (Tesla)", 0, 0);
+  ctx.restore();
+
+  ctx.font = "bold 15px Arial, Helvetica, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  const title = "log10 ρ_xx incl. n=0" + rhoRangeText();
+  ctx.fillText(title, 6, 8);
+  const tw = ctx.measureText(title).width;
+  const dotX = 14 + tw;
+  const dotY = 15;
+  const dotR = 5;
+  paletteDot = { x: dotX, y: dotY, r: dotR };
+  const grad = ctx.createLinearGradient(dotX - dotR, dotY, dotX + dotR, dotY);
+  if (fanPalette === "blue") {
+    grad.addColorStop(0, "#1e40af");
+    grad.addColorStop(0.5, "#ffffff");
+    grad.addColorStop(1, "#b91c1c");
+  } else {
+    grad.addColorStop(0, "#0f4c81");
+    grad.addColorStop(0.58, "#fff7d6");
+    grad.addColorStop(1, "#b7222b");
+  }
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, dotR, 0, TWO_PI);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(20,35,60,0.55)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  const phase = (ts - t0) * 0.0016;
+  const inset = clamp(Math.min(pW, pH) * 0.46, 150, 380);
+  const lift = yB(0) - yB(1.5); // raise the ring by 1.5 T on the B axis
+  drawInsetOrbit(L + 10, T + pH - inset - 10 - lift, inset, inset, phase, sel.nM2, sel.b);
+}
+
+function frame(ts) {
+  drawFanPanel(ts);
+  requestAnimationFrame(frame);
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (e.shiftKey && setRhoRangeFromPointer(e.clientX, e.clientY)) {
+    return;
+  }
+  if (Math.hypot(x - paletteDot.x, y - paletteDot.y) <= paletteDot.r + 5) {
+    fanPalette = fanPalette === "orange" ? "blue" : "orange";
+    fanCache.key = "";
+    return;
+  }
+  if (pointerToSelection(e.clientX, e.clientY)) {
+    dragging = true;
+  }
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  canvas.style.cursor = Math.hypot(x - paletteDot.x, y - paletteDot.y) <= paletteDot.r + 5 ? "pointer" : "crosshair";
+  if (dragging) {
+    pointerToSelection(e.clientX, e.clientY);
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  dragging = false;
+});
+
+setupCanvas();
+window.addEventListener("resize", setupCanvas);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

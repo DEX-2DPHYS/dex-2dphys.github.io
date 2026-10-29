@@ -43,6 +43,10 @@
   ],
   "tools": [
     "periodic-table",
+    "bloch-bandgap",
+    "guitar-beats",
+    "landau-fan",
+    "moire-playground",
     "dsw",
     "heterostructure-builder",
     "salmonella",

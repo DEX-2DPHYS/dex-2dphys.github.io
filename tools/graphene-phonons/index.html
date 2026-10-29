@@ -551,7 +551,7 @@
 
     <fieldset>
       <legend>Lattice</legend>
-      <div class="row"><label>Unit cells (n×n)</label><input id="cells" type="range" min="5" max="50" step="1" value="50"/><span id="cellsLbl" class="pill">50×50</span></div>
+      <div class="row"><label>Unit cells (n×n)</label><input id="cells" type="range" min="5" max="80" step="1" value="50"/><span id="cellsLbl" class="pill">50×50</span></div>
       <div class="row"><label>Bond length (L₀)</label><input id="L0" type="number" step="0.01" value="1.00"/></div>
       <div class="row"><label>Initial offset (×L₀)</label><input id="off" type="number" step="0.005" value="0"/></div>
       <div class="btns"><button id="rebuild">Rebuild lattice</button></div>
@@ -571,7 +571,7 @@
 
     <fieldset>
       <legend>Physics</legend>
-      <div class="row"><label>dt</label><input id="dt" type="number" min="0.001" max="0.010" step="0.00001" value="0.010"/></div>
+      <div class="row"><label>dt</label><input id="dt" type="number" min="0.001" max="0.010" step="0.00001" value="0.002"/></div>
       <div class="row"><label>Spring k (nn)</label><input id="k" type="number" step="0.1" value="30"/></div>
       <div class="row"><label>Damping γ</label><input id="g" type="number" step="0.01" value="0.03"/></div>
       <div class="row"><label><input id="useMorse" type="checkbox" checked> Use Morse for nn bonds</label><span></span></div>
@@ -601,7 +601,7 @@
         <option value="gold">Amber / gold</option>
         <option value="whitehot">White hot</option>
       </select></div>
-      <div class="row"><label>Strain color factor</label><input id="sf" type="range" min="0" max="40" step="0.05" value="40"/><span id="sfLbl" class="pill">40.00×</span></div>
+      <div class="row"><label>Strain color factor</label><input id="sf" type="range" min="-1" max="3" step="0.005" value="1.602"/><span id="sfLbl" class="pill">40.0×</span></div>
       <div class="row"><label>Strain saturation</label><input id="sat" type="range" min="0" max="1" step="0.01" value="0.99"/><span id="satLbl" class="pill">99%</span></div>
       <div class="row"><label>Neutral gray (atoms &amp; bonds)</label><input id="neutralGray" type="range" min="0" max="255" step="1" value="134"/><span id="neutralLbl" class="pill">#868686</span></div>
       <div class="row"><label><input id="invert" type="checkbox" checked> Invert colors (canvas background)</label><span></span></div>
@@ -632,8 +632,6 @@
   const $ = q => document.querySelector(q);
   const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
   const add=(a,b)=>[a[0]+b[0],a[1]+b[1]], mul=(a,s)=>[a[0]*s,a[1]*s];
-  function bondKey(i,j){ return (i<j) ? (i+'_'+j) : (j+'_'+i); }
-  function rebuildBondSet(st){ const s=new Set(); for(const b of st.bonds){ s.add(bondKey(b.i,b.j)); } return s; }
 
 
   function build(n,L0){
@@ -658,89 +656,76 @@
     return {atoms,bonds,bonds2,L0,L2};
   }
 
-  function step(state,p,mouse,useAng,kAng,useMorse,De,alpha,doBreak,doReform,fBreak,fReform){
-    const {atoms,bonds,bonds2}=state,{k,g,dt,m}=p;
-    for(const a of atoms){ a.f[0]=0; a.f[1]=0; }
+  // Packed simulation state: flat typed arrays instead of one object per atom/bond.
+  // NN bonds keep their slot for life; breaking clears alive[b], reforming sets it again.
+  function pack(B){
+    const N=B.atoms.length, nb=B.bonds.length, nb2=B.bonds2.length;
+    const S={N, L0:B.L0, L2:B.L2,
+      px:new Float64Array(N), py:new Float64Array(N), vx:new Float64Array(N), vy:new Float64Array(N), fx:new Float64Array(N), fy:new Float64Array(N),
+      nb, bi:new Int32Array(nb), bj:new Int32Array(nb), bL:new Float64Array(nb), alive:new Uint8Array(nb).fill(1), val:new Int8Array(N), dead:0,
+      nb2, ci:new Int32Array(nb2), cj:new Int32Array(nb2), cL:new Float64Array(nb2)};
+    B.atoms.forEach((a,i)=>{ S.px[i]=a.p[0]; S.py[i]=a.p[1]; });
+    B.bonds.forEach((b,k)=>{ S.bi[k]=b.i; S.bj[k]=b.j; S.bL[k]=b.L0; S.val[b.i]++; S.val[b.j]++; });
+    B.bonds2.forEach((b,k)=>{ S.ci[k]=b.i; S.cj[k]=b.j; S.cL[k]=b.L0; });
+    return S;
+  }
+
+  function step(S,p,mouse,o){
+    const {N,px,py,vx,vy,fx,fy,nb,bi,bj,bL,alive,val,nb2,ci,cj,cL}=S, {k,g,dt,m}=p;
+    const {useMorse,De,alpha,doBreak,doReform,fBreak,fReform}=o, kAng=o.useAng?o.kAng:0;
+    fx.fill(0); fy.fill(0);
     let pe=0;
-    for(const b of bonds){
-      const ai=atoms[b.i], aj=atoms[b.j];
-      const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
-      const d=Math.hypot(dx,dy)||1e-12, ux=dx/d, uy=dy/d;
+    // NN bonds; a bond stretched past fBreak still pushes this step, then breaks (same order as before)
+    for(let b=0;b<nb;b++){
+      if(!alive[b]) continue;
+      const i=bi[b], j=bj[b], L=bL[b];
+      const dx=px[j]-px[i], dy=py[j]-py[i];
+      const d=Math.sqrt(dx*dx+dy*dy)||1e-12;
+      let f;
       if(useMorse){
-        const re=b.L0; const delta=d-re; const ex=Math.exp(-alpha*delta);
-        const fmag = 2*De*alpha*ex*(1 - ex);
-        const fx=fmag*ux, fy=fmag*uy;
-        ai.f[0]+=fx; ai.f[1]+=fy; aj.f[0]-=fx; aj.f[1]-=fy;
-        pe += De*((1 - ex)*(1 - ex) - 1);
+        const ex=Math.exp(-alpha*(d-L));
+        f=2*De*alpha*ex*(1-ex);
+        pe+=De*((1-ex)*(1-ex)-1);
       } else {
-        const x=d-b.L0; const f=k*x; const fx=f*ux, fy=f*uy;
-        ai.f[0]+=fx; ai.f[1]+=fy; aj.f[0]-=fx; aj.f[1]-=fy;
-        pe+=0.5*k*x*x;
+        const x=d-L; f=k*x; pe+=0.5*k*x*x;
       }
+      f/=d;
+      const gx=f*dx, gy=f*dy;
+      fx[i]+=gx; fy[i]+=gy; fx[j]-=gx; fy[j]-=gy;
+      if(doBreak && d>L*fBreak){ alive[b]=0; S.dead++; val[i]--; val[j]--; }
     }
-    if(useAng && kAng>0){
-      for(const b of bonds2){
-        const ai=atoms[b.i], aj=atoms[b.j];
-        const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
-        const d=Math.hypot(dx,dy)||1e-12, ux=dx/d, uy=dy/d;
-        const x=d-b.L0, f=kAng*x; const fx=f*ux, fy=f*uy;
-        ai.f[0]+=fx; ai.f[1]+=fy; aj.f[0]-=fx; aj.f[1]-=fy;
+    if(kAng>0){
+      for(let b=0;b<nb2;b++){
+        const i=ci[b], j=cj[b];
+        const dx=px[j]-px[i], dy=py[j]-py[i];
+        const d=Math.sqrt(dx*dx+dy*dy)||1e-12;
+        const x=d-cL[b], f=kAng*x/d;
+        const gx=f*dx, gy=f*dy;
+        fx[i]+=gx; fy[i]+=gy; fx[j]-=gx; fy[j]-=gy;
         pe+=0.5*kAng*x*x;
       }
     }
     if(mouse.grab >= 0){
-      const a=atoms[mouse.grab], kM=mouse.k;
-      a.f[0] += kM*(mouse.world[0]-a.p[0]);
-      a.f[1] += kM*(mouse.world[1]-a.p[1]);
+      const a=mouse.grab, kM=mouse.k;
+      fx[a] += kM*(mouse.world[0]-px[a]);
+      fy[a] += kM*(mouse.world[1]-py[a]);
     }
-
-    // --- Bond breaking & reformation ---
-    if (doBreak || doReform){
-      // Current valences
-      const val = new Int16Array(atoms.length);
-      for (const b of bonds){ val[b.i]++; val[b.j]++; }
-      // Break pass
-      if (doBreak){
-        const removeIdx = [];
-        for (let bi=0; bi<bonds.length; bi++){
-          const b = bonds[bi];
-          const ai=atoms[b.i], aj=atoms[b.j];
-          const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
-          const d=Math.hypot(dx,dy);
-          if (d > b.L0 * fBreak){ removeIdx.push(bi); }
-        }
-        // remove from end to start
-        for (let r=removeIdx.length-1; r>=0; r--){
-          const bi=removeIdx[r]; const b=bonds[bi];
-          bonds.splice(bi,1);
-          const key = bondKey(b.i,b.j);
-          state.bondSet.delete(key);
-          val[b.i]--; val[b.j]--;
-        }
-      }
-      // Reform pass (only among original NN)
-      if (doReform){
-        for (const b0 of state.origNN){
-          const key=bondKey(b0.i,b0.j);
-          if (state.bondSet.has(key)) continue; // already bonded
-          if (val[b0.i] >= 3 || val[b0.j] >= 3) continue;
-          const ai=atoms[b0.i], aj=atoms[b0.j];
-          const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
-          const d=Math.hypot(dx,dy);
-          if (d < b0.L0 * fReform){
-            bonds.push({i:b0.i,j:b0.j,L0:b0.L0});
-            state.bondSet.add(key);
-            val[b0.i]++; val[b0.j]++;
-          }
-        }
+    // Reform pass (only among original NN, valence ≤ 3)
+    if(doReform && S.dead>0){
+      for(let b=0;b<nb;b++){
+        if(alive[b]) continue;
+        const i=bi[b], j=bj[b];
+        if(val[i]>=3 || val[j]>=3) continue;
+        const dx=px[j]-px[i], dy=py[j]-py[i];
+        if(Math.sqrt(dx*dx+dy*dy) < bL[b]*fReform){ alive[b]=1; S.dead--; val[i]++; val[j]++; }
       }
     }
     let ke=0;
-    for(const a of atoms){
-      a.f[0]+=-g*a.v[0]; a.f[1]+=-g*a.v[1];
-      a.v[0] += (a.f[0]/m)*dt; a.v[1] += (a.f[1]/m)*dt;
-      a.p[0] += a.v[0]*dt;     a.p[1] += a.v[1]*dt;
-      ke += 0.5*m*(a.v[0]*a.v[0]+a.v[1]*a.v[1]);
+    const im=dt/m;
+    for(let i=0;i<N;i++){
+      vx[i] += (fx[i]-g*vx[i])*im; vy[i] += (fy[i]-g*vy[i])*im;
+      px[i] += vx[i]*dt;           py[i] += vy[i]*dt;
+      ke += 0.5*m*(vx[i]*vx[i]+vy[i]*vy[i]);
     }
     return {ke,pe};
   }
@@ -782,50 +767,93 @@
   let invert=true;
 
   let base = build(n, Number($('#L0').value));
-  let state = JSON.parse(JSON.stringify(base));
-  function center(atoms){ let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9; for(const a of atoms){minx=Math.min(minx,a.p[0]);maxx=Math.max(maxx,a.p[0]);miny=Math.min(miny,a.p[1]);maxy=Math.max(maxy,a.p[1]);} return [(minx+maxx)/2,(miny+maxy)/2]; }
-  function randomize(frac){ for(const a of state.atoms){ const th=Math.random()*Math.PI*2, r=frac*state.L0; a.p[0]+=r*Math.cos(th); a.p[1]+=r*Math.sin(th); a.v=[0,0]; } }
-  function rebuild(){ n=Number($('#cells').value); base=build(n, Number($('#L0').value)); state=JSON.parse(JSON.stringify(base)); state.origNN = base.bonds.map(b=>({i:b.i,j:b.j,L0:b.L0})); state.bondSet = rebuildBondSet(state); randomize(Number($('#off').value)); view.origin=center(state.atoms); frame=0; $('#frameKpi').textContent='0'; $('#cellsLbl').textContent=`${n}×${n}`; draw(state,0,0); }
-  function restart(){ state=JSON.parse(JSON.stringify(base)); state.origNN = base.bonds.map(b=>({i:b.i,j:b.j,L0:b.L0})); state.bondSet = rebuildBondSet(state); randomize(Number($('#off').value)); view.origin=center(state.atoms); frame=0; $('#frameKpi').textContent='0'; draw(state,0,0); }
+  let state = pack(base);
+  function center(S){ let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9; for(let i=0;i<S.N;i++){minx=Math.min(minx,S.px[i]);maxx=Math.max(maxx,S.px[i]);miny=Math.min(miny,S.py[i]);maxy=Math.max(maxy,S.py[i]);} return [(minx+maxx)/2,(miny+maxy)/2]; }
+  function randomize(frac){ const S=state; for(let i=0;i<S.N;i++){ const th=Math.random()*Math.PI*2, r=frac*S.L0; S.px[i]+=r*Math.cos(th); S.py[i]+=r*Math.sin(th); S.vx[i]=0; S.vy[i]=0; } }
+  function rebuild(){ n=Number($('#cells').value); base=build(n, Number($('#L0').value)); state=pack(base); randomize(Number($('#off').value)); resetWorker(); view.origin=center(state); frame=0; $('#frameKpi').textContent='0'; $('#cellsLbl').textContent=`${n}×${n}`; draw(state,0,0); }
+  function restart(){ state=pack(base); randomize(Number($('#off').value)); resetWorker(); view.origin=center(state); frame=0; $('#frameKpi').textContent='0'; draw(state,0,0); }
 
-  function w2s(p){ const r=canvas.getBoundingClientRect(); return [(p[0]-view.origin[0])*view.scale + r.width*0.5, (p[1]-view.origin[1])*view.scale + r.height*0.5]; }
-  function s2w(sx,sy){ const r=canvas.getBoundingClientRect(); return [(sx - r.width*0.5)/view.scale + view.origin[0], (sy - r.height*0.5)/view.scale + view.origin[1]]; }
+  // Canvas CSS size, cached by resize() so drawing never queries layout.
+  let cssW=2, cssH=2;
+  function s2w(sx,sy){ return [(sx - cssW*0.5)/view.scale + view.origin[0], (sy - cssH*0.5)/view.scale + view.origin[1]]; }
 
-  function draw(state,ke,pe){
-    const r=canvas.getBoundingClientRect();
+  // Bonds are bucketed by quantised strain colour and stroked as one path per colour,
+  // instead of one stroke (and one colour string) per bond. Off-screen bonds/atoms are skipped.
+  const NBIN=64, CHUNK=256, binCount=new Int32Array(NBIN+2);
+  let visB=new Int32Array(0), visQ=new Uint8Array(0), order=new Int32Array(0);
+  // The strain colour factor slider is logarithmic: its value is log10(factor), 0.1× to 1000×.
+  function strainFactor(){ return 10 ** Number($('#sf').value); }
+  function strainFactorLabel(f){ return f.toFixed(f < 10 ? 2 : f < 100 ? 1 : 0) + '×'; }
+  function draw(S,ke,pe){
     ctx.fillStyle = invert ? '#000' : '#fff';
-    ctx.fillRect(0,0,r.width,r.height);
+    ctx.fillRect(0,0,cssW,cssH);
 
-    const factor = Number($('#sf').value);
+    const factor = strainFactor();
     const sat = Number($('#sat').value);
     const strainColor = STRAIN_SCALES[$('#strainScale').value] || STRAIN_SCALES.classic;
     const atomGray = Number($('#neutralGray').value);
     const bondGray = Number($('#bondGray').value);
     const neutral = `rgb(${atomGray},${atomGray},${atomGray})`;
     const zoomVisual = Math.max(0.1, view.scale / 30);
-    ctx.lineWidth = Number($('#lineW').value) * zoomVisual;
+    const lw = Number($('#lineW').value) * zoomVisual;
+    ctx.lineWidth = lw;
 
-    for(const b of state.bonds){
-      const ai=state.atoms[b.i], aj=state.atoms[b.j];
-      const dx=aj.p[0]-ai.p[0], dy=aj.p[1]-ai.p[1];
-      const d=Math.hypot(dx,dy);
-      const tStr = clamp(((d - b.L0) / b.L0) * factor, 0, 1);
-      const [sr, sg, sb] = strainColor(tStr);
-      const tint = sat * tStr;
-      const rMix = Math.round(bondGray*(1-tint) + sr*tint), gMix = Math.round(bondGray*(1-tint) + sg*tint), bMix = Math.round(bondGray*(1-tint) + sb*tint);
-      ctx.strokeStyle = `rgb(${rMix},${gMix},${bMix})`;
-      const pi=w2s(ai.p), pj=w2s(aj.p);
-      ctx.beginPath(); ctx.moveTo(pi[0],pi[1]); ctx.lineTo(pj[0],pj[1]); ctx.stroke();
+    const cols = [];
+    for(let q=0;q<=NBIN;q++){
+      const t=q/NBIN, [sr,sg,sb]=strainColor(t), tint=sat*t;
+      cols.push(`rgb(${Math.round(bondGray*(1-tint)+sr*tint)},${Math.round(bondGray*(1-tint)+sg*tint)},${Math.round(bondGray*(1-tint)+sb*tint)})`);
     }
 
-    ctx.fillStyle = neutral;
+    const {px,py,nb,bi,bj,bL,alive}=S, sc=view.scale, ox=view.origin[0], oy=view.origin[1], hw=cssW*0.5, hh=cssH*0.5;
     const rr = view.rad * zoomVisual;
-    for(const a of state.atoms){ const p=w2s(a.p); ctx.beginPath(); ctx.arc(p[0],p[1],rr,0,Math.PI*2); ctx.fill(); }
+    const mB = 2*S.L0*sc + lw, x0=-mB, x1=cssW+mB, y0=-mB, y1=cssH+mB;
+    if(visB.length<nb){ visB=new Int32Array(nb); visQ=new Uint8Array(nb); order=new Int32Array(nb); }
+    binCount.fill(0);
+    let nv=0;
+    for(let b=0;b<nb;b++){
+      if(!alive[b]) continue;
+      const i=bi[b], sx=(px[i]-ox)*sc+hw, sy=(py[i]-oy)*sc+hh;
+      if(sx<x0||sx>x1||sy<y0||sy>y1) continue;
+      const j=bj[b], dx=px[j]-px[i], dy=py[j]-py[i];
+      const t=clamp(((Math.sqrt(dx*dx+dy*dy)-bL[b])/bL[b])*factor,0,1);
+      const q=Math.round(t*NBIN);
+      visB[nv]=b; visQ[nv]=q; binCount[q+1]++; nv++;
+    }
+    for(let q=1;q<=NBIN+1;q++) binCount[q]+=binCount[q-1];
+    for(let v=0;v<nv;v++) order[binCount[visQ[v]]++]=visB[v];
+    // binCount[q] now holds the end of bin q; bins run in order, low strain first so hot bonds sit on top
+    let s=0;
+    for(let q=0;q<=NBIN;q++){
+      const e=binCount[q];
+      if(e>s){
+        ctx.strokeStyle=cols[q]; ctx.beginPath();
+        for(let v=s;v<e;v++){ const b=order[v], i=bi[b], j=bj[b]; ctx.moveTo((px[i]-ox)*sc+hw,(py[i]-oy)*sc+hh); ctx.lineTo((px[j]-ox)*sc+hw,(py[j]-oy)*sc+hh); }
+        ctx.stroke();
+      }
+      s=e;
+    }
 
+    // Atoms: arcs filled in chunks of CHUNK (one huge path rasterises far slower than several small ones)
+    ctx.fillStyle = neutral;
+    ctx.beginPath();
+    const ax0=-rr, ax1=cssW+rr, ay0=-rr, ay1=cssH+rr, TAU=Math.PI*2;
+    let inPath=0;
+    for(let i=0;i<S.N;i++){
+      const sx=(px[i]-ox)*sc+hw, sy=(py[i]-oy)*sc+hh;
+      if(sx<ax0||sx>ax1||sy<ay0||sy>ay1) continue;
+      ctx.moveTo(sx+rr,sy); ctx.arc(sx,sy,rr,0,TAU);
+      if(++inPath===CHUNK){ ctx.fill(); ctx.beginPath(); inPath=0; }
+    }
+    if(inPath) ctx.fill();
+
+    lastKE=ke; lastPE=pe;
     $('#E').textContent = `${ke.toFixed(3)} / ${pe.toFixed(3)} / ${(ke+pe).toFixed(3)}`;
   }
+  let lastKE=0, lastPE=0, drawQueued=false;
+  // Redraw once on the next frame (coalesces pan/zoom events); the play loop draws anyway.
+  function requestDraw(){ if(running||drawQueued) return; drawQueued=true; requestAnimationFrame(()=>{ drawQueued=false; draw(state,lastKE,lastPE); }); }
 
-  function resize(){ const dpr=window.devicePixelRatio||1, r=canvas.getBoundingClientRect(); canvas.width=Math.max(2,Math.floor(r.width*dpr)); canvas.height=Math.max(2,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(state,0,0); }
+  function resize(){ const dpr=window.devicePixelRatio||1, r=canvas.getBoundingClientRect(); cssW=r.width; cssH=r.height; canvas.width=Math.max(2,Math.floor(r.width*dpr)); canvas.height=Math.max(2,Math.floor(r.height*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); draw(state,0,0); }
   window.addEventListener('resize', resize);
 
   const mouse={grab:-1, world:[0,0], k:50};
@@ -837,7 +865,7 @@
     $('#dt').value=dt.toFixed(5);
   }
   function setCellValue(v){
-    const next=Math.round(clamp(v,5,50));
+    const next=Math.round(clamp(v,5,80));
     if(next===shiftDrag.lastCells && Number($('#cells').value)===next) return;
     shiftDrag.lastCells=next;
     $('#cells').value=String(next);
@@ -846,7 +874,7 @@
     rebuild();
     setRunning(wasRunning);
   }
-  function nearestAtom(sx,sy){ const pick=12; let best=-1, bd=1e9; for(let i=0;i<state.atoms.length;i++){ const p=w2s(state.atoms[i].p); const dx=p[0]-sx, dy=p[1]-sy; const d=Math.hypot(dx,dy); if(d<bd){ bd=d; best=i; } } return (bd<=pick)?best:-1; }
+  function nearestAtom(sx,sy){ const pick=12, [wx,wy]=s2w(sx,sy), S=state; let best=-1, bd=1e18; for(let i=0;i<S.N;i++){ const dx=S.px[i]-wx, dy=S.py[i]-wy, d=dx*dx+dy*dy; if(d<bd){ bd=d; best=i; } } return (Math.sqrt(bd)*view.scale<=pick)?best:-1; }
   canvas.addEventListener('mousedown', e=>{
     const sx=e.clientX, sy=e.clientY;
     if(e.shiftKey){
@@ -871,17 +899,50 @@
       }
       return;
     }
-    if(dragging && mouse.grab>=0){ mouse.world = s2w(sx,sy); } else if(panning){ const dx=sx-last[0], dy=sy-last[1]; last=[sx,sy]; view.origin[0]-=dx/view.scale; view.origin[1]-=dy/view.scale; draw(state,0,0); }
+    if(dragging && mouse.grab>=0){ mouse.world = s2w(sx,sy); } else if(panning){ const dx=sx-last[0], dy=sy-last[1]; last=[sx,sy]; view.origin[0]-=dx/view.scale; view.origin[1]-=dy/view.scale; requestDraw(); }
   }, {passive:true});
-  canvas.addEventListener('wheel', e=>{ e.preventDefault(); const s=Math.exp(-e.deltaY*0.001); view.scale=Math.max(5,Math.min(50,view.scale*s)); resize(); }, {passive:false});
+  canvas.addEventListener('wheel', e=>{ e.preventDefault(); const s=Math.exp(-e.deltaY*0.001); view.scale=Math.max(5,Math.min(50,view.scale*s)); requestDraw(); }, {passive:false});
 
   let frame=0;
   let running=false, raf=null;
-  function advance(){ const spf=Number($('#spf').value); const useAng=$('#useAng').checked; const kAng=Number($('#kAng').value); const useMorse=$('#useMorse').checked; const De=Number($('#De').value); const alpha=Number($('#alpha').value); const doBreak=$('#doBreak').checked; const doReform=$('#allowReform').checked; const fBreak=Number($('#fBreak').value); const fReform=Number($('#fReform').value);
-    let ke=0,pe=0; for(let i=0;i<spf;i++){ const e=step(state,params,mouse,useAng,kAng,useMorse,De,alpha,doBreak,doReform,fBreak,fReform); ke=e.ke; pe=e.pe; }
+  function readOpts(){ return {useAng:$('#useAng').checked, kAng:Number($('#kAng').value), useMorse:$('#useMorse').checked, De:Number($('#De').value), alpha:Number($('#alpha').value), doBreak:$('#doBreak').checked, doReform:$('#allowReform').checked, fBreak:Number($('#fBreak').value), fReform:Number($('#fReform').value)}; }
+  function advance(){ const spf=Number($('#spf').value), o=readOpts();
+    let ke=0,pe=0; for(let i=0;i<spf;i++){ const e=step(state,params,mouse,o); ke=e.ke; pe=e.pe; }
     frame++; $('#frameKpi').textContent=frame; draw(state,ke,pe); }
-  function tick(){ advance(); if(running) raf=requestAnimationFrame(tick); }
-  function setRunning(v){ running=v; $('#play').textContent=running?'⏸ Pause':'▶ Play'; $('#play').classList.toggle('primary', !running); if(running && !raf) raf=requestAnimationFrame(tick); if(!running && raf){ cancelAnimationFrame(raf); raf=null; } }
+
+  // While playing, the physics runs in a Web Worker so it overlaps with drawing/rasterising.
+  // The worker owns its own copy of the state; `state` here is a mirror refreshed with every result
+  // (used for drawing, picking, Step and the JSON dump). At most two finished frames are buffered, and
+  // each one is drawn, so "Steps / frame" still means steps per rendered frame. Falls back to
+  // advance() on the main thread if a worker cannot be created.
+  let worker=null, gen=0, inFlight=false;
+  const ready=[];
+  try {
+    const src = step.toString() + `
+      let S=null;
+      onmessage = e => { const m=e.data;
+        if(m.cmd==='load'){ S=m.S; return; }
+        if(!S) return;
+        let ke=0, pe=0;
+        for(let i=0;i<m.spf;i++){ const r=step(S,m.p,m.mouse,m.o); ke=r.ke; pe=r.pe; }
+        const d={gen:m.gen, ke, pe, dead:S.dead, px:S.px.slice(), py:S.py.slice(), vx:S.vx.slice(), vy:S.vy.slice(), fx:S.fx.slice(), fy:S.fy.slice(), alive:S.alive.slice(), val:S.val.slice()};
+        postMessage(d, [d.px.buffer, d.py.buffer, d.vx.buffer, d.vy.buffer, d.fx.buffer, d.fy.buffer, d.alive.buffer, d.val.buffer]);
+      };`;
+    worker = new Worker(URL.createObjectURL(new Blob([src], {type:'text/javascript'})));
+    worker.onmessage = e => { const d=e.data; if(d.gen!==gen) return; inFlight=false; ready.push(d); if(running && ready.length<2) requestStep(); };
+    worker.onerror = () => { worker.terminate(); worker=null; inFlight=false; ready.length=0; };
+  } catch(err){ worker=null; }
+  function requestStep(){ inFlight=true; worker.postMessage({cmd:'step', gen, spf:Number($('#spf').value), p:params, o:readOpts(), mouse:{grab:mouse.grab, world:mouse.world, k:mouse.k}}); }
+  // Call whenever `state` is replaced or play starts/stops: drops stale results, reloads the worker if playing.
+  function resetWorker(){ gen++; inFlight=false; ready.length=0; if(worker && running) worker.postMessage({cmd:'load', S:state}); }
+  function applyResult(d){ const S=state; S.px=d.px; S.py=d.py; S.vx=d.vx; S.vy=d.vy; S.fx=d.fx; S.fy=d.fy; S.alive=d.alive; S.val=d.val; S.dead=d.dead;
+    frame++; $('#frameKpi').textContent=frame; draw(S,d.ke,d.pe); }
+
+  function tick(){ raf=null; if(!running) return;
+    if(worker){ if(ready.length) applyResult(ready.shift()); if(!inFlight && ready.length<2) requestStep(); }
+    else advance();
+    raf=requestAnimationFrame(tick); }
+  function setRunning(v){ const was=running; running=v; $('#play').textContent=running?'⏸ Pause':'▶ Play'; $('#play').classList.toggle('primary', !running); if(running!==was) resetWorker(); if(running && !raf) raf=requestAnimationFrame(tick); if(!running && raf){ cancelAnimationFrame(raf); raf=null; } }
 
   let recorder=null, chunks=[];
   function startRec(){ try{ const fps=Number($('#fps').value)||30; const stream=canvas.captureStream(fps); chunks=[]; recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'}); recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) chunks.push(e.data); }; recorder.onstop=()=>{ const blob=new Blob(chunks,{type:'video/webm'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='graphene_movie.webm'; a.click(); URL.revokeObjectURL(url); }; recorder.start(); } catch(err){ alert('Recording not supported: '+err); } }
@@ -891,7 +952,7 @@
   $('#rebuild').addEventListener('click', ()=>{ setRunning(false); rebuild(); });
   $('#spf').addEventListener('input', e=>$('#spfLbl').textContent=e.target.value);
   $('#strainScale').addEventListener('change', ()=>draw(state,0,0));
-  $('#sf').addEventListener('input', e=>{ $('#sfLbl').textContent=Number(e.target.value).toFixed(2)+'×'; draw(state,0,0); });
+  $('#sf').addEventListener('input', ()=>{ $('#sfLbl').textContent=strainFactorLabel(strainFactor()); draw(state,0,0); });
   $('#sat').addEventListener('input', e=>{ $('#satLbl').textContent=Math.round(Number(e.target.value)*100)+'%'; draw(state,0,0); });
   $('#bondGray').addEventListener('input', e=>{ const v=Number(e.target.value); const hex=v.toString(16).padStart(2,'0'); $('#bondGrayLbl').textContent = `#${hex}${hex}${hex}`; draw(state,0,0); });
   $('#neutralGray').addEventListener('input', e=>{ const v=Number(e.target.value); const hex=v.toString(16).padStart(2,'0'); $('#neutralLbl').textContent = `#${hex}${hex}${hex}`; draw(state,0,0); });
@@ -900,7 +961,7 @@
   $('#k').addEventListener('change', e=>{ params.k=Number(e.target.value); syncDe(); });
   $('#g').addEventListener('change', e=>params.g=Number(e.target.value));
   $('#alpha').addEventListener('change', ()=>{ syncDe(); });
-  $('#scale').addEventListener('change', e=>{ view.scale=Number(e.target.value); resize(); });
+  $('#scale').addEventListener('change', e=>{ view.scale=Number(e.target.value); draw(state,lastKE,lastPE); });
   $('#rad').addEventListener('change', e=>{ view.rad=Number(e.target.value); draw(state,0,0); });
   $('#play').addEventListener('click', ()=>setRunning(!running));
   $('#restart').addEventListener('click', ()=>{ setRunning(false); restart(); });
@@ -908,7 +969,11 @@
   $('#startRec').addEventListener('click', ()=>{ restart(); startRec(); setRunning(true); });
   $('#stopRec').addEventListener('click', ()=>{ setRunning(false); stopRec(); });
   $('#shot').addEventListener('click', ()=>{ const a=document.createElement('a'); a.href=canvas.toDataURL('image/png'); a.download='graphene_frame.png'; a.click(); });
-  $('#dump').addEventListener('click', ()=>{ const blob=new Blob([JSON.stringify({params,frame,atoms:state.atoms,bonds:state.bonds,bonds2:state.bonds2,L0:state.L0,L2:state.L2},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='graphene_state.json'; a.click(); URL.revokeObjectURL(url); });
+  $('#dump').addEventListener('click', ()=>{ const S=state, atoms=[], bonds=[], bonds2=[];
+    for(let i=0;i<S.N;i++) atoms.push({p:[S.px[i],S.py[i]],v:[S.vx[i],S.vy[i]],f:[S.fx[i],S.fy[i]]});
+    for(let b=0;b<S.nb;b++) if(S.alive[b]) bonds.push({i:S.bi[b],j:S.bj[b],L0:S.bL[b]});
+    for(let b=0;b<S.nb2;b++) bonds2.push({i:S.ci[b],j:S.cj[b],L0:S.cL[b]});
+    const blob=new Blob([JSON.stringify({params,frame,atoms,bonds,bonds2,L0:S.L0,L2:S.L2},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='graphene_state.json'; a.click(); URL.revokeObjectURL(url); });
 
   const panel = $('#panel');
   const leftPanel = $('#leftPanel');
@@ -964,7 +1029,7 @@
     lineW: tipHtml('Bond Line Width', 'Set base bond stroke thickness.', 'Visual-only control; rendered line width scales with zoom.', ''),
     bondGray: tipHtml('Bond Line Color', 'Choose neutral bond grayscale from black to white.', 'Defines baseline bond color before strain tint is mixed in.', String.raw`\[\text{RGB}_{bond}=\text{mix}(\text{gray},\text{strainColor},\text{tint})\]`),
     strainScale: tipHtml('Strain Color Scale', 'Pick the colormap used to tint stretched bonds.', 'Visual-only. Classic red is the original scheme; Fire, Magma, Electric and Cyan glow are brighter against a dark background; Viridis is perceptually uniform.', ''),
-    sf: tipHtml('Strain Color Factor', 'Amplify color sensitivity to strain.', 'Maps strain magnitude to color-intensity parameter t.', String.raw`\[t=\mathrm{clamp}(\varepsilon\cdot sf,0,1)\]`),
+    sf: tipHtml('Strain Color Factor', 'Amplify color sensitivity to strain.', 'Maps strain magnitude to color-intensity parameter t. The slider is logarithmic, from 0.1× to 1000×.', String.raw`\[t=\mathrm{clamp}(\varepsilon\cdot sf,0,1)\]`),
     sat: tipHtml('Strain Saturation', 'Set how strongly strain tint overrides baseline bond gray.', 'At zero, bonds stay neutral; at one, strain tint fully applies where strain is high.', String.raw`\[\text{tint}=\text{sat}\cdot t\]`),
     neutralGray: tipHtml('Neutral Gray (Atoms)', 'Set atom marker grayscale value.', 'Affects atom color only; bond baseline is controlled separately.', ''),
     invert: tipHtml('Invert Colors', 'Switch canvas background white/black for contrast.', 'Presentation setting only; physics unchanged.', ''),
@@ -1079,7 +1144,7 @@
     }
   });
 
-  function init(){ syncDe(); state.origNN = base.bonds.map(b=>({i:b.i,j:b.j,L0:b.L0})); state.bondSet = rebuildBondSet(state); randomize(Number($('#off').value)); view.origin = center(state.atoms); frame=0; $('#frameKpi').textContent='0'; resize(); draw(state,0,0); setRunning(true); renderMath($('#leftContent')); }
+  function init(){ syncDe(); randomize(Number($('#off').value)); view.origin = center(state); frame=0; $('#frameKpi').textContent='0'; resize(); draw(state,0,0); setRunning(true); renderMath($('#leftContent')); }
   init();
 })();
 </script>

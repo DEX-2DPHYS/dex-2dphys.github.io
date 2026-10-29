@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guitar Beats</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #1d2733;
+      --muted: #5b6675;
+      --bar-bg: rgba(15, 23, 42, 0.04);
+      --line: rgba(15, 23, 42, 0.12);
+      --amber: #e8890c;
+      --cyan: #1c7ed6;
+    }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      overflow: hidden;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+    }
+    canvas#view {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: var(--bg);
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas#view.dragging { cursor: grabbing; }
+    .bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 14px;
+      padding: 7px 14px;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      backdrop-filter: blur(4px);
+    }
+    .bar label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .bar label.grow { flex: 1 1 260px; }
+    .bar label.grow input[type="range"] { flex: 1 1 auto; min-width: 140px; }
+    .bar input[type="range"] { accent-color: #e8890c; width: 130px; }
+    .bar .val {
+      min-width: 62px;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .bar button {
+      border: 1px solid rgba(15, 23, 42, 0.22);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.05);
+      color: var(--ink);
+      padding: 5px 11px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .bar button:hover { background: rgba(15, 23, 42, 0.1); }
+    .bar button.primary { background: #f5b041; color: #1b1405; border-color: #e8a43a; font-weight: 600; }
+    .bar button.on { background: rgba(232, 137, 12, 0.15); border-color: #e8890c; }
+    .bar .sep { width: 1px; height: 22px; background: var(--line); }
+  </style>
+</head>
+<body>
+<!--
+  Info popup — kept standalone by inlining the helper below.
+  The canonical source is  sims/sim-info.js  — keep this block byte-identical
+  to that file so all sims share the same behaviour. To add the popup to a new
+  sim: (1) copy this whole <script>…window.SIM_INFO…</script> block and edit
+  the fields, (2) copy the sim-info.js contents into an inline <script> right
+  after it.
+-->
+<script>
+  window.SIM_INFO = {
+    title: "Guitar beats: a moiré in time",
+    about: "How a guitar is tuned by ear. The low E string pressed at the 5th fret and the open A string should both sound A2 = 110 Hz. When they differ by Δf, their sum gets louder and softer Δf times per second: the beat. Each string alone vibrates steadily; the beat appears only when the two vibrations add up (in the air, in your ear). It is a moiré in time: two time gratings with periods T₁ and T₂ give a long period T₁T₂/|T₁ − T₂| = 1/|f₁ − f₂|, the same rule as a spatial moiré of two lattices, λ = a₁a₂/|a₁ − a₂|. The strings are modelled as plucked strings (the sum of their harmonics, higher ones dying away faster); their motion is drawn exaggerated.",
+    howto: [
+      "<b>Tap</b> a string, or <b>pull it and let go</b>, to pluck it. <b>Pluck both</b> plucks both near the soundhole.",
+      "<b>Time</b> slows the picture down (up to ×1/3000) to see every swing; at ×1 the strings blur, as your eyes see them.",
+      "<b>Drag the A string's tuning button</b> (left of the nut) up or down to turn it, even while the strings ring (<b>Shift</b>: fine). A tuner pops up and shows how far off A₂ = 110 Hz it is. The beat gets faster or slower; at 0 cents it disappears. <b>Detune A</b> and <b>In tune</b> do the same from the toolbar.",
+      "Below the guitar: each string close up, then their sum with the beat envelope and the beat period, then each string as a grating of stripes and both overlaid: the time moiré.",
+      "On the right, the same in frequency: the spectrum of the sound has two lines, f₁ and f₂, |f₁ − f₂| apart. Adding the strings makes nothing at f₁ − f₂; the slow beat is in how loud the sum is.",
+      "<b>Sound</b> plays the same strings in real time (independent of the Time slider); you can hear the beats.",
+      "<b>Flageolet</b>: the finger lifts off the 5th fret and only grazes the open E string at the 12th, 7th or 5th fret (L/2, L/3, L/4). The touch damps every mode that moves there; the modes with a node there ring on. The string between its two fixed ends becomes a lattice of 2, 3 or 4 cells and sounds 2f, 3f or 4f. Slow the time down to watch the pluck turn into that pattern; the spectrum shows which harmonics are left."
+    ],
+    shortcuts: [
+      ["Space", "pluck both"],
+      ["1 / 2", "pluck E₅ / A"],
+      ["M", "mute (palm on the strings)"],
+      ["T", "in tune (Δf = 0)"],
+      ["F", "flageolet: off → 12th → 7th → 5th fret"],
+      ["P", "pause"],
+      ["I", "show / hide this info"]
+    ]
+  };
+</script>
+<script>
+/* === BEGIN inlined sim-info.js — do not edit here; edit sims/sim-info.js and re-paste === */
+(function(){
+  "use strict";
+  if (window.__SIM_INFO_INIT__) return;
+  window.__SIM_INFO_INIT__ = true;
+
+  const cfg = window.SIM_INFO || {};
+
+  // ── CSS ────────────────────────────────────────────────────────────────────
+  const css = `
+    #siminfo-bubble{
+      position:fixed; top:14px; left:14px; width:28px; height:28px;
+      border-radius:50%; background:#0b57d0; color:#fff;
+      font: 600 15px/28px "Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial;
+      text-align:center; cursor:pointer; user-select:none;
+      box-shadow:0 2px 8px rgba(11,87,208,.35);
+      opacity:0; transform:translateY(-4px); pointer-events:none;
+      transition:opacity 160ms ease, transform 160ms ease, background 120ms;
+      z-index:9998;
+    }
+    #siminfo-bubble.visible{ opacity:.92; transform:translateY(0); pointer-events:auto; }
+    #siminfo-bubble:hover{ background:#0947a8; opacity:1; }
+    #siminfo-bubble::before{ content:"i"; font-style:italic; }
+
+    #siminfo-panel{
+      position:fixed; top:0; left:0; width:min(360px, 92vw); height:100vh;
+      background:#fff; color:#1a2233; box-sizing:border-box;
+      border-right:1px solid #e7eaf0; padding:18px 20px 22px;
+      overflow:auto; transform:translateX(-102%);
+      transition:transform 200ms ease;
+      font: 13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+      z-index:9999; box-shadow:2px 0 18px rgba(0,0,0,.06);
+    }
+    #siminfo-panel.visible{ transform:translateX(0); }
+    #siminfo-panel h1{ font-size:15px; margin:0 0 10px; padding-right:24px; }
+    #siminfo-panel h2{
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:#6b7890; margin:16px 0 6px; font-weight:600;
+    }
+    #siminfo-panel p{ margin:0 0 10px; color:#37465e; }
+    #siminfo-panel ul{ margin:0; padding:0 0 0 18px; color:#37465e; }
+    #siminfo-panel li{ margin:2px 0; }
+    #siminfo-panel .kbd{
+      display:inline-block; min-width:14px; padding:1px 6px;
+      border:1px solid #d3d9e3; border-bottom-width:2px; border-radius:4px;
+      background:#f6f8fc; color:#0b57d0;
+      font: 600 11px/1.5 "Consolas",monospace; text-align:center;
+      margin-right:2px;
+    }
+    #siminfo-panel table.shortcuts{ border-collapse:collapse; width:100%; }
+    #siminfo-panel table.shortcuts td{ padding:3px 6px 3px 0; vertical-align:top; color:#37465e; }
+    #siminfo-panel table.shortcuts td.k{ white-space:nowrap; width:1%; }
+    #siminfo-panel .close{
+      position:absolute; top:10px; right:10px; width:24px; height:24px;
+      border:0; background:transparent; color:#6b7890; cursor:pointer;
+      font: 600 18px/1 system-ui; border-radius:4px;
+    }
+    #siminfo-panel .close:hover{ background:#f0f3f8; color:#1a2233; }
+    #siminfo-panel .foot{
+      margin-top:18px; padding-top:10px; border-top:1px solid #eef1f6;
+      color:#8592a8; font-size:11px;
+    }
+  `;
+  const style = document.createElement("style");
+  style.setAttribute("data-siminfo","");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // ── DOM ────────────────────────────────────────────────────────────────────
+  const bubble = document.createElement("div");
+  bubble.id = "siminfo-bubble";
+  bubble.title = "About this simulation (I)";
+  bubble.setAttribute("role","button");
+  bubble.setAttribute("aria-label","About this simulation");
+
+  const panel = document.createElement("aside");
+  panel.id = "siminfo-panel";
+  panel.setAttribute("role","dialog");
+  panel.setAttribute("aria-hidden","true");
+
+  const esc = s => String(s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const htmlOrText = v => (typeof v === "string" && /<[a-z][\s\S]*>/i.test(v)) ? v : esc(v);
+
+  function renderKeyLabel(k){
+    return String(k).split(/(\s*\+\s*)/).map(tok=>{
+      if(/^\s*\+\s*$/.test(tok)) return " + ";
+      if(/^[A-Za-z0-9?!/↑↓←→]{1,5}$|^(Shift|Ctrl|Alt|Cmd|Meta|Esc|Enter|Space|Tab)$/i.test(tok.trim())){
+        return `<span class="kbd">${esc(tok.trim())}</span>`;
+      }
+      return esc(tok);
+    }).join("");
+  }
+
+  function build(){
+    const title = cfg.title || document.title || "About this simulation";
+    let html = `<button class="close" aria-label="Close">×</button>`;
+    html += `<h1>${htmlOrText(title)}</h1>`;
+    if(cfg.about){
+      html += `<h2>What it shows</h2><p>${htmlOrText(cfg.about)}</p>`;
+    }
+    if(cfg.howto && cfg.howto.length){
+      html += `<h2>How to use</h2><ul>`;
+      cfg.howto.forEach(item => html += `<li>${htmlOrText(item)}</li>`);
+      html += `</ul>`;
+    }
+    const sc = Array.isArray(cfg.shortcuts) ? cfg.shortcuts.slice() : [];
+    if(!sc.some(row => /^\s*[Ii]\s*$/.test((row && row[0]) || ""))){
+      sc.push(["I", "show / hide this info"]);
+    }
+    if(sc.length){
+      html += `<h2>Keyboard shortcuts</h2><table class="shortcuts">`;
+      sc.forEach(row => {
+        const k = (row && row[0]) || "", d = (row && row[1]) || "";
+        html += `<tr><td class="k">${renderKeyLabel(k)}</td><td>${htmlOrText(d)}</td></tr>`;
+      });
+      html += `</table>`;
+    }
+    html += `<div class="foot">Press <span class="kbd">I</span> or <span class="kbd">Esc</span> to close.</div>`;
+    panel.innerHTML = html;
+  }
+
+  function attach(){
+    document.body.appendChild(bubble);
+    document.body.appendChild(panel);
+    build();
+    panel.querySelector(".close").addEventListener("click", hidePanel);
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach, {once:true});
+  } else {
+    attach();
+  }
+
+  // ── behaviour ──────────────────────────────────────────────────────────────
+  let panelOpen = false, bubbleTimer = 0, iHeld = false;
+  const EDGE_PX = 28;
+  const HOLD_MS = 250;
+
+  function showBubble(){ clearTimeout(bubbleTimer); bubble.classList.add("visible"); }
+  function hideBubbleSoon(){
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(()=>{ if(!iHeld) bubble.classList.remove("visible"); }, HOLD_MS);
+  }
+  function showPanel(){
+    if(panelOpen) return;
+    panelOpen = true;
+    panel.classList.add("visible");
+    panel.setAttribute("aria-hidden","false");
+    bubble.classList.remove("visible");
+  }
+  function hidePanel(){
+    if(!panelOpen) return;
+    panelOpen = false;
+    panel.classList.remove("visible");
+    panel.setAttribute("aria-hidden","true");
+  }
+  function togglePanel(){ panelOpen ? hidePanel() : showPanel(); }
+
+  window.addEventListener("mousemove", (e)=>{
+    if(panelOpen) return;
+    if(e.clientX <= EDGE_PX && e.clientY <= 220) showBubble();
+    else if(!iHeld) hideBubbleSoon();
+  });
+
+  bubble.addEventListener("click", showPanel);
+
+  document.addEventListener("mousedown", (e)=>{
+    if(!panelOpen) return;
+    if(panel.contains(e.target) || bubble.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  function isTypingTarget(t){
+    if(!t) return false;
+    const tag = (t.tagName||"").toLowerCase();
+    return tag==="input" || tag==="textarea" || tag==="select" || t.isContentEditable;
+  }
+  window.addEventListener("keydown", (e)=>{
+    if(isTypingTarget(e.target)) return;
+    if(e.key === "Escape" && panelOpen){ hidePanel(); e.preventDefault(); return; }
+    if(e.key === "?" ){ togglePanel(); e.preventDefault(); return; }
+    if(e.key === "i" || e.key === "I"){
+      if(e.repeat){ iHeld = true; showBubble(); return; }
+      togglePanel();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup", (e)=>{
+    if(e.key === "i" || e.key === "I"){ iHeld = false; if(!panelOpen) hideBubbleSoon(); }
+  });
+
+  window.SimInfo = { show: showPanel, hide: hidePanel, toggle: togglePanel, rebuild: build };
+})();
+/* === END inlined sim-info.js === */
+</script>
+  <canvas id="view" aria-label="Two guitar strings and their beat"></canvas>
+
+  <div class="bar" id="bar">
+    <button id="pluckBoth" class="primary" type="button" title="Space">Pluck both</button>
+    <button id="muteBtn" type="button" title="M">Mute</button>
+    <div class="sep"></div>
+    <label class="grow">Time
+      <input id="timeSlider" type="range" min="0" max="1000" step="1" />
+      <span id="timeVal" class="val">×1/200</span>
+    </label>
+    <button id="realBtn" type="button">Real time</button>
+    <button id="slowBtn" type="button">Slow</button>
+    <button id="pauseBtn" type="button" title="P">Pause</button>
+    <div class="sep"></div>
+    <label>Detune A
+      <input id="detuneSlider" type="range" min="-6" max="6" step="0.05" value="1.5" />
+      <span id="detuneVal" class="val">+1.50 Hz</span>
+    </label>
+    <button id="tuneBtn" type="button" title="T">In tune</button>
+    <label>Ring
+      <input id="sustainSlider" type="range" min="1" max="30" step="0.5" value="6" />
+      <span id="sustainVal" class="val">6 s</span>
+    </label>
+    <label><input id="soundChk" type="checkbox" checked /> Sound</label>
+    <div class="sep"></div>
+    <label>Flageolet (E string)</label>
+    <button class="harm on" data-h="0" type="button" title="F cycles">off</button>
+    <button class="harm" data-h="2" type="button">12th fret</button>
+    <button class="harm" data-h="3" type="button">7th fret</button>
+    <button class="harm" data-h="4" type="button">5th fret</button>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+      const canvas = document.getElementById("view");
+      const ctx = canvas.getContext("2d");
+      const bar = document.getElementById("bar");
+      const $ = (id) => document.getElementById(id);
+
+      // A2: what the low E string pressed at the 5th fret and the open A string should both sound
+      const BASE_HZ = 110;
+      const N_MODES = 16;         // string modes drawn
+      const N_TRACE = 8;          // modes used for the traces
+      const N_AUDIO = 10;         // partials played
+      const B_INHARM = 0.00012;   // stiffness of a wound string: partials slightly sharp
+      const PICKUP_U = 0.82;      // where the traces "listen", as a fraction from nut/fret to saddle
+      const POINTS = 180;         // points per drawn string
+      const PLUCK_U = 0.8;        // where "Pluck both" plucks (near the soundhole)
+      const TWO_PI = Math.PI * 2;
+      // Flageolet (natural harmonics) on the open low E string: a finger lightly touching it at L/N
+      // damps every mode that moves there; the modes with a node there ring on. The string becomes N
+      // cells of length L/N: a lattice. 12th fret = L/2, 7th ≈ L/3, 5th ≈ L/4.
+      const E_OPEN_HZ = 82.41;
+      const TOUCH_GAMMA = 600;    // 1/s: how fast the touch kills a mode, × its (relative) motion² there
+      const FLAGEOLET = { 2: { fret: 12, frac: "L/2" }, 3: { fret: 7, frac: "L/3" }, 4: { fret: 5, frac: "L/4" } };
+
+      const S = {
+        W: 0,
+        H: 0,
+        dpr: 1,
+        timeScale: 1,       // starts in real time
+        knobDrag: null,     // turning the A string's tuning button
+        hoverKnob: false,
+        tunerUntil: 0,      // the pop-up tuner shows until then (ms), or while the button is held
+        needle: 0,          // the tuner's needle, in cents (it swings, it does not jump)
+        detune: 1.5,
+        harmonic: 0,        // flageolet: 0 = off (E pressed at the 5th fret), else N = 2, 3, 4 cells
+        sustain: 6,
+        sound: true,
+        paused: false,
+        t: 0,               // simulated time in s
+        lastReal: performance.now(),
+        lastDt: 0,          // simulated time covered by the last frame (for the motion blur)
+        drag: null,
+        L: null,            // layout
+        bg: null,           // the static guitar, drawn once per size
+        barcode: null,
+      };
+
+      // course: 0 = high e (top) ... 5 = low E (bottom)
+      const strings = [
+        { id: 0, name: "E string, 5th fret", short: "E₅", course: 5, fret: 5, color: "#e8890c", freq: () => (S.harmonic ? E_OPEN_HZ : BASE_HZ), pluck: null, voice: null, sinTab: null, xs: null },
+        { id: 1, name: "A string, open", short: "A", course: 4, fret: 0, color: "#1c7ed6", freq: () => BASE_HZ + S.detune, pluck: null, voice: null, sinTab: null, xs: null },
+      ];
+      const COURSE_GAUGE = [1.15, 1.45, 1.95, 2.35, 2.85, 3.35]; // px at 900 px height
+      const COURSE_WOUND = [false, false, false, true, true, true];
+
+      const modeFreq = (s, n) => n * s.freq() * Math.sqrt(1 + B_INHARM * n * n);
+      const tau = (n) => S.sustain / (1 + 0.45 * (n - 1));
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      // how fast mode n dies (1/s): its own loss, plus the light touch for the E string in flageolet
+      function decayRate(s, n) {
+        let r = 1 / tau(n);
+        if (S.harmonic && s === strings[0]) {
+          const v = Math.sin((n * Math.PI) / S.harmonic); // the mode's motion at the touch point, L/N
+          r += TOUCH_GAMMA * v * v;
+        }
+        return r;
+      }
+
+      // ---- the string model: plucked string = sum of its modes ------------------------------------
+      // A pluck of height h at u = p (0..1 along the vibrating length) is a triangle;
+      // its modes are A_n = 2h sin(nπp) / (n²π² p(1−p)).
+      function pluck(s, u, h) {
+        const p = clamp(u, 0.03, 0.97);
+        const A = new Float64Array(N_MODES);
+        for (let n = 1; n <= N_MODES; n += 1) {
+          A[n - 1] = (2 * h * Math.sin(n * Math.PI * p)) / (n * n * Math.PI * Math.PI * p * (1 - p));
+        }
+        // amp/td: the amplitudes reached at time td (banked when the damping changes, so it stays continuous)
+        s.pluck = { t0: S.t, tRef: S.t, phi: new Float64Array(N_MODES), A, amp: Float64Array.from(A), td: S.t, u: p, h };
+        startVoice(s, p, h);
+      }
+      const modeAmp = (s, n, t) => s.pluck.amp[n - 1] * Math.exp(-Math.max(0, t - s.pluck.td) * decayRate(s, n));
+      // the touch or the ring time changes: bank the amplitudes reached so far
+      function rebaseDecay(s) {
+        const p = s.pluck;
+        if (!p) return;
+        for (let n = 1; n <= N_MODES; n += 1) p.amp[n - 1] = modeAmp(s, n, S.t);
+        p.td = S.t;
+      }
+
+      // the mode's displacement factor at time t (phase kept continuous when the peg turns)
+      function modeValue(s, n, t) {
+        const p = s.pluck;
+        if (t < p.t0) return 0;
+        return modeAmp(s, n, t) * Math.cos(p.phi[n - 1] + TWO_PI * modeFreq(s, n) * (t - p.tRef));
+      }
+      // turning the peg: bank the phase reached so far, the new frequency applies from now on
+      function rebasePhases(s) {
+        const p = s.pluck;
+        if (!p) return;
+        for (let n = 1; n <= N_MODES; n += 1) p.phi[n - 1] += TWO_PI * modeFreq(s, n) * (S.t - p.tRef);
+        p.tRef = S.t;
+      }
+      // what one pickup point "hears"
+      function pickup(s, t) {
+        if (!s.pluck || t < s.pluck.t0) return 0;
+        let y = 0;
+        for (let n = 1; n <= N_TRACE; n += 1) y += modeValue(s, n, t) * Math.sin(n * Math.PI * PICKUP_U);
+        return y;
+      }
+      // the fundamental only: signed amplitude and phase (for the envelope and the gratings)
+      function fundamental(s, t) {
+        const p = s.pluck;
+        if (!p || t < p.t0) return null;
+        const a = modeAmp(s, 1, t) * Math.sin(Math.PI * PICKUP_U);
+        const theta = p.phi[0] + TWO_PI * modeFreq(s, 1) * (t - p.tRef);
+        return { a, theta };
+      }
+      function envelope(t) {
+        const f1 = fundamental(strings[0], t);
+        const f2 = fundamental(strings[1], t);
+        if (!f1 && !f2) return 0;
+        if (!f1) return Math.abs(f2.a);
+        if (!f2) return Math.abs(f1.a);
+        return Math.sqrt(Math.max(0, f1.a * f1.a + f2.a * f2.a + 2 * f1.a * f2.a * Math.cos(f1.theta - f2.theta)));
+      }
+      const ringing = (s) => !!s.pluck && S.t - s.pluck.t0 < 8 * S.sustain;
+
+      // ---- sound: the same partials, in real time ---------------------------------------------------
+      let audio = null;
+      function ensureAudio() {
+        if (!S.sound) return null;
+        try {
+          if (!audio) {
+            const ac = new (window.AudioContext || window.webkitAudioContext)();
+            const comp = ac.createDynamicsCompressor();
+            const master = ac.createGain();
+            master.gain.value = 0.55;
+            master.connect(comp);
+            comp.connect(ac.destination);
+            const noise = ac.createBuffer(1, Math.round(ac.sampleRate * 0.02), ac.sampleRate);
+            const d = noise.getChannelData(0);
+            for (let i = 0; i < d.length; i += 1) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+            audio = { ac, master, noise };
+          }
+          if (audio.ac.state === "suspended" && !S.paused) audio.ac.resume();
+          return audio;
+        } catch {
+          return null;
+        }
+      }
+      function stopVoice(s, ramp = 0.015) {
+        const v = s.voice;
+        if (!v || !audio) return;
+        const now = audio.ac.currentTime;
+        v.out.gain.cancelScheduledValues(now);
+        v.out.gain.setTargetAtTime(0, now, ramp);
+        for (const o of v.oscs) { try { o.osc.stop(now + ramp * 10); } catch { /* already stopped */ } }
+        s.voice = null;
+      }
+      function startVoice(s, p, h) {
+        stopVoice(s);
+        const a = ensureAudio();
+        if (!a) return;
+        const { ac } = a;
+        const now = ac.currentTime;
+        const out = ac.createGain();
+        out.gain.value = 0.16 * clamp(Math.abs(h) / (0.32 * (S.L?.sp || 50)), 0.15, 1.4);
+        out.connect(a.master);
+        const oscs = [];
+        let norm = 0;
+        const amps = [];
+        for (let n = 1; n <= N_AUDIO; n += 1) {
+          const amp = Math.abs(Math.sin(n * Math.PI * p)) / Math.pow(n, 1.35);
+          amps.push(amp);
+          norm += amp;
+        }
+        for (let n = 1; n <= N_AUDIO; n += 1) {
+          const f = modeFreq(s, n);
+          if (f > ac.sampleRate / 2.2) break;
+          const osc = ac.createOscillator();
+          osc.frequency.value = f;
+          const g = ac.createGain();
+          g.gain.setValueAtTime(0, now);
+          g.gain.linearRampToValueAtTime(amps[n - 1] / norm, now + 0.004);
+          g.gain.setTargetAtTime(0, now + 0.004, 1 / decayRate(s, n));
+          osc.connect(g);
+          g.connect(out);
+          osc.start(now);
+          osc.stop(now + Math.min(40, 7 * tau(n)));
+          oscs.push({ osc, n, g });
+        }
+        // the pick's click
+        const src = ac.createBufferSource();
+        src.buffer = a.noise;
+        const bp = ac.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 3200;
+        bp.Q.value = 0.8;
+        const cg = ac.createGain();
+        cg.gain.value = 0.05;
+        src.connect(bp);
+        bp.connect(cg);
+        cg.connect(out);
+        src.start(now);
+        s.voice = { out, oscs };
+      }
+      // the damping changed while it rings (a touch, or the ring time): each partial dies at its new rate
+      function redampVoice(s) {
+        if (!s.voice || !audio) return;
+        const now = audio.ac.currentTime;
+        for (const o of s.voice.oscs) {
+          const gp = o.g.gain;
+          if (typeof gp.cancelAndHoldAtTime === "function") gp.cancelAndHoldAtTime(now);
+          else { const v = gp.value; gp.cancelScheduledValues(now); gp.setValueAtTime(v, now); }
+          gp.setTargetAtTime(0, now, 1 / decayRate(s, o.n));
+        }
+      }
+      function retuneVoice(s) {
+        if (!s.voice || !audio) return;
+        const now = audio.ac.currentTime;
+        for (const o of s.voice.oscs) o.osc.frequency.setTargetAtTime(modeFreq(s, o.n), now, 0.02);
+      }
+
+      // ---- layout and the static guitar -------------------------------------------------------------
+      function fretX(L, k) {
+        return L.xNut + L.Lpx * (1 - Math.pow(2, -k / 12));
+      }
+      function computeLayout() {
+        const W = S.W;
+        const H = S.H;
+        const barH = bar.getBoundingClientRect().height;
+        const k = Math.min(W / 1600, H / 900);
+        const gTop = barH + 6;
+        const gBot = H * 0.47;
+        const gy = (gTop + gBot) / 2;
+        const sp = Math.min((gBot - gTop) * 0.125, 60 * k);
+        const ys = [0, 1, 2, 3, 4, 5].map((c) => gy + (c - 2.5) * sp);
+        const L = {
+          k, gTop, gBot, gy, sp, ys,
+          fbTop: ys[0] - sp * 0.8,
+          fbBot: ys[5] + sp * 0.8,
+          labelW: W * 0.15,
+        };
+        L.xNut = L.labelW + W * 0.012;
+        // headstock with one tuning button per string, to the left of the nut
+        L.xHeadL = L.labelW - W * 0.035;
+        L.xPost = L.xHeadL + (L.xNut - L.xHeadL) * 0.4;
+        L.knobs = ys.map((y) => ({ x: L.xHeadL - sp * 0.62, y, rx: sp * 0.42, ry: sp * 0.4 }));
+        L.xSaddle = W * 0.935;
+        L.Lpx = L.xSaddle - L.xNut;
+        L.frets = [];
+        for (let f = 0; f <= 20; f += 1) L.frets.push(fretX(L, f));
+        L.xFbEnd = L.frets[20] + L.Lpx * 0.008;
+        L.xBody = L.frets[14] - L.Lpx * 0.01;
+        L.sh = { x: L.xNut + L.Lpx * 0.765, y: gy, r: L.Lpx * 0.078 };
+        L.xPins = L.xSaddle + W * 0.022;
+        // plots: time on the left, frequency on the right
+        L.plotL = L.labelW + W * 0.012;
+        L.plotR = W * 0.635;
+        L.plotW = L.plotR - L.plotL;
+        const top = gBot + H * 0.055;
+        const rowA = H * 0.1;
+        const rowB = H * 0.135;
+        const strip = H * 0.025;
+        L.rowA = { y: top, h: rowA };
+        L.rowB = { y: top + rowA + H * 0.038, h: rowB };
+        const cTop = L.rowB.y + rowB + H * 0.04;
+        L.strips = [0, 1, 2].map((i) => ({ y: cTop + i * (strip + H * 0.007), h: strip }));
+        L.specL = W * 0.675;
+        L.specR = W * 0.975;
+        L.specW = L.specR - L.specL;
+        const specTitle = H * 0.03;
+        const bottom = L.strips[2].y + strip;
+        L.spec1 = { y: top + specTitle, h: bottom - top - specTitle - H * 0.03 };
+        L.readoutY = gBot + H * 0.028;
+        L.font = Math.max(11, 15 * k);
+        return L;
+      }
+
+      // deterministic noise for the wood
+      function rng(seed) {
+        let s = seed >>> 0;
+        return () => {
+          s = (s * 1664525 + 1013904223) >>> 0;
+          return s / 4294967296;
+        };
+      }
+      function grain(g, x0, y0, w, h, color, n, seed, horizontal = true) {
+        const r = rng(seed);
+        g.save();
+        g.beginPath();
+        g.rect(x0, y0, w, h);
+        g.clip();
+        g.strokeStyle = color;
+        for (let i = 0; i < n; i += 1) {
+          const y = y0 + r() * h;
+          g.globalAlpha = 0.04 + r() * 0.1;
+          g.lineWidth = 0.5 + r() * 1.6;
+          g.beginPath();
+          const amp = 1 + r() * 4;
+          const per = 120 + r() * 400;
+          const ph = r() * 6;
+          for (let x = x0; x <= x0 + w; x += 12) {
+            const yy = y + Math.sin(x / per + ph) * amp;
+            if (x === x0) g.moveTo(x, yy); else g.lineTo(x, yy);
+          }
+          g.stroke();
+        }
+        g.restore();
+        void horizontal;
+      }
+
+      // a string as metal: shadow on the wood, body, highlight and (wound) windings
+      function strokeString(g, pts, gauge, wound, alpha = 1, shadow = true) {
+        const path = new Path2D();
+        path.moveTo(pts[0], pts[1]);
+        for (let i = 2; i < pts.length; i += 2) path.lineTo(pts[i], pts[i + 1]);
+        g.lineCap = "round";
+        g.lineJoin = "round";
+        if (shadow) {
+          g.save();
+          g.translate(gauge * 0.9, gauge * 1.4);
+          g.globalAlpha = 0.33 * alpha;
+          g.strokeStyle = "#000";
+          g.lineWidth = gauge * 1.3;
+          g.stroke(path);
+          g.restore();
+        }
+        g.globalAlpha = alpha;
+        g.strokeStyle = wound ? "#a7834f" : "#a9b0b7";
+        g.lineWidth = gauge;
+        g.stroke(path);
+        g.save();
+        g.translate(0, -gauge * 0.22);
+        g.strokeStyle = wound ? "#f3dfae" : "#f4f7fa";
+        g.lineWidth = Math.max(0.6, gauge * 0.34);
+        g.globalAlpha = 0.9 * alpha;
+        g.stroke(path);
+        g.restore();
+        if (wound) {
+          g.save();
+          g.setLineDash([Math.max(0.8, gauge * 0.32), Math.max(0.8, gauge * 0.38)]);
+          g.strokeStyle = "#4a361c";
+          g.lineWidth = gauge * 0.95;
+          g.globalAlpha = 0.32 * alpha;
+          g.stroke(path);
+          g.restore();
+        }
+        g.globalAlpha = 1;
+      }
+
+      function buildBackground() {
+        const L = S.L;
+        const W = S.W;
+        const H = S.H;
+        const c = document.createElement("canvas");
+        c.width = Math.round(W * S.dpr);
+        c.height = Math.round(H * S.dpr);
+        const g = c.getContext("2d");
+        g.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+
+        // the room
+        const room = g.createRadialGradient(W * 0.55, L.gy, 50, W * 0.55, L.gy, W * 0.8);
+        room.addColorStop(0, "#ffffff");
+        room.addColorStop(1, "#ffffff");
+        g.fillStyle = room;
+        g.fillRect(0, 0, W, H);
+
+        // the body (spruce top), its left edge curving like the upper bout
+        g.save();
+        g.beginPath();
+        g.moveTo(L.xBody + L.sp * 1.6, L.gTop);
+        g.quadraticCurveTo(L.xBody - L.sp * 0.6, L.gy, L.xBody + L.sp * 1.6, L.gBot);
+        g.lineTo(W + 10, L.gBot);
+        g.lineTo(W + 10, L.gTop);
+        g.closePath();
+        const top = g.createLinearGradient(0, L.gTop, 0, L.gBot);
+        top.addColorStop(0, "#c99a5b");
+        top.addColorStop(0.5, "#e6c48a");
+        top.addColorStop(1, "#c3925a");
+        g.fillStyle = top;
+        g.fill();
+        g.clip();
+        grain(g, L.xBody - L.sp, L.gTop, W - L.xBody + L.sp * 2, L.gBot - L.gTop, "#7a5426", 140, 7);
+        g.restore();
+        // binding along the bout
+        g.save();
+        g.beginPath();
+        g.moveTo(L.xBody + L.sp * 1.6, L.gTop);
+        g.quadraticCurveTo(L.xBody - L.sp * 0.6, L.gy, L.xBody + L.sp * 1.6, L.gBot);
+        g.strokeStyle = "#f1e3c4";
+        g.lineWidth = 3 * L.k;
+        g.stroke();
+        g.restore();
+
+        // soundhole with rosette
+        const sh = L.sh;
+        const rings = [[1.32, "#2b1b0f"], [1.26, "#f0e2c0"], [1.2, "#3b2414"], [1.13, "#e6d3a8"], [1.08, "#2b1b0f"]];
+        for (const [f, col] of rings) {
+          g.beginPath();
+          g.arc(sh.x, sh.y, sh.r * f, 0, TWO_PI);
+          g.fillStyle = col;
+          g.fill();
+        }
+        const hole = g.createRadialGradient(sh.x, sh.y, sh.r * 0.1, sh.x, sh.y, sh.r);
+        hole.addColorStop(0, "#020202");
+        hole.addColorStop(0.85, "#0a0705");
+        hole.addColorStop(1, "#1d130b");
+        g.beginPath();
+        g.arc(sh.x, sh.y, sh.r, 0, TWO_PI);
+        g.fillStyle = hole;
+        g.fill();
+
+        // bridge, saddle and pins
+        const bx0 = L.xSaddle - L.Lpx * 0.022;
+        const bx1 = L.xPins + L.Lpx * 0.02;
+        const by0 = L.fbTop - L.sp * 0.3;
+        const by1 = L.fbBot + L.sp * 0.3;
+        g.save();
+        g.shadowColor = "rgba(0,0,0,0.45)";
+        g.shadowBlur = 10 * L.k;
+        g.shadowOffsetY = 4 * L.k;
+        g.fillStyle = "#2a1810";
+        g.beginPath();
+        g.roundRect(bx0, by0, bx1 - bx0, by1 - by0, 8 * L.k);
+        g.fill();
+        g.restore();
+        grain(g, bx0, by0, bx1 - bx0, by1 - by0, "#000", 18, 11);
+        g.fillStyle = "#efe6d2";
+        g.fillRect(L.xSaddle - 2.5 * L.k, L.fbTop, 5 * L.k, L.fbBot - L.fbTop);
+
+        // the neck: rosewood fretboard
+        g.save();
+        g.shadowColor = "rgba(0,0,0,0.5)";
+        g.shadowBlur = 14 * L.k;
+        g.shadowOffsetY = 5 * L.k;
+        const fb = g.createLinearGradient(0, L.fbTop, 0, L.fbBot);
+        fb.addColorStop(0, "#2c1a10");
+        fb.addColorStop(0.5, "#40271a");
+        fb.addColorStop(1, "#2a180f");
+        g.fillStyle = fb;
+        g.fillRect(L.xNut - L.sp * 0.6, L.fbTop, L.xFbEnd - L.xNut + L.sp * 0.6, L.fbBot - L.fbTop);
+        g.restore();
+        grain(g, L.xNut - L.sp * 0.6, L.fbTop, L.xFbEnd - L.xNut + L.sp * 0.6, L.fbBot - L.fbTop, "#0d0603", 90, 3);
+        // binding of the fretboard
+        g.fillStyle = "rgba(240,226,192,0.75)";
+        g.fillRect(L.xNut, L.fbTop - 1.5 * L.k, L.xFbEnd - L.xNut, 1.5 * L.k);
+        g.fillRect(L.xNut, L.fbBot, L.xFbEnd - L.xNut, 1.5 * L.k);
+
+        // inlays
+        const mid = (a, b) => (L.frets[a] + L.frets[b]) / 2;
+        const pearl = (x, y) => {
+          const r = L.sp * 0.17;
+          const gr = g.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+          gr.addColorStop(0, "#ffffff");
+          gr.addColorStop(0.6, "#e6eef2");
+          gr.addColorStop(1, "#b9c7cf");
+          g.beginPath();
+          g.arc(x, y, r, 0, TWO_PI);
+          g.fillStyle = gr;
+          g.fill();
+        };
+        for (const f of [3, 5, 7, 9, 15, 17, 19]) pearl(mid(f - 1, f), L.gy);
+        pearl(mid(11, 12), L.gy - L.sp * 1.5);
+        pearl(mid(11, 12), L.gy + L.sp * 1.5);
+
+        // frets (nickel)
+        for (let f = 1; f <= 20; f += 1) {
+          const x = L.frets[f];
+          const w = Math.max(2, 3.4 * L.k);
+          const fr = g.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+          fr.addColorStop(0, "#6f767c");
+          fr.addColorStop(0.45, "#f4f6f7");
+          fr.addColorStop(1, "#7b8288");
+          g.fillStyle = fr;
+          g.fillRect(x - w / 2, L.fbTop, w, L.fbBot - L.fbTop);
+        }
+        // headstock, the posts the strings wind onto, and the shafts of the tuning buttons
+        const hy0 = L.fbTop - L.sp * 0.3;
+        const hy1 = L.fbBot + L.sp * 0.3;
+        for (const kb of L.knobs) {
+          const sh = g.createLinearGradient(0, kb.y - kb.ry * 0.3, 0, kb.y + kb.ry * 0.3);
+          sh.addColorStop(0, "#5b6167");
+          sh.addColorStop(0.45, "#e3e8ec");
+          sh.addColorStop(1, "#555b61");
+          g.fillStyle = sh;
+          g.fillRect(kb.x, kb.y - kb.ry * 0.26, L.xHeadL - kb.x + 6, kb.ry * 0.52);
+        }
+        g.save();
+        g.shadowColor = "rgba(0,0,0,0.5)";
+        g.shadowBlur = 14 * L.k;
+        g.shadowOffsetY = 5 * L.k;
+        const hs = g.createLinearGradient(0, hy0, 0, hy1);
+        hs.addColorStop(0, "#2a180e");
+        hs.addColorStop(0.5, "#3d2517");
+        hs.addColorStop(1, "#28170d");
+        g.fillStyle = hs;
+        g.beginPath();
+        g.roundRect(L.xHeadL, hy0, L.xNut - L.xHeadL, hy1 - hy0, [10 * L.k, 0, 0, 10 * L.k]);
+        g.fill();
+        g.restore();
+        grain(g, L.xHeadL, hy0, L.xNut - L.xHeadL, hy1 - hy0, "#0d0603", 30, 5);
+        for (const kb of L.knobs) {
+          const pr = L.sp * 0.17;
+          const pg = g.createRadialGradient(L.xPost - pr * 0.3, kb.y - pr * 0.3, pr * 0.1, L.xPost, kb.y, pr);
+          pg.addColorStop(0, "#f7f9fa");
+          pg.addColorStop(0.6, "#a9b1b8");
+          pg.addColorStop(1, "#5d646a");
+          g.beginPath();
+          g.arc(L.xPost, kb.y, pr, 0, TWO_PI);
+          g.fillStyle = pg;
+          g.fill();
+          g.beginPath();
+          g.arc(L.xPost, kb.y, pr * 0.35, 0, TWO_PI);
+          g.fillStyle = "#3a3f44";
+          g.fill();
+        }
+
+        // nut (bone)
+        const nutW = 7 * L.k;
+        g.fillStyle = "#efe6d2";
+        g.fillRect(L.xNut - nutW, L.fbTop - 1, nutW, L.fbBot - L.fbTop + 2);
+        g.fillStyle = "rgba(0,0,0,0.18)";
+        g.fillRect(L.xNut - 1.5, L.fbTop - 1, 1.5, L.fbBot - L.fbTop + 2);
+
+        // bridge pins
+        for (let cIdx = 0; cIdx < 6; cIdx += 1) {
+          const y = L.ys[cIdx];
+          g.beginPath();
+          g.arc(L.xPins, y, L.sp * 0.2, 0, TWO_PI);
+          g.fillStyle = "#f2ede2";
+          g.fill();
+          g.beginPath();
+          g.arc(L.xPins, y, L.sp * 0.07, 0, TWO_PI);
+          g.fillStyle = "#1a1a1a";
+          g.fill();
+        }
+
+        // strings: the four that are not played, and the still parts of the two that are
+        const gaugeOf = (cIdx) => COURSE_GAUGE[cIdx] * Math.max(0.7, L.k * 1.05);
+        const seg = (cIdx, x0, x1) => strokeString(g, [x0, L.ys[cIdx], x1, L.ys[cIdx]], gaugeOf(cIdx), COURSE_WOUND[cIdx], 1);
+        for (let cIdx = 0; cIdx < 6; cIdx += 1) {
+          const s = strings.find((x) => x.course === cIdx);
+          const xStub = L.xPost; // from its tuning post
+          if (!s) {
+            seg(cIdx, xStub, L.xPins);
+            continue;
+          }
+          seg(cIdx, xStub, s.fret ? L.frets[s.fret] : L.xNut);
+          seg(cIdx, L.xSaddle, L.xPins);
+        }
+        drawFinger(g, L);
+
+        // labels beside the strings, left of their tuning buttons
+        g.font = `600 ${L.font * 0.9}px Segoe UI, sans-serif`;
+        g.textBaseline = "middle";
+        for (const s of strings) {
+          const kb = L.knobs[s.course];
+          g.fillStyle = s.color;
+          g.textAlign = "right";
+          const name = s === strings[0] ? (S.harmonic ? "E, open" : "E, 5th fret") : "A, open";
+          g.globalAlpha = S.harmonic && s === strings[1] ? 0.4 : 1; // the A string rests in flageolet mode
+          g.fillText(name, kb.x - kb.rx - 8, kb.y);
+          g.globalAlpha = 1;
+        }
+        g.font = `${L.font * 0.72}px Segoe UI, sans-serif`;
+        g.fillStyle = "rgba(28,126,214,0.9)";
+        g.textAlign = "center";
+        g.textBaseline = "top";
+        const aKnob = L.knobs[strings[1].course];
+        g.fillText("turn me", aKnob.x, L.fbBot + L.sp * 0.4);
+        g.font = `${L.font * 0.78}px Segoe UI, sans-serif`;
+        g.fillStyle = "rgba(29,39,51,0.5)";
+        g.textAlign = "right";
+        g.textBaseline = "alphabetic";
+        g.fillText("string motion drawn exaggerated", S.W - 12, L.gBot - 6);
+        S.bg = c;
+      }
+
+      // The fingertip on the E string. Fretted: pressed down just behind the 5th fret. Flageolet: the
+      // same finger lifted (higher, so a longer and softer shadow), its tip only grazing the string
+      // from below, right at the node L/N.
+      function drawFinger(g, L) {
+        const eS = strings[0];
+        const yE = L.ys[eS.course];
+        const lifted = !!S.harmonic;
+        let fx;
+        let fw;
+        let tipY;
+        if (!lifted) {
+          fx = L.frets[5] - (L.frets[5] - L.frets[4]) * 0.32;
+          fw = Math.min((L.frets[5] - L.frets[4]) * 0.55, L.sp * 1.05);
+          tipY = yE - L.sp * 0.42;
+        } else {
+          fx = L.xNut + L.Lpx / S.harmonic;
+          fw = L.sp * 0.98;
+          tipY = yE - L.sp * 0.06;
+        }
+        const fingerEnd = L.fbBot + L.sp * 0.55; // the rest of the hand is off the picture
+        g.save();
+        g.shadowColor = lifted ? "rgba(0,0,0,0.32)" : "rgba(0,0,0,0.45)";
+        g.shadowBlur = (lifted ? 26 : 12) * L.k;
+        g.shadowOffsetX = (lifted ? 12 : 4) * L.k;
+        g.shadowOffsetY = (lifted ? 18 : 6) * L.k;
+        const skin = g.createLinearGradient(fx - fw / 2, 0, fx + fw / 2, 0);
+        skin.addColorStop(0, "#c98d6e");
+        skin.addColorStop(0.45, lifted ? "#f6cdb0" : "#f0c2a2");
+        skin.addColorStop(1, "#b97c5e");
+        g.fillStyle = skin;
+        g.beginPath();
+        g.roundRect(fx - fw / 2, tipY, fw, fingerEnd - tipY, [fw / 2, fw / 2, fw / 2.4, fw / 2.4]);
+        g.fill();
+        g.restore();
+        g.fillStyle = "rgba(255,226,214,0.75)";
+        g.beginPath();
+        g.roundRect(fx - fw * 0.3, tipY + fw * 0.12, fw * 0.6, fw * 0.75, fw * 0.28);
+        g.fill();
+        if (lifted) {
+          // where the tip grazes the string: the node it makes
+          const gl = g.createRadialGradient(fx, yE, 0, fx, yE, L.sp * 0.4);
+          gl.addColorStop(0, "rgba(255,255,255,0.85)");
+          gl.addColorStop(1, "rgba(255,255,255,0)");
+          g.fillStyle = gl;
+          g.beginPath();
+          g.arc(fx, yE, L.sp * 0.4, 0, TWO_PI);
+          g.fill();
+        }
+      }
+
+      // Flageolet: the nodes along the E string, the N cells, and what the touch does
+      function drawLattice() {
+        const L = S.L;
+        const N = S.harmonic;
+        if (!N) return;
+        const yE = L.ys[strings[0].course];
+        const xs = [];
+        for (let k = 0; k <= N; k += 1) xs.push(L.xNut + (L.Lpx * k) / N);
+        // nodes: the one under the finger, and the ones the standing wave makes by itself
+        for (let k = 1; k < N; k += 1) {
+          ctx.beginPath();
+          ctx.arc(xs[k], yE, L.sp * 0.16, 0, TWO_PI);
+          ctx.strokeStyle = "#e8890c";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        // the cells, under the fretboard
+        const yb = L.fbBot + L.sp * 0.22;
+        ctx.strokeStyle = "rgba(232,137,12,0.9)";
+        ctx.fillStyle = "#c46f00";
+        ctx.lineWidth = 1.5;
+        ctx.font = `600 ${L.font * 0.78}px Segoe UI, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        for (let k = 0; k < N; k += 1) {
+          const a = xs[k] + 3;
+          const b = xs[k + 1] - 3;
+          ctx.beginPath();
+          ctx.moveTo(a, yb - 5);
+          ctx.lineTo(a, yb);
+          ctx.lineTo(b, yb);
+          ctx.lineTo(b, yb - 5);
+          ctx.stroke();
+          ctx.fillText(`cell ${k + 1} · ${FLAGEOLET[N].frac}`, (a + b) / 2, yb + 3);
+        }
+        // the caption, above the fretboard
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.font = `600 ${L.font * 0.85}px Segoe UI, sans-serif`;
+        ctx.fillStyle = "#c46f00";
+        ctx.fillText(`Light touch at the ${FLAGEOLET[N].fret}th fret = a node at ${FLAGEOLET[N].frac}: only modes with a node there survive. The string becomes a lattice of ${N} cells and sounds ${N}·f = ${(N * E_OPEN_HZ).toFixed(1)} Hz.`, L.xNut, L.fbTop - 4);
+      }
+
+      function buildStringTables() {
+        const L = S.L;
+        for (const s of strings) {
+          const x0 = s.fret ? L.frets[s.fret] : L.xNut;
+          s.xs = new Float64Array(POINTS);
+          s.sinTab = [];
+          for (let i = 0; i < POINTS; i += 1) s.xs[i] = x0 + (L.xSaddle - x0) * (i / (POINTS - 1));
+          for (let n = 1; n <= N_MODES; n += 1) {
+            const row = new Float64Array(POINTS);
+            for (let i = 0; i < POINTS; i += 1) row[i] = Math.sin(n * Math.PI * (i / (POINTS - 1)));
+            s.sinTab.push(row);
+          }
+        }
+      }
+
+      function resize() {
+        S.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        S.W = window.innerWidth;
+        S.H = window.innerHeight;
+        canvas.width = Math.round(S.W * S.dpr);
+        canvas.height = Math.round(S.H * S.dpr);
+        S.L = computeLayout();
+        buildBackground();
+        buildStringTables();
+        S.barcode = document.createElement("canvas");
+      }
+
+      // ---- drawing ----------------------------------------------------------------------------------
+      const pts = new Float64Array(POINTS * 2);
+      function drawPlayedString(s) {
+        const L = S.L;
+        const y0 = L.ys[s.course];
+        const gauge = COURSE_GAUGE[s.course] * Math.max(0.7, L.k * 1.05);
+        const wound = COURSE_WOUND[s.course];
+        // held by the pointer: a triangle
+        if (S.drag && S.drag.s === s) {
+          const xa = s.xs[0];
+          const xb = s.xs[POINTS - 1];
+          const xp = xa + (xb - xa) * S.drag.u;
+          strokeString(ctx, [xa, y0, xp, y0 + S.drag.h, xb, y0], gauge, wound, 1);
+          return;
+        }
+        if (!s.pluck) {
+          strokeString(ctx, [s.xs[0], y0, s.xs[POINTS - 1], y0], gauge, wound, 1);
+          return;
+        }
+        // motion blur: as many instants as the frame spans swings (eyes see a band at full speed)
+        const cycles = s.freq() * S.lastDt;
+        const K = clamp(Math.ceil(cycles * 5), 1, 16);
+        const c = new Float64Array(N_MODES);
+        for (let k = 0; k < K; k += 1) {
+          const t = S.t - (S.lastDt * k) / K;
+          for (let n = 1; n <= N_MODES; n += 1) c[n - 1] = modeValue(s, n, t);
+          for (let i = 0; i < POINTS; i += 1) {
+            let y = 0;
+            for (let n = 0; n < N_MODES; n += 1) y += c[n] * s.sinTab[n][i];
+            pts[i * 2] = s.xs[i];
+            pts[i * 2 + 1] = y0 + y;
+          }
+          strokeString(ctx, pts, gauge, wound, K === 1 ? 1 : Math.min(1, 2.2 / K), k === 0);
+        }
+      }
+
+      function drawSoundholeGlow() {
+        const L = S.L;
+        let ref = 0;
+        for (const s of strings) if (s.pluck) ref += Math.abs(s.pluck.A[0] * Math.sin(Math.PI * PICKUP_U));
+        if (!ref) return;
+        const loud = clamp(envelope(S.t) / ref, 0, 1);
+        if (loud < 0.01) return;
+        const sh = L.sh;
+        const g = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, sh.r);
+        g.addColorStop(0, `rgba(255, 207, 122, ${0.55 * loud})`);
+        g.addColorStop(1, "rgba(255, 207, 122, 0)");
+        ctx.beginPath();
+        ctx.arc(sh.x, sh.y, sh.r, 0, TWO_PI);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+
+      function niceStep(span, target) {
+        const raw = span / target;
+        const p = Math.pow(10, Math.floor(Math.log10(raw)));
+        for (const m of [1, 2, 5, 10]) if (raw <= m * p) return m * p;
+        return 10 * p;
+      }
+      function panel(x, y, w, h) {
+        ctx.fillStyle = "rgba(15,23,42,0.03)";
+        ctx.strokeStyle = "rgba(15,23,42,0.12)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 6);
+        ctx.fill();
+        ctx.stroke();
+      }
+      function label(lines, y, h, colors) {
+        const L = S.L;
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        lines.forEach((t, i) => {
+          ctx.font = i === 0 ? `600 ${L.font * 0.92}px Segoe UI, sans-serif` : `${L.font * 0.78}px Segoe UI, sans-serif`;
+          ctx.fillStyle = (colors && colors[i]) || (i === 0 ? "#1d2733" : "#5b6675");
+          ctx.fillText(t, L.labelW - 6, y + h / 2 + (i - (lines.length - 1) / 2) * L.font * 1.15);
+        });
+      }
+      function axis(x0, x1, y, t0, t1, unit, scale, relTo = null) {
+        const L = S.L;
+        const span = t1 - t0;
+        const step = niceStep(span * scale, 6) / scale;
+        ctx.font = `${L.font * 0.72}px Segoe UI, sans-serif`;
+        ctx.fillStyle = "#6b7684";
+        ctx.strokeStyle = "rgba(15,23,42,0.3)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const origin = relTo ?? 0;
+        const first = Math.ceil((t0 - origin) / step) * step + origin;
+        for (let t = first; t <= t1 + 1e-12; t += step) {
+          const x = x0 + ((t - t0) / span) * (x1 - x0);
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + 4);
+          ctx.stroke();
+          const v = (t - origin) * scale;
+          const txt = Math.abs(v) < 1e-9 ? (relTo !== null ? "now" : "0") : `${+v.toFixed(Math.max(0, -Math.floor(Math.log10(step * scale) + 1e-9)))}`;
+          ctx.fillText(txt, x, y + 5);
+        }
+        ctx.textAlign = "left";
+        ctx.fillText(unit, x1 + 6, y + 5);
+      }
+
+      // the earliest pluck of the two that ring: where the beat picture starts
+      function beatWindow() {
+        const L = S.L;
+        const f = BASE_HZ;
+        const dF = Math.abs(strings[1].freq() - strings[0].freq());
+        const wMax = L.plotW / 4 / f; // ≥ 4 px per stripe in the gratings
+        const want = dF > 1e-3 ? 3.2 / dF : wMax;
+        const W = clamp(want, 0.15, wMax);
+        const t0s = strings.filter((s) => s.pluck).map((s) => s.pluck.t0);
+        const origin = t0s.length ? Math.min(...t0s) : S.t;
+        const start = Math.max(origin, S.t - 0.8 * W);
+        return { start, end: start + W, W, origin, dF };
+      }
+
+      function drawPlots() {
+        const L = S.L;
+        const any = strings.some((s) => s.pluck);
+        const f1 = strings[0].freq();
+        const f2 = strings[1].freq();
+        const dF = Math.abs(f2 - f1);
+
+        // readout
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.font = `600 ${L.font * 1.02}px Segoe UI, sans-serif`;
+        let x = L.plotL;
+        const put = (txt, col) => {
+          ctx.fillStyle = col;
+          ctx.fillText(txt, x, L.readoutY);
+          x += ctx.measureText(txt).width + L.font * 1.1;
+        };
+        const N = S.harmonic;
+        if (N) {
+          put(`E open: f = ${E_OPEN_HZ.toFixed(2)} Hz`, "#e8890c");
+          put(`touched at the ${FLAGEOLET[N].fret}th fret (${FLAGEOLET[N].frac})`, "#1d2733");
+          put(`rings on: ${N}f = ${(N * E_OPEN_HZ).toFixed(1)} Hz, ${2 * N}f, ${3 * N}f …`, "#d6336c");
+        } else {
+          put(`f₁ = ${f1.toFixed(2)} Hz`, "#e8890c");
+          put(`f₂ = ${f2.toFixed(2)} Hz`, "#1c7ed6");
+          put(`|f₁ − f₂| = ${dF.toFixed(2)} Hz`, "#1d2733");
+          put(dF > 0.005 ? `beat every T = 1/|f₁ − f₂| = ${(1 / dF).toFixed(dF > 1 ? 3 : 2)} s` : "in tune: no beat", "#d6336c");
+        }
+        ctx.textAlign = "right";
+        ctx.font = `${L.font * 0.85}px Segoe UI, sans-serif`;
+        ctx.fillStyle = "#5b6675";
+        const slow = 1 / S.timeScale;
+        ctx.fillText(`${S.paused ? "paused · " : ""}${slow < 1.05 ? "real time" : `slowed down ${formatSlow(slow)}×`}  ·  t = ${(S.t - (any ? beatWindow().origin : S.t)).toFixed(3)} s after the pluck`, L.specR, L.readoutY);
+
+        // A: each string close up (an oscilloscope around "now")
+        const A = L.rowA;
+        panel(L.plotL, A.y, L.plotW, A.h);
+        label(["Each string", "close up"], A.y, A.h);
+        const Wc = 6 / BASE_HZ;
+        const a0 = S.t - 0.8 * Wc;
+        const a1 = S.t + 0.2 * Wc;
+        let ref = 0;
+        for (const s of strings) if (s.pluck) ref = Math.max(ref, Math.abs(s.pluck.h));
+        const yScaleA = ref ? (A.h * 0.42) / (ref * 0.9) : 1;
+        const nA = Math.max(200, Math.floor(L.plotW / 1.5));
+        for (const s of strings) {
+          if (!s.pluck) continue;
+          ctx.beginPath();
+          for (let i = 0; i <= nA; i += 1) {
+            const t = a0 + ((a1 - a0) * i) / nA;
+            const y = A.y + A.h / 2 - pickup(s, t) * yScaleA;
+            const xx = L.plotL + (L.plotW * i) / nA;
+            if (i === 0) ctx.moveTo(xx, y); else ctx.lineTo(xx, y);
+          }
+          ctx.strokeStyle = s.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        playhead(L.plotL + L.plotW * 0.8, A.y, A.h);
+        axis(L.plotL, L.plotR, A.y + A.h, a0, a1, "ms", 1000, S.t);
+
+        // B: both together, the beat (flageolet: the E string's first 60 ms, the touch at work)
+        const B = L.rowB;
+        if (N) {
+          const W = 0.06;
+          const e = strings[0];
+          const origin = e.pluck ? e.pluck.t0 : S.t;
+          const start = Math.max(origin, S.t - 0.8 * W);
+          panel(L.plotL, B.y, L.plotW, B.h);
+          label(["The E string", "what you hear"], B.y, B.h);
+          if (e.pluck) {
+            const yS = (B.h * 0.45) / (Math.abs(e.pluck.h) * 0.75);
+            const nB = Math.max(400, Math.floor(L.plotW));
+            ctx.beginPath();
+            for (let i = 0; i <= nB; i += 1) {
+              const t = start + (W * i) / nB;
+              const y = B.y + B.h / 2 - pickup(e, t) * yS;
+              const xx = L.plotL + (L.plotW * i) / nB;
+              if (i === 0) ctx.moveTo(xx, y); else ctx.lineTo(xx, y);
+            }
+            ctx.strokeStyle = "rgba(29,39,51,0.85)";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            const ph = (S.t - start) / W;
+            if (ph >= 0 && ph <= 1) playhead(L.plotL + L.plotW * ph, B.y, B.h);
+          } else {
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.font = `${L.font * 1.1}px Segoe UI, sans-serif`;
+            ctx.fillStyle = "rgba(29,39,51,0.65)";
+            ctx.fillText("Tap the E string, or pull it and let go  (Space plucks it)", L.plotL + L.plotW / 2, B.y + B.h / 2);
+          }
+          axis(L.plotL, L.plotR, B.y + B.h, start, start + W, "ms", 1000, origin);
+          ctx.textAlign = "left";
+          ctx.textBaseline = "top";
+          ctx.font = `${L.font * 0.85}px Segoe UI, sans-serif`;
+          ctx.fillStyle = "#5b6675";
+          const st = L.strips[0];
+          ctx.fillText(`Right after the pluck the touch kills every mode that moves at ${FLAGEOLET[N].frac} within a few ms;`, L.plotL, st.y);
+          ctx.fillText(`what is left is ${N} identical cells swinging ${N} times faster than the whole string: the lattice's own note.`, L.plotL, st.y + L.font * 1.3);
+          drawSpectra();
+          return;
+        }
+        const bw = beatWindow();
+        panel(L.plotL, B.y, L.plotW, B.h);
+        label(["Both together", "what you hear"], B.y, B.h);
+        let refB = 0;
+        for (const s of strings) if (s.pluck) refB += Math.abs(s.pluck.h);
+        const yScaleB = refB ? (B.h * 0.45) / (refB * 0.75) : 1;
+        if (any) {
+          const nB = Math.max(400, Math.floor(L.plotW));
+          ctx.beginPath();
+          for (let i = 0; i <= nB; i += 1) {
+            const t = bw.start + (bw.W * i) / nB;
+            const y = B.y + B.h / 2 - (pickup(strings[0], t) + pickup(strings[1], t)) * yScaleB;
+            const xx = L.plotL + (L.plotW * i) / nB;
+            if (i === 0) ctx.moveTo(xx, y); else ctx.lineTo(xx, y);
+          }
+          ctx.strokeStyle = "rgba(29,39,51,0.85)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          // envelope of the fundamentals
+          const envScale = yScaleB;
+          for (const sign of [1, -1]) {
+            ctx.beginPath();
+            for (let i = 0; i <= 300; i += 1) {
+              const t = bw.start + (bw.W * i) / 300;
+              const y = B.y + B.h / 2 - sign * envelope(t) * envScale;
+              const xx = L.plotL + (L.plotW * i) / 300;
+              if (i === 0) ctx.moveTo(xx, y); else ctx.lineTo(xx, y);
+            }
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = "#d6336c";
+            ctx.lineWidth = 1.6;
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          beatBracket(bw, B);
+          const ph = (S.t - bw.start) / bw.W;
+          if (ph >= 0 && ph <= 1) playhead(L.plotL + L.plotW * ph, B.y, B.h);
+        }
+        axis(L.plotL, L.plotR, B.y + B.h, bw.start, bw.end, "s", 1, bw.origin);
+
+        // C: the two time gratings and their overlay: the time moiré
+        drawGratings(bw);
+        // D: the same in frequency
+        drawSpectra();
+
+        if (!any) {
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `${L.font * 1.1}px Segoe UI, sans-serif`;
+          ctx.fillStyle = "rgba(29,39,51,0.65)";
+          ctx.fillText("Tap a string, or pull it and let go  (Space plucks both)", L.plotL + L.plotW / 2, B.y + B.h / 2);
+        }
+      }
+
+      // ---- frequency: the spectrum of the sound -----------------------------------------------------
+      // A decaying tone a·cos(2πf t)·e^(−t/τ) seen through an analyser window of SPEC_WIN seconds is a
+      // peak of half width 1/(2π·min(τ, window)). The sum of the two strings is just its two peaks:
+      // nothing at f₁ − f₂ (the beat is in the loudness of the sum, not a tone of its own).
+      const SPEC_WIN = 1.5;
+      const peak = (df, w) => 1 / Math.sqrt(1 + (df / w) * (df / w));
+      function harmonicAt(s, n, t) {
+        const p = s.pluck;
+        if (!p || t < p.t0) return 0;
+        return Math.abs(modeAmp(s, n, t) * Math.sin(n * Math.PI * PICKUP_U));
+      }
+      function specTitle(x, y, title, note, noteColor) {
+        const L = S.L;
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "left";
+        ctx.font = `600 ${L.font * 0.92}px Segoe UI, sans-serif`;
+        ctx.fillStyle = "#1d2733";
+        ctx.fillText(title, x, y - 5);
+        if (note) {
+          ctx.textAlign = "right";
+          ctx.font = `${L.font * 0.78}px Segoe UI, sans-serif`;
+          ctx.fillStyle = noteColor || "#5b6675";
+          ctx.fillText(note, L.specR, y - 5);
+        }
+      }
+      function curve(x0, w, y0, h, n, fn, fill, stroke, lw = 1.5) {
+        ctx.beginPath();
+        ctx.moveTo(x0, y0 + h);
+        for (let i = 0; i <= n; i += 1) ctx.lineTo(x0 + (w * i) / n, y0 + h - fn(i / n));
+        ctx.lineTo(x0 + w, y0 + h);
+        ctx.closePath();
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw;
+          ctx.stroke();
+        }
+      }
+      // Flageolet: the E string's harmonics n·f. Dashed: what the pluck gave each one; filled: what is
+      // left now. The touch at L/N empties every bar except N, 2N, 3N … (square-root scale, so the
+      // weak high harmonics stay visible).
+      function drawHarmonicSpectrum() {
+        const L = S.L;
+        const N = S.harmonic;
+        const e = strings[0];
+        const P = L.spec1;
+        const x0 = L.specL;
+        const w = L.specW;
+        const nMax = 12;
+        const fMax = (nMax + 0.6) * E_OPEN_HZ;
+        specTitle(x0, P.y, "Spectrum of the E string", `only ${N}f, ${2 * N}f, ${3 * N}f … ring on`, "#d6336c");
+        panel(x0, P.y, w, P.h);
+        if (e.pluck) {
+          let ref = 0;
+          for (let n = 1; n <= nMax; n += 1) ref = Math.max(ref, Math.abs(e.pluck.A[n - 1]));
+          const hOf = (a) => Math.sqrt(Math.abs(a) / ref) * P.h * 0.82;
+          const bw = Math.max(6, (w / fMax) * E_OPEN_HZ * 0.42);
+          for (let n = 1; n <= nMax; n += 1) {
+            const x = x0 + (modeFreq(e, n) / fMax) * w;
+            const g0 = hOf(e.pluck.A[n - 1]);
+            const g1 = Math.min(g0, hOf(modeAmp(e, n, S.t)));
+            const keeps = n % N === 0;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = keeps ? "rgba(232,137,12,0.8)" : "rgba(29,39,51,0.35)";
+            ctx.lineWidth = 1.2;
+            ctx.strokeRect(x - bw / 2, P.y + P.h - g0, bw, g0);
+            ctx.setLineDash([]);
+            if (g1 > 0.5) {
+              ctx.fillStyle = keeps ? "#e8890c" : "rgba(29,39,51,0.45)";
+              ctx.fillRect(x - bw / 2, P.y + P.h - g1, bw, g1);
+            }
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.font = `${keeps ? "600 " : ""}${L.font * 0.72}px Segoe UI, sans-serif`;
+            ctx.fillStyle = keeps ? "#c46f00" : "rgba(29,39,51,0.45)";
+            ctx.fillText(`${n}f`, x, P.y + P.h - Math.max(g0, g1) - 3);
+          }
+        } else {
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `${L.font * 0.9}px Segoe UI, sans-serif`;
+          ctx.fillStyle = "rgba(29,39,51,0.6)";
+          ctx.fillText("pluck the E string", x0 + w / 2, P.y + P.h / 2);
+        }
+        axis(x0, L.specR, P.y + P.h, 0, fMax, "Hz", 1);
+      }
+
+      function drawSpectra() {
+        if (S.harmonic) {
+          drawHarmonicSpectrum();
+          return;
+        }
+        const L = S.L;
+        const [s1, s2] = strings;
+        const fA = modeFreq(s1, 1);
+        const fB = modeFreq(s2, 1);
+        const dF = Math.abs(fB - fA);
+        const both = !!(s1.pluck && s2.pluck);
+        const t = S.t;
+        const x0 = L.specL;
+        const w = L.specW;
+        const nPx = Math.max(200, Math.round(w));
+
+        // 1. the sound, around 110 Hz
+        const P1 = L.spec1;
+        specTitle(x0, P1.y, "Spectrum of the sound", "two lines, nothing at |f₁ − f₂|");
+        panel(x0, P1.y, w, P1.h);
+        const fc = (fA + fB) / 2;
+        const half = Math.max(3.5, 2.6 * dF);
+        const lo = fc - half;
+        const hi = fc + half;
+        const wl = 1 / (TWO_PI * Math.min(tau(1), SPEC_WIN));
+        let ref1 = 0;
+        for (const s of strings) if (s.pluck) ref1 = Math.max(ref1, Math.abs(s.pluck.A[0] * Math.sin(Math.PI * PICKUP_U)));
+        const a1 = harmonicAt(s1, 1, t);
+        const a2 = harmonicAt(s2, 1, t);
+        if (ref1) {
+          const yS = (P1.h * 0.82) / ref1;
+          const top = P1.h * 0.97; // in tune the summed line is √2 higher: it is cut at the top
+          const X = (k, i) => {
+            const f = lo + (hi - lo) * i;
+            return (k === 0 ? a1 * peak(f - fA, wl) : a2 * peak(f - fB, wl)) * yS;
+          };
+          curve(x0, w, P1.y, P1.h, nPx, (i) => Math.min(top, X(0, i)), "rgba(232,137,12,0.25)", "#e8890c", 1.2);
+          curve(x0, w, P1.y, P1.h, nPx, (i) => Math.min(top, X(1, i)), "rgba(28,126,214,0.22)", "#1c7ed6", 1.2);
+          curve(x0, w, P1.y, P1.h, nPx, (i) => Math.min(top, Math.hypot(X(0, i), X(1, i))), null, "rgba(29,39,51,0.9)", 1.4);
+          // the peaks, and the gap between them
+          const xf = (f) => x0 + ((f - lo) / (hi - lo)) * w;
+          ctx.font = `600 ${L.font * 0.8}px Segoe UI, sans-serif`;
+          ctx.textBaseline = "bottom";
+          const close = dF < 2.5 * wl;
+          if (a1 * yS > 6 && !close) {
+            ctx.fillStyle = "#e8890c";
+            ctx.textAlign = fA <= fB ? "right" : "left";
+            ctx.fillText("f₁", xf(fA) + (fA <= fB ? -6 : 6), P1.y + P1.h - a1 * yS + 2);
+          }
+          if (a2 * yS > 6 && !close) {
+            ctx.fillStyle = "#1c7ed6";
+            ctx.textAlign = fA <= fB ? "left" : "right";
+            ctx.fillText("f₂", xf(fB) + (fA <= fB ? 6 : -6), P1.y + P1.h - a2 * yS + 2);
+          }
+          if (both && !close) {
+            const yArrow = P1.y + P1.h * 0.12;
+            const xa = xf(Math.min(fA, fB));
+            const xb = xf(Math.max(fA, fB));
+            ctx.strokeStyle = "#d6336c";
+            ctx.fillStyle = "#d6336c";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(xa, yArrow);
+            ctx.lineTo(xb, yArrow);
+            ctx.stroke();
+            for (const [xx, dir] of [[xa, 1], [xb, -1]]) {
+              ctx.beginPath();
+              ctx.moveTo(xx, yArrow);
+              ctx.lineTo(xx + dir * 6, yArrow - 4);
+              ctx.lineTo(xx + dir * 6, yArrow + 4);
+              ctx.closePath();
+              ctx.fill();
+            }
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            ctx.fillText(`|f₁ − f₂| = ${dF.toFixed(2)} Hz`, (xa + xb) / 2, yArrow - 4);
+          } else if (both && close) {
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillStyle = "#d6336c";
+            ctx.fillText("in tune: the two lines are one", x0 + 8, P1.y + 6);
+          }
+        }
+        axis(x0, L.specR, P1.y + P1.h, lo, hi, "Hz", 1);
+
+      }
+
+      function playhead(x, y, h) {
+        ctx.strokeStyle = "rgba(29,39,51,0.5)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 2);
+        ctx.lineTo(x, y + h - 2);
+        ctx.stroke();
+      }
+
+      function beatBracket(bw, B) {
+        const L = S.L;
+        const a = fundamental(strings[0], S.t);
+        const b = fundamental(strings[1], S.t);
+        if (!a || !b || bw.dF < 0.01) return;
+        const T = 1 / bw.dF;
+        if (T > bw.W * 0.98) {
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.font = `${L.font * 0.8}px Segoe UI, sans-serif`;
+          ctx.fillStyle = "#d6336c";
+          ctx.fillText(`one beat lasts ${T.toFixed(1)} s, longer than this window: detune more to see several`, L.plotL + L.plotW / 2, B.y + 4);
+          return;
+        }
+        // loudest moments: θ₁ − θ₂ = 2πk
+        const dW = TWO_PI * (modeFreq(strings[0], 1) - modeFreq(strings[1], 1));
+        const c0 = a.theta - b.theta - dW * S.t; // θ₁ − θ₂ = c0 + dW t
+        const kRef = (TWO_PI * Math.round((c0 + dW * S.t) / TWO_PI) - c0) / dW;
+        // the last maximum at or before "now" that leaves a whole period inside the window
+        let tMax = kRef;
+        while (tMax > S.t) tMax -= T;
+        while (tMax + T <= S.t) tMax += T;
+        if (tMax - T < bw.start) tMax += T;
+        if (tMax > bw.end) return;
+        const xA = L.plotL + ((tMax - T - bw.start) / bw.W) * L.plotW;
+        const xB = L.plotL + ((tMax - bw.start) / bw.W) * L.plotW;
+        const y = B.y + 10;
+        ctx.strokeStyle = "#d6336c";
+        ctx.fillStyle = "#d6336c";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(xA, y + 7);
+        ctx.lineTo(xA, y);
+        ctx.lineTo(xB, y);
+        ctx.lineTo(xB, y + 7);
+        ctx.stroke();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.font = `600 ${L.font * 0.8}px Segoe UI, sans-serif`;
+        ctx.fillText(`T = 1/|f₁ − f₂| = ${T.toFixed(T < 1 ? 3 : 2)} s`, (xA + xB) / 2, y - 2);
+      }
+
+      function drawGratings(bw) {
+        const L = S.L;
+        const n = Math.max(2, Math.round(L.plotW));
+        const bc = S.barcode;
+        if (bc.width !== n || bc.height !== 3) {
+          bc.width = n;
+          bc.height = 3;
+        }
+        const g = bc.getContext("2d");
+        const img = g.createImageData(n, 3);
+        const cols = [[232, 137, 12], [28, 126, 214]];
+        for (let i = 0; i < n; i += 1) {
+          const t = bw.start + (bw.W * (i + 0.5)) / n;
+          const b = [];
+          for (let k = 0; k < 2; k += 1) {
+            const f = fundamental(strings[k], t);
+            b.push(f ? 0.5 + 0.5 * Math.cos(f.theta) : 0.18);
+          }
+          // on white: each string's stripes in its colour; overlaid like two printed transparencies
+          for (let k = 0; k < 2; k += 1) {
+            const o = (k * n + i) * 4;
+            img.data[o] = 255 - (255 - cols[k][0]) * b[k];
+            img.data[o + 1] = 255 - (255 - cols[k][1]) * b[k];
+            img.data[o + 2] = 255 - (255 - cols[k][2]) * b[k];
+            img.data[o + 3] = 255;
+          }
+          const o = (2 * n + i) * 4;
+          const v = 255 * (1 - 0.7 * b[0]) * (1 - 0.7 * b[1]);
+          img.data[o] = v;
+          img.data[o + 1] = v;
+          img.data[o + 2] = v;
+          img.data[o + 3] = 255;
+        }
+        g.putImageData(img, 0, 0);
+        const names = ["E as a grating", "A as a grating", "overlaid: moiré"];
+        const colors = ["#e8890c", "#1c7ed6", "#1d2733"];
+        ctx.imageSmoothingEnabled = true;
+        L.strips.forEach((st, k) => {
+          ctx.drawImage(bc, 0, k, n, 1, L.plotL, st.y, L.plotW, st.h);
+          ctx.strokeStyle = "rgba(15,23,42,0.18)";
+          ctx.strokeRect(L.plotL + 0.5, st.y + 0.5, L.plotW - 1, st.h - 1);
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.font = `600 ${L.font * 0.8}px Segoe UI, sans-serif`;
+          ctx.fillStyle = colors[k];
+          ctx.fillText(names[k], L.labelW - 6, st.y + st.h / 2);
+        });
+        const ph = (S.t - bw.start) / bw.W;
+        if (ph >= 0 && ph <= 1 && strings.some((s) => s.pluck)) {
+          const last = L.strips[2];
+          playhead(L.plotL + L.plotW * ph, L.strips[0].y - 2, last.y + last.h - L.strips[0].y + 4);
+        }
+      }
+
+      // ---- the tuning buttons and the pop-up tuner ---------------------------------------------------
+      const TUNE_COURSE = 4;              // the A string's button turns
+      const HZ_PER_TURN = 3;              // one turn of the button changes the A string by 3 Hz
+      const knobAngle = () => (S.detune / HZ_PER_TURN) * TWO_PI;
+      function drawKnobs() {
+        const L = S.L;
+        L.knobs.forEach((kb, c) => {
+          const active = c === TUNE_COURSE;
+          const ang = active ? knobAngle() : c * 0.9;
+          ctx.save();
+          ctx.shadowColor = "rgba(0,0,0,0.5)";
+          ctx.shadowBlur = 8 * L.k;
+          ctx.shadowOffsetY = 3 * L.k;
+          ctx.beginPath();
+          ctx.ellipse(kb.x, kb.y, kb.rx, kb.ry, 0, 0, TWO_PI);
+          const gr = ctx.createLinearGradient(0, kb.y - kb.ry, 0, kb.y + kb.ry);
+          gr.addColorStop(0, "#545b62");
+          gr.addColorStop(0.32, "#f3f6f8");
+          gr.addColorStop(0.62, "#9aa3ab");
+          gr.addColorStop(1, "#3f454b");
+          ctx.fillStyle = gr;
+          ctx.fill();
+          ctx.restore();
+          // the button turns about the shaft (left-right): its ridges roll up or down
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(kb.x, kb.y, kb.rx, kb.ry, 0, 0, TWO_PI);
+          ctx.clip();
+          for (let j = 0; j < 14; j += 1) {
+            const a = ang + (j * TWO_PI) / 14;
+            const z = Math.cos(a);
+            if (z <= 0.05) continue;
+            const v = Math.sin(a);
+            const yy = kb.y + kb.ry * 0.95 * v;
+            const half = kb.rx * Math.sqrt(Math.max(0, 1 - v * v * 0.9));
+            ctx.strokeStyle = `rgba(30,34,38,${0.45 * z})`;
+            ctx.lineWidth = Math.max(1, kb.ry * 0.09);
+            ctx.beginPath();
+            ctx.moveTo(kb.x - half, yy);
+            ctx.lineTo(kb.x + half, yy);
+            ctx.stroke();
+          }
+          ctx.restore();
+          ctx.strokeStyle = "rgba(0,0,0,0.45)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(kb.x, kb.y, kb.rx, kb.ry, 0, 0, TWO_PI);
+          ctx.stroke();
+          if (active) {
+            ctx.strokeStyle = S.knobDrag ? "#1c7ed6" : `rgba(28,126,214,${S.hoverKnob ? 0.95 : 0.55})`;
+            ctx.lineWidth = S.knobDrag || S.hoverKnob ? 2.5 : 1.6;
+            ctx.beginPath();
+            ctx.ellipse(kb.x, kb.y, kb.rx + 4, kb.ry + 4, 0, 0, TWO_PI);
+            ctx.stroke();
+          }
+        });
+      }
+      function knobAt(p) {
+        const kb = S.L.knobs[TUNE_COURSE];
+        const dx = (p.x - kb.x) / (kb.rx * 1.35);
+        const dy = (p.y - kb.y) / (kb.ry * 1.35);
+        return dx * dx + dy * dy <= 1;
+      }
+
+      // a needle tuner for the A string, against A₂ = 110 Hz (in cents: 100 per semitone)
+      function drawTuner(now, realDt) {
+        const L = S.L;
+        const cents = 1200 * Math.log2(strings[1].freq() / BASE_HZ);
+        S.needle += (cents - S.needle) * Math.min(1, realDt * 9);
+        const alpha = S.knobDrag ? 1 : clamp((S.tunerUntil - now) / 400, 0, 1);
+        if (alpha <= 0) return;
+        const w = clamp(L.sp * 5.6, 230, 360);
+        const h = w * 0.62;
+        const x = L.xNut + L.sp * 0.6;
+        const y = Math.max(L.gTop + 4, L.fbTop - L.sp * 0.1);
+        const ac = Math.abs(cents);
+        const col = ac < 2 ? "#46d97a" : ac < 10 ? "#ffd166" : "#ff6b6b";
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.shadowColor = "rgba(0,0,0,0.6)";
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 6;
+        ctx.fillStyle = "rgba(14,17,22,0.95)";
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, 12);
+        ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        const f = w / 300;
+        ctx.textBaseline = "top";
+        ctx.textAlign = "left";
+        ctx.font = `600 ${13 * f}px Segoe UI, sans-serif`;
+        ctx.fillStyle = "#9aa6b4";
+        ctx.fillText("Tuner · A string", x + 12 * f, y + 9 * f);
+        ctx.textAlign = "right";
+        ctx.fillStyle = col;
+        ctx.fillText(ac < 2 ? "✓ in tune" : cents < 0 ? "♭ flat: tune up" : "♯ sharp: tune down", x + w - 12 * f, y + 9 * f);
+        // the scale: −50 … +50 cents over ±60°
+        const cx = x + w / 2;
+        const cy = y + h * 0.8;
+        const R = w * 0.36;
+        const angOf = (c) => (clamp(c, -50, 50) / 50) * (Math.PI / 3);
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "rgba(70,217,122,0.85)";
+        ctx.lineWidth = 7 * f;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, -Math.PI / 2 + angOf(-2), -Math.PI / 2 + angOf(2));
+        ctx.stroke();
+        for (let c = -50; c <= 50; c += 5) {
+          const a = -Math.PI / 2 + angOf(c);
+          const major = c % 10 === 0;
+          const r0 = R * (major ? 0.86 : 0.91);
+          ctx.strokeStyle = c === 0 ? "#e9eef4" : "rgba(233,238,244,0.5)";
+          ctx.lineWidth = (c === 0 ? 2.4 : major ? 1.6 : 1) * f;
+          ctx.beginPath();
+          ctx.moveTo(cx + r0 * Math.cos(a), cy + r0 * Math.sin(a));
+          ctx.lineTo(cx + R * 0.99 * Math.cos(a), cy + R * 0.99 * Math.sin(a));
+          ctx.stroke();
+          if (major && Math.abs(c) % 50 === 0) {
+            ctx.fillStyle = "#9aa6b4";
+            ctx.font = `${10 * f}px Segoe UI, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(c === 0 ? "0" : `${c > 0 ? "+" : "−"}50`, cx + R * 1.13 * Math.cos(a), cy + R * 1.13 * Math.sin(a));
+          }
+        }
+        // the needle
+        const an = -Math.PI / 2 + angOf(S.needle);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 3 * f;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + R * 0.95 * Math.cos(an), cy + R * 0.95 * Math.sin(an));
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5 * f, 0, TWO_PI);
+        ctx.fillStyle = col;
+        ctx.fill();
+        // readouts
+        ctx.textBaseline = "alphabetic";
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#e9eef4";
+        ctx.font = `700 ${30 * f}px Segoe UI, sans-serif`;
+        ctx.fillText("A₂", x + 14 * f, y + h - 14 * f);
+        ctx.textAlign = "right";
+        ctx.font = `600 ${15 * f}px Segoe UI, sans-serif`;
+        ctx.fillStyle = col;
+        ctx.fillText(`${cents >= 0 ? "+" : "−"}${Math.abs(cents).toFixed(1)} ¢${ac > 50 ? " ≫" : ""}`, x + w - 14 * f, y + h - 32 * f);
+        ctx.font = `${12 * f}px Segoe UI, sans-serif`;
+        ctx.fillStyle = "#9aa6b4";
+        ctx.fillText(`${strings[1].freq().toFixed(2)} Hz · beats ${Math.abs(S.detune).toFixed(2)}×/s with E`, x + w - 14 * f, y + h - 14 * f);
+        ctx.restore();
+      }
+
+      function formatSlow(x) {
+        if (x < 9.95) return x.toFixed(1);
+        if (x < 100) return Math.round(x).toString();
+        return (Math.round(x / 10) * 10).toString();
+      }
+
+      function frame(now) {
+        const realDt = Math.min(0.1, (now - S.lastReal) / 1000);
+        S.lastReal = now;
+        S.lastDt = S.paused ? 0 : realDt * S.timeScale;
+        S.t += S.lastDt;
+        for (const s of strings) if (s.pluck && !ringing(s)) s.pluck = null;
+
+        ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+        ctx.drawImage(S.bg, 0, 0, S.W, S.H);
+        drawSoundholeGlow();
+        for (const s of strings) drawPlayedString(s);
+        drawLattice();
+        drawKnobs();
+        drawPlots();
+        drawTuner(now, realDt);
+        requestAnimationFrame(frame);
+      }
+
+      // ---- interaction ------------------------------------------------------------------------------
+      function local(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+      function stringAt(p) {
+        const L = S.L;
+        for (const s of strings) {
+          if (!playable(s)) continue;
+          const y0 = L.ys[s.course];
+          if (Math.abs(p.y - y0) <= L.sp * 0.48 && p.x >= s.xs[0] + 3 && p.x <= s.xs[POINTS - 1] - 3) return s;
+        }
+        return null;
+      }
+      canvas.addEventListener("pointerdown", (e) => {
+        const p = local(e);
+        if (knobAt(p)) {
+          // the tuning button: drag up/down to turn it (Shift: fine); the tuner pops up
+          S.knobDrag = { y0: p.y, d0: S.detune };
+          S.tunerUntil = performance.now() + 1500;
+          canvas.setPointerCapture(e.pointerId);
+          canvas.style.cursor = "ns-resize";
+          return;
+        }
+        const s = stringAt(p);
+        if (!s) return;
+        ensureAudio();
+        stopVoice(s, 0.01); // a finger on the string stops it
+        s.pluck = null;
+        const u = (p.x - s.xs[0]) / (s.xs[POINTS - 1] - s.xs[0]);
+        S.drag = { s, u, h: p.y - S.L.ys[s.course], x0: p.x, y0: p.y, moved: 0 };
+        canvas.setPointerCapture(e.pointerId);
+        canvas.classList.add("dragging");
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        if (S.knobDrag) {
+          const p = local(e);
+          const perPx = e.shiftKey ? 0.002 : 0.01; // Hz per pixel
+          setDetune(S.knobDrag.d0 - (p.y - S.knobDrag.y0) * perPx, true);
+          return;
+        }
+        if (!S.drag) {
+          const p = local(e);
+          S.hoverKnob = knobAt(p);
+          canvas.style.cursor = S.hoverKnob ? "ns-resize" : stringAt(p) ? "grab" : "default";
+          return;
+        }
+        const p = local(e);
+        const d = S.drag;
+        d.moved = Math.max(d.moved, Math.hypot(p.x - d.x0, p.y - d.y0));
+        d.u = clamp((p.x - d.s.xs[0]) / (d.s.xs[POINTS - 1] - d.s.xs[0]), 0.03, 0.97);
+        d.h = clamp(p.y - S.L.ys[d.s.course], -S.L.sp * 0.46, S.L.sp * 0.46);
+      });
+      function release(e) {
+        if (S.knobDrag) {
+          S.knobDrag = null;
+          S.tunerUntil = performance.now() + 1500; // the tuner lingers, then fades
+          try { canvas.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
+          return;
+        }
+        const d = S.drag;
+        if (!d) return;
+        S.drag = null;
+        canvas.classList.remove("dragging");
+        try { canvas.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
+        const h = d.moved < 5 ? -S.L.sp * 0.3 : d.h; // a tap pulls it a little
+        if (Math.abs(h) < 1) return;
+        pluck(d.s, d.u, h);
+      }
+      canvas.addEventListener("pointerup", release);
+      canvas.addEventListener("pointercancel", release);
+
+      function pluckBoth() {
+        ensureAudio();
+        for (const s of strings) if (playable(s)) pluck(s, PLUCK_U, -S.L.sp * 0.32);
+      }
+      // in flageolet mode only the E string is played
+      const playable = (s) => !S.harmonic || s === strings[0];
+
+      // Flageolet on/off, or the finger moves to another node
+      function setHarmonic(N) {
+        if (N === S.harmonic) return;
+        for (const s of strings) rebaseDecay(s);
+        const lengthChanges = !S.harmonic !== !N; // E goes from pressed at the 5th fret to open, or back
+        S.harmonic = N;
+        strings[0].fret = N ? 0 : 5;
+        if (lengthChanges) {
+          mute();
+        } else {
+          redampVoice(strings[0]); // touched somewhere else while it rings
+        }
+        buildBackground();
+        buildStringTables();
+        document.querySelectorAll(".bar .harm").forEach((b) => b.classList.toggle("on", Number(b.dataset.h) === N));
+        $("pluckBoth").textContent = N ? "Pluck E" : "Pluck both";
+      }
+      document.querySelectorAll(".bar .harm").forEach((b) => b.addEventListener("click", () => setHarmonic(Number(b.dataset.h))));
+      function mute() {
+        for (const s of strings) {
+          stopVoice(s, 0.03);
+          s.pluck = null;
+        }
+      }
+
+      // time slider: logarithmic, ×1/3000 … ×1
+      const timeSlider = $("timeSlider");
+      const TMIN = Math.log10(1 / 3000);
+      const toScale = (v) => Math.pow(10, TMIN + (-TMIN * v) / 1000);
+      const toSlider = (sc) => Math.round(((Math.log10(sc) - TMIN) / -TMIN) * 1000);
+      function setTimeScale(sc) {
+        S.timeScale = clamp(sc, 1 / 3000, 1);
+        timeSlider.value = String(toSlider(S.timeScale));
+        const slow = 1 / S.timeScale;
+        $("timeVal").textContent = slow < 1.05 ? "×1" : `×1/${formatSlow(slow)}`;
+      }
+      timeSlider.addEventListener("input", () => setTimeScale(toScale(Number(timeSlider.value))));
+      $("realBtn").addEventListener("click", () => setTimeScale(1));
+      $("slowBtn").addEventListener("click", () => setTimeScale(1 / 400));
+
+      function setDetune(v, showTuner = false) {
+        for (const s of strings) rebasePhases(s);
+        S.detune = clamp(v, -6, 6);
+        if (showTuner) S.tunerUntil = Math.max(S.tunerUntil, performance.now() + 1500);
+        $("detuneSlider").value = String(S.detune);
+        $("detuneVal").textContent = `${S.detune >= 0 ? "+" : "−"}${Math.abs(S.detune).toFixed(2)} Hz`;
+        retuneVoice(strings[1]);
+      }
+      $("detuneSlider").addEventListener("input", (e) => setDetune(Number(e.target.value), true));
+      $("tuneBtn").addEventListener("click", () => setDetune(0, true));
+
+      $("sustainSlider").addEventListener("input", (e) => {
+        for (const s of strings) rebaseDecay(s);
+        S.sustain = Number(e.target.value);
+        $("sustainVal").textContent = `${S.sustain} s`;
+        for (const s of strings) redampVoice(s);
+      });
+      $("soundChk").addEventListener("change", (e) => {
+        S.sound = e.target.checked;
+        if (!S.sound) for (const s of strings) stopVoice(s, 0.05);
+      });
+      function setPaused(p) {
+        S.paused = p;
+        $("pauseBtn").textContent = p ? "Play" : "Pause";
+        $("pauseBtn").classList.toggle("on", p);
+        if (audio) { try { p ? audio.ac.suspend() : audio.ac.resume(); } catch { /* fine */ } }
+      }
+      $("pauseBtn").addEventListener("click", () => setPaused(!S.paused));
+      $("pluckBoth").addEventListener("click", pluckBoth);
+      $("muteBtn").addEventListener("click", mute);
+
+      window.addEventListener("keydown", (e) => {
+        const tag = (e.target?.tagName || "").toLowerCase();
+        if (tag === "input" && e.target.type !== "range" && e.target.type !== "checkbox") return;
+        if (e.key === " ") { pluckBoth(); e.preventDefault(); }
+        else if (e.key === "1") { ensureAudio(); pluck(strings[0], PLUCK_U, -S.L.sp * 0.32); }
+        else if (e.key === "2") { if (playable(strings[1])) { ensureAudio(); pluck(strings[1], PLUCK_U, -S.L.sp * 0.32); } }
+        else if (e.key === "f" || e.key === "F") setHarmonic({ 0: 2, 2: 3, 3: 4, 4: 0 }[S.harmonic]);
+        else if (e.key === "m" || e.key === "M") mute();
+        else if (e.key === "t" || e.key === "T") setDetune(0, true);
+        else if (e.key === "p" || e.key === "P") setPaused(!S.paused);
+      });
+
+      window.addEventListener("resize", resize);
+      resize();
+      setTimeScale(S.timeScale);
+      setDetune(S.detune);
+      requestAnimationFrame((t) => { S.lastReal = t; frame(t); });
+
+      // for checks: window.guitarBeats.state()
+      window.guitarBeats = {
+        pluckBoth, setTimeScale, setDetune, setHarmonic,
+        state: () => ({ t: S.t, timeScale: S.timeScale, detune: S.detune, harmonic: S.harmonic, ringing: strings.map(ringing), plucked: strings.map((s) => !!s.pluck),
+          modes: strings[0].pluck ? Array.from({ length: 8 }, (_, i) => +modeAmp(strings[0], i + 1, S.t).toFixed(3)) : null }),
+        geometry: () => strings.map((s) => ({ y: S.L.ys[s.course], x0: s.xs[0], x1: s.xs[POINTS - 1] })),
+        knob: () => ({ x: S.L.knobs[TUNE_COURSE].x, y: S.L.knobs[TUNE_COURSE].y }),
+      };
+    })();
+  </script>
+</body>
+</html>

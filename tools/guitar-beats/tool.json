@@ -1,0 +1,9 @@
+{
+  "slug": "guitar-beats",
+  "name": "Guitar Beats",
+  "description": "How a guitar is tuned by ear: two nearly equal strings give a beat, a moiré in time. Hear it, and see how the two steady vibrations add up to a sound that swells and fades.",
+  "status": "live",
+  "url": "tools/guitar-beats/index.html",
+  "icon": "chart",
+  "tags": ["visualisations", "educational"]
+}

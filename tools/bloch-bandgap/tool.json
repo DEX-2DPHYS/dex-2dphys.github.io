@@ -1,0 +1,9 @@
+{
+  "slug": "bloch-bandgap",
+  "name": "Bloch Wave Bandgap",
+  "description": "Send a wave into a crystal of rods and watch it either pass through as a Bloch wave or bounce off in a band gap, next to the band diagram and the transmission at that angle.",
+  "status": "live",
+  "url": "tools/bloch-bandgap/index.html",
+  "icon": "chart",
+  "tags": ["simulations", "visualisations", "educational"]
+}

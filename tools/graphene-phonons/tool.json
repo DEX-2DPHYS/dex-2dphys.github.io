@@ -1,9 +1,13 @@
 {
   "slug": "graphene-phonons",
   "name": "Graphene Lattice Vibrations",
-  "description": "Molecular-dynamics visualisation of graphene lattice vibrations and phonons — watch normal modes and thermal motion of the honeycomb lattice in real time.",
+  "description": "A honeycomb sheet of atoms joined by springs (harmonic or Morse): drag an atom to launch lattice waves and watch them spread, with every bond coloured by its strain.",
   "status": "live",
   "url": "tools/graphene-phonons/index.html",
   "icon": "atom",
-  "tags": ["simulations", "visualisations", "educational"]
+  "tags": [
+    "simulations",
+    "visualisations",
+    "educational"
+  ]
 }

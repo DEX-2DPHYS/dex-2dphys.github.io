@@ -1,0 +1,667 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Bloch Wave Bandgap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single 16:9 frame that fits the window: wave stage on top, one control strip at the bottom.
+   Diagrams and explanation open as cards over the stage. Light-only: the simulation is specified on white. */
+:root {
+  color-scheme: light;
+  --paper: #ffffff; --panel: #f5f7fb; --ink: #0e1a2e; --ink-2: #4a586e; --line: #d8dee9;
+  --accent: #1f56a8; --accent-soft: #dce8f8; --warm: #d9701b; --warm-soft: #f9e3d1; --ok: #17794f; --ok-soft: #dcf2e6;
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45;
+  padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px)); padding-block: 12px; }
+.frame { container-type: inline-size; width: min(100%, calc((100vh - 28px) * 16 / 9)); aspect-ratio: 16 / 9; margin: 0 auto;
+  display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--paper); position: relative; overflow: hidden; }
+.stage { position: relative; flex: none; width: 100%; aspect-ratio: 1280 / 603; border-bottom: 1px solid var(--line); }
+#sim { display: block; width: 100%; height: 100%; }
+.top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.top > * { pointer-events: auto; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-start; }
+.status { display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }
+.pill { font-family: var(--mono); font-size: clamp(10px, 1.05cqw, 13px); padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); white-space: nowrap; }
+.pill.pass { background: var(--ok-soft); border-color: #a9d9c1; color: #0f5a3a; }
+.pill.gap { background: var(--warm-soft); border-color: #eebf9a; color: #8a4108; }
+.pill b { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+button { font: inherit; font-size: clamp(11px, 1.1cqw, 14px); font-weight: 500; color: var(--ink); background: rgba(255,255,255,0.94); border: 1px solid var(--line); padding: 4px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #17448a; }
+button[aria-expanded=true] { background: var(--accent-soft); border-color: var(--accent); }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 6px 6px 0; }
+.seg button[aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); position: relative; z-index: 1; }
+
+.controls { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.15fr); gap: 0 clamp(12px, 2cqw, 28px); align-items: center; padding: 0 clamp(10px, 1.6cqw, 22px); }
+.ctl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ctl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ctl label { font-weight: 600; font-size: clamp(12px, 1.2cqw, 15px); }
+.ctl .val { font-family: var(--mono); font-size: clamp(10.5px, 1.05cqw, 13px); font-variant-numeric: tabular-nums; color: var(--accent); white-space: nowrap; }
+input[type=range] { width: 100%; accent-color: var(--accent); height: 22px; margin: 0; }
+.acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.acts .primary { grid-column: 1 / -1; padding-block: 6px; }
+.acts button { background: var(--paper); }
+.acts .primary { background: var(--accent); }
+
+.pop { position: absolute; z-index: 5; top: 46px; right: 8px; bottom: 8px; width: min(54%, 680px); background: var(--paper); border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(14,26,46,0.18); overflow: auto; padding: 14px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.pop[hidden] { display: none; }
+.pop header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pop h2 { font-family: var(--display); font-size: 18px; margin: 0; font-weight: 700; }
+.pop h3 { font-family: var(--display); font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+.pop p { margin: 0; font-size: 13.5px; color: var(--ink-2); text-wrap: pretty; }
+.pop .x { padding: 2px 9px; font-size: 18px; line-height: 1.2; }
+.pop canvas { width: 100%; display: block; }
+#bands { aspect-ratio: 3.1 / 1; }
+#strip { height: 84px; }
+.pop code { font-family: var(--mono); font-size: 0.92em; color: var(--ink); }
+.legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--line); }
+.pred { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+.meter .bar { height: 12px; background: #fff; border: 1px solid var(--line); position: relative; margin-top: 4px; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); }
+.meter .lbl { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12.5px; }
+.notes { display: flex; flex-direction: column; gap: 12px; }
+
+@media (max-width: 760px) {
+  .frame { width: 100%; aspect-ratio: auto; overflow: visible; border: 0; }
+  .stage { border: 1px solid var(--line); }
+  .controls { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 2px; }
+  .pill { font-size: 10px; padding: 3px 7px; }
+  button { font-size: 12px; }
+  .ctl label { font-size: 14px; } .ctl .val { font-size: 12px; }
+  .pop { position: fixed; inset: 8px; width: auto; top: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="frame" id="frame">
+  <div class="stage">
+    <canvas id="sim" width="1280" height="603" role="img" aria-label="Plane wave propagating through a square lattice of rods"></canvas>
+    <div class="top">
+      <div class="tools">
+        <span class="seg" role="group" aria-label="View">
+          <button id="vField" type="button" aria-pressed="true">Field</button>
+          <button id="vInt" type="button" aria-pressed="false">Intensity</button>
+        </span>
+        <button id="play" type="button">Pause</button>
+        <button id="reset" type="button">Clear waves</button>
+      </div>
+      <div class="status">
+        <span class="pill" id="pillState">starting</span>
+        <span class="pill">transmitted <b id="pillT">–</b></span>
+      </div>
+    </div>
+
+    <section class="pop" id="popBands" hidden aria-label="Band diagram">
+      <header><h2>Band diagram</h2><button class="x" type="button" data-close="popBands" aria-label="Close">×</button></header>
+      <p>Frequency a/λ against Bloch wavevector k. Shaded areas are gaps along that path; the dashed line is your current a/λ.</p>
+      <canvas id="bands"></canvas>
+      <h3>What passes at this angle</h3>
+      <p>Is there a Bloch mode with the same k<sub>y</sub> as the incoming wave? Marker = your current a/λ.</p>
+      <canvas id="strip"></canvas>
+      <div class="legend"><span><i style="background:var(--accent-soft)"></i>Bloch wave propagates</span><span><i style="background:var(--warm-soft)"></i>band gap</span></div>
+      <div class="pred" id="pred"></div>
+      <div class="meter"><div class="lbl"><span>Simulated transmission</span><span id="tVal">–</span></div><div class="bar"><div class="fill" id="tFill"></div></div></div>
+    </section>
+
+    <section class="pop" id="popInfo" hidden aria-label="How it works">
+      <header><h2>How it works</h2><button class="x" type="button" data-close="popInfo" aria-label="Close">×</button></header>
+      <div class="notes">
+        <div><h3>Why the wave stops</h3><p>Each column of rods reflects a little. When the round trip between neighbouring columns is a whole wavelength inside the crystal, every reflection adds up in phase. At normal incidence the first gap sits near <code id="gapHint">λ ≈ 2.1 a</code>: the spacing is about half a wavelength. (The rods are thin and only a little denser than the space around them, so the wave inside is barely shorter than outside; each column reflects only a little, which is why there are many.)</p></div>
+        <div><h3>What a Bloch wave looks like</h3><p>Inside the lattice the field is a plane wave times a pattern with the lattice period, <code>ψ = u(r) e<sup>ik·r</sup></code>. The intensity view shows it bunching on the rods. At the gap edge it becomes a standing wave, and inside the gap k turns complex so the amplitude dies off exponentially.</p></div>
+        <div><h3>Why direction matters</h3><p>A square lattice is not the same in every direction. Tilting the wave changes which lattice planes reflect it, so the gap moves and narrows, and a few angles open narrow windows inside it. The band diagram shows this before the simulation settles.</p></div>
+        <div><h3>Reading the transmission number</h3><p>It is the energy measured on the detector strip divided by the same measurement in an empty second simulation, taken on rows where the incoming beam is complete. The beam has finite width, so a tilted beam that the crystal shifts sideways can read a few percent above 100%. The display is capped at 100%.</p></div>
+        <p>Model: scalar wave equation ψ<sub>tt</sub> = (1/ε) ∇²ψ on a 2D grid, rods of ε = 3 and radius 0.15 a, eighteen columns, absorbing edges. Lengths are in grid units. Bands come from a plane-wave expansion for the same rods.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="controls">
+    <div class="ctl"><div class="row"><label for="lam">Wavelength λ</label><span class="val" id="lamV"></span></div><input type="range" id="lam" min="14" max="72" step="0.5" value="30"></div>
+    <div class="ctl"><div class="row"><label for="aSl">Lattice spacing a</label><span class="val" id="aV"></span></div><input type="range" id="aSl" min="8" max="20" step="0.5" value="12"></div>
+    <div class="ctl"><div class="row"><label for="th">Direction θ</label><span class="val" id="thV"></span></div><input type="range" id="th" min="-45" max="45" step="1" value="0"></div>
+    <div class="acts">
+      <button class="primary" id="jump" type="button">Jump to band gap</button>
+      <button id="bBands" type="button" aria-expanded="false" aria-controls="popBands">Band diagram</button>
+      <button id="bInfo" type="button" aria-expanded="false" aria-controls="popInfo">How it works</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*CORE-START*/
+const NX = 544, SP = 32, EX = 36, VW = 480, VH = 226, DT = 0.5;
+const NY = VH + 2 * (SP + EX), VX0 = SP, VY0 = SP + EX;
+// Thin, weak rods (2026-10-29): the wave is hardly slowed down (average index ≈ 1.07), so the first gap
+// sits at λ ≈ 2.1 a, close to the textbook "spacing = half a wavelength". Weak rods reflect little each,
+// so there are 18 columns (6 strong ones before, ε = 9, r = 0.3 a, gap at λ ≈ 3.6 a). 18 still leaves
+// the detector outside the crystal at the largest spacing (a = 20).
+const EPS_ROD = 3, R_FRAC = 0.15, NCOL = 18, XC = 282;
+const NN = NX * NY;
+
+const GM = new Float32Array(NN), IG = new Float32Array(NN);
+(function () {
+  const smax = 0.45;
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+    const d = Math.min(i, NX - 1 - i, j, NY - 1 - j);
+    let s = 0;
+    if (d < SP) { const q = (SP - d) / SP; s = smax * q * q; }
+    const g = s * DT / 2;
+    GM[j * NX + i] = 1 - g; IG[j * NX + i] = 1 / (1 + g);
+  }
+})();
+
+class Wave {
+  constructor() {
+    this.u0 = new Float32Array(NN); this.u1 = new Float32Array(NN); this.u2 = new Float32Array(NN);
+    this.C = new Float32Array(NN).fill(DT * DT);
+  }
+  step() {
+    const u0 = this.u0, u1 = this.u1, u2 = this.u2, C = this.C, cc = this.constC;
+    const I0 = SP, I1 = NX - SP, J0 = SP, J1 = NY - SP;
+    for (let j = 1; j < NY - 1; j++) {
+      const inside = j >= J0 && j < J1;
+      let p = j * NX + 1;
+      for (let i = 1; i < NX - 1; i++, p++) {
+        if (inside && i === I0) {
+          const pe = j * NX + I1;
+          p = j * NX + I0; i = I0;
+          if (cc) {
+            for (; p < pe; p++) { const c = u1[p]; u2[p] = 2 * c - u0[p] + cc * (u1[p - 1] + u1[p + 1] + u1[p - NX] + u1[p + NX] - 4 * c); }
+          } else {
+            for (; p < pe; p++) { const c = u1[p]; u2[p] = 2 * c - u0[p] + C[p] * (u1[p - 1] + u1[p + 1] + u1[p - NX] + u1[p + NX] - 4 * c); }
+          }
+          i = I1; p = j * NX + I1;
+        }
+        const c = u1[p];
+        u2[p] = (2 * c - GM[p] * u0[p] + C[p] * (u1[p - 1] + u1[p + 1] + u1[p - NX] + u1[p + NX] - 4 * c)) * IG[p];
+      }
+    }
+  }
+  rotate() { const t = this.u0; this.u0 = this.u1; this.u1 = this.u2; this.u2 = t; }
+  clear() { this.u0.fill(0); this.u1.fill(0); this.u2.fill(0); }
+}
+
+function rodPositions(a) {
+  const out = [];
+  const x0 = XC - (NCOL - 1) / 2 * a;
+  const jn = Math.ceil(NY / a / 2) + 1;
+  for (let c = 0; c < NCOL; c++) for (let r = -jn; r <= jn; r++) {
+    const cx = x0 + c * a, cy = NY / 2 + r * a;
+    if (cy > -a && cy < NY + a) out.push([cx, cy, c]);
+  }
+  return out;
+}
+
+function paintRods(C, a) {
+  C.fill(DT * DT);
+  const r = R_FRAC * a, S = 3;
+  for (const [cx, cy] of rodPositions(a)) {
+    const i0 = Math.max(0, Math.floor(cx - r - 1)), i1 = Math.min(NX - 1, Math.ceil(cx + r + 1));
+    const j0 = Math.max(0, Math.floor(cy - r - 1)), j1 = Math.min(NY - 1, Math.ceil(cy + r + 1));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      let cov = 0;
+      for (let sy = 0; sy < S; sy++) for (let sx = 0; sx < S; sx++) {
+        const x = i - 0.5 + (sx + 0.5) / S, y = j - 0.5 + (sy + 0.5) / S;
+        if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r) cov++;
+      }
+      if (cov) { const eps = 1 + (EPS_ROD - 1) * cov / (S * S); C[j * NX + i] = DT * DT / eps; }
+    }
+  }
+}
+
+class Sim {
+  constructor() {
+    this.lat = new Wave(); this.ref = new Wave(); this.ref.constC = DT * DT;
+    this.I = new Float32Array(VW * VH);
+    this.lam = 24; this.a = 12; this.theta = 0;
+    this.phi = 0; this.n = 0; this.eL = 0; this.eR = 0;
+    this.setParams(this.lam, this.a, this.theta);
+  }
+  setParams(lam, a, theta) {
+    const aChanged = a !== this.a || !this.geomOk;
+    this.lam = lam; this.a = a; this.theta = theta;
+    if (aChanged) {
+      paintRods(this.lat.C, a);
+      this.slabL = XC - (NCOL - 1) / 2 * a - a / 2;
+      this.slabR = XC + (NCOL - 1) / 2 * a + a / 2;
+      this.sx0 = Math.min(Math.round(this.slabR) + 10, NX - SP - 16);
+      this.sx1 = this.sx0 + 14;
+      this.geomOk = true;
+    }
+    this.buildSource();
+  }
+  buildSource() {
+    const th = this.theta * Math.PI / 180, k = 2 * Math.PI / this.lam;
+    const dx = Math.cos(th), dy = -Math.sin(th);
+    const XL = SP + 3, jTop = SP + 3, jBot = NY - SP - 4;
+    const xb = Math.max(XL, Math.floor(this.slabL - 8));
+    const idx = [], w = [], ph = [];
+    const jref = th >= 0 ? jBot : jTop;
+    const add = (i, j, wt) => { idx.push(j * NX + i); w.push(DT * DT * 2 * k * wt); ph.push(k * (dx * (i - XL) + dy * (j - jref))); };
+    let j0 = jTop - 6, j1 = jBot + 6;
+    const oblique = Math.abs(dy) > 1e-4;
+    if (oblique) { if (th > 0) j1 = jBot - 1; else j0 = jTop + 1; }
+    for (let j = j0; j <= j1; j++) add(XL, j, Math.abs(dx));
+    if (oblique) { const jr = th > 0 ? jBot : jTop; for (let i = XL; i <= xb; i++) add(i, jr, Math.abs(dy)); }
+    // detector rows: only where the incident beam is fully present, away from its truncated edges
+    const m = 20, xm = (this.sx0 + this.sx1) / 2, tn = Math.tan(Math.abs(th));
+    let r0 = VY0 + m, r1 = VY0 + VH - m;
+    if (th > 1e-4) r1 = Math.min(r1, Math.floor(jBot - (xm - xb) * tn - m));
+    else if (th < -1e-4) r0 = Math.max(r0, Math.ceil(jTop + (xm - xb) * tn + m));
+    if (r1 - r0 < 16) { const mid = (r0 + r1) / 2; r0 = Math.round(mid - 8); r1 = r0 + 16; }
+    this.sj0 = r0; this.sj1 = r1;
+    this.sIdx = Int32Array.from(idx); this.sW = Float32Array.from(w); this.sPh = Float32Array.from(ph);
+  }
+  clear() {
+    this.lat.clear(); this.ref.clear(); this.I.fill(0);
+    this.n = 0; this.eL = 0; this.eR = 0;
+  }
+  stepN(m) {
+    const k = 2 * Math.PI / this.lam, per = this.lam / DT;
+    for (let s = 0; s < m; s++) {
+      this.lat.step(); this.ref.step();
+      this.phi += k * DT; this.n++;
+      const t = Math.min(1, this.n / (3 * per)), env = t * t * (3 - 2 * t);
+      const a = this.lat.u2, b = this.ref.u2, idx = this.sIdx, w = this.sW, ph = this.sPh, phi = this.phi;
+      for (let q = 0; q < idx.length; q++) {
+        const v = env * w[q] * Math.cos(phi - ph[q]);
+        a[idx[q]] += v; b[idx[q]] += v;
+      }
+      this.lat.rotate(); this.ref.rotate();
+    }
+  }
+  sample(nsteps) {
+    const per = this.lam / DT, tau = 2.5 * per, al = 1 - Math.exp(-nsteps / tau);
+    const u = this.lat.u1, r = this.ref.u1;
+    let sl = 0, sr = 0;
+    for (let j = this.sj0; j < this.sj1; j++) for (let i = this.sx0; i < this.sx1; i++) {
+      const p = j * NX + i; sl += u[p] * u[p]; sr += r[p] * r[p];
+    }
+    this.eL += al * (sl - this.eL); this.eR += al * (sr - this.eR);
+    const I = this.I;
+    for (let j = 0; j < VH; j++) {
+      let p = (j + VY0) * NX + VX0, q = j * VW;
+      for (let i = 0; i < VW; i++, p++, q++) { const v = u[p]; I[q] += al * (v * v - I[q]); }
+    }
+  }
+  transmission() { return this.eR > 1e-9 ? this.eL / this.eR : NaN; }
+}
+
+/* ---------- plane-wave expansion (scalar TM-like: -lap psi = (w/c)^2 eps psi) ---------- */
+class PWE {
+  constructor(M, epsR, rf) {
+    const g = [];
+    for (let m = -M; m <= M; m++) for (let l = -M; l <= M; l++) g.push([m, l]);
+    this.g = g; const n = this.n = g.length;
+    const f0 = Math.PI * rf * rf;
+    const j1 = x => { let s = 0; const N = 128; for (let q = 0; q < N; q++) { const t = (q + 0.5) * 2 * Math.PI / N; s += Math.cos(t - x * Math.sin(t)); } return s / N; };
+    const fG = (gx, gy) => { const G = 2 * Math.PI * Math.hypot(gx, gy); if (G < 1e-12) return f0; const x = G * rf; return 2 * f0 * j1(x) / x; };
+    const B = new Float64Array(n * n);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const gx = g[i][0] - g[j][0], gy = g[i][1] - g[j][1];
+      B[i * n + j] = (gx === 0 && gy === 0 ? 1 : 0) + (epsR - 1) * fG(gx, gy);
+    }
+    const L = new Float64Array(n * n);
+    for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
+      let s = B[i * n + j];
+      for (let k = 0; k < j; k++) s -= L[i * n + k] * L[j * n + k];
+      L[i * n + j] = i === j ? Math.sqrt(s) : s / L[j * n + j];
+    }
+    const Li = new Float64Array(n * n);
+    for (let c = 0; c < n; c++) {
+      for (let i = c; i < n; i++) {
+        let s = i === c ? 1 : 0;
+        for (let k = c; k < i; k++) s -= L[i * n + k] * Li[k * n + c];
+        Li[i * n + c] = s / L[i * n + i];
+      }
+    }
+    this.Li = Li; this.A = new Float64Array(n * n); this.d = new Float64Array(n);
+  }
+  bands(kx, ky, nb) {
+    const n = this.n, g = this.g, Li = this.Li, A = this.A, d = this.d;
+    for (let m = 0; m < n; m++) { const a = kx + g[m][0], b = ky + g[m][1]; d[m] = a * a + b * b; }
+    for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
+      let s = 0;
+      for (let m = 0; m <= j; m++) s += Li[i * n + m] * d[m] * Li[j * n + m];
+      A[i * n + j] = s; A[j * n + i] = s;
+    }
+    for (let sw = 0; sw < 40; sw++) {
+      let off = 0;
+      for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) off += A[p * n + q] * A[p * n + q];
+      if (off < 1e-18) break;
+      for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
+        const apq = A[p * n + q];
+        if (Math.abs(apq) < 1e-13) continue;
+        const th = (A[q * n + q] - A[p * n + p]) / (2 * apq);
+        const t = (th >= 0 ? 1 : -1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+        const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < n; k++) { const x = A[k * n + p], y = A[k * n + q]; A[k * n + p] = c * x - s * y; A[k * n + q] = s * x + c * y; }
+        for (let k = 0; k < n; k++) { const x = A[p * n + k], y = A[q * n + k]; A[p * n + k] = c * x - s * y; A[q * n + k] = s * x + c * y; }
+      }
+    }
+    const ev = []; for (let i = 0; i < n; i++) ev.push(A[i * n + i]);
+    ev.sort((x, y) => x - y);
+    return ev.slice(0, nb).map(v => Math.sqrt(Math.max(v, 0)));
+  }
+}
+
+const KY_GRID = []; for (let i = 0; i <= 20; i++) KY_GRID.push(i * 0.025);
+const KX_SAMP = [0, 0.125, 0.25, 0.375, 0.5];
+const NB = 6;
+
+/* passband test: is there a Bloch mode with real k_x for frequency f at incidence angle theta? */
+function allowed(tab, f, thetaDeg) {
+  let ky = Math.abs(f * Math.sin(thetaDeg * Math.PI / 180)) % 1;
+  if (ky > 0.5) ky = 1 - ky;
+  const x = ky / 0.025, i0 = Math.min(19, Math.floor(x)), t = x - i0;
+  for (let n = 0; n < NB; n++) {
+    const lo = tab.lo[n][i0] * (1 - t) + tab.lo[n][i0 + 1] * t;
+    const hi = tab.hi[n][i0] * (1 - t) + tab.hi[n][i0 + 1] * t;
+    if (f >= lo && f <= hi) return true;
+  }
+  return false;
+}
+/*CORE-END*/
+
+
+</script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const css = getComputedStyle(document.documentElement);
+  const COL = n => css.getPropertyValue(n).trim();
+  const ink = COL('--ink'), ink2 = COL('--ink-2'), accent = COL('--accent'), line = COL('--line'),
+        accentSoft = COL('--accent-soft'), warmSoft = COL('--warm-soft'), warm = COL('--warm');
+  const MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+
+  const sim = new Sim();
+  let paused = false, view = 'field', spf = 3, dirty = true;
+
+  /* ---------- colour tables ---------- */
+  const lutF = new Uint32Array(256), lutI = new Uint32Array(256);
+  (function () {
+    const blue = [31, 86, 168], orange = [226, 112, 28], deep = [20, 40, 120], teal = [70, 160, 200];
+    const pack = (r, g, b) => (255 << 24) | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r);
+    for (let q = 0; q < 256; q++) {
+      const t = (q - 128) / 127, m = Math.pow(Math.min(1, Math.abs(t)), 0.85), c = t >= 0 ? blue : orange;
+      lutF[q] = pack(255 + (c[0] - 255) * m, 255 + (c[1] - 255) * m, 255 + (c[2] - 255) * m);
+      const u = Math.pow(q / 255, 0.8), mid = u < 0.5 ? u * 2 : 1;
+      const r = 255 + (teal[0] - 255) * Math.min(1, u * 2) + (deep[0] - teal[0]) * Math.max(0, u * 2 - 1);
+      const g = 255 + (teal[1] - 255) * Math.min(1, u * 2) + (deep[1] - teal[1]) * Math.max(0, u * 2 - 1);
+      const b = 255 + (teal[2] - 255) * Math.min(1, u * 2) + (deep[2] - teal[2]) * Math.max(0, u * 2 - 1);
+      lutI[q] = pack(r, g, b);
+    }
+  })();
+
+  const cv = $('sim'), ctx = cv.getContext('2d');
+  const off = document.createElement('canvas'); off.width = VW; off.height = VH;
+  const octx = off.getContext('2d'), img = octx.createImageData(VW, VH), px = new Uint32Array(img.data.buffer);
+  const S = cv.width / VW;
+
+  function renderField() {
+    if (view === 'field') {
+      const u = sim.lat.u1, k = 127 / 1.3;
+      for (let j = 0; j < VH; j++) {
+        let p = (j + VY0) * NX + VX0, q = j * VW;
+        for (let i = 0; i < VW; i++, p++, q++) {
+          let v = Math.round(u[p] * k + 128); v = v < 0 ? 0 : v > 255 ? 255 : v; px[q] = lutF[v];
+        }
+      }
+    } else {
+      const I = sim.I;
+      for (let q = 0; q < VW * VH; q++) {
+        let v = Math.round(I[q] / 1.5 * 255); v = v < 0 ? 0 : v > 255 ? 255 : v; px[q] = lutI[v];
+      }
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(off, 0, 0, cv.width, cv.height);
+  }
+
+  function pill(x, y, w, h) { ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill(); }
+  function text(str, x, y, o) {
+    o = o || {};
+    ctx.font = (o.weight || 500) + ' ' + (o.size || 20) + 'px ' + MONO;
+    ctx.fillStyle = o.color || ink; ctx.textAlign = o.align || 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(str, x, y);
+  }
+  function tw(str, size) { ctx.font = '500 ' + (size || 20) + 'px ' + MONO; return ctx.measureText(str).width; }
+
+  function renderOverlay() {
+    const a = sim.a;
+    // rods
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(14,26,46,0.78)'; ctx.fillStyle = 'rgba(14,26,46,0.10)';
+    const rr = R_FRAC * a * S;
+    let c0x = null, c1x = null, c0y = null;
+    for (const [cx, cy, c] of rodPositions(a)) {
+      const X = (cx - VX0 + 0.5) * S, Y = (cy - VY0 + 0.5) * S;
+      if (X < -rr || X > cv.width + rr || Y < -rr || Y > cv.height + rr) continue;
+      ctx.beginPath(); ctx.arc(X, Y, rr, 0, 6.2832); ctx.fill(); ctx.stroke();
+      if (c === 0 && Y > 70 && (c0y === null || Y < c0y)) { c0y = Y; c0x = X; }
+      if (c === 1 && Math.abs(Y - c0y) < 1 && c0y !== null) c1x = X;
+    }
+    // detector strip
+    const dx0 = (sim.sx0 - VX0) * S, dx1 = (sim.sx1 - VX0) * S;
+    const dy0 = Math.max(4, (sim.sj0 - VY0) * S), dy1 = Math.min(cv.height - 4, (sim.sj1 - VY0) * S);
+    ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(14,26,46,0.45)';
+    ctx.strokeRect(dx0, dy0, dx1 - dx0, dy1 - dy0); ctx.setLineDash([]);
+    const dl = 'detector'; const ly = (dy0 + dy1) / 2; pill(dx1 + 6, ly - 14, tw(dl, 17) + 16, 28);
+    text(dl, dx1 + 14, ly, { size: 17, color: ink2 });
+    // lattice constant
+    if (c1x !== null) {
+      const y = 36;
+      pill(c0x - 14, y - 20, c1x - c0x + 28, 40);
+      ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(c0x, y); ctx.lineTo(c1x, y); ctx.moveTo(c0x, y - 8); ctx.lineTo(c0x, y + 8); ctx.moveTo(c1x, y - 8); ctx.lineTo(c1x, y + 8); ctx.stroke();
+      const lb = 'a = ' + a.toFixed(1); pill((c0x + c1x) / 2 - tw(lb) / 2 - 8, y + 12, tw(lb) + 16, 30);
+      text(lb, (c0x + c1x) / 2, y + 27, { align: 'center' });
+    }
+    // wavelength ruler
+    const rx = 36, ry = cv.height - 38, rl = sim.lam * S;
+    pill(rx - 12, ry - 30, rl + 24, 60);
+    ctx.strokeStyle = accent; ctx.lineWidth = 3; ctx.beginPath();
+    ctx.moveTo(rx, ry + 6); ctx.lineTo(rx + rl, ry + 6); ctx.moveTo(rx, ry - 3); ctx.lineTo(rx, ry + 15); ctx.moveTo(rx + rl, ry - 3); ctx.lineTo(rx + rl, ry + 15); ctx.stroke();
+    text('λ = ' + sim.lam.toFixed(1), rx + rl / 2, ry - 12, { align: 'center', color: accent });
+    // wave direction
+    const th = sim.theta * Math.PI / 180, ax = 64, ay = cv.height / 2, L = 84, ex = ax + L * Math.cos(th), ey = ay - L * Math.sin(th);
+    const hs = L * Math.abs(Math.sin(th));
+    pill(ax - 22, ay - hs - 34, L + 90, hs + 82);
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
+    const hd = 13; ctx.beginPath(); ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - hd * Math.cos(th - 0.45), ey + hd * Math.sin(th - 0.45));
+    ctx.lineTo(ex - hd * Math.cos(th + 0.45), ey + hd * Math.sin(th + 0.45)); ctx.closePath(); ctx.fill();
+    text('k', ex + 14, ey - 4, { size: 24, weight: 500 });
+    text('θ = ' + (sim.theta > 0 ? '+' : '') + sim.theta + '°', ax, ay + 32, { size: 18, color: ink2 });
+  }
+
+  /* ---------- band structure and passband strip ---------- */
+  const pwe = new PWE(3, EPS_ROD, R_FRAC);
+  const tab = { lo: [], hi: [] }; for (let n = 0; n < NB; n++) { tab.lo.push([]); tab.hi.push([]); }
+  const path = [[], [], []];
+  let ready = false;
+  const jobs = [];
+  KY_GRID.forEach((ky, gi) => jobs.push(() => {
+    const lo = Array(NB).fill(1e9), hi = Array(NB).fill(-1);
+    for (const kx of KX_SAMP) pwe.bands(kx, ky, NB).forEach((f, n) => { lo[n] = Math.min(lo[n], f); hi[n] = Math.max(hi[n], f); });
+    for (let n = 0; n < NB; n++) { tab.lo[n][gi] = lo[n]; tab.hi[n][gi] = hi[n]; }
+  }));
+  const NP = 14;
+  for (let s = 0; s < 3; s++) for (let i = 0; i <= NP; i++) jobs.push(() => {
+    const t = i / NP;
+    const k = s === 0 ? [0.5 * t, 0] : s === 1 ? [0.5, 0.5 * t] : [0.5 - 0.5 * t, 0.5 - 0.5 * t];
+    path[s].push(pwe.bands(k[0], k[1], NB));
+  });
+  function runJobs() {
+    const t0 = performance.now();
+    while (jobs.length && performance.now() - t0 < 6) jobs.shift()();
+    if (jobs.length) setTimeout(runJobs, 0);
+    else { ready = true; dirty = true; updateHints(); readParams(); }
+  }
+  setTimeout(runJobs, 50);
+
+  function gapCenter(theta, from) {
+    let start = null;
+    for (let f = from || 0.1; f < 0.75; f += 0.002) {
+      const al = allowed(tab, f, theta);
+      if (!al && start === null) start = f;
+      if (al && start !== null) { if (f - start > 0.02) return [start, f]; start = null; }
+    }
+    return null;
+  }
+  function updateHints() {
+    const g = gapCenter(0);
+    if (g) $('gapHint').textContent = 'λ ≈ ' + (1 / ((g[0] + g[1]) / 2)).toFixed(1) + ' a';
+  }
+
+  function fit(c) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return [g, w, h];
+  }
+  function gtext(g, s, x, y, o) {
+    o = o || {}; g.font = (o.weight || 400) + ' ' + (o.size || 11.5) + 'px ' + MONO; g.fillStyle = o.color || ink2;
+    g.textAlign = o.align || 'center'; g.textBaseline = o.base || 'middle'; g.fillText(s, x, y);
+  }
+
+  function drawBands() {
+    const [g, W, H] = fit($('bands'));
+    g.clearRect(0, 0, W, H);
+    const L = 44, R = 10, T = 30, B = 30, FM = 0.7;
+    const X = x => L + x / 3 * (W - L - R), Y = f => H - B - f / FM * (H - T - B);
+    g.lineWidth = 1; g.strokeStyle = line;
+    for (let f = 0; f <= 0.7001; f += 0.1) { g.beginPath(); g.moveTo(L, Y(f)); g.lineTo(W - R, Y(f)); g.stroke(); gtext(g, f.toFixed(1), L - 8, Y(f), { align: 'right' }); }
+    for (let s = 0; s <= 3; s++) { g.beginPath(); g.moveTo(X(s), T - 6); g.lineTo(X(s), H - B); g.stroke(); }
+    ['Γ', 'X', 'M', 'Γ'].forEach((l, s) => gtext(g, l, X(s), H - B + 15, { size: 14, color: ink }));
+    gtext(g, 'a/λ', 14, T - 14, { color: ink, weight: 500 });
+    const act = Math.abs(sim.theta) < 22.5 ? 0 : 2;
+    const names = ['k along x', 'X to M', 'k along diagonal'];
+    names.forEach((n, s) => gtext(g, n, (X(s) + X(s + 1)) / 2, T - 16, { color: s === act ? accent : ink2, weight: s === act ? 500 : 400 }));
+    g.fillStyle = accent; g.fillRect(X(act), H - B + 26, X(act + 1) - X(act), 3);
+    if (!ready) { gtext(g, 'computing bands…', W / 2, H / 2, { size: 13 }); return; }
+    // gaps per segment
+    for (let s = 0; s < 3; s++) for (let n = 0; n < 4; n++) {
+      let hi = -1, lo = 9;
+      for (const b of path[s]) { hi = Math.max(hi, b[n]); lo = Math.min(lo, b[n + 1]); }
+      if (lo > hi + 0.004) { g.fillStyle = warmSoft; g.fillRect(X(s), Y(lo), X(s + 1) - X(s), Y(hi) - Y(lo)); }
+    }
+    g.lineWidth = 2; g.strokeStyle = accent; g.lineJoin = 'round';
+    for (let n = 0; n < 5; n++) {
+      g.beginPath();
+      for (let s = 0; s < 3; s++) path[s].forEach((b, i) => { const x = X(s + i / NP), y = Y(b[n]); (s === 0 && i === 0) ? g.moveTo(x, y) : g.lineTo(x, y); });
+      g.stroke();
+    }
+    const f = sim.a / sim.lam;
+    if (f <= FM) {
+      g.setLineDash([5, 4]); g.lineWidth = 1.5; g.strokeStyle = warm; g.beginPath(); g.moveTo(L, Y(f)); g.lineTo(W - R, Y(f)); g.stroke(); g.setLineDash([]);
+      gtext(g, 'a/λ = ' + f.toFixed(2), W - R - 4, Y(f) - 9, { align: 'right', color: warm, weight: 500, size: 12 });
+    } else gtext(g, 'a/λ = ' + f.toFixed(2) + ' (above plot)', W - R - 4, T + 4, { align: 'right', color: warm, size: 12 });
+  }
+
+  function drawStrip() {
+    const [g, W, H] = fit($('strip'));
+    g.clearRect(0, 0, W, H);
+    const L = 10, R = 10, FM = 0.8, y0 = 20, bh = 30;
+    const X = f => L + f / FM * (W - L - R);
+    if (!ready) { gtext(g, 'computing…', W / 2, H / 2, { size: 13 }); return; }
+    let run = null;
+    const flush = (f1) => { g.fillStyle = run.al ? accentSoft : warmSoft; g.fillRect(X(run.f0), y0, X(f1) - X(run.f0), bh); };
+    for (let f = 0.004; f <= FM + 0.002; f += 0.004) {
+      const al = allowed(tab, f, sim.theta);
+      if (!run) run = { f0: 0, al: allowed(tab, 0.002, sim.theta) };
+      if (al !== run.al) { flush(f); run = { f0: f, al }; }
+    }
+    flush(FM);
+    g.strokeStyle = line; g.lineWidth = 1; g.strokeRect(L + 0.5, y0 + 0.5, W - L - R - 1, bh);
+    g.fillStyle = ink2;
+    for (let f = 0; f <= FM + 0.001; f += 0.1) {
+      g.beginPath(); g.moveTo(X(f), y0 + bh); g.lineTo(X(f), y0 + bh + 5); g.strokeStyle = ink2; g.stroke();
+      gtext(g, f.toFixed(1), Math.min(W - 12, Math.max(12, X(f))), y0 + bh + 15);
+    }
+    gtext(g, 'a/λ', W - 12, y0 + bh + 31, { color: ink, weight: 500 });
+    const f = sim.a / sim.lam, mx = X(Math.min(f, FM));
+    g.strokeStyle = warm; g.lineWidth = 2.5; g.beginPath(); g.moveTo(mx, y0 - 8); g.lineTo(mx, y0 + bh + 2); g.stroke();
+    g.fillStyle = warm; g.beginPath(); g.moveTo(mx - 5, y0 - 12); g.lineTo(mx + 5, y0 - 12); g.lineTo(mx, y0 - 4); g.closePath(); g.fill();
+    gtext(g, 'θ = ' + sim.theta + '°', 10, y0 + bh + 31, { align: 'left', color: ink, weight: 500 });
+  }
+
+  /* ---------- controls ---------- */
+  function readParams() {
+    const lam = +$('lam').value, a = +$('aSl').value, th = +$('th').value;
+    sim.setParams(lam, a, th);
+    $('lamV').textContent = lam.toFixed(1) + '  λ/a ' + (lam / a).toFixed(2); $('aV').textContent = a.toFixed(1) + '  a/λ ' + (a / lam).toFixed(2); $('thV').textContent = (th > 0 ? '+' : '') + th + '°';
+    const g = ready ? gapCenter(th) : null;
+    $('pred').textContent = g ? 'First gap at ' + th + '°: a/λ ' + g[0].toFixed(2) + ' to ' + g[1].toFixed(2) + ', so λ/a ' + (1 / g[1]).toFixed(1) + ' to ' + (1 / g[0]).toFixed(1) : '';
+    dirty = true;
+  }
+  ['lam', 'aSl', 'th'].forEach(id => $(id).addEventListener('input', readParams));
+  $('play').addEventListener('click', () => { paused = !paused; $('play').textContent = paused ? 'Play' : 'Pause'; });
+  $('reset').addEventListener('click', () => { sim.clear(); });
+  function setView(v) { view = v; $('vField').setAttribute('aria-pressed', v === 'field'); $('vInt').setAttribute('aria-pressed', v === 'int'); }
+  $('vField').addEventListener('click', () => setView('field'));
+  $('vInt').addEventListener('click', () => setView('int'));
+  $('jump').addEventListener('click', () => {
+    if (!ready) return;
+    const g = gapCenter(sim.theta);
+    if (!g) return;
+    const fc = (g[0] + g[1]) / 2;
+    let lam = sim.a / fc, a = sim.a;
+    if (lam > 72) { lam = 72; a = Math.min(20, Math.max(8, lam * fc)); } else if (lam < 14) { lam = 14; a = Math.min(20, Math.max(8, lam * fc)); }
+    $('lam').value = (Math.round(lam * 2) / 2); $('aSl').value = (Math.round(a * 2) / 2);
+    readParams(); sim.clear();
+  });
+  window.addEventListener('resize', () => { dirty = true; });
+  function togglePop(id, btn, open) {
+    const el = $(id); el.hidden = open === undefined ? !el.hidden : !open;
+    btn.setAttribute('aria-expanded', !el.hidden); dirty = true;
+  }
+  const pops = { popBands: $('bBands'), popInfo: $('bInfo') };
+  $('bBands').addEventListener('click', () => { togglePop('popInfo', $('bInfo'), false); togglePop('popBands', $('bBands')); });
+  $('bInfo').addEventListener('click', () => { togglePop('popBands', $('bBands'), false); togglePop('popInfo', $('bInfo')); });
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => togglePop(b.dataset.close, pops[b.dataset.close], false)));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') for (const id in pops) togglePop(id, pops[id], false); });
+  readParams();
+
+  /* ---------- main loop ---------- */
+  let tSmooth = NaN, lastPanel = 0;
+  function frame() {
+    const t0 = performance.now();
+    if (!paused) { sim.stepN(spf); sim.sample(spf); }
+    renderField(); renderOverlay();
+    const T = sim.transmission();
+    if (isFinite(T)) tSmooth = isFinite(tSmooth) ? tSmooth + 0.15 * (T - tSmooth) : T;
+    if (isFinite(tSmooth)) {
+      const pc = Math.max(0, Math.min(1, tSmooth)) * 100;
+      $('pillT').textContent = pc.toFixed(0) + '%'; $('tVal').textContent = pc.toFixed(0) + '%';
+      $('tFill').style.width = pc + '%';
+    }
+    if (ready) {
+      const al = allowed(tab, sim.a / sim.lam, sim.theta), p = $('pillState');
+      p.textContent = al ? 'Bloch wave propagates' : 'band gap, wave reflected';
+      p.className = 'pill ' + (al ? 'pass' : 'gap');
+    }
+    if ((dirty || t0 - lastPanel > 400) && !$('popBands').hidden) { drawBands(); drawStrip(); lastPanel = t0; }
+    dirty = false;
+    const dt = performance.now() - t0;
+    if (dt > 22 && spf > 2) spf--; else if (dt < 11 && spf < 6) spf++;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  window.__sim = sim;
+})();
+</script>
+
+</body></html>
