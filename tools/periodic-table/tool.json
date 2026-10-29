@@ -1,0 +1,9 @@
+{
+  "slug": "periodic-table",
+  "name": "Periodic Table",
+  "description": "A clean, clickable periodic table: pick any element to see its atom, with a nucleus of protons and neutrons and the electrons in their shells.",
+  "status": "live",
+  "url": "tools/periodic-table/index.html",
+  "icon": "atom",
+  "tags": ["visualisations", "educational"]
+}

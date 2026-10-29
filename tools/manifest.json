@@ -42,6 +42,7 @@
     }
   ],
   "tools": [
+    "periodic-table",
     "dsw",
     "heterostructure-builder",
     "salmonella",
