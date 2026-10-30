@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sun</title>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020306;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;}
+  #stage{position:fixed;inset:0}
+  #stage canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;outline:none;cursor:grab}
+  #stage canvas:active{cursor:grabbing}
+  /* hidden control panel on the right: revealed by hovering the right edge or pressing P */
+  #edge{position:fixed;top:0;right:0;width:16px;height:100%;z-index:9}
+  #edge::after{content:"";position:absolute;right:5px;top:50%;width:4px;height:56px;margin-top:-28px;border-radius:2px;background:rgba(220,230,240,.18);transition:background .2s}
+  #edge:hover::after{background:rgba(220,230,240,.45)}
+  html.framed #edge::after{display:none}
+  html.clean #edge,html.clean .dh-keys,html.clean .dh-tab,html.clean #hud{display:none!important}
+  #panel{position:fixed;top:0;right:0;height:100%;width:304px;box-sizing:border-box;padding:18px 18px 24px;overflow-y:auto;z-index:10;
+    background:rgba(18,16,14,.88);color:#efe9e3;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border-left:1px solid rgba(255,255,255,.08);box-shadow:-12px 0 40px rgba(0,0,0,.35);
+    transform:translateX(102%);transition:transform .32s cubic-bezier(.4,0,.2,1);font-size:13px;line-height:1.35}
+  #panel.open{transform:none}
+  #panel h1{font-size:17px;font-weight:600;margin:4px 0 2px;letter-spacing:.01em}
+  #panel .sub{margin:0 0 14px;color:#b5a99c;font-size:12px}
+  #panel h2{font-size:10.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#b09a84;margin:16px 0 8px}
+  #panel section{border-top:1px solid rgba(255,255,255,.08);padding-top:2px}
+  .views{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .views button,.seg button{overflow-wrap:break-word;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#efe9e3;border-radius:7px;padding:7px 8px;font:inherit;cursor:pointer;text-align:left}
+  .views button:hover,.seg button:hover{background:rgba(255,255,255,.14)}
+  .views button.on,.seg button.on{background:rgba(240,150,60,.28);border-color:rgba(240,150,60,.65)}
+  .views button small{display:block;color:#b5a99c;font-size:11px}
+  .views .vrow small{white-space:normal}
+  .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+  .seg button{text-align:center;padding:5px 2px 4px;font-size:11.5px;line-height:1.15}
+  .seg button i{display:block;width:9px;height:9px;border-radius:50%;margin:0 auto 3px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+  .seg button small{display:block;color:#b5a99c;font-size:9.5px}
+  #panel output{color:#f0c48a}
+  label.row{display:flex;flex-direction:column;gap:3px;margin:8px 0}
+  label.row span{color:#d6cdc4}
+  input[type=range]{width:100%;accent-color:#f0963c;margin:0}
+  label.sw{display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer;color:#d6cdc4}
+  label.sw input{accent-color:#f0963c;width:15px;height:15px;margin:0}
+  .sws{display:grid;grid-template-columns:1fr 1fr;column-gap:8px}
+  .btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#efe9e3;border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer;margin:4px 6px 4px 0}
+  .btn:hover{background:rgba(255,255,255,.14)}
+  .btn.hot{background:rgba(232,90,40,.3);border-color:rgba(232,110,50,.7)}
+  .btn.hot:hover{background:rgba(232,90,40,.5)}
+  .help ul{margin:0;padding-left:16px;color:#bdb1a5;font-size:12px}
+  .help li{margin:3px 0}
+  kbd{font-family:inherit;color:#efe9e3;background:rgba(255,255,255,.1);border-radius:4px;padding:0 5px}
+
+  /* ============================ data screen (HUD) ============================ */
+  #hud{position:fixed;left:14px;top:12px;z-index:5;pointer-events:none;color:rgba(240,232,222,.82);font-size:11.5px;line-height:1.4;
+    text-shadow:0 1px 3px rgba(0,0,0,.8);max-width:min(420px,70vw)}
+  .hud-t{font-size:15px;font-weight:650;letter-spacing:.02em;color:#fff3e4;margin-bottom:3px}
+  .hud-t span{font-size:11px;font-weight:500;color:rgba(240,220,200,.6);margin-left:6px;letter-spacing:.06em}
+  .hud-r{display:flex;gap:8px}
+  .hud-r span{flex:0 0 66px;color:rgba(220,200,180,.55);text-transform:uppercase;font-size:9.5px;letter-spacing:.1em;padding-top:2px}
+  .hud-r b{font-weight:550}
+  .hud-msg{margin-top:6px;color:#ffcf8a;font-weight:600;opacity:0;transition:opacity .4s}
+  .hud-msg.on{opacity:1}
+
+  /* ============================ hover read-out ============================ */
+  #tip{position:fixed;left:0;top:0;z-index:20;pointer-events:none;width:max-content;max-width:300px;padding:10px 12px 10px;border-radius:10px;
+    background:rgba(16,13,11,.92);color:#efe6dc;border:1px solid rgba(255,190,120,.25);box-shadow:0 10px 30px rgba(0,0,0,.5);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-size:12px;line-height:1.4;opacity:0;transition:opacity .12s}
+  #tip.on{opacity:1}
+  .tip-h{font-size:13.5px;font-weight:650;color:#ffd9a8}
+  .tip-s{font-size:11px;color:#b9a896;margin:1px 0 6px}
+  .tip-r{display:flex;justify-content:space-between;gap:14px;padding:1.5px 0;border-top:1px solid rgba(255,255,255,.06)}
+  .tip-r span{color:#bfb2a5}
+  .tip-r b{font-weight:600;text-align:right;color:#fff}
+  .tip-i{background:rgba(255,190,120,.10);margin:3px -6px 0;padding:3px 6px;border-radius:5px;border-top:none}
+  .tip-i span{color:#ffcf96}
+  .hud-r b i{font-style:normal;color:rgba(240,220,200,.6);font-weight:500}
+  #spec{position:fixed;left:14px;bottom:30px;width:330px;height:140px;z-index:6;border-radius:9px;background:rgba(14,10,8,.72);
+    border:1px solid rgba(255,220,170,.14);display:none;pointer-events:none}
+  #spec.on{display:block}
+  .btn.on{background:rgba(240,150,60,.3);border-color:rgba(240,150,60,.7)}
+  .tip-n{margin-top:7px;font-size:11.3px;color:#cdbfb1;line-height:1.45}
+
+  /* ============================ the textbook ============================ */
+  .vrow{display:flex;gap:4px;align-items:stretch}
+  .vrow>[data-view]{flex:1;min-width:0}
+  .vinfo{flex:0 0 26px;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+    color:#c4b5a6;border-radius:7px;padding:0;cursor:pointer;transition:all .18s}
+  .vinfo:hover{background:rgba(255,170,90,.24);border-color:rgba(255,170,90,.6);color:#fff3e4}
+
+  #mt{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .22s ease}
+  /* display:flex outranks the UA rule for [hidden]; without this the closed reader would swallow every pointer event */
+  #mt[hidden]{display:none}
+  #mt.on{opacity:1}
+  .mt-scrim{position:absolute;inset:0;background:rgba(8,6,4,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+  .mt-doc{position:relative;width:min(1480px,94vw);height:min(880px,92vh);display:flex;flex-direction:column;outline:none;
+    background:#fdfbf8;color:#2a2420;border-radius:16px;overflow:hidden;
+    box-shadow:0 30px 90px rgba(0,0,0,.55);transform:translateY(10px) scale(.994);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+  #mt.on .mt-doc{transform:none}
+  html.dark .mt-doc{background:#18130f;color:#e9dfd4}
+
+  .mt-head{position:relative;padding:20px 30px 16px;border-bottom:1px solid rgba(0,0,0,.09);
+    background:linear-gradient(180deg,rgba(240,150,60,.16),transparent)}
+  html.dark .mt-head{border-bottom-color:rgba(255,255,255,.1);background:linear-gradient(180deg,rgba(240,150,60,.18),transparent)}
+  .mt-crumb{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:#8c6e55;font-weight:600}
+  html.dark .mt-crumb{color:#b39579}
+  .mt-head h1{margin:5px 0 4px;font-size:27px;font-weight:650;letter-spacing:-.01em}
+  .mt-lead{margin:0;max-width:98ch;font-size:14.5px;line-height:1.5;color:#5a4c40}
+  html.dark .mt-lead{color:#c3b2a2}
+  .mt-x{position:absolute;top:16px;right:18px;width:32px;height:32px;border-radius:50%;
+    border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.7);color:#4f4237;font-size:21px;line-height:1;cursor:pointer;transition:all .16s}
+  .mt-x:hover{background:#e8492f;border-color:#e8492f;color:#fff}
+  html.dark .mt-x{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#dccbbb}
+
+  .mt-body{flex:1;min-height:0;display:grid;grid-template-columns:1.32fr .92fr}
+  .mt-text{min-height:0;overflow-y:auto;padding:20px 28px 26px 30px;scrollbar-width:thin}
+  .mt-side{min-height:0;overflow-y:auto;padding:20px 28px 26px 22px;background:rgba(240,150,60,.05);border-left:1px solid rgba(0,0,0,.07);scrollbar-width:thin}
+  html.dark .mt-side{background:rgba(255,255,255,.03);border-left-color:rgba(255,255,255,.08)}
+  .mt-text section{margin:0 0 20px}
+  .mt-text h2{font-size:15.5px;font-weight:650;margin:0 0 7px;color:#b4541a;letter-spacing:-.005em}
+  html.dark .mt-text h2{color:#f5a96a}
+  .mt-text p{margin:0 0 10px;font-size:14.2px;line-height:1.62;max-width:78ch}
+  .mt-text strong{font-weight:650}
+  .mt-text kbd{color:#3b2f26;background:rgba(0,0,0,.07);border:1px solid rgba(0,0,0,.12);font-size:.92em}
+  html.dark .mt-text kbd{color:#efe9e3;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.15)}
+
+  /* glossary terms and their popup */
+  .gl{border-bottom:1.5px dotted #c98a4f;cursor:help}
+  .gl:hover,.gl:focus{background:rgba(240,150,60,.14);outline:none}
+  html.dark .gl{border-bottom-color:#e3a066}
+  .gl-pop{position:absolute;z-index:8;width:300px;padding:11px 14px 4px;border-radius:10px;background:#2a1f17;color:#f1e6da;
+    box-shadow:0 12px 34px rgba(0,0,0,.4);border:1px solid rgba(255,190,120,.25);pointer-events:none}
+  .gl-pop .gl-h{font-size:13px;font-weight:700;color:#ffcf96;margin-bottom:4px}
+  .gl-pop p{margin:0 0 8px;font-size:12.6px;line-height:1.5}
+
+  /* equations - no maths library, just flexbox */
+  .eq{display:block;margin:15px 0;text-align:center;font-size:16.5px;line-height:1.35;font-family:"Cambria Math",Cambria,"Times New Roman",Georgia,serif}
+  .mt-text .mi,.eq .mi{font-style:italic}
+  .eq .op{margin:0 .3em}
+  .eq sub,.eq sup{font-size:.72em}
+  .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .22em;line-height:1.28}
+  .frac>span{padding:0 .36em}
+  .frac>.fr-n{border-bottom:1.2px solid currentColor;padding-bottom:2px}
+  .frac>.fr-d{padding-top:2px}
+
+  /* open question: where every chapter lands */
+  .mt-target{border:1px solid rgba(90,110,200,.35);background:rgba(90,110,220,.07);border-radius:11px;padding:13px 16px 4px;margin-top:22px!important}
+  html.dark .mt-target{background:rgba(120,140,255,.09);border-color:rgba(140,160,255,.3)}
+  .mt-target-tag{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4a5fbf;margin-bottom:6px}
+  html.dark .mt-target-tag{color:#a8b6ff}
+  .mt-target p{font-size:13.6px;max-width:74ch}
+
+  /* contents */
+  .toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin:4px 0 6px}
+  .toc-i{display:flex;align-items:center;gap:10px;text-align:left;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:10px 12px;font:inherit;font-size:13.5px;cursor:pointer;color:inherit;transition:all .16s}
+  .toc-i:hover{border-color:#e8742a;background:#fff6ee}
+  html.dark .toc-i{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12)}
+  html.dark .toc-i:hover{background:rgba(240,150,60,.16)}
+  .toc-n{flex:0 0 26px;height:26px;border-radius:50%;background:#f0963c;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:12.5px}
+
+  /* data table */
+  table.dt{border-collapse:collapse;font-size:12.4px;margin:6px 0 10px;font-variant-numeric:tabular-nums}
+  .dt th,.dt td{padding:3px 12px 3px 0;text-align:right;border-bottom:1px solid rgba(0,0,0,.07)}
+  .dt-l td,.dt-l th{text-align:left;font-size:12px}
+  .dt th{font-weight:650;color:#8c6e55;font-size:11.5px}
+  html.dark .dt th{color:#b39579}
+  html.dark .dt th,html.dark .dt td{border-bottom-color:rgba(255,255,255,.08)}
+
+  /* figures */
+  .mt-fig{margin:0 0 18px}
+  .mt-fig img,.mt-fig .dia{display:block;width:100%;height:auto;border-radius:9px}
+  .mt-fig img{box-shadow:0 3px 14px rgba(0,0,0,.25)}
+  .mt-fig .dia{background:#fff;border:1px solid rgba(0,0,0,.09);color:#6b5a4c}
+  html.dark .mt-fig .dia{background:#120e0b;border-color:rgba(255,255,255,.1);color:#9c8a7a}
+  .mt-fig figcaption{margin-top:6px;font-size:12.2px;line-height:1.45;color:#6f5e50}
+  html.dark .mt-fig figcaption{color:#a8968a}
+  .mt-shot{position:relative;width:100%;aspect-ratio:16/9;border-radius:9px;overflow:hidden;background:#07080b;display:flex;align-items:center;justify-content:center}
+  .mt-shot-wait,.anno-wait{font-size:12px;color:#8b7d70;letter-spacing:.02em}
+  .dia .dl{font:600 7px "Segoe UI",system-ui,sans-serif;fill:#4d3a2a}
+  .dia .dls{font:500 6.2px "Segoe UI",system-ui,sans-serif;fill:#6f5e50}
+  .dia .ax{font:500 5.4px "Segoe UI",system-ui,sans-serif;fill:#7d6b5c}
+  .dia .grid{stroke:currentColor;stroke-width:.4;opacity:.25}
+  .dia .axl{stroke-width:.7;opacity:.6}
+  html.dark .dia .dl{fill:#ecd9c6} html.dark .dia .dls,html.dark .dia .ax{fill:#b3a091}
+
+  /* key numbers */
+  .mt-facts{border:1px solid rgba(0,0,0,.1);border-radius:11px;padding:12px 15px;background:rgba(255,255,255,.7)}
+  html.dark .mt-facts{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+  .mt-facts h3{margin:0 0 8px;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:#8c6e55;font-weight:700}
+  .mt-facts dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12.6px}
+  .mt-facts dt{color:#6f5e50;white-space:nowrap}
+  html.dark .mt-facts dt{color:#a8968a}
+  .mt-facts dd{margin:0;font-weight:600}
+
+  /* annotated figure */
+  .mt-explore{margin-bottom:24px!important}
+  .mt-ex-hint{margin:0 0 9px!important;font-size:12.5px!important;color:#8c6e55}
+  .anno{position:relative;width:100%;aspect-ratio:16/9;border-radius:11px;overflow:hidden;background:#07080b;color:#fff3e4;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+  .anno-img{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .anno-img img{width:100%;height:100%;object-fit:cover;display:block}
+  .anno-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;color:rgba(255,255,255,.9);filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+  .anno-pin{position:absolute;transform:translate(-50%,-50%);width:23px;height:23px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.92);background:rgba(30,20,12,.72);color:#fff;font:700 11.5px "Segoe UI",system-ui,sans-serif;cursor:pointer;padding:0;
+    box-shadow:0 2px 8px rgba(0,0,0,.45);transition:all .16s}
+  .anno-pin:hover{background:#e8742a;transform:translate(-50%,-50%) scale(1.14)}
+  .anno-pin.on{background:#e8742a;border-color:#fff;transform:translate(-50%,-50%) scale(1.18);box-shadow:0 0 0 5px rgba(232,116,42,.32),0 2px 8px rgba(0,0,0,.45)}
+  .anno.picked .anno-pin:not(.on){opacity:.45}
+  .anno-card{position:absolute;width:264px;max-width:46%;padding:11px 13px 12px;border-radius:10px;background:rgba(20,14,10,.93);border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:opacity .18s ease,transform .18s ease;pointer-events:none;z-index:3}
+  .anno-card.anno-r{transform:translate(8px,-50%) scale(.98)}
+  .anno-card.anno-l{transform:translate(calc(-100% - 8px),-50%) scale(.98)}
+  .anno-card.on{opacity:1;visibility:visible;pointer-events:auto}
+  .anno-card.anno-r.on{transform:translate(12px,-50%)}
+  .anno-card.anno-l.on{transform:translate(calc(-100% - 12px),-50%)}
+  .anno-card h4{margin:0 0 5px;font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px;color:#fff}
+  .anno-n{flex:0 0 17px;height:17px;border-radius:50%;background:#e8742a;color:#1a0d04;font:700 10.5px "Segoe UI",system-ui,sans-serif;display:flex;align-items:center;justify-content:center}
+  .anno-card p{margin:0;font-size:12.3px;line-height:1.5;color:#e2d4c6}
+
+  /* footer */
+  .mt-foot{border-top:1px solid rgba(0,0,0,.09);padding:11px 30px 13px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:rgba(0,0,0,.02)}
+  html.dark .mt-foot{border-top-color:rgba(255,255,255,.1);background:rgba(255,255,255,.02)}
+  .mt-more{display:flex;gap:7px;flex-wrap:wrap}
+  .mt-btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(0,0,0,.14);color:#3b2f26;border-radius:8px;padding:7px 11px;font:inherit;font-size:12.6px;cursor:pointer;transition:all .16s}
+  .mt-btn:hover{border-color:#e8742a;color:#9a4512;background:#fff6ee}
+  .mt-next{border-color:rgba(232,116,42,.5);color:#9a4512}
+  html.dark .mt-btn{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);color:#e2d4c6}
+  html.dark .mt-btn:hover{background:rgba(240,150,60,.22);border-color:rgba(240,150,60,.55);color:#fff3e4}
+  .mt-rel{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .mt-rel-l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#8c6e55;font-weight:700}
+  .mt-chip{background:rgba(240,150,60,.13);border:1px solid rgba(240,150,60,.35);color:#9a4512;border-radius:999px;padding:5px 11px;font:inherit;font-size:12.2px;cursor:pointer;transition:all .16s}
+  .mt-chip:hover{background:rgba(240,150,60,.3);color:#3a1a05}
+  html.dark .mt-chip{color:#f5b98a}
+  html.dark .mt-chip:hover{color:#fff3e4}
+
+  @media (max-height:740px){
+    .mt-doc{height:96vh}
+    .mt-head{padding:14px 26px 12px}
+    .mt-head h1{font-size:23px}
+    .mt-lead{font-size:13.5px}
+  }
+  @media (max-width:820px){
+    .mt-body{grid-template-columns:1fr;overflow-y:auto}
+    .mt-text,.mt-side{overflow:visible}
+    #hud{font-size:10.5px}
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>try{if(window.frameElement)document.documentElement.classList.add("framed");}catch(e){}
+if(/[?&]clean=1(&|$)/.test(location.search))document.documentElement.classList.add("clean");</script>
+<div id="hud"></div>
+<div id="tip"></div>
+<canvas id="spec" aria-label="p-mode power spectrum"></canvas>
+<div id="edge" title=""></div>
+<aside id="panel">
+  <h1>The Sun</h1>
+  <p class="sub">1 unit = 1 R☉ = 695 700 km · interactive textbook</p>
+
+  <section>
+    <h2>Views &amp; chapters</h2>
+    <div class="views">
+      <button data-view="overview">Overview<small>1 · the whole Sun</small></button>
+      <button data-view="interior">Interior<small>2 · cutaway, layers</small></button>
+      <button data-view="core">Core<small>3 · fusion</small></button>
+      <button data-view="convection">Convection<small>4 · rolls, tachocline</small></button>
+      <button data-view="photosphere">Photosphere<small>5 · granulation</small></button>
+      <button data-view="sunspots">Sunspots<small>6 · active region</small></button>
+      <button data-view="corona">Corona<small>7 · prominence, loops</small></button>
+      <button data-view="wind">Solar wind<small>8 · spiral, Earth</small></button>
+    </div>
+    <button class="btn" id="bookContents">Contents</button><button class="btn" id="bookData">Solar data sheet</button>
+  </section>
+
+  <section>
+    <h2>Filter</h2>
+    <div class="seg">
+      <button data-filter="0" class="on" title="White light: the photosphere, 5 772 K"><i style="background:#ffd38a"></i>Visible<small>white light</small></button>
+      <button data-filter="1" title="Hydrogen Balmer-α, 656.3 nm: the chromosphere"><i style="background:#ff3b2a"></i>Hα<small>656 nm</small></button>
+      <button data-filter="2" title="He II 30.4 nm: chromosphere / transition region, ≈ 50 000 K"><i style="background:#ff7a1a"></i>304 Å<small>He II</small></button>
+      <button data-filter="3" title="Fe IX 17.1 nm: quiet corona, ≈ 0.7 MK"><i style="background:#f0c440"></i>171 Å<small>Fe IX</small></button>
+      <button data-filter="4" title="Fe XII 19.3 nm: corona, ≈ 1.5 MK"><i style="background:#d7954e"></i>193 Å<small>Fe XII</small></button>
+      <button data-filter="5" title="Line-of-sight magnetic field from the Zeeman effect"><i style="background:linear-gradient(90deg,#111 50%,#eee 50%)"></i>Magneto<small>B∥</small></button>
+      <button data-filter="6" title="Line-of-sight velocity from the Doppler shift"><i style="background:linear-gradient(90deg,#2a5cd8 50%,#d8452a 50%)"></i>Doppler<small>v∥</small></button>
+      <button data-filter="7" title="Total solar eclipse: the Moon covers the disc"><i style="background:#e8ecff"></i>Eclipse<small>totality</small></button>
+    </div>
+    <label class="row"><span>Solar cycle 25 · <output id="cycleO">year 6.9</output></span><input type="range" id="cycle" min="0" max="11" step="0.05" value="6.9"></label>
+  </section>
+
+  <section>
+    <h2>Show</h2>
+    <div class="sws">
+      <label class="sw"><input type="checkbox" id="cut"> Cutaway</label>
+      <label class="sw"><input type="checkbox" id="tmap"> Temperature map</label>
+      <label class="sw"><input type="checkbox" id="corona"> Corona</label>
+      <label class="sw"><input type="checkbox" id="loops"> Coronal loops</label>
+      <label class="sw"><input type="checkbox" id="prom"> Prominence</label>
+      <label class="sw"><input type="checkbox" id="field"> Global field</label>
+      <label class="sw"><input type="checkbox" id="parker"> Parker spiral</label>
+      <label class="sw"><input type="checkbox" id="wind"> Solar wind</label>
+      <label class="sw"><input type="checkbox" id="earth"> Earth</label>
+      <label class="sw"><input type="checkbox" id="tips"> Hover read-out</label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Events</h2>
+    <button class="btn hot" id="cmeBtn">Flare + CME</button><button class="btn" id="soundBtn" title="The 5-minute p-mode oscillations, sped up 100 000×">♪ Listen</button>
+    <label class="sw"><input type="checkbox" id="cmeEarth"> Aim at Earth</label>
+  </section>
+
+  <section>
+    <h2>Time</h2>
+    <label class="row"><span>Rotation speed (time-lapse)</span><input type="range" id="rot" min="0" max="4" step="0.05" value="1"></label>
+    <label class="row"><span>Granulation &amp; flows</span><input type="range" id="evolve" min="0" max="3" step="0.05" value="1"></label>
+    <label class="sw"><input type="checkbox" id="paused"> Pause</label>
+  </section>
+
+  <section>
+    <h2>Optics</h2>
+    <label class="row"><span>Exposure</span><input type="range" id="exposure" min="0.4" max="2" step="0.02" value="1"></label>
+    <label class="row"><span>Glow (bloom)</span><input type="range" id="bloom" min="0" max="1.5" step="0.01" value="0.55"></label>
+    <label class="row"><span>Corona brightness</span><input type="range" id="coronaK" min="0" max="3" step="0.02" value="1"></label>
+    <label class="row"><span>Granulation contrast</span><input type="range" id="gran" min="0" max="2" step="0.02" value="1"></label>
+    <label class="sw"><input type="checkbox" id="darkdoc"> Dark textbook pages</label>
+    <button class="btn" id="fullscreen">Fullscreen</button>
+  </section>
+
+  <section class="help">
+    <h2>Controls</h2>
+    <ul>
+      <li><kbd>drag</kbd> orbit · <kbd>right-drag</kbd> pan · <kbd>wheel</kbd> zoom</li>
+      <li><kbd>arrows</kbd> / <kbd>WASD</kbd> fly · <kbd>PgUp</kbd>/<kbd>PgDn</kbd> rise / sink</li>
+      <li><kbd>1</kbd>–<kbd>8</kbd> views · <kbd>B</kbd> chapter for this view</li>
+      <li><kbd>C</kbd> cutaway · <kbd>M</kbd> temperature map · <kbd>G</kbd> field</li>
+      <li><kbd>V</kbd> / <kbd>shift+V</kbd> next / previous instrument · <kbd>L</kbd> listen</li>
+      <li><kbd>X</kbd> flare + CME · <kbd>T</kbd> read-out · <kbd>space</kbd> pause</li>
+      <li><kbd>F</kbd> fullscreen · <kbd>P</kbd> this panel · <kbd>R</kbd> overview</li>
+      <li>in a chapter: <kbd>←</kbd> <kbd>→</kbd> previous / next</li>
+    </ul>
+  </section>
+</aside>
+<!--BUNDLE-->
+<style>
+.dh-keys{position:fixed;bottom:6px;left:8px;z-index:2147483000;max-width:calc(100vw - 24px);box-sizing:border-box;padding:2px 8px;border-radius:6px;
+  font:500 11px/1.4 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.01em;color:rgba(230,215,200,.5);text-shadow:0 0 3px rgba(0,0,0,.8);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;cursor:default;transition:color .2s,background .2s}
+.dh-keys:hover{color:rgba(255,245,235,.95);background:rgba(20,15,10,.82);white-space:normal}
+.dh-keys b{font-weight:700;color:inherit}
+.dh-keys .dh-sep{opacity:.45;padding:0 .35em}
+.dh-tab{position:fixed;top:50%;right:18px;z-index:2147483000;transform:translateY(-50%);padding:5px 9px;font:600 11px/1.2 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;letter-spacing:.04em;
+  color:rgba(240,225,210,.6);background:rgba(30,22,16,.55);border:1px solid rgba(255,200,150,.2);border-radius:7px;cursor:pointer;user-select:none;white-space:nowrap;transition:color .2s,background .2s,opacity .25s}
+.dh-tab:hover{color:#fff3e4;background:rgba(40,28,18,.92)}
+.dh-tab.dh-hide{opacity:0;pointer-events:none}
+</style>
+<div class="dh-keys" title="Keys work once the simulation has focus: click it first."><b>hover</b> read-out<span class="dh-sep">·</span><b>drag</b> orbit<span class="dh-sep">·</span><b>wheel</b> zoom<span class="dh-sep">·</span><b>1–8</b> views<span class="dh-sep">·</span><b>B</b> chapter<span class="dh-sep">·</span><b>C</b> cutaway<span class="dh-sep">·</span><b>M</b> T-map<span class="dh-sep">·</span><b>V</b> instrument<span class="dh-sep">·</span><b>L</b> listen<span class="dh-sep">·</span><b>X</b> flare + CME<span class="dh-sep">·</span><b>P</b> panel</div>
+<div class="dh-tab" id="dh-tab0" role="button" tabindex="-1">Control panel <span>›</span></div>
+<script>
+(function(){
+  var tab=document.getElementById('dh-tab0');
+  tab.addEventListener('click',function(e){e.stopPropagation();try{document.getElementById('edge').click();}catch(_){}});
+  function sync(){var open=false;try{var mt=document.getElementById('mt');open=document.getElementById('panel').classList.contains('open')||(mt&&!mt.hidden);}catch(_){}tab.classList.toggle('dh-hide',open);}
+  sync();setInterval(sync,250);
+})();
+</script>
+</body>
+</html>

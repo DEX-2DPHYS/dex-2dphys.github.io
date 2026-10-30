@@ -1,0 +1,13 @@
+{
+  "slug": "sun",
+  "name": "The Sun – an Interactive Textbook",
+  "description": "A 3D Sun from the core to the Earth, with eight textbook chapters tied to its views: interior cutaway with a standard-solar-model temperature map, fusion core, convection zone, granulation, sunspots, corona and prominence, and the solar wind spiralling out to Earth. Eight instruments as at a solar observatory – white light, Hα, He II 304 Å, Fe IX 171 Å, Fe XII 193 Å, magnetogram, Dopplergram and total eclipse – plus an 11-year cycle slider, a flare and CME, and the Sun's 5-minute oscillations made audible. Hover anywhere for live physical values; glossary popups in the text. Runs offline in the browser.",
+  "status": "live",
+  "url": "tools/sun/index.html",
+  "icon": "book",
+  "tags": [
+    "visualisations",
+    "simulations",
+    "educational"
+  ]
+}

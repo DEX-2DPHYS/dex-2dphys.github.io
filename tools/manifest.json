@@ -42,6 +42,7 @@
     }
   ],
   "tools": [
+    "sun",
     "periodic-table",
     "bloch-bandgap",
     "guitar-beats",
