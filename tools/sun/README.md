@@ -27,12 +27,26 @@ esbuild@0.24.0), shared with the salmonella and Ulam builds. Edit the src files,
                     Snodgrass–Ulrich rotation, isothermal Parker wind solver
 - `src/spec.js`     where things are on the Sun (spots, active regions, prominence, Earth); shared by
                     scene and textbook so pins and captions follow the geometry
-- `src/tips.js`     hover read-out cards
+- `src/tips.js`     hover read-out cards (each instrument adds what it measures at the cursor)
+- `src/sound.js`    Listen: the low-degree p modes, sped up 100 000×, with a live spectrum
 - `src/portal.js`   the textbook reader: book symbol per view, chapters, annotated captures,
                     glossary popups, previous/next, open-question box
 - `src/content/en.js`     chapters, glossary, UI strings;  `charts.js` SVG charts computed from model.js;
                     `kit.js` maths/SVG/glossary helpers
 - `template.html`   page, CSS, control panel, key hints
+
+## Eight instruments (ported from SunSim.html, "The Sun, alive")
+
+`uFilter` 0 white light (ACES tone mapping) · 1 Hα · 2 He II 304 · 3 Fe IX 171 · 4 Fe XII 193 ·
+5 magnetogram · 6 Dopplergram · 7 total eclipse (1–7 shown without tone mapping, as false-colour maps).
+The solar-cycle slider sets `uAct`, `uPolarN` and `uSpotVis` (corona shape, coronal holes, polar
+field, spots fading at minimum). In eclipse mode `behindMoon()` hides whatever lies in front of the disc.
+GLSL note: `filter` is a reserved word in GLSL ES 3.0 - don't use it as a name.
+
+## Published
+
+DEX site: `dex-2dphys.github.io/tools/sun/` (index.html = SunTextbook.html, plus this source).
+After edits: rebuild, then copy index.html, src/, template.html, build.js into the repo.
 
 ## One table, three uses
 
@@ -49,4 +63,4 @@ corona brightened ~10⁶× and faded out near the surface; wind view: distances 
 
 `?view=` overview | interior | core | convection | photosphere | sunspots | corona | wind,
 `&filter=0|1|2`, `&tmap=1`, `&field=1`, `&cut=1`, `&panel=1`, `&open=<chapter>`, `&cme=1`,
-`&rot0=<rad>` (initial rotation; default -1.05 puts the northern active region on the disc), `&clean=1`.
+`&cycle=<year 0–11>`, `&nobloom=1`, `&debug=1` (exposes `window.__sun`), `&rot0=<rad>` (initial rotation; default -1.05 puts the northern active region on the disc), `&clean=1`.
