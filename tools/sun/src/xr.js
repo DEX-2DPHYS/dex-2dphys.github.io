@@ -199,6 +199,7 @@ export function createXR(ctx) {
   }
   function end() {
     if (!mode) return;
+    renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y, true);
     mode = null;
     camera.remove(fade);
     rig.remove(camera); scene.remove(rig);
@@ -368,7 +369,31 @@ export function createXR(ctx) {
   quad.frustumCulled = false; quad.matrixAutoUpdate = false;
   post.add(quad);
   const _qm = new THREE.Matrix4().makeTranslation(0, 0, -0.05).multiply(new THREE.Matrix4().makeScale(2, 2, 1));
+  // A log the flat page shows after VR (the headset itself may show nothing): frames drawn, rate,
+  // resolution, render path, errors. ?xrdirect=1, an incomplete target or any error in the
+  // two-pass path switch to drawing straight into the headset framebuffer.
+  let direct = Qs.get('xrdirect') === '1', frames = 0, lastSave = 0; const errs = [];
+  const gl = renderer.getContext();
+  function saveLog(w, h, force) {
+    const t = performance.now(); if (!force && t - lastSave < 1000) return; lastSave = t;
+    try { localStorage.setItem('sun.xrlog', JSON.stringify({ at: Date.now(), mode, frames, fps: Math.round(fps), res: Math.round(rtScale * 100),
+      rt: [rt.width, rt.height], fb: [w, h], half: canHalf, direct, errs: errs.slice(0, 4) })); } catch (e) { /* private mode */ }
+  }
+  function fail(what, e) {
+    errs.push(what + ': ' + (e && e.message ? e.message : e));
+    const cams = xr.getCamera().cameras; for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
+    direct = true; say('Drawing directly (' + what + ')');
+  }
   function render() {
+    frames++;
+    if (direct) {
+      adapt();   // only for the fps read-out here
+      renderer.setRenderTarget(null); renderer.render(scene, camera);
+      renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y); return;
+    }
+    try { renderTwoPass(); } catch (e) { fail('error', e); renderer.setRenderTarget(null); }
+  }
+  function renderTwoPass() {
     const bl = xr.getBaseLayer();
     renderer.getDrawingBufferSize(_fb);   // three sizes the renderer to the headset framebuffer while presenting
     const w = bl?.framebufferWidth || bl?.textureWidth || _fb.x || 2, h = bl?.framebufferHeight || bl?.textureHeight || _fb.y || 2;
@@ -384,12 +409,15 @@ export function createXR(ctx) {
       v.set(Math.round(v.x * rtScale), Math.round(v.y * rtScale), Math.round(v.z * rtScale), Math.round(v.w * rtScale));
     }
     renderer.setRenderTarget(rt);
+    if (frames <= 3) { const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER); if (st !== gl.FRAMEBUFFER_COMPLETE) { fail('target incomplete 0x' + st.toString(16)); renderer.setRenderTarget(null); renderer.render(scene, camera); return; } }
     renderer.render(scene, camera);
     for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
     // the quad sits 5 cm in front of the head (in rig metres), filling both eyes' views
     quad.matrix.multiplyMatrices(camera.matrixWorld, _qm); quad.matrixWorldNeedsUpdate = true;   // no parent: world = matrix
     renderer.setRenderTarget(null);
     renderer.render(post, camera);
+    if (frames === 5) { const e = gl.getError(); if (e) errs.push('gl error 0x' + e.toString(16)); }
+    saveLog(w, h);
   }
 
   // frame-rate driven resolution: below ~75 % of the headset's rate, render fewer pixels
