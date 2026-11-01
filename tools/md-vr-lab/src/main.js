@@ -950,7 +950,7 @@ function toolHint() {
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
   if (t === 'camera') return S.vr ? 'Tool: CAMERA - aim and press the trigger; the photo goes to the Downloads folder on the PC' : 'Tool: CAMERA - click in the view to take a photo (1920 x 1080 PNG, saved to Downloads)';
-  if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece, grip grabs a whole sheet; pull hard to break it off' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off, bring it close to bond';
+  if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece (pull hard to break it off); grip carries the piece you point at' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off, bring it close to bond';
   return t === 'tweezers' ? `Tool: TWEEZERS - hold ${trig} on an atom and drag` : t === 'add' ? `Tool: ADD ATOM - ${trig} inside the box` : `Tool: DELETE - ${trig} an atom to remove it`;
 }
 
@@ -1481,12 +1481,15 @@ function setMouse(e) {
 const controls = new OrbitControls(camera, renderer.domElement);
 renderer.domElement.addEventListener('pointerdown', (e) => {
   setMouse(e);
-  const hit = e.button === 0 && !S.vr && toolDown('mouse');
+  let hit = false;
+  if (e.button === 0 && e.shiftKey && !S.vr && isMat() && md.N && !carry) { const p = pickAtom(mouseRay.origin, mouseRay.direction); if (p) { startCarry('mouse', p.i); hit = true; } }
+  if (!hit) hit = e.button === 0 && !S.vr && toolDown('mouse');
   controls.mouseButtons.LEFT = hit ? -1 : THREE.MOUSE.ROTATE; controls.touches.ONE = hit ? -1 : THREE.TOUCH.ROTATE;
 }, true);
 renderer.domElement.addEventListener('pointermove', (e) => { setMouse(e); mouseIn = true; }, true);
 renderer.domElement.addEventListener('pointerleave', () => { mouseIn = false; });
-window.addEventListener('pointerup', () => toolUp('mouse'));
+window.addEventListener('pointerup', () => { toolUp('mouse'); if (carry && carry.src === 'mouse') stopCarry(); });
+renderer.domElement.addEventListener('wheel', (e) => { if (carry && carry.src === 'mouse') { mouseHand.userData.dist = Math.max(0.05, mouseHand.userData.dist * (1 + Math.sign(e.deltaY) * 0.08)); e.preventDefault(); e.stopImmediatePropagation(); } }, { capture: true, passive: false });
 controls.target.copy(SIM_HOME); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 0.3; controls.maxDistance = 6;
 controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
 camera.position.set(0.85, 1.75, 0.55); controls.update();
@@ -1615,10 +1618,10 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('selectend', () => { if (vc.uiHeld) { vc.uiHeld.release(i); vc.uiHeld = null; } toolUp(i); });
   obj.addEventListener('squeezestart', () => {
     if (vc.hitObj === uiMesh || vc.hitObj === plotMesh || vc.hitObj === tbMesh || vc.hitObj === ptMesh) { vc.obj.updateWorldMatrix(true, false); vc.hitObj.updateWorldMatrix(true, false); vc.pg = { mesh: vc.hitObj, rel: vc.obj.matrixWorld.clone().invert().multiply(vc.hitObj.matrixWorld) }; pulse(i, 0.3, 30); return; }
-    if (S.tool === 'hand' && hold.src === null && md.N) { const r = rayOf(i), p = pickAtom(r.o, r.d); if (p) { grabAt(i, r.o, r.d, p, 'sheet'); vc.sheet = true; pulse(i, 0.5, 40); return; } }
+    if (isMat() && md.N && !carry) { const r = rayOf(i), p = pickAtom(r.o, r.d); if (p) { startCarry(i, p.i); vc.sheet = true; pulse(i, 0.5, 40); return; } }
     vc.sq = true; regrab();
   });
-  obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; toolUp(i); return; } vc.sq = null; regrab(); });
+  obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; stopCarry(); return; } vc.sq = null; regrab(); });
   return vc;
 });
 
@@ -1735,7 +1738,7 @@ function updateToolShapes() {
 }
 function handPose(vc, gp, dt) {
   const t = gp && gp.buttons[0] ? gp.buttons[0].value : 0, g = gp && gp.buttons[1] ? gp.buttons[1].value : 0;
-  const handGrab = hold.src === vc.i && hold.kind === 'tw' && S.tool === 'hand', tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab;
+  const handGrab = hold.src === vc.i && hold.kind === 'tw' && S.tool === 'hand', tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab || vc.sheet;
   const want = fist ? { index: 0.95, thumb: 0.8, others: 1 } : tw ? { index: 0.6, thumb: 0.9, others: 0.7 } : ui_ ? { index: 0.08 + 0.25 * t, thumb: 0.6, others: 0.9 } : { index: 0.1 + 0.8 * t, thumb: 0.15 + 0.6 * t, others: Math.max(0.25, g) };
   const a = Math.min(1, dt * 14), P = vc.hand3.pose; for (const k in want) P[k] += (want[k] - P[k]) * a; vc.hand3.apply();
 }
@@ -1757,6 +1760,34 @@ function regrab() {
     drv: d, relP: simRoot.position.clone().sub(p).applyQuaternion(qi), relQ: qi.clone().multiply(simRoot.quaternion),
     s0: userScale, dist0: dr.length > 1 ? dr[0].obj.position.distanceTo(dr[1].obj.position) : 0, two: dr.length > 1,
   };
+}
+/* ---------- carrying a piece with the grip: the connected piece you point at (bonds, or bond-length contacts, so each
+   graphite layer is its own piece) follows the hand like a held block - moved and turned - while everything else stays.
+   Each of its atoms is pulled by a soft damped spring to where the hand puts it (Mat.carry), so it still feels the
+   others: lay graphene on hBN and the van der Waals attraction takes over when you let go. ---------- */
+let carry = null;
+const mouseHand = new THREE.Object3D(); scene.add(mouseHand);
+const carryObj = (src) => (src === 'mouse' ? mouseHand : vrc[src].obj);
+function startCarry(src, atom) {
+  if (src === 'mouse') { const w = new THREE.Vector3(mat.x[atom], mat.y[atom], mat.z[atom]).applyMatrix4(inner.matrixWorld); mouseHand.userData.dist = w.distanceTo(mouseRay.origin); mouseHand.position.copy(mouseRay.origin).addScaledVector(mouseRay.direction, mouseHand.userData.dist); mouseHand.quaternion.copy(camera.quaternion); }
+  const fm = mat.fragmentMask(atom), N = mat.N, p0 = new Float64Array(3 * N);
+  for (let i = 0; i < N; i++) if (fm.mask[i]) { p0[3 * i] = mat.x[i]; p0[3 * i + 1] = mat.y[i]; p0[3 * i + 2] = mat.z[i]; }
+  carryObj(src).updateMatrixWorld(); inner.updateMatrixWorld();
+  const M0 = new THREE.Matrix4().copy(carryObj(src).matrixWorld).invert().multiply(inner.matrixWorld);      // atom (box coordinates) -> hand
+  carry = { src, N, mask: fm.mask, p0, M0, n: fm.n };
+  mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 };
+  toast(src === 'mouse' ? `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move the mouse (wheel: nearer / farther), release to put it down` : `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move and turn your hand, let go of the grip to put it down`, 3000);
+}
+function stopCarry() { carry = null; if (isMat()) mat.carry = null; }
+const cM = new THREE.Matrix4(), cV = new THREE.Vector3();
+function updateCarry() {
+  if (!carry) return;
+  if (!isMat() || mat.N !== carry.N || !mat.carry) { stopCarry(); return; }
+  if (carry.src === 'mouse') mouseHand.position.copy(mouseRay.origin).addScaledVector(mouseRay.direction, mouseHand.userData.dist);
+  carryObj(carry.src).updateMatrixWorld(); inner.updateMatrixWorld();
+  cM.copy(inner.matrixWorld).invert().multiply(carryObj(carry.src).matrixWorld).multiply(carry.M0);         // box -> hand(now) -> box
+  const p = mat.carry.p, p0 = carry.p0, m = carry.mask;
+  for (let i = 0; i < carry.N; i++) if (m[i]) { cV.set(p0[3 * i], p0[3 * i + 1], p0[3 * i + 2]).applyMatrix4(cM); p[3 * i] = cV.x; p[3 * i + 1] = cV.y; p[3 * i + 2] = cV.z; }
 }
 const pgM = new THREE.Matrix4(), pgS = new THREE.Vector3();
 function updatePanelGrabs() {
@@ -1863,7 +1894,7 @@ function frame() {
     else drawPlots(pctx, plotData());
     lastPlot = t; if (S.vr) plotTex.needsUpdate = true;
   }
-  updateCamPreview(t); updateMouseHover();
+  updateCamPreview(t); updateMouseHover(); updateCarry();
   renderer.render(scene, camera);
 }
 /* ================================================================== themes */
@@ -1887,5 +1918,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
