@@ -449,5 +449,10 @@
  "Grab: piece": "Grib: stykke",
  "molecular dynamics · chemistry · electron transport · VR": "molekyldynamik · kemi · elektrontransport · VR",
  "Colour by current": "Farv efter strøm",
- "Arrows": "Pile"
+ "Arrows": "Pile",
+ "Language / Sprog  ·  Graphics": "Sprog / Language  ·  Grafik",
+ "High quality": "Høj kvalitet",
+ "Low quality": "Lav kvalitet",
+ "Low quality now; the lower VR resolution starts the next time you enter VR": "Lav kvalitet nu; den lavere VR-opløsning gælder fra næste gang du starter VR",
+ "High quality now; the full VR resolution starts the next time you enter VR": "Høj kvalitet nu; den fulde VR-opløsning gælder fra næste gang du starter VR"
 }
