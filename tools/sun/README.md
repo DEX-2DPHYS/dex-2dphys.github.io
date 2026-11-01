@@ -108,3 +108,12 @@ corona brightened ~10⁶× and faded out near the surface; wind view: distances 
 `?view=` overview | interior | core | convection | photosphere | sunspots | corona | wind,
 `&filter=0|1|2`, `&tmap=1`, `&field=1`, `&cut=1`, `&panel=1`, `&open=<chapter>`, `&cme=1`,
 `&cycle=<year 0–11>`, `&nobloom=1`, `&debug=1` (exposes `window.__sun`), `&rot0=<rad>` (initial rotation; default -1.05 puts the northern active region on the disc), `&clean=1`.
+
+## Quest Browser offers WebXR layers (2026-11-01)
+
+The Quest Browser exposes `session.renderState.layers` without being asked, and three.js then draws
+into a projection layer instead of the XRWebGLLayer framebuffer. `xr.js` read the headset size from
+`framebufferWidth`, got nothing, and drew the Sun into a 2x2 image: a black headset. `useBaseLayer()`
+hides `renderState.layers` (same fix as the MD Lab VR), and the size falls back to the renderer's
+drawing buffer. The emulator test now offers layers like the Quest does; it reproduced the 2x2 image
+on the old build before the fix.

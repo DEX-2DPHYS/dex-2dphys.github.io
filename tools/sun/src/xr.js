@@ -185,6 +185,7 @@ export function createXR(ctx) {
     camera.add(fade);
     const L = hand('left') || ctrls[0];
     if (mode === 'ar') { renderer.setClearColor(0x000000, 0); stars.visible = false; }
+    useBaseLayer(session);
     await xr.setSession(session);
     session.addEventListener('end', end);
     // start where the desktop camera was, at the current view's scale
@@ -348,7 +349,7 @@ export function createXR(ctx) {
   const SCALE_MAX = parseFloat(Qs.get('xrrt') || (LITE ? '0.8' : '1'));
   let rtScale = Math.min(SCALE_MAX, LITE ? (Qs.get('safe') === '1' ? 0.4 : 0.55) : 1);
   let lastT = 0, ema = 0, nextAdapt = 0, fps = 0;
-  const _vps = [];
+  const _vps = [], _fb = new THREE.Vector2();
   const post = new THREE.Scene();
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
     uniforms: { tMap: { value: rt.texture }, uSize: { value: new THREE.Vector2(16, 16) } },
@@ -369,7 +370,8 @@ export function createXR(ctx) {
   const _qm = new THREE.Matrix4().makeTranslation(0, 0, -0.05).multiply(new THREE.Matrix4().makeScale(2, 2, 1));
   function render() {
     const bl = xr.getBaseLayer();
-    const w = bl?.framebufferWidth || 2, h = bl?.framebufferHeight || 2;
+    renderer.getDrawingBufferSize(_fb);   // three sizes the renderer to the headset framebuffer while presenting
+    const w = bl?.framebufferWidth || bl?.textureWidth || _fb.x || 2, h = bl?.framebufferHeight || bl?.textureHeight || _fb.y || 2;
     adapt();
     const rw = Math.max(2, Math.round(w * rtScale)), rh = Math.max(2, Math.round(h * rtScale));
     if (rt.width !== rw || rt.height !== rh) rt.setSize(rw, rh);
@@ -418,6 +420,18 @@ export function createXR(ctx) {
   };
 }
 
+// The Quest Browser offers WebXR layers without being asked, and three.js then draws into a
+// projection layer (per-eye sub-images, possibly a texture array) instead of the XRWebGLLayer
+// framebuffer this module renders through - in the headset: a black screen. Hiding renderState.layers
+// keeps three on the base layer, as the emulator (no layers) always was.
+function useBaseLayer(session) {
+  const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(session), 'renderState');
+  if (!desc || !desc.get) return;
+  Object.defineProperty(session, 'renderState', { configurable: true, get() {
+    const r = desc.get.call(session);
+    return new Proxy(r, { get(t, k) { if (k === 'layers') return undefined; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+  } });
+}
 // buttons on the page: shown only where the browser offers immersive sessions
 export async function xrSupport() {
   const out = { vr: false, ar: false };
