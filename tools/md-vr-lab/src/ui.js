@@ -124,14 +124,19 @@ export class UI {
     let bg = COL.card2, fg = COL.text, bd = COL.line;
     if (o.primary) { bg = COL.accentDim; bd = COL.accent; }
     if (o.danger) { bg = COL.dangerBg; bd = COL.bad; }
-    if (o.active) { bg = COL.accent; fg = COL.onText; bd = COL.accent; }
+    if (o.active) { bg = o.tint || COL.accent; fg = COL.onText; bd = bg; }
     if (hov) { if (!o.active) bg = o.primary ? COL.primaryHover : COL.hover; bd = COL.accent; }
     if (o.disabled) { fg = COL.disabled; }
     if (o.bg) { bg = o.bg; fg = o.fg || fg; if (!hov && !o.active) bd = o.bd || bg; }       // custom colours (periodic table)
     const ga = c.globalAlpha; if (o.alpha !== undefined) c.globalAlpha = o.alpha;
     c.fillStyle = bg; roundRect(c, r.x, r.y, r.w, r.h, 14); c.fill();
     c.strokeStyle = hov && this.down ? COL.text : bd; c.lineWidth = hov ? 3 : 2; roundRect(c, r.x, r.y, r.w, r.h, 14); c.stroke();
-    c.fillStyle = fg; c.font = '600 ' + (o.size || 23) + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+    if (o.icon) {                                       // pictogram (src/icons.js) above a small label, or alone; o.tint colours it
+      if (o.tint && !o.active) { c.fillStyle = o.tint; roundRect(c, r.x + 10, r.y + r.h - 7, r.w - 20, 4, 2); c.fill(); }
+      const s = label ? Math.min(r.h * 0.25, r.w * 0.3) : Math.min(r.h * 0.36, r.w * 0.36), cy = label ? r.y + r.h * 0.37 : r.y + r.h / 2;
+      c.save(); o.icon(c, r.x + r.w / 2, cy, s, o.active ? fg : (o.disabled ? COL.disabled : (o.tint || fg)), o.iconArg); c.restore();
+      if (label) { c.fillStyle = fg; c.font = '600 ' + (o.size || 17) + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(label, r.x + r.w / 2, r.y + r.h - Math.max(15, r.h * 0.17)); }
+    } else { c.fillStyle = fg; c.font = '600 ' + (o.size || 23) + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1); }
     c.globalAlpha = ga;
     this._advance(r.h);
     return hov && this.pressed && this.owner !== null;
