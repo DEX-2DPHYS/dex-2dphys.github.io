@@ -64,6 +64,17 @@ try { const L = JSON.parse(localStorage.getItem('sun.lost') || 'null');
     notice('Last time the graphics stopped' + (L.xr ? ' in ' + L.xr.toUpperCase() : '') + (L.xrd ? ` at ${Math.round(L.xrd.rtScale * 100)} % resolution, ${L.xrd.fps} fps` : '') +
       '.\nNow running lighter.' + (Q.get('safe') === '1' ? ' GPU: ' + L.gpu : ''), 20000);
   } } catch (e) { /* ignore */ }
+// what the last VR session drew (saved by xr.js every second): shown after VR, or on the next load
+function showXRLog(onLoad) {
+  try {
+    const L = JSON.parse(localStorage.getItem('sun.xrlog') || 'null');
+    if (!L || Date.now() - L.at > 10 * 60e3) return;
+    if (onLoad) localStorage.removeItem('sun.xrlog');
+    notice((onLoad ? 'Last VR session' : 'VR session') + ': ' + L.frames + ' frames, ' + L.fps + ' fps, resolution ' + L.res + ' % (' + L.rt.join('x') + ' of ' + L.fb.join('x') + ')' +
+      ', ' + (L.direct ? 'direct' : 'two-pass') + (L.half ? '' : ', 8-bit') + (L.errs.length ? '\n' + L.errs.join('\n') : '') + '\nGPU: ' + GPU, 60000);
+  } catch (e) { /* ignore */ }
+}
+showXRLog(true);
 renderer.setClearColor(0x000000, 1);   // the clear colour reaches the output sRGB-encoded: keep it truly black
 renderer.domElement.tabIndex = 0;
 stage.appendChild(renderer.domElement);
@@ -570,7 +581,7 @@ const xr = createXR({
   renderer, scene, camera, controls, S, views, viewPose, VIEW_KEYS, VIEW_NAMES, FILTERS, FILTER_NOTE, stars, pickRay,
   currentView: () => currentView,
   onMessage: (s) => hudMsg(s),
-  onEnd: () => { onResize(); updateXRButtons(); if (currentView) flyTo(currentView, 0.8); },
+  onEnd: () => { showXRLog(false); onResize(); updateXRButtons(); if (currentView) flyTo(currentView, 0.8); },
   act: {
     nextFilter: () => setFilter((S.filter + 1) % 8),
     view: (n) => flyTo(n),

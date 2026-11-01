@@ -36,7 +36,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
   await p.evaluateOnNewDocument(() => { window.__lt = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }).observe({ type: 'longtask', buffered: true }); });
-  await p.goto(`http://127.0.0.1:${port}/?debug=1&nobloom=0`, { waitUntil: 'load' });
+  await p.goto(`http://127.0.0.1:${port}/?debug=1&nobloom=0${process.env.XRQ || ""}`, { waitUntil: 'load' });
   await p.waitForFunction(() => window.__sunReady, { timeout: 60000 });
   await wait(500);
   await p.evaluate(() => window.__sun.refreshXR());   // the emulator installs after the page asked once
@@ -134,6 +134,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.evaluate(() => window.__dev.activeSession.end()); await wait(1200);
   d = await D();
   const desk = await p.evaluate(() => ({ btn: !document.getElementById('xrBtns').classList.contains('busy'), w: window.__sun.renderer.domElement.width }));
+  const note = await p.evaluate(() => document.getElementById('sunNotice')?.textContent || '');
+  ok('after VR the page shows what the session drew', /VR session: [1-9]\d* frames/.test(note), note.replace(/\s+/g, ' ').slice(0, 140));
   ok('session ended, desktop restored', d.mode === null && desk.btn, JSON.stringify(desk));
   await wait(800);
   await p.screenshot({ path: path.join(outDir, '7-desktop-after.png') });
