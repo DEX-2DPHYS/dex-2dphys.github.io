@@ -538,6 +538,12 @@ export class Mat {
     this.chem.fromGeometry(); this.model = 'uff'; this.vdw = null; this.charges = false; this.bonds = []; this.angles = []; this.oops = [];
     this.listDirty = true; this.name = this.name + ' \u00B7 chemistry'; this.finish(T0, 0.3);
   }
+  // the same, without touching velocities or the clock: used when the user attaches a foreign atom to a running structure
+  toChemLive() {
+    if (this.model === 'sw') throw new Error('MoS\u2082 has no chemistry model yet');
+    this.chem.fromGeometry(); this.model = 'uff'; this.vdw = null; this.charges = false; this.bonds = []; this.angles = []; this.oops = [];
+    this.dt = 0.5 / TU_FS; this.listDirty = true; if (!/chemistry/.test(this.name)) this.name = this.name + ' \u00B7 chemistry'; this.computeForces();
+  }
   buildEmpty(span = 30) {
     this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.per = [false, false, false];
     this.Lx = this.Ly = this.Lz = span; this.chem.clear(); this.name = 'Empty box \u00B7 chemistry'; this.listDirty = true; this.finish(10, 0.3);

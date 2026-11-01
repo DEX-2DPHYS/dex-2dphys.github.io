@@ -187,11 +187,11 @@ export class UI {
     this._advance(h);
   }
 
-  tabs(names, active) {
+  tabs(names, active, size = 21) {
     const n = names.length, saveY = this.y;
     this.row(n);
     let out = active;
-    names.forEach((nm, i) => { if (this.button(nm, { active: i === active, h: 54, size: 21 })) out = i; });
+    names.forEach((nm, i) => { if (this.button(nm, { active: i === active, h: 54, size })) out = i; });
     return out;
   }
 

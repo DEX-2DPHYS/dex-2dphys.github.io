@@ -220,6 +220,7 @@ export const VR_HELP = [
       'GRIP while pointing at a panel: move the panel. GRIP anywhere else: pick up and rotate the experiment. Both grips: stretch to scale it.',
       'LEFT stick: walk (glide) in the direction you look, also while seated.  RIGHT stick left/right: turn (30\u00B0 steps, or smooth - VR tab).  RIGHT stick up/down: heat or cool (target T). Box size and table height: sliders on the RUN and VR tabs.',
       'A / X: next tool.  B / Y: run or pause.  Thumbstick click: recentre in front of you.',
+      'The TOOLBAR at the front edge of the table holds the editing tools and the element button (periodic table). Trigger on a button to use it.',
       'Recentring also fits the table and the panels to your eye height, seated or standing. The VR tab has a table-height slider and a dark / white lab switch.',
     ],
   },
