@@ -478,5 +478,8 @@
  "Adult level: the essentials, with short explanations": "Voksenniveau: det vigtigste, med korte forklaringer",
  "Researcher level: everything": "Forskerniveau: alt",
  "Tap {1} more times to change the level": "Tryk {1} gange mere for at skifte niveau",
- "Violet = little current → red → yellow = the most; grey = none. Arrows: conventional current, + to −.": "Violet = lidt strøm → rød → gul = mest; grå = ingen. Pile: konventionel strømretning, + til −."
+ "Violet = little current → red → yellow = the most; grey = none. Arrows: conventional current, + to −.": "Violet = lidt strøm → rød → gul = mest; grå = ingen. Pile: konventionel strømretning, + til −.",
+ "Hand": "Hånd",
+ "Tool: HAND - trigger grabs an atom or a loose piece, grip grabs a whole sheet; pull hard to break it off": "Værktøj: HÅND - aftrækkeren griber et atom eller et løst stykke, grebet griber et helt lag; træk hårdt for at bryde det løs",
+ "Tool: HAND - drag an atom or a loose piece; pull hard to break it off, bring it close to bond": "Værktøj: HÅND - træk et atom eller et løst stykke; træk hårdt for at bryde det løs, før det tæt på for at binde"
 }

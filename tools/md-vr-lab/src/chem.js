@@ -98,6 +98,7 @@ export class Chem {
   }
   // Mat.removeAtom moved the last atom (index `last`) into slot i
   removeAtom(i, last) {
+    this.pending = null;                                 // atom indices move: drop any settling still to do
     this.bonds = this.bonds.filter(([a, b]) => a !== i && b !== i).map(([a, b]) => [a === last ? i : a, b === last ? i : b]);
     this.dirty = true; this.retype();
   }
@@ -320,7 +321,7 @@ export class Chem {
   }
 
   // attach a new atom of element `el` to atom `host` (with optional H caps); `toward` is a point on the side to attach on
-  attach(host, el, fillH, toward) {
+  attach(host, el, fillH, toward, defer = false) {
     const m = this.m, spOf = (e) => SPECIES.findIndex((s) => s.sym === e);
     const sp = spOf(el); if (sp < 0) return { err: `unknown element ${el}` };
     if (this.free(host) < 1) return { err: `${this.sym(host)} already has ${this.deg[host]} bond${this.deg[host] === 1 ? '' : 's'} (valence ${this.valence(host)})` };
@@ -359,14 +360,21 @@ export class Chem {
       for (const [hx, hy, hz] of best) { const hh = m.addRaw(spOf('H'), hx, hy, hz, m.grp[host]); this.bonds.push([k, hh]); added.push(hh); }
     }
     this.dirty = true; this.retype(); m.listDirty = true;
-    this.relaxLocal(added.concat([host]), 120);
+    // the new atoms are settled by a short local descent. In the app (defer) only a few iterations run now and the rest
+    // are spread over the next frames (relaxPending, from Mat.run), so attaching never freezes the picture.
+    if (defer) { this.pending = { ids: added.concat([host]), left: 120 }; this.relaxLocal(this.pending.ids, 1); } else this.relaxLocal(added.concat([host]), 120);
     return { atom: k, added: 1 + nH };
   }
 
   // short steepest descent on a few atoms only (the rest stay put, velocities untouched): takes the strain out of a fresh attachment
-  relaxLocal(ids, iters) {
-    const m = this.m;
-    for (let it = 0; it < iters; it++) {
+  // a few iterations, as many as fit in budgetMs (at least one); the settling finishes over the next frames
+  relaxPending(budgetMs = 6) {
+    const p = this.pending; if (!p) return; const t0 = performance.now();
+    do { const used = this.relaxLocal(p.ids, 1, false); p.left--; if (used < 1 || p.left <= 0) { this.pending = null; this.m.computeForces(); return; } } while (performance.now() - t0 < budgetMs);
+  }
+  relaxLocal(ids, iters, final = true) {
+    const m = this.m; let it = 0;
+    for (; it < iters; it++) {
       m.computeForces(); let fmax = 0;
       for (const i of ids) {
         const f = Math.hypot(m.fx[i], m.fy[i], m.fz[i]); fmax = Math.max(fmax, f);
@@ -376,6 +384,6 @@ export class Chem {
       if (fmax < 0.05) break;
     }
     for (const i of ids) { m.vx[i] = m.vy[i] = m.vz[i] = 0; }
-    m.computeForces();
+    if (final) m.computeForces(); return it;
   }
 }
