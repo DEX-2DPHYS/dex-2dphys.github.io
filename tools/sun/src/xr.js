@@ -12,6 +12,7 @@
 //   A next instrument · B next view · X flare + CME · Y cutaway · left trigger listen
 //   thumbstick press: right = T-map, left = field lines
 import * as THREE from 'three';
+import { LITE } from './glsl.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 // metres per solar radius for each view (how large the Sun feels)
@@ -173,7 +174,7 @@ export function createXR(ctx) {
     const type = kind === 'ar' ? 'immersive-ar' : 'immersive-vr';
     let session;
     try {
-      session = await navigator.xr.requestSession(type, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] });
+      session = await navigator.xr.requestSession(type, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
     } catch (e) { ctx.onMessage?.('Could not start ' + type + ': ' + e.message); return; }
     saved = { pos: camera.position.clone(), quat: camera.quaternion.clone(), tgt: controls.target.clone(), near: camera.near, far: camera.far, clear: renderer.getClearAlpha() };
     mode = kind === 'ar' ? 'ar' : 'vr';
@@ -331,17 +332,53 @@ export function createXR(ctx) {
     status.tex.needsUpdate = true;
   }
 
+// ---------------------------------------------------------------- render
+  // As on the desktop, the scene is drawn into a linear half-float target and tone mapping + sRGB
+  // are applied ONCE to the finished image (per eye, by a quad in front of the head). Converting
+  // each additive layer on its own would make faint glows far too bright over the disc.
+  const rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType, samples: LITE ? 2 : 4 });
+  const post = new THREE.Scene();
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+    uniforms: { tMap: { value: rt.texture }, uSize: { value: new THREE.Vector2(16, 16) } },
+    vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: `uniform sampler2D tMap; uniform vec2 uSize;
+      void main(){
+        vec4 c = texture2D(tMap, gl_FragCoord.xy / uSize);
+        gl_FragColor = vec4(c.rgb, 1.);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+        // passthrough: glows must stay visible over the room, so alpha follows brightness
+        gl_FragColor.a = clamp(max(c.a, max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b))), 0., 1.);
+      }`,
+    depthTest: false, depthWrite: false,
+  }));
+  quad.frustumCulled = false; quad.matrixAutoUpdate = false;
+  post.add(quad);
+  const _qm = new THREE.Matrix4().makeTranslation(0, 0, -0.05).multiply(new THREE.Matrix4().makeScale(2, 2, 1));
+  function render() {
+    const bl = xr.getBaseLayer();
+    const w = bl?.framebufferWidth || 2, h = bl?.framebufferHeight || 2;
+    if (rt.width !== w || rt.height !== h) { rt.setSize(w, h); quad.material.uniforms.uSize.value.set(w, h); }
+    renderer.setRenderTarget(rt);
+    renderer.render(scene, camera);
+    // the quad sits 5 cm in front of the head (in rig metres), filling both eyes' views
+    quad.matrix.multiplyMatrices(camera.matrixWorld, _qm); quad.matrixWorldNeedsUpdate = true;   // no parent: world = matrix
+    renderer.setRenderTarget(null);
+    renderer.render(post, camera);
+  }
+
   // co-rotation with the Sun in Sun-frame views
   function corotate(dA) { if (mode) rotateRigAbout(new THREE.Vector3(), _Y, dA); }
 
   return {
-    start, goView, update, corotate,
+    start, goView, update, corotate, render,
     get presenting() { return !!mode; },
     get mode() { return mode; },
     say,
     debug: () => ({ mode, card: card.mesh.visible, cardText: lastCardKey.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120),
       mPerR: metresPerR(), rig: rig.position.toArray().map((x) => +x.toFixed(3)), head: headWorld().toArray().map((x) => +x.toFixed(3)),
-      ctrls: ctrls.map((s) => s.handedness + (s.gamepad ? '+gp' : '')), fade: fade.material.opacity }),
+      ctrls: ctrls.map((s) => s.handedness + (s.gamepad ? '+gp' : '')), fade: fade.material.opacity,
+      ray: (() => { const st = hand('right'); if (!st) return null; const r = ctrlRay(st); return { o: r.o.toArray(), d: r.d.toArray() }; })() }),
   };
 }
 

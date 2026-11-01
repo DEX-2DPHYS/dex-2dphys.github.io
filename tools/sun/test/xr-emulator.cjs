@@ -33,8 +33,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.setViewport({ width: 1400, height: 800 });
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
+  await p.evaluateOnNewDocument(() => { window.__lt = []; new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }).observe({ type: 'longtask', buffered: true }); });
   await p.goto(`http://127.0.0.1:${port}/?debug=1&nobloom=0`, { waitUntil: 'load' });
-  await wait(1500);
+  await p.waitForFunction(() => window.__sunReady, { timeout: 60000 });
+  await wait(500);
   await p.evaluate(() => window.__sun.refreshXR());   // the emulator installs after the page asked once
   await wait(300);
   const vis = await p.evaluate(() => { const b = document.getElementById('vrBtn'); const r = b.getBoundingClientRect(); return { hidden: b.hidden || document.getElementById('xrBtns').hidden, w: r.width }; });
@@ -97,19 +99,21 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('right stick: flies', Math.hypot(d.head[0] - r0[0], d.head[1] - r0[1], d.head[2] - r0[2]) > 0.1, JSON.stringify(r0) + ' -> ' + JSON.stringify(d.head));
 
   // aim at the Sun's centre with the right controller and hold the trigger
-  await p.evaluate(() => {
-    const s = window.__sun, xr = s.xr, rc = window.__dev.controllers.right;
-    // place the controller so its ray points at the Sun: aim in the rig frame
-    const rig = s.scene.getObjectByName('xr-rig'); rig.updateMatrixWorld(true);
-    const THREE = { };
-    const inv = rig.matrixWorld.clone().invert();
-    const sunLocal = new rig.position.constructor(0, 0, 0).applyMatrix4(inv);
-    const from = new rig.position.constructor(rc.position.x, rc.position.y, rc.position.z);
-    const dir = sunLocal.sub(from).normalize();
-    const q = new rig.quaternion.constructor().setFromUnitVectors(new rig.position.constructor(0, 0, -1), dir);
-    rc.quaternion.set(q.x, q.y, q.z, q.w);
-    rc.updateButtonValue('trigger', 1);
-  });
+  // correct the aim from the ray the page actually uses (the target-ray pose is offset from the grip)
+  for (let it = 0; it < 4; it++) {
+    await p.evaluate(() => {
+      const s = window.__sun, rc = window.__dev.controllers.right, ray = s.xr.debug().ray;
+      const rig = s.scene.getObjectByName('xr-rig');
+      const V = rig.position.constructor, Q = rig.quaternion.constructor;
+      const inv = rig.quaternion.clone().invert();
+      const have = new V(...ray.d).applyQuaternion(inv).normalize();
+      const want = new V(0, 0, 0).sub(new V(...ray.o)).applyQuaternion(inv).normalize();
+      const q = new Q().setFromUnitVectors(have, want).multiply(new Q(rc.quaternion.x, rc.quaternion.y, rc.quaternion.z, rc.quaternion.w));
+      rc.quaternion.set(q.x, q.y, q.z, q.w);
+    });
+    await wait(150);
+  }
+  await p.evaluate(() => window.__dev.controllers.right.updateButtonValue('trigger', 1));
   await wait(700);
   d = await D();
   ok('trigger aimed at the Sun: read-out card shown', d.card && d.cardText.length > 10, d.cardText);
@@ -145,6 +149,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await p.evaluate(() => window.__dev.activeSession.end()); await wait(1000);
     ok('passthrough ended: opaque black again', (await p.evaluate(() => window.__sun.renderer.getClearAlpha())) === 1);
   }
+  const lts = await p.evaluate(() => window.__lt);
+  ok('page never froze (no task over 1 s: shaders compile in the background)', Math.max(0, ...lts) < 1000, JSON.stringify(lts));
   ok('no page errors', errs.length === 0, errs.slice(0, 5).join(' | '));
   await browser.close(); srv.close();
   const fail = checks.filter((c) => !c[1]).length;
