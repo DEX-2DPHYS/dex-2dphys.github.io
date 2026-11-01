@@ -11,6 +11,7 @@ import { interiorTip, surfaceTip, offDiscTip, OBJ } from './tips.js';
 import { AR_N, PROM, dirLL, EARTH_X } from './spec.js';
 import { initPortal } from './portal.js';
 import { createSound } from './sound.js';
+import { createXR, xrSupport } from './xr.js';
 
 const Q = new URLSearchParams(location.search);
 const stage = document.getElementById('stage');
@@ -33,7 +34,8 @@ stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.002, 3000);
 
-scene.add(buildStars());
+const stars = buildStars();
+scene.add(stars);
 const sun = buildSun();
 scene.add(sun.sunGroup, sun.cut.group, sun.corona, sun.flash);
 const loops = buildLoops();
@@ -175,6 +177,7 @@ function flyTo(name, dur = 2.6) {
   currentView = name;
   camTween = { p0: camera.position.clone(), t0: controls.target.clone(), v, t: 0, dur };
   S.corot = false;
+  if (xr && xr.presenting) { camTween = null; S.corot = v.frame === 'sun'; xr.goView(name); }
   set('cut', v.cut);
   bloom.strength = S.bloom * (v.bloom !== undefined ? v.bloom : 0.55) / 0.55;
   flyVel.set(0, 0, 0);
@@ -341,16 +344,18 @@ function updateCME(dt) {
 
 // ------------------------------------------------------------------ billboards
 const _r = new THREE.Vector3(), _u = new THREE.Vector3();
+const _vq = new THREE.Quaternion(), _vp = new THREE.Vector3(), _vs = new THREE.Vector3();
 function updateBillboards() {
   camera.updateMatrixWorld(true);
-  sun.corona.quaternion.copy(camera.quaternion);
-  sun.flash.quaternion.copy(camera.quaternion);
+  camera.matrixWorld.decompose(_vp, _vq, _vs);
+  sun.corona.quaternion.copy(_vq);
+  sun.flash.quaternion.copy(_vq);
   const sc = 8;
   sun.corona.scale.setScalar(sc);
   const cu = sun.corona.material.uniforms;
   cu.uScale.value = sc;
   // the corona boost suits a distant view; from close to the surface it would read as fog
-  cu.uK.value = S.coronaK * (0.12 + 0.88 * clamp((camera.position.length() - 1.15) / 1.6, 0, 1));
+  cu.uK.value = S.coronaK * (0.12 + 0.88 * clamp((_vp.length() - 1.15) / 1.6, 0, 1));
   _r.setFromMatrixColumn(camera.matrixWorld, 0); _u.setFromMatrixColumn(camera.matrixWorld, 1);
   const ax = new THREE.Vector2(_r.y, _u.y);   // the solar axis is world +y
   const len = ax.length();
@@ -374,7 +379,11 @@ let tipKey = '';
 function pickAt(x, y) {
   _nd.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
   raycaster.setFromCamera(_nd, camera);
-  const o = raycaster.ray.origin, d = raycaster.ray.direction;
+  return pickRay(raycaster.ray.origin, raycaster.ray.direction);
+}
+// what a line of sight from o along the unit vector d meets; also used by the VR controller ray
+function pickRay(o, d) {
+  if (raycaster.ray.origin !== o) raycaster.set(o, d);
 
   // the Sun, analytically: sphere, minus the cut-away quadrant, plus the two cut faces
   let sunT = Infinity, sunHTML = null, sunKey = '';
@@ -417,15 +426,15 @@ function pickAt(x, y) {
     const h = hits.find((x) => x.object === earth.earth) || hits[0];
     const ob = h.object;
     const kind = ob === earth.earth ? 'earth' : ob === earth.bow ? 'bow' : ob === cme.mesh ? 'cme' : ob === walk.line ? 'walk' : prom.group.children.includes(ob) ? 'prom' : 'loop';
-    return { html: OBJ[kind](), key: kind };
+    return { html: OBJ[kind](), key: kind, dist: h.distance };
   }
-  if (sunHTML) return { html: sunHTML, key: sunKey };
+  if (sunHTML) return { html: sunHTML, key: sunKey, dist: sunT };
   // off the disc: where the line of sight passes closest to the Sun
   const tc = Math.max(0, -b);
   const pc = Math.sqrt(Math.max(0, o.lengthSq() - tc * tc));
   if (pc < 1) return null;   // looked through the cutaway and out the far side
   const windView = currentView === 'wind';
-  if (pc < (windView ? 40 : 8)) return { html: offDiscTip(pc, S.filter, windView), key: 'o' + pc.toFixed(3) };
+  if (pc < (windView ? 40 : 8)) return { html: offDiscTip(pc, S.filter, windView), key: 'o' + pc.toFixed(3), dist: Infinity };
   return null;
 }
 function updateTip() {
@@ -515,8 +524,44 @@ const portal = initPortal({
   onNavigate: (id) => { if (views[id]) flyTo(id); },
 });
 
+// ------------------------------------------------------------------ WebXR (Meta Quest)
+const xr = createXR({
+  renderer, scene, camera, controls, S, views, viewPose, VIEW_KEYS, VIEW_NAMES, FILTERS, FILTER_NOTE, stars, pickRay,
+  currentView: () => currentView,
+  onMessage: (s) => hudMsg(s),
+  onEnd: () => { onResize(); updateXRButtons(); if (currentView) flyTo(currentView, 0.8); },
+  act: {
+    nextFilter: () => setFilter((S.filter + 1) % 8),
+    view: (n) => flyTo(n),
+    cme: () => launchCME(),
+    toggle: (k) => set(k, !S[k]),
+    sound: () => toggleSound(),
+  },
+});
+const xrBtns = document.getElementById('xrBtns');
+function updateXRButtons() { xrBtns?.classList.toggle('busy', xr.presenting); }
+for (const [id, kind] of [['vrBtn', 'vr'], ['arBtn', 'ar'], ['vrBtnP', 'vr'], ['arBtnP', 'ar']]) {
+  document.getElementById(id)?.addEventListener('click', () => { closePanel(); xr.start(kind).then(updateXRButtons); });
+}
+// asked again when a headset appears (Quest Link connected after the page loaded)
+let xrAuto = Q.get('xr');
+function refreshXR() {
+  return xrSupport().then(({ vr, ar }) => {
+    for (const [id, ok] of [['vrBtn', vr], ['arBtn', ar], ['vrBtnP', vr], ['arBtnP', ar]]) { const b = document.getElementById(id); if (b) b.hidden = !ok; }
+    if (xrBtns) xrBtns.hidden = !(vr || ar);
+    const note = document.getElementById('xrNote');
+    if (note) note.textContent = vr || ar ? '' : (window.isSecureContext ? 'This browser offers no VR session here. Open the page in the Quest Browser, or in Chrome on a PC with Quest Link / Air Link running.' : 'VR needs https:// (or localhost).');
+    if ((xrAuto === 'vr' && vr) || (xrAuto === 'ar' && ar)) { const k = xrAuto; xrAuto = null; setTimeout(() => xr.start(k), 300); }
+    return { vr, ar };
+  });
+}
+refreshXR();
+navigator.xr?.addEventListener?.('devicechange', refreshXR);
+if (Q.get('debug') === '1') Object.assign(window.__sun, { xr, refreshXR });
+
 // ------------------------------------------------------------------ resize
 function onResize() {
+  if (xr && xr.presenting) return;
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.getDrawingBufferSize(size);
@@ -566,12 +611,15 @@ function frame() {
   const dA = omega() * dt;
   sunAngle += dA;
   sun.sunGroup.rotation.y = sunAngle;
-  if (S.corot && !camTween && dA) {
+  if (xr.presenting) { if (S.corot && dA) xr.corotate(dA); }
+  else if (S.corot && !camTween && dA) {
     _yq.setFromAxisAngle(_Y, dA);
     camera.position.applyQuaternion(_yq); controls.target.applyQuaternion(_yq);
   }
 
-  if (camTween) {
+  if (xr.presenting) {
+    xr.update(dt);
+  } else if (camTween) {
     camTween.t += dt;
     const u = easeIO(clamp(camTween.t / camTween.dur, 0, 1));
     const { p, t } = viewPose(camTween.v);
@@ -581,23 +629,26 @@ function frame() {
   } else {
     fly(dt);
   }
-  controls.update();
+  if (!xr.presenting) controls.update();
 
   // near plane follows the distance to the nearest surface
   const dSurf = Math.max(0.002, camera.position.length() - 1.02);
   const near = clamp(Math.min(dSurf, camera.position.distanceTo(controls.target)) * 0.25, 0.0015, 1);
-  if (Math.abs(camera.near - near) / near > 0.05) { camera.near = near; camera.updateProjectionMatrix(); }
+  if (!xr.presenting && Math.abs(camera.near - near) / near > 0.05) { camera.near = near; camera.updateProjectionMatrix(); }
 
   if (S.cut && !S.paused) walk.update(dt * S.evolve);
   // wind particles only make sense from a distance; near the surface they are clutter in the sky
-  wind.mat.uniforms.uOpacity.value = clamp((camera.position.length() - 6.5) / 12, 0, 1);
-  if (S.wind) { wind.update(S.paused ? 0 : dt, sunAngle, omega() || 1e-9); wind.mat.uniforms.uPx.value = renderer.getPixelRatio() * innerHeight / 1000; }
+  camera.updateMatrixWorld(true);
+  const viewR = _vp.setFromMatrixPosition(camera.matrixWorld).length();
+  wind.mat.uniforms.uOpacity.value = clamp((viewR - 6.5) / 12, 0, 1);
+  if (S.wind) { wind.update(S.paused ? 0 : dt, sunAngle, omega() || 1e-9); wind.mat.uniforms.uPx.value = xr.presenting ? 1.8 : renderer.getPixelRatio() * innerHeight / 1000; }
   updateCME(S.paused ? 0 : dt);
   updateBillboards();
-  updateTip();
+  if (xr.presenting) hideTip(); else updateTip();
   sound.tick(dt);
   if (sound.isOn() && specEl) sound.draw(specEl);
 
+  if (xr.presenting) { renderer.render(scene, camera); return; }
   composer.render();
   if (figQueue.length) { serveFigure(); controls.update(); updateBillboards(); composer.render(); }
 }

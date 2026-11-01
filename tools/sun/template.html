@@ -76,6 +76,12 @@
   #spec{position:fixed;left:14px;bottom:30px;width:330px;height:140px;z-index:6;border-radius:9px;background:rgba(14,10,8,.72);
     border:1px solid rgba(255,220,170,.14);display:none;pointer-events:none}
   #spec.on{display:block}
+  /* VR / passthrough entry (shown only where the browser offers an immersive session) */
+  #xrBtns{position:fixed;left:14px;bottom:44px;z-index:6;display:flex;gap:8px}
+  #xrBtns[hidden],#xrBtns.busy{display:none}
+  #xrBtns .btn{background:rgba(232,110,40,.32);border-color:rgba(240,150,60,.8);font-size:15px;padding:9px 16px;margin:0}
+  #xrBtns .btn:hover{background:rgba(232,110,40,.55)}
+  .xr-note{color:#bdb1a5;font-size:11.5px;margin:4px 0 0}
   .btn.on{background:rgba(240,150,60,.3);border-color:rgba(240,150,60,.7)}
   .tip-n{margin-top:7px;font-size:11.3px;color:#cdbfb1;line-height:1.45}
 
@@ -325,6 +331,13 @@ if(/[?&]clean=1(&|$)/.test(location.search))document.documentElement.classList.a
     <button class="btn" id="fullscreen">Fullscreen</button>
   </section>
 
+  <section>
+    <h2>Virtual reality</h2>
+    <button class="btn hot" id="vrBtnP" hidden>Enter VR</button><button class="btn" id="arBtnP" hidden title="Quest 3: the Sun floating in your room">Passthrough</button>
+    <p class="xr-note" id="xrNote"></p>
+    <ul class="xr-note"><li>Right stick fly · left stick forward/back world size, sideways snap turn · grip grab the world</li><li>Right trigger: read-out · A instrument · B view · X flare · Y cutaway · left trigger listen</li></ul>
+  </section>
+
   <section class="help">
     <h2>Controls</h2>
     <ul>
@@ -339,6 +352,7 @@ if(/[?&]clean=1(&|$)/.test(location.search))document.documentElement.classList.a
     </ul>
   </section>
 </aside>
+<div id="xrBtns" hidden><button class="btn" id="vrBtn" hidden>🥽 Enter VR</button><button class="btn" id="arBtn" hidden>Passthrough</button></div>
 <!--BUNDLE-->
 <style>
 .dh-keys{position:fixed;bottom:6px;left:8px;z-index:2147483000;max-width:calc(100vw - 24px);box-sizing:border-box;padding:2px 8px;border-radius:6px;
