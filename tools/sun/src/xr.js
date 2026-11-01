@@ -194,6 +194,7 @@ export function createXR(ctx) {
     if (mode === 'ar') { ctx.act.view('overview'); applyView('overview'); }
     else if (cv && views[cv]) applyView(cv);
     else placeRig(saved.pos, saved.tgt, 1.2);
+    renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y, true);   // a log exists even if no frame is ever finished
     say(mode === 'ar' ? 'Passthrough: the Sun in your room' : 'Welcome aboard - B changes view, A the instrument');
     void L;
   }
@@ -374,9 +375,9 @@ export function createXR(ctx) {
   // two-pass path switch to drawing straight into the headset framebuffer.
   let direct = Qs.get('xrdirect') === '1', frames = 0, lastSave = 0; const errs = [];
   const gl = renderer.getContext();
-  function saveLog(w, h, force) {
+  function saveLog(w, h, force, before) {
     const t = performance.now(); if (!force && t - lastSave < 1000) return; lastSave = t;
-    try { localStorage.setItem('sun.xrlog', JSON.stringify({ at: Date.now(), mode, frames, fps: Math.round(fps), res: Math.round(rtScale * 100),
+    try { localStorage.setItem('sun.xrlog', JSON.stringify({ at: Date.now(), mode, frames: before ? frames - 1 : frames, drawing: !!before, fps: Math.round(fps), res: Math.round(rtScale * 100),
       rt: [rt.width, rt.height], fb: [w, h], half: canHalf, direct, errs: errs.slice(0, 4) })); } catch (e) { /* private mode */ }
   }
   function fail(what, e) {
@@ -386,6 +387,7 @@ export function createXR(ctx) {
   }
   function render() {
     frames++;
+    if (frames <= 3) { renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y, true, true); }   // saved BEFORE drawing: a hang shows as started-not-finished
     if (direct) {
       adapt();   // only for the fps read-out here
       renderer.setRenderTarget(null); renderer.render(scene, camera);
