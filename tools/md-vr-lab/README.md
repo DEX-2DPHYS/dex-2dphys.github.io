@@ -32,6 +32,64 @@ VR controls: trigger = press UI / use tool, grip = move the experiment (both gri
 left stick = box size, while holding an atom the stick reels it in/out, A/X = next tool, B/Y = run/pause,
 stick click = recentre.
 
+## Electron transport (ELEC tab)
+
+Mark atoms as the **−** electrode (electrons enter) and the **+** electrode with the contact tools (keys 4 / 5, or the ELEC tab),
+and the lab computes, from the live geometry a few times a second:
+
+- **bond currents**, drawn as arrows (conventional current, + to −; size and colour = magnitude),
+- **T(E)** with the bias window marked, **I(V)** and dI/dV, the HOMO–LUMO gap and the transport gap.
+
+Model (`src/tb.js`, run in a Web Worker `src/tbworker.js`): one π (p) orbital per carbon along the local bond normal,
+Slater–Koster hopping from the actual distances and angles (−2.7 eV at 1.42 Å, interlayer σ term, smooth cutoff 4.0–4.5 Å);
+wide-band contacts −iΓ/2 on the marked atoms; H diagonalised once per geometry, then every energy only needs the contact block
+(Dyson equation, exact). I = (2e²/h)∫T(E)[f₋ − f₊]dE. The bias sets only the energy window (no self-consistent potential drop).
+Hydrogen carries no orbital; MoS₂ (needs d orbitals) is refused with a message.
+
+**Open flakes**: graphene, graphite and MoS₂ can be built as *Open flake (free edges)* instead of the default periodic sheet:
+no periodic images, vacuum all round, dangling edge atoms trimmed. Use this for transport; on a periodic sheet current can also
+run round the boundary.
+
+`test/transport.test.mjs`: eigen solver, single level (Breit–Wigner) and dimer against closed forms, the sign and size of the bond
+current, Kirchhoff at every inner atom of a flake, benzene para / meta / ortho interference, uniform vs dimerised carbon chain
+(gap = 2|t₁ − t₂|), open flakes stable for 3 ps at 300 K, periodic sheets unchanged, speed.
+
+## Chemistry mode (BUILD → Materials → Chemistry)
+
+Explicit bonds between any of the main-group elements H, B, C, N, O, F, Si, P, S, Cl, Br, I on the Universal Force Field
+(`src/chem.js`, Rappé et al. 1992). Graphene, graphite, benzene and nanodiamond are converted to bonds as built; *Empty box*
+starts from nothing.
+
+- Tools: **Attach** (pick an element, click an atom; the new atom goes on the side you point from; *Fill valence with H*
+  turns O into OH, C into CH₃, N into NH₂), **Bond** (click two atoms), **Add**, **Delete**. Valence is enforced
+  (H 1, O 2, N 3, C 4 …); the hybridisation follows the number of bonds, so an attached graphene carbon becomes sp³,
+  puckers ~0.4 Å out of the sheet and its C–C bonds stretch from 1.42 to ~1.51 Å.
+- Bonds are Morse (70 kcal/mol per bond order) times a smooth switch between 1.25 and 1.6 rest lengths; past 1.6 the bond
+  is removed, so atoms can be pulled off with the tweezers. Angles (UFF Fourier), torsions, sp² inversion, UFF van der
+  Waals (1-2, 1-3 excluded), no charges. One change from UFF: aromatic C–C in a sheet rests at 1.42 Å (graphene).
+- Attach places the new atoms clear of their neighbours and relaxes them before the dynamics continue.
+- Transport: carbons with 4 bonds (sp³) carry no π orbital; other elements carry none either (a vacancy-like model
+  of an adsorbate). Published adsorbate orbital parameters (H, F, OH, CH₃) are not in yet.
+- `test/chem.test.mjs` (15 checks): forces against −∇E for every term including the bond switch, CH₄, H₂O and benzene
+  geometry, valence refusals, H fill, pucker and C–C stretch for H / F / OH on graphene, pulling an F off breaks exactly its
+  bond, a decorated flake stays intact for 2 ps at 300 K, adsorbates remove π orbitals and lower T(E) near E_F.
+
+## Room, table and panels
+
+- Dark or white lab (VR tab, the *White lab* button, or key T). The furnished room (benches, cabinets, shelves, windows) is merged
+  into one mesh per material and costs well under 1 ms of GPU time per frame.
+- Recentring (thumbstick click) fits the table to the user: half a metre below the eyes, seated or standing; the VR tab has a
+  table-height slider and the left stick moves the table in the materials mode.
+- The panels stand beside the table, not through it. Grip while pointing at a panel moves it.
+
+## WebXR start (Quest + PC)
+
+Chrome exposes the WebXR Layers API and three.js then renders through a projection layer; with Meta Horizon Link that path
+delivered no frames at all (the headset waited, then reported "page not responding"). `enterVR()` hides `renderState.layers` on
+its own session so three.js uses the classic XRWebGLLayer path, asks only for `local-floor`, and ignores repeated clicks while a
+session is starting. If the headset still shows only a loading screen, an earlier Chrome session is holding Link: end Chrome in
+Task Manager and restart Link.
+
 ## Layout
 
 - `src/physics.js`  MD engine, reduced LJ units: velocity-Verlet, truncated + shifted potential (r_c = 2.5 sigma),

@@ -11,15 +11,27 @@
 // test/materials.test.mjs to the bulk interlayer spacing and binding energy).
 export const KB = 8.617333262e-5;           // eV/K
 export const TU_FS = 10.1805055;            // fs per time unit
+import { Chem } from './chem.js';
+const OPEN_MARGIN = 10;                      // A of vacuum round an open flake (its box is display/tweezers room only)
 // equilibrium lattice parameters of the potentials themselves (found by scanning, see test/materials.test.mjs)
 export const GR_B = 1.438;                  // C-C bond in graphene, Lindsay-Broido Tersoff
 export const MOS2 = { a: 3.12, h: 1.559 };  // SW(mod) minimum: a = 3.12 A (exp. 3.16), S height 1.56 A (Mo-S 2.40 A, exp. 2.41)
-export const SP = { C: 0, H: 1, Mo: 2, S: 3 };
+export const SP = { C: 0, H: 1, Mo: 2, S: 3, B: 4, N: 5, O: 6, F: 7, Si: 8, P: 9, Cl: 10, Br: 11, I: 12 };
 export const SPECIES = [
   { sym: 'C', mass: 12.011, color: 0x4d5360, r: 0.46, bond: 1.9 },
   { sym: 'H', mass: 1.008, color: 0xf2f2f2, r: 0.28, bond: 1.3 },
   { sym: 'Mo', mass: 95.95, color: 0x4fb3b3, r: 0.72, bond: 2.9 },
   { sym: 'S', mass: 32.06, color: 0xf2d43d, r: 0.62, bond: 2.9 },
+  // Chemistry mode (src/chem.js) adds the rest of the main groups; colours after the usual CPK scheme
+  { sym: 'B', mass: 10.81, color: 0xffb5b5, r: 0.44, bond: 2.0 },
+  { sym: 'N', mass: 14.007, color: 0x3a5cf0, r: 0.42, bond: 1.9 },
+  { sym: 'O', mass: 15.999, color: 0xe8322b, r: 0.40, bond: 1.9 },
+  { sym: 'F', mass: 18.998, color: 0x8fe05a, r: 0.38, bond: 1.9 },
+  { sym: 'Si', mass: 28.085, color: 0xd9b48a, r: 0.58, bond: 2.5 },
+  { sym: 'P', mass: 30.974, color: 0xff8a1f, r: 0.55, bond: 2.5 },
+  { sym: 'Cl', mass: 35.45, color: 0x36d636, r: 0.52, bond: 2.4 },
+  { sym: 'Br', mass: 79.904, color: 0xa83b2c, r: 0.58, bond: 2.6 },
+  { sym: 'I', mass: 126.904, color: 0x8a2be2, r: 0.66, bond: 2.9 },
 ];
 const KCAL = 0.0433641153;                  // kcal/mol -> eV
 const KE_COUL = 14.399645;                  // eV*A / e^2
@@ -61,14 +73,14 @@ export class Mat {
     this.start = new Int32Array(maxN + 1); this.nbr = new Int32Array(1 << 14);              // covalent full list (CSR)
     this.bonds = []; this.angles = []; this.oops = [];                                       // topology for 'ff'
     this.rdfBins = 120; this.rdfMax = 6; this.rdfHist = new Float64Array(this.rdfBins); this.rdfSamples = 0; this.rdfWant = false;
-    this.label = ''; this.name = '';
+    this.label = ''; this.name = ''; this.chem = new Chem(this);
     this.scratch = { j: new Int32Array(64), dx: new Float64Array(64), dy: new Float64Array(64), dz: new Float64Array(64), r: new Float64Array(64), fc: new Float64Array(64), dfc: new Float64Array(64) };
   }
   get isMat() { return true; }
   get density() { return this.N; }
   get periodicAny() { return this.per[0] || this.per[1] || this.per[2]; }
 
-  clear() { this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
+  clear() { this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
 
   addRaw(sp, x, y, z, grp) {
     const i = this.N++; this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass; this.grp[i] = grp;
@@ -76,47 +88,74 @@ export class Mat {
   }
 
   /* ---------------- structure builders ---------------- */
-  // graphene sheet: nx*ny rectangular 4-atom cells (zigzag along x), periodic in x and y
-  buildGraphene(nx, ny, T0, layers = 1, stacked = false) {
+  // graphene sheet: nx*ny rectangular 4-atom cells (zigzag along x), periodic in x and y -
+  // or, with open = true, a free-standing flake: no periodic images, vacuum all round, dangling edge atoms removed
+  buildGraphene(nx, ny, T0, layers = 1, stacked = false, open = false) {
     this.clear(); this.model = 'tersoff'; this.tp = TERSOFF.graphene; this.vdw = stacked ? VDW.graphite : null; this.charges = false;
-    const b = GR_B, a = Math.sqrt(3) * b, dz = 3.35, vac = 14;
-    if (stacked) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (3 * b))); }
+    const b = GR_B, a = Math.sqrt(3) * b, dz = 3.35, vac = 14, M = open ? OPEN_MARGIN : 0;
+    if (stacked && !open) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (3 * b))); }
     if (4 * nx * ny * layers > this.maxN) throw new Error('too many atoms - choose a smaller sheet');
-    this.Lx = nx * a; this.Ly = ny * 3 * b; this.Lz = (layers - 1) * dz + vac; this.per = [true, true, false];
+    this.Lx = nx * a + 2 * M; this.Ly = ny * 3 * b + 2 * M; this.Lz = (layers - 1) * dz + vac; this.per = open ? [false, false, false] : [true, true, false];
+    const Px = nx * a, Py = ny * 3 * b, wrap = (v, Lm) => open ? v : ((v % Lm) + Lm) % Lm;
     const z0 = this.Lz / 2 - (layers - 1) * dz / 2;
     for (let L = 0; L < layers; L++) {
       const sy = (L % 2) * b;                                  // AB (Bernal) stacking: shift of one bond length
       for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (const [px, py] of [[0, 0], [a / 2, b / 2], [a / 2, 1.5 * b], [0, 2 * b]])
-        this.addRaw(SP.C, (i * a + px) % this.Lx, ((j * 3 * b + py + sy) % this.Ly + this.Ly) % this.Ly, z0 + L * dz, L);
+        this.addRaw(SP.C, M + wrap(i * a + px, Px), M + wrap(j * 3 * b + py + sy, Py), z0 + L * dz, L);
     }
-    this.name = layers === 1 ? 'Graphene' : `Graphite (${layers} layers, AB)`;
+    if (open) this.trimEdges(1.7, 2);
+    this.sheet = true;
+    this.name = open ? (layers === 1 ? 'Graphene flake' : `Graphite flake, ${layers} layers`) : (layers === 1 ? 'Graphene' : `Graphite (${layers} layers, AB)`);
     this.finish(T0, 0.5);
   }
   // graphite = stacked graphene with vdW between layers
-  buildGraphite(nx, ny, layers, T0) { this.buildGraphene(nx, ny, T0, layers, true); }
+  buildGraphite(nx, ny, layers, T0, open = false) { this.buildGraphene(nx, ny, T0, layers, true, open); }
 
-  // MoS2 2H: 1 or 2 layers, periodic in x,y
-  buildMoS2(nx, ny, layers, T0) {
+  // MoS2 2H: 1 or 2 layers, periodic in x,y (or an open flake)
+  buildMoS2(nx, ny, layers, T0, open = false) {
     this.clear(); this.model = 'sw'; this.vdw = layers > 1 ? VDW.mos2 : null; this.charges = false;
-    const a = MOS2.a, hS = MOS2.h, c2 = 6.15, vac = 14;
-    if (layers > 1) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (Math.sqrt(3) * a))); }
+    const a = MOS2.a, hS = MOS2.h, c2 = 6.15, vac = 14, M = open ? OPEN_MARGIN : 0;
+    if (layers > 1 && !open) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (Math.sqrt(3) * a))); }
     if (6 * nx * ny * layers > this.maxN) throw new Error('too many atoms - choose a smaller sheet');
-    this.Lx = nx * a; this.Ly = ny * Math.sqrt(3) * a; this.Lz = (layers - 1) * c2 + 2 * hS + vac; this.per = [true, true, false];
+    const Px = nx * a, Py = ny * Math.sqrt(3) * a;
+    this.Lx = Px + 2 * M; this.Ly = Py + 2 * M; this.Lz = (layers - 1) * c2 + 2 * hS + vac; this.per = open ? [false, false, false] : [true, true, false];
     const zc = this.Lz / 2 - (layers - 1) * c2 / 2;
     const ox = a / 2, oy = a / (2 * Math.sqrt(3));
+    const w = (v, Lm) => M + (open ? v : ((v % Lm) + Lm) % Lm);
     for (let L = 0; L < layers; L++) {
       const z = zc + L * c2, flip = L % 2;                      // 2H: second layer has Mo over the first layer's S sites
       for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (const [px, py] of [[0, 0], [a / 2, Math.sqrt(3) * a / 2]]) {
         const X = i * a + px, Y = j * Math.sqrt(3) * a + py;
         const mx = flip ? X + ox : X, my = flip ? Y + oy : Y, sx = flip ? X : X + ox, sy = flip ? Y : Y + oy;
-        const w = (v, Lm) => ((v % Lm) + Lm) % Lm;
-        this.addRaw(SP.Mo, w(mx, this.Lx), w(my, this.Ly), z, L);
-        this.addRaw(SP.S, w(sx, this.Lx), w(sy, this.Ly), z + hS, L);
-        this.addRaw(SP.S, w(sx, this.Lx), w(sy, this.Ly), z - hS, L);
+        this.addRaw(SP.Mo, w(mx, Px), w(my, Py), z, L);
+        this.addRaw(SP.S, w(sx, Px), w(sy, Py), z + hS, L);
+        this.addRaw(SP.S, w(sx, Px), w(sy, Py), z - hS, L);
       }
     }
-    this.name = layers === 1 ? 'MoS₂ monolayer' : `MoS₂ (${layers} layers, 2H)`;
+    if (open) this.trimEdges(2.9, 2);
+    this.sheet = true;
+    this.name = open ? (layers === 1 ? 'MoS₂ flake' : 'MoS₂ flake, 2 layers') : (layers === 1 ? 'MoS₂ monolayer' : `MoS₂ (${layers} layers, 2H)`);
     this.finish(T0, 0.8);
+  }
+
+  // open flakes: repeatedly remove atoms with fewer than minNb covalent neighbours (closer than rb, unlike-species for MoS2)
+  trimEdges(rb, minNb) {
+    for (let pass = 0; pass < 6; pass++) {
+      const keep = [];
+      for (let i = 0; i < this.N; i++) {
+        let n = 0;
+        for (let j = 0; j < this.N; j++) {
+          if (j === i || this.grp[j] !== this.grp[i]) continue;
+          if (this.model === 'sw' && this.sp[j] === this.sp[i]) continue;
+          const dx = this.x[j] - this.x[i], dy = this.y[j] - this.y[i], dz = this.z[j] - this.z[i];
+          if (dx * dx + dy * dy + dz * dz < rb * rb) n++;
+        }
+        if (n >= minNb) keep.push(i);
+      }
+      if (keep.length === this.N) return;
+      keep.forEach((i, k) => { this.sp[k] = this.sp[i]; this.mass[k] = this.mass[i]; this.grp[k] = this.grp[i]; this.x[k] = this.x[i]; this.y[k] = this.y[i]; this.z[k] = this.z[i]; });
+      this.N = keep.length; this.listDirty = true;
+    }
   }
 
   // diamond cluster of given radius (A): bare, carved from the lattice
@@ -168,7 +207,7 @@ export class Mat {
     this.thermostat = true; this.Ttarget = T0; this.listDirty = true; this.exploded = false;
     this.computeForces(); this.quench(400, quenchDt);
     this.thermalise(T0); this.computeForces(); this.mark(); this.resetRDF(); this.time = 0; this.step = 0;
-    this.dt = (this.model === 'ff' ? 0.5 : 1.0) / TU_FS;
+    this.dt = (this.model === 'ff' || this.model === 'uff' ? 0.5 : 1.0) / TU_FS;
   }
 
   quench(steps, dtfs) {
@@ -226,6 +265,9 @@ export class Mat {
 
   buildLists() {
     const N = this.N, pe = this.per, Lx = this.Lx, Ly = this.Ly, Lz = this.Lz;
+    if (this.model === 'uff') {                                   // chemistry mode: bonds come from the topology, not from distances
+      this.chem.syncLists(); this.listN = N; this.xr.set(this.x.subarray(0, N)); this.yr.set(this.y.subarray(0, N)); this.zr.set(this.z.subarray(0, N)); this.listDirty = false; return;
+    }
     const rc = this.rcov() + this.skinC, rc2 = rc * rc, rv = this.rvdw() + this.skinV, rv2 = rv * rv, useV = !!this.vdw;
     let nb = 0, nv = 0; const deg = this.start; deg.fill(0, 0, N + 1);
     const pushB = (i, j) => { if (nb >= this.bi.length) { const a = new Int32Array(nb * 2); a.set(this.bi); this.bi = a; const b = new Int32Array(nb * 2); b.set(this.bj); this.bj = b; } this.bi[nb] = i; this.bj[nb] = j; nb++; deg[i + 1]++; deg[j + 1]++; };
@@ -258,7 +300,7 @@ export class Mat {
     const N = this.N; for (let i = 0; i < N; i++) { this.fx[i] = this.fy[i] = this.fz[i] = 0; }
     if (this.needList()) this.buildLists();
     let pe = 0;
-    if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF();
+    if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF(); else if (this.model === 'uff') pe += this.chem.forces();
     if (this.vdw) pe += this.fVdw();
     pe += this.fExt();
     this.PE = pe; this.updateCoord();
@@ -275,7 +317,7 @@ export class Mat {
       zs[i] += 0.05 * (n - zs[i]);
     }
   }
-  bondLimit(i, j) { const a = this.sp[i], b = this.sp[j]; if (a === SP.S && b === SP.S) return 0; if (a === SP.Mo && b === SP.Mo) return 0; return Math.max(SPECIES[a].bond, SPECIES[b].bond) > 2 ? 2.9 : (a === SP.H || b === SP.H) ? 1.3 : 1.9; }
+  bondLimit(i, j) { if (this.model === 'uff') return 99; const a = this.sp[i], b = this.sp[j]; if (a === SP.S && b === SP.S) return 0; if (a === SP.Mo && b === SP.Mo) return 0; return Math.max(SPECIES[a].bond, SPECIES[b].bond) > 2 ? 2.9 : (a === SP.H || b === SP.H) ? 1.3 : 1.9; }
 
   fTersoff() {
     const P = this.tp, N = this.N, S = this.scratch, Rc = P.R + P.D, Rc2 = Rc * Rc, pe = this.per;
@@ -455,6 +497,7 @@ export class Mat {
       this.move(i, dt * vx[i], dt * vy[i], dt * vz[i]);
     }
     this.computeForces();
+    if (this.model === 'uff' && this.step % 5 === 0 && this.chem.breakStretched()) this.computeForces();     // overstretched bonds snap
     for (let i = 0; i < N; i++) { const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i]; }
     let KE = this.kinetic();
     if (this.thermostat && KE > 0) {
@@ -475,7 +518,7 @@ export class Mat {
     let best = -1, bd = 1e9;
     for (let i = 0; i < this.N; i++) { const d = Math.hypot(this.x[i] - px, this.y[i] - py, this.z[i] - pz); if (d < bd) { bd = d; best = i; } }
     if (bd < 0.9) return -1;
-    const g = best >= 0 ? this.grp[best] : 0, i = this.addRaw(sp, px, py, pz, g);
+    const g = best >= 0 ? this.grp[best] : 0, i = this.addRaw(sp, px, py, pz, g); if (this.model === 'uff') this.chem.dirty = true;
     const s = Math.sqrt(KB * Math.max(this.Ttarget, 10) / this.mass[i]); this.vx[i] = s * this.gauss(); this.vy[i] = s * this.gauss(); this.vz[i] = s * this.gauss();
     this.computeForces(); return i;
   }
@@ -484,7 +527,20 @@ export class Mat {
     const l = --this.N; this.listDirty = true;
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_']) this[k][i] = this[k][l]; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
+    if (this.model === 'uff') this.chem.removeAtom(i, l);
     this.computeForces();
+  }
+
+  /* ---------------- chemistry mode (src/chem.js) ---------------- */
+  // turn the current structure into explicit bonds on the UFF force field (keeps the atoms where they are)
+  toChem(T0) {
+    if (this.model === 'sw') throw new Error('MoS\u2082 is not available in the chemistry mode');
+    this.chem.fromGeometry(); this.model = 'uff'; this.vdw = null; this.charges = false; this.bonds = []; this.angles = []; this.oops = [];
+    this.listDirty = true; this.name = this.name + ' \u00B7 chemistry'; this.finish(T0, 0.3);
+  }
+  buildEmpty(span = 30) {
+    this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.per = [false, false, false];
+    this.Lx = this.Ly = this.Lz = span; this.chem.clear(); this.name = 'Empty box \u00B7 chemistry'; this.listDirty = true; this.finish(10, 0.3);
   }
   groupCOM(i) { const g = this.grp[i], x0 = this.x[i], y0 = this.y[i], z0 = this.z[i]; let M = 0, a = 0, b = 0, c = 0; for (let k = 0; k < this.N; k++) if (this.grp[k] === g) { const m = this.mass[k]; M += m; a += m * this.mi(this.x[k] - x0, this.Lx, this.per[0]); b += m * this.mi(this.y[k] - y0, this.Ly, this.per[1]); c += m * this.mi(this.z[k] - z0, this.Lz, this.per[2]); } return [x0 + a / M, y0 + b / M, z0 + c / M]; }
   switchBoundary() { }

@@ -147,9 +147,54 @@ export const TASKS = [
     ],
     ask: 'Real nanodiamonds have hydrogen or oxygen on the surface. What would change here if every dangling bond were capped?',
   },
+  {
+    title: '13 \u00B7 Current through graphene',
+    goal: 'Put two electrodes on a graphene flake and watch where the electrons go - while the atoms keep moving.',
+    setup: { build: { sys: 'mat', mat: 'graphene', size: 10, Tm: 100, open: true }, TsetK: 100, speed: 6, contacts: 'ends', tab: 'ELEC' },
+    steps: [
+      'Load the setup: an open graphene flake (no periodic boundaries, free edges) at 100 K, with electrodes on the two short ends. Blue atoms are the \u2212 contact (electrons enter), red atoms the + contact.',
+      'The ELEC tab shows the result. The arrows are the bond currents (conventional current, from + to \u2212): larger and warmer = more current. The plots show the transmission T(E) and the current I(V).',
+      'Move the electrodes with the \u2212 and + contact tools: click (or drag over) atoms to add them, click again to remove. Try one atom at each end, then a whole edge.',
+      'Delete a few atoms in the middle, or stretch the flake with the tweezers. The current finds its way round the hole, and the I(V) curve changes.',
+    ],
+    ask: 'Graphene has no band gap. How can you see that in T(E) and I(V)? Where in the flake does most of the current run, and why?',
+  },
+  {
+    title: '14 \u00B7 Quantum interference in benzene',
+    goal: 'The same molecule, the same electrodes - but where you attach them decides whether the waves add up or cancel.',
+    setup: { build: { sys: 'mat', mat: 'benzene', nmol: 1, Tm: 20 }, TsetK: 20, speed: 4, contacts: [[0], [3]], tab: 'ELEC', bias: 0.5 },
+    steps: [
+      'Load the setup: one benzene molecule at 20 K with the electrodes on opposite carbon atoms (para).',
+      'Read T(E_F) and the current on the ELEC tab. Benzene has a gap of about 5 eV, so the current is small - but not zero.',
+      'Press Clear contacts and put the + contact two carbons round the ring from the \u2212 contact (meta). The current drops by a factor of a few hundred: the two paths round the ring cancel.',
+      'Try ortho (neighbouring carbons). Then raise the bias towards 6 V: when the bias window reaches a molecular level the current jumps (resonant tunnelling).',
+    ],
+    ask: 'The electron has the same distance to travel in all three cases. Why does meta conduct so much worse at low bias?',
+  },
+  {
+    title: '15 \u00B7 Decorate graphene',
+    goal: 'Attach atoms to a graphene flake and watch the carbon underneath change from flat (sp\u00B2) to tetrahedral (sp\u00B3) - and what that does to the current.',
+    setup: { build: { sys: 'mat', mat: 'graphene', size: 10, Tm: 100, open: true, chem: true }, TsetK: 100, speed: 6, contacts: 'ends', tab: 'ELEC' },
+    steps: [
+      'Load the setup: an open graphene flake in the chemistry mode (explicit bonds, any main-group element), with electrodes on the two ends. Note the current.',
+      'BUILD \u2192 Edit by hand: choose Attach and F, then click a carbon in the middle. The carbon gets a fourth bond, becomes sp\u00B3 and pops out of the sheet by about 0.4 \u00C5; its three C\u2013C bonds stretch from 1.42 to about 1.51 \u00C5. Rotate the view to see the pucker.',
+      'On the ELEC tab: the sp\u00B3 carbon has lost its \u03C0 orbital, so the current has to go round it. Attach H, F and OH (O with "Fill valence with H") across the middle and watch T(E): the band is blocked, while broken π bonds leave localised states near E_F that can even carry current resonantly on a small flake.',
+      'Attach on both sides of the sheet, or put two atoms on neighbouring carbons. Use the tweezers to pull an F off: the bond snaps at 1.6\u00D7 its length and the carbon flattens again.',
+    ],
+    ask: 'Why does one attached atom hurt the current so much more than its size suggests? What would full coverage (graphane, fluorographene) do?',
+  },
 ];
 
 export const VR_HELP = [
+  {
+    title: 'Quest + PC (Meta Horizon Link)',
+    lines: [
+      '1.  Connect the Quest to the PC (Link cable or Air Link) and start Link in the headset. In the Meta Horizon Link app on the PC: Settings \u2192 General \u2192 OpenXR runtime = Meta Horizon Link.',
+      '2.  Open this page in Chrome or Edge on the PC (http://localhost or https, not file://) and press Enter VR once.',
+      '3.  If the headset only shows a loading screen: an earlier Chrome session is still holding Link. Close Chrome completely (Task Manager \u2192 End task), restart Link in the headset and try again.',
+      '4.  Windows: set Chrome to "High performance" in Settings \u2192 System \u2192 Display \u2192 Graphics, so it uses the same graphics card as Link.',
+    ],
+  },
   {
     title: 'Quest + PC via SteamVR',
     lines: [
@@ -172,9 +217,18 @@ export const VR_HELP = [
     lines: [
       'Point at the panel with a controller ray and pull the TRIGGER to press buttons or drag sliders.',
       'Aim at atoms and hold the TRIGGER with the Tweezers tool: the atom follows your hand through a spring. Push the thumbstick forward or back to reel it in or out.',
-      'GRIP: pick up and rotate the experiment. Both grips: stretch to scale it.',
-      'RIGHT stick up/down: heat or cool (target T).  LEFT stick up/down: expand or compress the box.',
+      'GRIP while pointing at a panel: move the panel. GRIP anywhere else: pick up and rotate the experiment. Both grips: stretch to scale it.',
+      'LEFT stick: walk (glide) in the direction you look, also while seated.  RIGHT stick left/right: turn (30\u00B0 steps, or smooth - VR tab).  RIGHT stick up/down: heat or cool (target T). Box size and table height: sliders on the RUN and VR tabs.',
       'A / X: next tool.  B / Y: run or pause.  Thumbstick click: recentre in front of you.',
+      'Recentring also fits the table and the panels to your eye height, seated or standing. The VR tab has a table-height slider and a dark / white lab switch.',
+    ],
+  },
+  {
+    title: 'Electron transport: how it is modelled',
+    lines: [
+      'One \u03C0 (p) orbital per carbon atom, pointing along the local normal of its bonds. Hopping between orbitals follows their actual distance and angle (Slater-Koster form, -2.7 eV at 1.42 \u00C5), so stretching, rippling and the graphite interlayer coupling all enter.',
+      'Electrodes are wide-band contacts on the marked atoms. T(E), the current I = (2e\u00B2/h) \u222B T(E)[f\u208B - f\u208A] dE and the bond currents come from the Green\u2019s function, recomputed from the live geometry a few times a second.',
+      'The bias only sets the energy window (no self-consistent potential drop). Hydrogen carries no orbital; MoS\u2082 needs a d-orbital model and is not supported. Use Open flake for sheets: on a periodic sheet the current can also run round the boundary.',
     ],
   },
   {
