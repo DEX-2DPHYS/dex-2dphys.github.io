@@ -29,12 +29,14 @@ const T = {
   P_3: [1.101, 93.8, 4.147, 0.305, 2.863, 5.463],
   S_3: [1.064, 92.1, 4.035, 0.274, 2.703, 6.928], S_2: [0.854, 120, 4.035, 0.274, 2.703, 6.928],
   Cl: [1.044, 180, 3.947, 0.227, 2.348, 8.564], Br: [1.192, 180, 4.189, 0.251, 2.519, 7.790], I_: [1.382, 180, 4.500, 0.339, 2.650, 6.822],
+  // gold electrode atoms (molecular junctions): UFF Au radius/vdW; they are held fixed, so only the Au-S bond and vdW matter
+  Au: [1.262, 180, 3.293, 0.039, 2.0, 4.894],
 };
 // torsion barriers: sp3 V (kcal/mol) and sp2 U, per element
 const TV = { C: 2.119, N: 0.450, O: 0.018, Si: 1.225, P: 2.400, S: 0.484 }, TU = { B: 1.25, C: 2.0, N: 2.0, O: 2.0, Si: 1.25, P: 1.25, S: 1.25 };
-export const VALENCE = { H: 1, B: 3, C: 4, N: 3, O: 2, F: 1, Si: 4, P: 3, S: 2, Cl: 1, Br: 1, I: 1 };
+export const VALENCE = { H: 1, B: 3, C: 4, N: 3, O: 2, F: 1, Si: 4, P: 3, S: 2, Cl: 1, Br: 1, I: 1, Au: 1 };
 export const CHEM_ELEMENTS = ['H', 'B', 'C', 'N', 'O', 'F', 'Si', 'P', 'S', 'Cl', 'Br', 'I'];
-const HYB = (t) => t === 'H_' || t === 'F_' || t === 'Cl' || t === 'Br' || t === 'I_' ? 0 : /_1$/.test(t) ? 1 : /_[R2]$/.test(t) ? 2 : 3;
+const HYB = (t) => t === 'H_' || t === 'F_' || t === 'Cl' || t === 'Br' || t === 'I_' || t === 'Au' ? 0 : /_1$/.test(t) ? 1 : /_[R2]$/.test(t) ? 2 : 3;
 const SW_LO = 1.25, SW_HI = 1.6;                        // bond switch (in rest lengths): 1 below LO, 0 at HI, removed above HI
 const RC = 8.0, SKIN = 1.0;
 
@@ -45,7 +47,7 @@ export function typeFor(sym, deg, nSp2C = 0) {
     case 'C': return deg >= 4 ? 'C_3' : deg === 3 ? (nSp2C >= 2 ? 'C_R' : 'C_2') : deg === 2 ? 'C_2' : 'C_2';
     case 'N': return deg === 3 ? (nSp2C >= 1 ? 'N_R' : 'N_3') : deg === 2 ? 'N_2' : deg === 1 ? 'N_1' : 'N_3';
     case 'O': return deg >= 2 ? 'O_3' : 'O_2';
-    case 'Si': return 'Si3'; case 'P': return 'P_3'; case 'S': return deg <= 1 ? 'S_2' : 'S_3';
+    case 'Si': return 'Si3'; case 'P': return 'P_3'; case 'S': return deg <= 1 ? 'S_2' : 'S_3'; case 'Au': return 'Au';
     default: return 'C_3';
   }
 }
@@ -101,10 +103,10 @@ export class Chem {
     for (const [a, b] of this.bonds) { this.deg[a]++; this.deg[b]++; }
     const nb = Array.from({ length: N }, () => []); for (const [a, b] of this.bonds) { nb[a].push(b); nb[b].push(a); }
     this.nb = nb;
-    for (let i = 0; i < N; i++) { let c = 0; for (const j of nb[i]) if (this.sym(j) === 'C' && this.deg[j] <= 3 && this.deg[j] >= 2) c++; this.type[i] = typeFor(this.sym(i), this.deg[i], c); }
+    for (let i = 0; i < N; i++) { let c = 0; for (const j of nb[i]) { const e = this.sym(j); if ((e === 'C' || e === 'B' || e === 'N') && this.deg[j] <= 3 && this.deg[j] >= 2) c++; } this.type[i] = typeFor(this.sym(i), this.deg[i], c); }
     // bond orders: aromatic 1.5 inside an sp2 carbon/nitrogen network, then double bonds where both ends have valence left
     const fr = new Int32Array(N); for (let i = 0; i < N; i++) fr[i] = this.valence(i) - this.deg[i];
-    const arom = (t) => t === 'C_R' || t === 'N_R';
+    const arom = (t) => t === 'C_R' || t === 'N_R' || t === 'B_2';
     this.order = this.bonds.map(([a, b]) => arom(this.type[a]) && arom(this.type[b]) ? 1.5 : 1);
     this.bonds.forEach(([a, b], k) => { if (this.order[k] === 1 && fr[a] > 0 && fr[b] > 0 && HYB(this.type[a]) <= 2 && HYB(this.type[b]) <= 2) { this.order[k] = 2; fr[a]--; fr[b]--; } });
     // per-bond constants

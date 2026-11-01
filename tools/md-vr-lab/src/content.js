@@ -217,7 +217,7 @@ export const VR_HELP = [
     lines: [
       'Point at the panel with a controller ray and pull the TRIGGER to press buttons or drag sliders.',
       'Aim at atoms and hold the TRIGGER with the Tweezers tool: the atom follows your hand through a spring. Push the thumbstick forward or back to reel it in or out.',
-      'GRIP while pointing at a panel: move the panel. GRIP anywhere else: pick up and rotate the experiment. Both grips: stretch to scale it.',
+      'GRIP (the button under your middle finger) while pointing at a panel: move the panel. GRIP anywhere else: pick up and turn the experiment. BOTH GRIPS: pull your hands apart to make it bigger, together to make it smaller, twist to turn it.',
       'LEFT stick: walk (glide) in the direction you look, also while seated.  RIGHT stick left/right: turn (30\u00B0 steps, or smooth - VR tab).  RIGHT stick up/down: heat or cool (target T). Box size and table height: sliders on the RUN and VR tabs.',
       'A / X: next tool.  B / Y: run or pause.  Thumbstick click: recentre in front of you.',
       'The TOOLBAR at the front edge of the table holds the editing tools and the element button (periodic table). Trigger on a button to use it.',
