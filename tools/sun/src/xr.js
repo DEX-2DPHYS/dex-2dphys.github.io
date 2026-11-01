@@ -307,7 +307,7 @@ export function createXR(ctx) {
     // ---- wrist panel
     if (Lh?.gamepad && Lh.statusOn !== Lh.grip) { Lh.grip.add(status.mesh); Lh.statusOn = Lh.grip; }
     msgT -= dt;
-    const key = [ctx.currentView(), S.filter, S.cut, S.tmap, S.field, S.cycleYear?.toFixed(1), metresPerR().toPrecision(2), msgT > 0 ? msg : ''].join('|');
+    const key = [Math.round(fps), Math.round(rtScale * 100), ctx.currentView(), S.filter, S.cut, S.tmap, S.field, S.cycleYear?.toFixed(1), metresPerR().toPrecision(2), msgT > 0 ? msg : ''].join('|');
     if (key !== status.key) { drawStatus(); status.key = key; }
   }
 
@@ -328,6 +328,7 @@ export function createXR(ctx) {
     g.font = `20px ${FONT}`; g.fillStyle = '#9d8b7e';
     g.fillText('A instrument · B view · trigger: read-out', x, y + 8);
     g.fillText('X flare · Y cutaway · L-trigger listen · grip: grab', x, y + 36);
+    g.fillStyle = '#7f7268'; g.fillText(`${Math.round(fps)} fps · resolution ${Math.round(rtScale * 100)} %${canHalf ? '' : ' · 8-bit'}`, x, y + 64);
     if (msgT > 0 && msg) { g.fillStyle = '#ffcf8a'; g.font = `600 24px ${FONT}`; g.fillText(msg, x, H - 22); }
     status.tex.needsUpdate = true;
   }
@@ -336,7 +337,18 @@ export function createXR(ctx) {
   // As on the desktop, the scene is drawn into a linear half-float target and tone mapping + sRGB
   // are applied ONCE to the finished image (per eye, by a quad in front of the head). Converting
   // each additive layer on its own would make faint glows far too bright over the disc.
-  const rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType, samples: LITE ? 2 : 4 });
+  // A Quest draws on a phone-class GPU: the scene is rendered at a FRACTION of the headset's
+  // resolution (rtScale), adapted to the frame rate, without MSAA, and the quad scales it up.
+  // At full resolution the photosphere shader can stall the GPU until the browser drops the WebGL
+  // context (a dark headset). Half float only where the GPU can render to it.
+  const ext = renderer.extensions;
+  const canHalf = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float');
+  const rt = new THREE.WebGLRenderTarget(16, 16, { type: canHalf ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: LITE ? 0 : 4 });
+  const Qs = new URLSearchParams(location.search);
+  const SCALE_MAX = parseFloat(Qs.get('xrrt') || (LITE ? '0.8' : '1'));
+  let rtScale = Math.min(SCALE_MAX, LITE ? (Qs.get('safe') === '1' ? 0.4 : 0.55) : 1);
+  let lastT = 0, ema = 0, nextAdapt = 0, fps = 0;
+  const _vps = [];
   const post = new THREE.Scene();
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
     uniforms: { tMap: { value: rt.texture }, uSize: { value: new THREE.Vector2(16, 16) } },
@@ -358,13 +370,37 @@ export function createXR(ctx) {
   function render() {
     const bl = xr.getBaseLayer();
     const w = bl?.framebufferWidth || 2, h = bl?.framebufferHeight || 2;
-    if (rt.width !== w || rt.height !== h) { rt.setSize(w, h); quad.material.uniforms.uSize.value.set(w, h); }
+    adapt();
+    const rw = Math.max(2, Math.round(w * rtScale)), rh = Math.max(2, Math.round(h * rtScale));
+    if (rt.width !== rw || rt.height !== rh) rt.setSize(rw, rh);
+    quad.material.uniforms.uSize.value.set(w, h);   // the quad runs on the headset framebuffer
+    // three sets each eye's viewport in framebuffer pixels: scale them to the smaller target
+    const cams = xr.getCamera().cameras;
+    for (let i = 0; i < cams.length; i++) {
+      const v = cams[i].viewport; if (!v) continue;
+      (_vps[i] ||= new THREE.Vector4()).copy(v);
+      v.set(Math.round(v.x * rtScale), Math.round(v.y * rtScale), Math.round(v.z * rtScale), Math.round(v.w * rtScale));
+    }
     renderer.setRenderTarget(rt);
     renderer.render(scene, camera);
+    for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
     // the quad sits 5 cm in front of the head (in rig metres), filling both eyes' views
     quad.matrix.multiplyMatrices(camera.matrixWorld, _qm); quad.matrixWorldNeedsUpdate = true;   // no parent: world = matrix
     renderer.setRenderTarget(null);
     renderer.render(post, camera);
+  }
+
+  // frame-rate driven resolution: below ~75 % of the headset's rate, render fewer pixels
+  function adapt() {
+    const t = performance.now();
+    if (lastT) { const d = Math.min(500, t - lastT); ema = ema ? ema * 0.9 + d * 0.1 : d; }
+    lastT = t;
+    if (!ema || t < nextAdapt) return;
+    const target = 1000 / (xr.getSession()?.frameRate || 72);
+    fps = 1000 / ema;
+    if (ema > target * 1.35 && rtScale > 0.3) { rtScale = Math.max(0.3, rtScale * 0.8); nextAdapt = t + 1500; }
+    else if (ema < target * 1.12 && rtScale < SCALE_MAX) { rtScale = Math.min(SCALE_MAX, rtScale * 1.08); nextAdapt = t + 4000; }
+    else nextAdapt = t + 1000;
   }
 
   // co-rotation with the Sun in Sun-frame views
@@ -377,7 +413,7 @@ export function createXR(ctx) {
     say,
     debug: () => ({ mode, card: card.mesh.visible, cardText: lastCardKey.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120),
       mPerR: metresPerR(), rig: rig.position.toArray().map((x) => +x.toFixed(3)), head: headWorld().toArray().map((x) => +x.toFixed(3)),
-      ctrls: ctrls.map((s) => s.handedness + (s.gamepad ? '+gp' : '')), fade: fade.material.opacity,
+      ctrls: ctrls.map((s) => s.handedness + (s.gamepad ? '+gp' : '')), fade: fade.material.opacity, rtScale, rt: [rt.width, rt.height], fps,
       ray: (() => { const st = hand('right'); if (!st) return null; const r = ctrlRay(st); return { o: r.o.toArray(), d: r.d.toArray() }; })() }),
   };
 }

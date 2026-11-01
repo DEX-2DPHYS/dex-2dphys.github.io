@@ -23,13 +23,47 @@ const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 // ------------------------------------------------------------------ renderer / scene
 // Scene unit: 1 = one solar radius (695 700 km). The Sun turns about +y.
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
-renderer.setPixelRatio(LITE ? 1 : Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(LITE ? (Q.get('safe') === '1' ? 0.7 : 1) : Math.min(window.devicePixelRatio, 1.5));
 // a link-status query would make the page wait for every shader; only ask when debugging
 renderer.debug.checkShaderErrors = Q.get('debug') === '1';
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.localClippingEnabled = true;
+
+// ------------------------------------------------------------------ when the GPU gives up
+// A headset GPU that stalls too long makes the browser drop the WebGL context: the page (or the
+// headset) goes dark with no error. Say so, remember it for the next load, and reload lighter.
+const GPU = (() => { try { const gl = renderer.getContext(); const e = gl.getExtension('WEBGL_debug_renderer_info');
+  return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); } catch (e) { return '?'; } })();
+function notice(text, ms) {
+  let el = document.getElementById('sunNotice');
+  if (!el) { el = document.createElement('div'); el.id = 'sunNotice';
+    el.style.cssText = 'position:fixed;left:50%;bottom:44px;transform:translateX(-50%);max-width:min(92vw,640px);padding:10px 14px;border-radius:10px;background:rgba(40,14,8,.92);border:1px solid rgba(255,140,80,.5);color:#ffd9b8;font:500 14px/1.4 system-ui,sans-serif;z-index:50;white-space:pre-line';
+    document.body.appendChild(el); }
+  el.textContent = text; el.hidden = false;
+  clearTimeout(el._t); if (ms) el._t = setTimeout(() => { el.hidden = true; }, ms);
+}
+const diagNow = () => { try { return diagRaw(); } catch (e) { return { at: Date.now(), gpu: GPU }; } };
+const diagRaw = () => ({ at: Date.now(), gpu: GPU, xr: typeof xr !== 'undefined' && xr ? xr.mode : null,
+  xrd: typeof xr !== 'undefined' && xr && xr.presenting ? (({ rtScale, rt, fps }) => ({ rtScale, rt, fps: Math.round(fps) }))(xr.debug()) : null,
+  pr: renderer.getPixelRatio(), lite: LITE });
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  const d = diagNow();
+  try { localStorage.setItem('sun.lost', JSON.stringify(d)); } catch (err) { /* private mode */ }
+  notice('The graphics stopped (WebGL context lost' + (d.xr ? ' in ' + d.xr.toUpperCase() : '') + ').\nReloading in a lighter mode…');
+  const u = new URL(location.href); u.searchParams.set('lite', '1'); u.searchParams.set('safe', '1');
+  setTimeout(() => location.replace(u.href), 2500);
+});
+addEventListener('error', (e) => notice('Error: ' + (e.message || e.error), 12000));
+addEventListener('unhandledrejection', (e) => notice('Error: ' + (e.reason?.message || e.reason), 12000));
+try { const L = JSON.parse(localStorage.getItem('sun.lost') || 'null');
+  if (L && Date.now() - L.at < 15 * 60e3) {
+    localStorage.removeItem('sun.lost');
+    notice('Last time the graphics stopped' + (L.xr ? ' in ' + L.xr.toUpperCase() : '') + (L.xrd ? ` at ${Math.round(L.xrd.rtScale * 100)} % resolution, ${L.xrd.fps} fps` : '') +
+      '.\nNow running lighter.' + (Q.get('safe') === '1' ? ' GPU: ' + L.gpu : ''), 20000);
+  } } catch (e) { /* ignore */ }
 renderer.setClearColor(0x000000, 1);   // the clear colour reaches the output sRGB-encoded: keep it truly black
 renderer.domElement.tabIndex = 0;
 stage.appendChild(renderer.domElement);
@@ -656,8 +690,23 @@ function frame() {
   if (sound.isOn() && specEl) sound.draw(specEl);
 
   if (xr.presenting) { xr.render(); return; }
+  if (LITE) adaptFlat(dt);
   composer.render();
   if (figQueue.length) { serveFigure(); controls.update(); updateBillboards(); composer.render(); }
+}
+// Light mode on the flat page: if frames are slow, render fewer pixels (down to half).
+let flatEma = 0, flatNext = 0;
+function adaptFlat() {
+  const t = performance.now(), d = t - (adaptFlat.t || t); adaptFlat.t = t;
+  if (!d) return;
+  flatEma = flatEma ? flatEma * 0.9 + Math.min(d, 500) * 0.1 : d;
+  if (t < flatNext) return;
+  const pr = renderer.getPixelRatio();
+  let np = pr;
+  if (flatEma > 40 && pr > 0.5) np = Math.max(0.5, pr * 0.8);
+  else if (flatEma < 22 && pr < 1) np = Math.min(1, pr * 1.1);
+  flatNext = t + (np < pr ? 1500 : 4000);
+  if (np !== pr) { renderer.setPixelRatio(np); composer.setPixelRatio(np); onResize(); }
 }
 // Compile every shader variant before the first frame, in the background where the browser has
 // KHR_parallel_shader_compile: the photosphere program alone takes seconds to link, and a first
