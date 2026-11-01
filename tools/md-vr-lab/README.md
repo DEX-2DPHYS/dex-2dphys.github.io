@@ -87,6 +87,25 @@ starts from nothing.
 - Current is drawn as bond colour: dark violet (little) through red and orange to yellow (most), grey = none. Currents
   between graphite layers are computed but not drawn (they are not bonds).
 
+## Systems, annihilator, boundary, hands
+
+- **SYSTEMS tab**: built-in systems with their own settings - graphene, graphite, MoS₂, hBN (chemistry model), nanodiamond,
+  carbon nanotube (n, m, length; shows armchair/zigzag/chiral and metallic/semiconducting by zone folding), C₆₀, benzene and
+  molecular junctions (1-3 para-linked benzene rings, thiol anchors, gold pads held fixed; transport contacts on the anchor
+  carbons, so the gold is mechanical and visual, not electronic). Save the current system to the browser's storage (on a
+  Quest: the headset) and load or delete saved ones. The lab starts with an open graphene flake.
+- **Annihilator** (Zap on the toolbar, key 8): hold the trigger to remove every atom inside a cone around the ray (half angle
+  1-25 degrees, SETTINGS). In VR the cone is drawn from the fingertip.
+- **Boundary sphere**: atoms that fly beyond half the box diagonal + 15 Å (out of reach of the tweezers) flash and are removed.
+  Switch off in SETTINGS.
+- **Hands**: a glove on each controller. The laser leaves the index fingertip; the trigger curls the index finger, holding an
+  atom pinches, grip makes a fist. Both grips: pull the hands apart to scale, twist to turn, about the point between the hands.
+- Atoms held fixed (the gold pads) carry no degrees of freedom in the thermostat and the system's drift is not removed when
+  any are present (their push on the rest is real momentum).
+- `test/systems.test.mjs` (12 checks): nanotube diameters and stability, zone folding in the transport ((5,5), (9,0) metallic;
+  (10,0), (8,0) semiconducting), C₆₀, hBN, junctions (pads fixed, no bond lost, conductance falls with every ring),
+  JSON save/restore, cutting many atoms at once.
+
 ## Room, table and panels
 
 - Dark or white lab (VR tab, the *White lab* button, or key T). The furnished room (benches, cabinets, shelves, windows) is merged

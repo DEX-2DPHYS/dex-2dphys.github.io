@@ -14,8 +14,8 @@ import { TASKS, VR_HELP } from './content.js';
 /* ================================================================== state */
 const lj = new MD(MAXN), mat = new Mat(1200);
 let md = lj;                                                                 // the active engine: noble-gas LJ or the materials engine
-const B = { sys: 'lj', el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30,   // build recipe shown on the BUILD tab
-  mat: 'graphene', size: 8, layers: 3, nmol: 7, rad: 7, Tm: 300, open: false, chem: false };
+const B = { sys: 'mat', el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30,   // build recipe shown on the BUILD tab
+  mat: 'graphene', size: 10, layers: 3, nmol: 7, rad: 7, Tm: 300, open: true, chem: false };
 const MAT_DEFAULTS = { empty: { Tm: 50 }, benzene: { nmol: 7, Tm: 100 }, graphene: { size: 8, Tm: 300 }, graphite: { size: 7, layers: 3, Tm: 300 }, mos2: { size: 7, layers: 2, Tm: 300 }, nanodiamond: { rad: 7, Tm: 300 } };
 const MAT_INFO = {
   benzene: 'OPLS-style force field: bonds, angles, planarity; LJ + charges between molecules.',
@@ -24,6 +24,10 @@ const MAT_INFO = {
   mos2: 'Stillinger-Weber (Jiang) layers + van der Waals between layers (2H stacking).',
   nanodiamond: 'Tersoff carbon cluster cut from diamond. Bare surface: it can reconstruct.',
   empty: 'An empty box: place atoms with Add, connect them with Bond, grow molecules with Attach.',
+  cnt: 'Single-wall carbon nanotube rolled from graphene (Tersoff carbon). Set (n, m) and length on the SYSTEMS tab.',
+  c60: 'Buckminsterfullerene C60 (Tersoff carbon).',
+  hbn: 'Hexagonal boron nitride on the chemistry model (UFF, explicit bonds).',
+  junction: 'Benzene rings between gold pads (held fixed), thiol anchors, chemistry model. Contacts on the anchor carbons.',
 };
 const CHEM_INFO = 'Chemistry: explicit bonds on the Universal Force Field (UFF). Attach any main-group atom; valence is respected, hybridisation follows the bonds (sp\u00B2 \u2192 sp\u00B3). Bonds snap at 1.6\u00D7 their length.';
 const S = {
@@ -33,10 +37,11 @@ const S = {
   cel: 'F', fillH: true, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false,                                 // SETTINGS tab, periodic-table popup
+  atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
-const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS'], TAB_ELEC = 4, TAB_VR = 5;
-try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['atomR', 'sameSize', 'bondR', 'arrows', 'curBonds']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
+const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
+try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
 try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
 const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
@@ -242,8 +247,12 @@ function buildMat(r, opts) {
     else if (r.mat === 'graphene') mat.buildGraphene(n, ny, T0, 1, false, !!r.open);
     else if (r.mat === 'graphite') mat.buildGraphite(n, ny, Math.round(r.layers), T0, !!r.open);
     else if (r.mat === 'mos2') mat.buildMoS2(n, ny, Math.round(r.layers), T0, !!r.open);
+    else if (r.mat === 'cnt') mat.buildCNT(r.n, r.m, r.len, T0);
+    else if (r.mat === 'c60') mat.buildC60(T0);
+    else if (r.mat === 'hbn') mat.buildHBN(n, ny, T0, !!r.open);
+    else if (r.mat === 'junction') mat.buildJunction(r.rings, T0);
     else mat.buildNanodiamond(r.rad, T0);
-    if (r.chem && r.mat !== 'empty') mat.toChem(T0);
+    if (r.chem && mat.model !== 'uff') mat.toChem(T0);
   } catch (e) { toast(String(e.message || e)); return; }
   md = mat; U = matUnits(); S.el = r.mat;
   S.TsetK = T0; S.thermo = true; mat.thermostat = true; mat.Ttarget = T0; S.dtFs = mat.dt * TU_FS;
@@ -258,6 +267,7 @@ function buildMat(r, opts) {
   else { let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < mat.N; i++) { lo[0] = Math.min(lo[0], mat.x[i]); hi[0] = Math.max(hi[0], mat.x[i]); lo[1] = Math.min(lo[1], mat.y[i]); hi[1] = Math.max(hi[1], mat.y[i]); lo[2] = Math.min(lo[2], mat.z[i]); hi[2] = Math.max(hi[2], mat.z[i]); } ext = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) + 5; }
   wps = clamp(0.45 / ext, 0.006, 0.14);
   S.paused = false; resetHistory(); retag();
+  if (r.mat === 'junction' && mat.junction) { S.cm.add(mat.junction[0]); S.cp.add(mat.junction[1]); S.gamma = 0.5; contactsChanged(); }
   if (!opts.quiet) toast(`Built ${mat.name}: ${mat.N} atoms`);
 }
 
@@ -392,10 +402,57 @@ const transportOK = () => isMat() && (mat.model === 'tersoff' || mat.model === '
 const hasCurrent = () => isMat() && !!TR.res && TR.res.N === mat.N && TR.Jmax > 0;
 function clearContacts() { S.cm.clear(); S.cp.clear(); TR.res = null; TR.curve = null; TR.err = ''; arrows.count = 0; }
 function contactsChanged() { TR.curve = null; requestTransport(true); }
+/* ---------- removing many atoms at once: the annihilator and the boundary sphere ---------- */
+function removeAtomsBatch(list) {
+  const sorted = [...new Set(list)].sort((a, b) => b - a); if (!sorted.length) return;
+  if (isMat() && mat.model === 'ff' && !ensureChem()) return;
+  for (const i of sorted) {
+    if (i >= md.N) continue; const last = md.N - 1, n0 = md.N; md.removeAtom(i, true); if (md.N === n0) continue;
+    if (S.tag === i) S.tag = -1; else if (S.tag === last) S.tag = i;
+    if (S.bondA === i || S.bondA === last) S.bondA = -1;
+    for (const s of [S.cm, S.cp]) { s.delete(i); if (s.delete(last)) s.add(i); }
+  }
+  md.computeForces(); if (S.tag < 0 && md.N) retag();
+  if (S.cm.size && S.cp.size) contactsChanged(); else { TR.res = null; arrows.count = 0; }
+}
+// every atom inside a cone around the pointing ray (half angle S.zapDeg), any distance in front
+function doZap(src, o, d) {
+  const r = toLocal(o, d), dl = Math.hypot(r.d.x, r.d.y, r.d.z), ux = r.d.x / dl, uy = r.d.y / dl, uz = r.d.z / dl, tn = Math.tan(S.zapDeg * Math.PI / 180), pad = 0.5, hit = [];
+  for (let i = 0; i < md.N; i++) {
+    const vx = md.x[i] - r.o.x, vy = md.y[i] - r.o.y, vz = md.z[i] - r.o.z, t = vx * ux + vy * uy + vz * uz; if (t <= 0) continue;
+    const lim = t * tn + pad; if (vx * vx + vy * vy + vz * vz - t * t < lim * lim) hit.push(i);
+  }
+  if (!hit.length) return false;
+  for (const i of hit) flashAt(md.x[i], md.y[i], md.z[i], 0xff5533);
+  removeAtomsBatch(hit); pulse(src, 0.7, 40); return true;
+}
+const FLASH = [], flashGeo = new THREE.SphereGeometry(1, 12, 8); let flashI = 0;
+for (let k = 0; k < 40; k++) { const m = new THREE.Mesh(flashGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.visible = false; inner.add(m); FLASH.push({ m, age: 9 }); }
+function flashAt(x, y, z, col) { const f = FLASH[flashI++ % FLASH.length]; f.m.position.set(x, y, z); f.m.material.color.setHex(col); f.age = 0; f.m.visible = true; }
+function updateFlashes(dt) {
+  for (const f of FLASH) { if (!f.m.visible) continue; f.age += dt; const a = f.age / 0.6; if (a >= 1) { f.m.visible = false; continue; } f.m.scale.setScalar(0.5 * (1 + 3 * a)); f.m.material.opacity = 1 - a; }
+}
+// atoms that fly beyond a sphere well outside the system (out of reach of the tweezers) light up and are removed
+let escapeTick = 0;
+function escapeCheck() {
+  if (++escapeTick % 10) return;
+  const m = mat, per = m.per, c = [m.Lx / 2, m.Ly / 2, m.Lz / 2], L = [m.Lx, m.Ly, m.Lz]; let R2 = 0;
+  for (let k = 0; k < 3; k++) if (!per[k]) R2 += L[k] * L[k]; if (!R2) return;
+  const R = 0.5 * Math.sqrt(R2) + 15, held = m.ext.i, hg = m.ext.mode === 'group' && held >= 0 ? m.grp[held] : -999, out = [];
+  for (let i = 0; i < m.N; i++) {
+    if (i === held || m.grp[i] === hg) continue; let s = 0; const P = [m.x[i], m.y[i], m.z[i]];
+    for (let k = 0; k < 3; k++) if (!per[k]) s += (P[k] - c[k]) ** 2;
+    if (s > R * R) out.push(i);
+  }
+  if (!out.length) return;
+  for (const i of out) flashAt(m.x[i], m.y[i], m.z[i], 0x66ccff);
+  removeAtomsBatch(out); toast(`${out.length} stray atom${out.length > 1 ? 's' : ''} flew out of reach and ${out.length > 1 ? 'were' : 'was'} removed`);
+}
 function contactsAtEnds(w = 2.3) {                          // electrodes on the two ends of the sheet (along x)
   clearContacts(); if (!isMat()) return;
-  let lo = 1e9, hi = -1e9; for (let i = 0; i < mat.N; i++) if (mat.sp[i] === 0 || mat.model === 'tersoff') { lo = Math.min(lo, mat.x[i]); hi = Math.max(hi, mat.x[i]); }
-  for (let i = 0; i < mat.N; i++) { if (mat.sp[i] !== 0) continue; if (mat.x[i] < lo + w) S.cm.add(i); else if (mat.x[i] > hi - w) S.cp.add(i); }
+  const A = [mat.x, mat.y, mat.z], ext = [0, 1, 2].map((k) => { let a = 1e9, b = -1e9; for (let i = 0; i < mat.N; i++) if (mat.sp[i] === 0) { a = Math.min(a, A[k][i]); b = Math.max(b, A[k][i]); } return [a, b]; });
+  const k = mat.sheet ? 0 : [0, 1, 2].reduce((p, q) => (ext[q][1] - ext[q][0] > ext[p][1] - ext[p][0] ? q : p), 0), X = A[k], lo = ext[k][0], hi = ext[k][1];
+  for (let i = 0; i < mat.N; i++) { if (mat.sp[i] !== 0) continue; if (X[i] < lo + w) S.cm.add(i); else if (X[i] > hi - w) S.cp.add(i); }
   contactsChanged();
 }
 function setContact(i, which, on) {
@@ -535,8 +592,8 @@ const PT_ROWS = ['H,,,,,,,,,,,,,,,,,He', 'Li,Be,,,,,,,,,,,B,C,N,O,F,Ne', 'Na,Mg,
   'Rb,Sr,Y,Zr,Nb,Mo,Tc,Ru,Rh,Pd,Ag,Cd,In,Sn,Sb,Te,I,Xe', 'Cs,Ba,La,Hf,Ta,W,Re,Os,Ir,Pt,Au,Hg,Tl,Pb,Bi,Po,At,Rn', 'Fr,Ra,Ac,Rf,Db,Sg,Bh,Hs,Mt,Ds,Rg,Cn,Nh,Fl,Mc,Lv,Ts,Og'].map((r) => r.split(','));
 function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty = true; }
 function drawToolbar() {
-  tbar.begin(); tbar.y = 13; tbar.row(10);
-  for (const [v, l] of [['tweezers', 'Tweezers'], ['add', 'Add'], ['attach', 'Attach'], ['bond', 'Bond'], ['delete', 'Delete']]) if (tbar.button(l, { active: S.tool === v, h: 66, size: 20 })) selectTool(v);
+  tbar.begin(); tbar.y = 13; tbar.row(11);
+  for (const [v, l] of [['tweezers', 'Tweezers'], ['add', 'Add'], ['attach', 'Attach'], ['bond', 'Bond'], ['delete', 'Delete'], ['zap', 'Zap']]) if (tbar.button(l, { active: S.tool === v, h: 66, size: 20 })) selectTool(v);
   if (tbar.button(`${S.cel} \u25BE`, { active: S.ptOpen, primary: !S.ptOpen, h: 66, size: 26 })) { S.ptOpen = !S.ptOpen; ptab.dirty = true; }
   if (tbar.button('H fill', { active: S.fillH, h: 66, size: 19 })) S.fillH = !S.fillH;
   if (tbar.button('\u2212 contact', { active: S.tool === 'cminus', h: 66, size: 19 })) selectTool('cminus');
@@ -585,9 +642,9 @@ function drawControls() {
   ui.row(2); ui.readout(mt ? 'System' : 'Looks like', ph, { color: pc }); ui.readout('Speed', `${(U.ps(md.dt) * S.sps).toFixed(mt ? 2 : 1)} ps/s`, {});
   if (md.exploded) { ui.label('\u26A0 The simulation blew up - the time step was too large. Press Rebuild.', { color: COL.bad, size: 20, bold: true }); }
   ui.space(2);
-  S.tab = ui.tabs(TABS, S.tab, 18);
+  S.tab = ui.tabs(TABS, S.tab, 15);
   ui.space(2);
-  [tabBuild, tabRun, tabData, tabLab, tabElec, tabVR, tabSettings][S.tab]();
+  [tabBuild, tabRun, tabData, tabLab, tabElec, tabVR, tabSettings, tabSystems][S.tab]();
   // footer
   const c = ui.ctx;
   c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
@@ -602,6 +659,7 @@ function drawControls() {
 function toolHint() {
   const t = S.tool;
   const trig = S.vr ? 'trigger' : 'click';
+  if (t === 'zap') return `Tool: ANNIHILATOR - hold ${trig}: every atom in the ${S.zapDeg.toFixed(0)}\u00B0 cone is removed`;
   if (t === 'attach') return `Tool: ATTACH ${S.cel}${S.fillH ? ' (+H)' : ''} - ${trig} an atom; the new atom goes on the side you point from`;
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
@@ -766,6 +824,66 @@ function tabLab() {
   if (t.ask) { ui.space(2); ui.paragraph('Think about: ' + t.ask, { size: 21, color: COL.warn }); }
 }
 
+const SYS_LIST = [['graphene', 'Graphene'], ['graphite', 'Graphite'], ['mos2', 'MoS\u2082'], ['hbn', 'hBN'], ['nanodiamond', 'Nanodiamond'], ['cnt', 'Nanotube'], ['c60', 'C\u2086\u2080'], ['benzene', 'Benzene'], ['junction', 'Molecular junction']];
+function readSaved() { try { return JSON.parse(localStorage.getItem('mdlab.systems') || '[]'); } catch (e) { return []; } }
+function writeSaved(list) { try { localStorage.setItem('mdlab.systems', JSON.stringify(list)); return true; } catch (e) { toast('Could not save: the browser storage is full or blocked'); return false; } }
+function saveCurrent() {
+  if (!isMat() || !mat.N) { toast('Saving works for materials (not the noble-gas box)'); return; }
+  const d = new Date(), list = readSaved();
+  list.unshift({ name: mat.name, N: mat.N, date: `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, T: S.TsetK, cm: [...S.cm], cp: [...S.cp], gamma: S.gamma, bias: S.bias, data: mat.serialize() });
+  if (writeSaved(list)) toast(`Saved: ${mat.name} (${mat.N} atoms)`);
+}
+function loadSaved(e) {
+  try { mat.restore(e.data); } catch (err) { toast('Could not load this system: ' + (err.message || err)); return; }
+  md = mat; U = matUnits(); S.el = 'saved'; S.lastBuild = null; clearContacts();
+  S.TsetK = e.T; S.thermo = true; mat.thermostat = true; mat.Ttarget = e.T; S.dtFs = mat.dt * TU_FS; S.bondA = -1;
+  let ext; if (mat.periodicAny) ext = Math.max(mat.Lx, mat.Ly); else { let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < mat.N; i++) { const P = [mat.x[i], mat.y[i], mat.z[i]]; for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], P[k]); hi[k] = Math.max(hi[k], P[k]); } } ext = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) + 5; }
+  wps = clamp(0.45 / ext, 0.006, 0.14); userScale = 1;
+  S.paused = false; resetHistory(); retag();
+  for (const i of e.cm || []) S.cm.add(i); for (const i of e.cp || []) S.cp.add(i); S.gamma = e.gamma ?? S.gamma; S.bias = e.bias ?? S.bias;
+  if (S.cm.size && S.cp.size) contactsChanged();
+  toast(`Loaded: ${e.name} (${e.N} atoms)`);
+}
+function loadSystem() {
+  const Y = S.sys, r = Object.assign({}, B, { sys: 'mat', mat: Y.sel, size: Y.size, layers: Y.layers, open: Y.open, rad: Y.rad, n: Y.n, m: Y.m, len: Y.len, nmol: Y.nmol, rings: Y.rings, Tm: Y.T, chem: false });
+  Object.assign(B, r); S.TsetK = Y.T; build(r);
+}
+function tabSystems() {
+  const Y = S.sys;
+  ui.section('Built-in systems');
+  for (let k = 0; k < 3; k++) { const v = ui.choice(SYS_LIST.slice(3 * k, 3 * k + 3), Y.sel, { h: 46, size: 20 }); if (v !== Y.sel) Y.sel = v; }
+  const sl = (id, lab, key, lo, hi, fmt, step = 1) => { Y[key] = ui.slider('sys' + id, lab, clamp(Y[key], lo, hi), lo, hi, fmt, { step, h: 56 }); };
+  if (Y.sel === 'graphene' || Y.sel === 'hbn') sl('sz', 'Size (unit cells along x)', 'size', 3, 16, (v) => `${Math.round(v)} cells \u2248 ${(Math.round(v) * 0.249).toFixed(1)} nm`);
+  if (Y.sel === 'graphite') { sl('sz', 'Size (unit cells along x)', 'size', 4, 12, (v) => `${Math.round(v)} cells`); sl('ly', 'Layers', 'layers', 2, 4, (v) => `${Math.round(v)} layers`); }
+  if (Y.sel === 'mos2') { sl('sz', 'Size (unit cells along x)', 'size', 4, 10, (v) => `${Math.round(v)} cells`); sl('ly', 'Layers', 'layers', 1, 2, (v) => `${Math.round(v)}`); }
+  if (Y.sel === 'nanodiamond') sl('rd', 'Radius', 'rad', 4, 9, (v) => `${v.toFixed(1)} \u00C5`, 0.5);
+  if (Y.sel === 'benzene') sl('nm', 'Molecules', 'nmol', 1, 19, (v) => `${Math.round(v)}`);
+  if (Y.sel === 'junction') { sl('rg', 'Benzene rings between the electrodes', 'rings', 1, 3, (v) => ['1  (benzene-dithiol)', '2  (biphenyl-dithiol)', '3  (terphenyl-dithiol)'][Math.round(v) - 1]); ui.label('Gold pads held fixed; the transport contacts sit on the anchor carbons.', { size: 17 }); }
+  if (Y.sel === 'cnt') {
+    sl('n', 'Chirality n', 'n', 3, 14, (v) => `n = ${Math.round(v)}`); sl('m', 'Chirality m', 'm', 0, Math.round(Y.n), (v) => `m = ${Math.round(v)}`);
+    sl('len', 'Length', 'len', 1, 6, (v) => `${v.toFixed(1)} nm`, 0.5);
+    const n = Math.round(Y.n), m = Math.round(Y.m), dia = 0.246 * Math.sqrt(n * n + n * m + m * m) / Math.PI;
+    ui.label(`(${n},${m}) ${m === n ? 'armchair' : m === 0 ? 'zigzag' : 'chiral'}, \u00D8 ${dia.toFixed(2)} nm, ${(n - m) % 3 === 0 ? 'metallic' : 'semiconducting'} (zone folding)`, { size: 17 });
+  }
+  if (Y.sel === 'graphene' || Y.sel === 'graphite' || Y.sel === 'mos2' || Y.sel === 'hbn') Y.open = ui.choice([[false, 'Periodic'], [true, 'Open flake']], Y.open, { h: 44, size: 20 });
+  sl('T', 'Temperature', 'T', 5, 1500, (v) => `${v.toFixed(0)} K`, 5);
+  ui.row(1); if (ui.button(`Load ${SYS_LIST.find((s) => s[0] === Y.sel)[1]}`, { primary: true, h: 52, size: 22 })) loadSystem();
+  ui.section('My systems (stored in this browser / headset)');
+  ui.row(2);
+  if (ui.button('Save current system', { h: 48, size: 20 })) saveCurrent();
+  if (ui.button(S.saveDel ? 'Delete mode: ON' : 'Delete mode', { h: 48, size: 20, danger: S.saveDel })) S.saveDel = !S.saveDel;
+  const list = readSaved(), per = 4, pages = Math.max(1, Math.ceil(list.length / per)); S.savePage = Math.min(S.savePage, pages - 1);
+  if (!list.length) ui.label('Nothing saved yet.', { size: 18 });
+  list.slice(S.savePage * per, S.savePage * per + per).forEach((e, k) => {
+    ui.row(1);
+    if (ui.button(`${S.saveDel ? '\u2715 ' : ''}${e.name} \u00B7 ${e.N} atoms \u00B7 ${e.date}`, { h: 44, size: 19, danger: S.saveDel })) {
+      const idx = S.savePage * per + k;
+      if (S.saveDel) { list.splice(idx, 1); writeSaved(list); toast('Deleted'); } else loadSaved(list[idx]);
+    }
+  });
+  if (pages > 1) { ui.row(3); if (ui.button('\u25C0', { h: 40, disabled: S.savePage === 0 })) S.savePage--; ui.skip(40); if (ui.button('\u25B6', { h: 40, disabled: S.savePage >= pages - 1 })) S.savePage++; ui.ctx.fillStyle = COL.muted; ui.ctx.font = '18px system-ui'; ui.ctx.textAlign = 'center'; ui.ctx.fillText(`${S.savePage + 1} / ${pages}`, CW / 2, ui.y - 28); }
+}
+
 function tabSettings() {
   ui.section('Atoms and bonds');
   S.atomR = ui.slider('atomR', 'Atom size', S.atomR, 0.12, 0.6, (v) => `${v.toFixed(2)} \u00C5 radius`, { step: 0.01, h: 64 });
@@ -776,7 +894,10 @@ function tabSettings() {
   S.curBonds = ui.toggle('Colour the bonds by current', S.curBonds, { h: 50 });
   S.arrows = ui.toggle('Arrows on the bonds', S.arrows, { h: 50 });
   ui.paragraph('Bond colour: dark violet = little current, through red and orange to yellow = the most; grey = none. Arrows point along the conventional current, from + to \u2212. Currents between graphite layers are computed but not drawn (they are not bonds).', { size: 19, color: COL.muted });
-  try { localStorage.setItem('mdlab.view', JSON.stringify({ atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds })); } catch (e) { /* no storage */ }
+  ui.section('Annihilator and boundary');
+  S.zapDeg = ui.slider('zap', 'Annihilator cone (half angle)', S.zapDeg, 1, 25, (v) => `${v.toFixed(0)}\u00B0`, { step: 1, h: 60 });
+  S.escape = ui.toggle('Remove atoms that fly out of reach', S.escape, { h: 48 });
+  try { localStorage.setItem('mdlab.view', JSON.stringify({ atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
 }
 
 function tabElec() {
@@ -908,6 +1029,7 @@ function rayOf(src) {
 function toolDown(src) {
   if (hold.src !== null) return false;
   const { o, d } = rayOf(src);
+  if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; doZap(src, o, d); return true; }
   if (S.tool === 'attach' || S.tool === 'bond') {
     if (!ensureChem()) return false;
     const p = pickAtom(o, d); if (!p) return false;
@@ -992,6 +1114,8 @@ function toolUpdate() {
     const cl = (v, k) => per[k] || !isMat() ? clamp(v, 0, DM[k]) : clamp(v, -DM[k], 2 * DM[k]);
     md.ext.x = cl(r.o.x + off[0], 0); md.ext.y = cl(r.o.y + off[1], 1); md.ext.z = cl(r.o.z + off[2], 2); md.ext.i = hold.grab.i;
     if (hold.src !== 'mouse') pulse(hold.src, 0.08 + 0.5 * md.extForce, 30);
+  } else if (hold.kind === 'zap') {
+    if (now() > hold.next) { hold.next = now() + 120; doZap(hold.src, o, d); }
   } else if (hold.kind === 'ct' && hold.grab) {             // drag over atoms to paint (or erase) a contact
     const p = pickAtom(o, d); if (p) { const set = hold.grab.w === 'm' ? S.cm : S.cp; if (set.has(p.i) !== hold.grab.on) { setContact(p.i, hold.grab.w, hold.grab.on); pulse(hold.src, 0.25, 15); } }
   } else if (hold.kind === 'add' || hold.kind === 'del') {
@@ -1027,6 +1151,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { S.paused = !S.paused; e.preventDefault(); }
   else if (e.key === '1') S.tool = 'tweezers'; else if (e.key === '2') S.tool = 'add'; else if (e.key === '3') S.tool = 'delete';
   else if (e.key === '4') S.tool = 'cminus'; else if (e.key === '5') S.tool = 'cplus';
+  else if (e.key === '8') S.tool = 'zap';
   else if (e.key === '6') S.tool = 'attach'; else if (e.key === '7') { S.tool = 'bond'; S.bondA = -1; }
   else if (e.key === 'Escape') S.bondA = -1;
   else if (e.key === 't' || e.key === 'T') applyTheme(S.theme === 'dark' ? 'light' : 'dark');
@@ -1095,10 +1220,12 @@ function locomotion(vc, gp, dt) {
   }
 }
 
-let needRecenter = false;
+let needRecenter = 0;          // frames to wait: the camera only carries the headset pose after the first rendered VR frames
 renderer.xr.addEventListener('sessionstart', () => {
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
-  S.vr = true; needRecenter = true; document.body.classList.add('vr');
+  S.vr = true; needRecenter = 4; document.body.classList.add('vr');
+  // the headset's own recentre (e.g. holding the Meta button) moves the tracking origin: put the table back in front of the user
+  try { const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { needRecenter = 3; }); } catch (e) { /* not supported */ }
   uiMesh.visible = plotMesh.visible = tbMesh.visible = true;
   S.xr = renderer.xr.getSession();
 });
@@ -1149,11 +1276,50 @@ const vrc = [0, 1].map((i) => {
   return vc;
 });
 
+/* ---------- hands: a glove on each controller. The laser leaves the index fingertip; trigger curls the index finger,
+   holding an atom with the tweezers pinches, grip makes a fist. Built from simple shapes (no model files). ---------- */
+function makeHand() {
+  const mat = new THREE.MeshLambertMaterial({ color: 0xe8eef8, emissive: 0x1b2433 });
+  const g = new THREE.Group(), fingers = [], thumb = [];
+  const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), mat); palm.scale.set(0.041, 0.015, 0.047); palm.position.set(0, 0, 0.105); g.add(palm);
+  const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.025, 0.05, 14), mat); wrist.rotation.x = Math.PI / 2; wrist.scale.set(1.25, 1, 0.65); wrist.position.set(0, -0.002, 0.16); g.add(wrist);
+  const knuckle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.074, 12), mat); knuckle.rotation.z = Math.PI / 2; knuckle.position.set(0, 0, 0.072); g.add(knuckle);
+  const seg = (len, r) => { const j = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r, len, 10), mat); m.rotation.x = Math.PI / 2; m.position.z = -len / 2; j.add(m); j.add(new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat)); return j; };
+  const chain = (parent, lens, r) => { const out = []; let p = parent; for (const len of lens) { const j = seg(len, r); p.add(j); out.push(j); const nx = new THREE.Group(); nx.position.z = -len; j.add(nx); p = nx; } p.add(new THREE.Mesh(new THREE.SphereGeometry(r * 0.95, 10, 8), mat)); return out; };
+  for (const [x, L, r] of [[-0.026, [0.040, 0.024, 0.019], 0.0088], [-0.009, [0.044, 0.027, 0.020], 0.009], [0.009, [0.041, 0.025, 0.019], 0.0088], [0.026, [0.032, 0.020, 0.017], 0.0078]]) {
+    const base = new THREE.Group(); base.position.set(x, 0, 0.07); g.add(base); fingers.push(chain(base, L, r));
+  }
+  const tb = new THREE.Group(); tb.position.set(-0.036, -0.006, 0.105); tb.rotation.set(0, 0.75, 0); g.add(tb); thumb.push(...chain(tb, [0.036, 0.03], 0.0098));
+  const pose = { index: 0, thumb: 0.1, others: 0.25 };
+  const apply = () => {
+    const C = [1.15, 1.5, 1.1];
+    fingers.forEach((ch, k) => { const c = k === 0 ? pose.index : pose.others; ch.forEach((j, q) => { j.rotation.x = -c * C[q]; }); });
+    thumb[0].rotation.set(-pose.thumb * 0.35, -pose.thumb * 0.85, 0); thumb[1].rotation.set(-pose.thumb * 0.7, 0, 0);
+  };
+  apply(); return { group: g, pose, apply, mat };
+}
+for (const vc of vrc) {
+  vc.hand3 = makeHand(); vc.obj.add(vc.hand3.group); vc.obj.children[0].visible = false;          // the glove replaces the stick
+  vc.obj.addEventListener('connected', (e) => { vc.hand3.group.scale.x = e.data && e.data.handedness === 'left' ? -1 : 1; });
+}
+function handPose(vc, gp, dt) {
+  const t = gp && gp.buttons[0] ? gp.buttons[0].value : 0, g = gp && gp.buttons[1] ? gp.buttons[1].value : 0;
+  const tw = hold.src === vc.i && hold.kind === 'tw', ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg;
+  const want = fist ? { index: 0.95, thumb: 0.8, others: 1 } : tw ? { index: 0.6, thumb: 0.9, others: 0.7 } : ui_ ? { index: 0.08 + 0.25 * t, thumb: 0.6, others: 0.9 } : { index: 0.1 + 0.8 * t, thumb: 0.15 + 0.6 * t, others: Math.max(0.25, g) };
+  const a = Math.min(1, dt * 14), P = vc.hand3.pose; for (const k in want) P[k] += (want[k] - P[k]) * a; vc.hand3.apply();
+}
+const zapGeo = new THREE.ConeGeometry(1.6, 1.6, 28, 1, true); zapGeo.rotateX(Math.PI / 2); zapGeo.translate(0, 0, -0.8);      // apex at the hand, 1.6 m long
+for (const vc of vrc) { vc.cone = new THREE.Mesh(zapGeo, new THREE.MeshBasicMaterial({ color: 0xff4422, transparent: true, opacity: 0.13, depthWrite: false, side: THREE.DoubleSide })); vc.cone.visible = false; vc.obj.add(vc.cone); }
 // grip = pick up the experiment; both grips = scale it
 let grabRef = null;
 function regrab() {
   const dr = vrc.filter((v) => v.sq);
   if (!dr.length) { grabRef = null; return; }
+  if (dr.length > 1) {                     // both grips: the point between the hands is the pivot; spreading the hands scales, twisting them turns
+    const a = dr[0].obj.getWorldPosition(new THREE.Vector3()), b = dr[1].obj.getWorldPosition(new THREE.Vector3());
+    grabRef = { two: true, a: dr[0], b: dr[1], mid0: a.clone().add(b).multiplyScalar(0.5), v0: b.clone().sub(a), pos0: simRoot.position.clone(), q0: simRoot.quaternion.clone(), s0: userScale };
+    return;
+  }
   const d = dr[0], q = d.obj.getWorldQuaternion(new THREE.Quaternion()), p = d.obj.getWorldPosition(new THREE.Vector3());
   const qi = q.clone().invert();
   grabRef = {
@@ -1171,16 +1337,22 @@ function updatePanelGrabs() {
 function updateGrab() {
   updatePanelGrabs();
   if (!grabRef) return;
+  if (grabRef.two) {
+    const a = grabRef.a.obj.getWorldPosition(new THREE.Vector3()), b = grabRef.b.obj.getWorldPosition(new THREE.Vector3());
+    const mid = a.clone().add(b).multiplyScalar(0.5), v = b.clone().sub(a), l0 = grabRef.v0.length(), l = v.length(); if (l0 < 0.02 || l < 0.02) return;
+    const k = clamp(grabRef.s0 * l / l0, 0.15, 6) / grabRef.s0, q = new THREE.Quaternion().setFromUnitVectors(grabRef.v0.clone().normalize(), v.clone().normalize());
+    simRoot.position.copy(grabRef.pos0).sub(grabRef.mid0).multiplyScalar(k).applyQuaternion(q).add(mid);
+    simRoot.quaternion.copy(q).multiply(grabRef.q0); userScale = grabRef.s0 * k;
+    return;
+  }
   const d = grabRef.drv, q = d.obj.getWorldQuaternion(new THREE.Quaternion()), p = d.obj.getWorldPosition(new THREE.Vector3());
   simRoot.position.copy(grabRef.relP).applyQuaternion(q).add(p);
   simRoot.quaternion.copy(q).multiply(grabRef.relQ);
-  const dr = vrc.filter((v) => v.sq);
-  if (dr.length > 1 && grabRef.two && grabRef.dist0 > 0.05) userScale = clamp(grabRef.s0 * dr[0].obj.position.distanceTo(dr[1].obj.position) / grabRef.dist0, 0.25, 4);
 }
 
 const rc = new THREE.Raycaster();
 function vrInput(dt) {
-  if (needRecenter && renderer.xr.getCamera().cameras && renderer.xr.getCamera().cameras.length) { recenter(); needRecenter = false; }
+  if (needRecenter > 0 && renderer.xr.getCamera().cameras && renderer.xr.getCamera().cameras.length && --needRecenter === 0) recenter();
   bench.updateMatrixWorld(true);
   for (const vc of vrc) {
     vc.hit = null; if (!vc.pg) vc.hitObj = null;
@@ -1196,7 +1368,8 @@ function vrInput(dt) {
       if (U_) { vc.hit = { ui: U_ }; U_.move(h.uv.x * U_.w, (1 - h.uv.y) * U_.h, vc.i); } else vc.hit = { ui: null };
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
-    vc.laser.scale.z = len;
+    vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt);
+    vc.cone.visible = S.tool === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
     vc.laser.material.color.set(vc.hit ? 0xffffff : 0x4ae3e1);
 
     const gp = vc.src.gamepad;
@@ -1234,6 +1407,8 @@ function frame() {
     const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('Simulation unstable: lower the time step and Rebuild', 8000); }
+  if (S.escape && isMat() && md.N && !S.paused) escapeCheck();
+  updateFlashes(dt);
 
   // transport: the live part (bond currents, current at the bias) a few times a second while atoms move; the curves on demand
   if (isMat() && S.cm.size && S.cp.size && !TR.busy) {
@@ -1277,5 +1452,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
