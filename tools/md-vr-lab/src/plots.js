@@ -1,9 +1,11 @@
 // Four live plots on one canvas: T(t), energies(t), g(r), MSD(t).
 import { COL, roundRect } from './ui.js';
+import { tr } from './i18n.js';
 
 export const PW = 1024, PH = 860;
 
 function frame(c, x, y, w, h, title, xl, yl) {
+  title = tr(title); xl = tr(xl); yl = tr(yl);
   c.fillStyle = COL.card; roundRect(c, x, y, w, h, 16); c.fill();
   c.fillStyle = COL.accent; c.font = '700 22px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
   c.fillText(title, x + 18, y + 24);
@@ -80,7 +82,7 @@ export function drawPlots(c, d) {
     ticks(c, a, L, H, 4, 4, f1, f0);
     line(c, a, L, H, d.t, d.ke, COL.bad, 2.5); line(c, a, L, H, d.t, d.pe, COL.blue, 2.5); line(c, a, L, H, d.t, d.e, COL.good, 3.5);
     c.font = '16px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left';
-    [['kin.', COL.bad], ['pot.', COL.blue], ['total', COL.good]].forEach(([t, col], i) => { c.fillStyle = col; c.fillText('● ' + t, x2 + 210 + i * 108, y2 + 24); });
+    [['kin.', COL.bad], ['pot.', COL.blue], ['total', COL.good]].forEach(([t, col], i) => { c.fillStyle = col; c.fillText('● ' + tr(t), x2 + 210 + i * 108, y2 + 24); });
   }
   // 3. g(r)
   {
@@ -103,7 +105,7 @@ export function drawPlots(c, d) {
     line(c, a, L, H, tPrev, yPrev, COL.ghost, 2);
     line(c, a, L, H, t, y, COL.warn, 3.5);
     c.fillStyle = COL.text; c.font = '700 20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right';
-    c.fillText(d.Dtext || '', a.px + a.pw - 10, a.py + 18);
+    c.fillText(tr(d.Dtext || ''), a.px + a.pw - 10, a.py + 18);
   }
 }
 
@@ -131,7 +133,7 @@ export function drawElec(c, d) {
     c.setLineDash([8, 8]); line(c, a, L, H, [0, 0], [L.y, H.y], COL.ghost, 1.5); c.setLineDash([]);
     if (has) line(c, a, L, H, xs, ys, COL.accent, 3);
     c.font = '18px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillStyle = COL.muted;
-    c.fillText(has ? (d.gap > 0 ? `transport gap \u2248 ${d.gap.toFixed(2)} eV` : 'no gap at the Fermi level') + '   \u25A0 bias window' : (d.status || 'no data yet'), m + w - 20, m + 24);
+    c.fillText(has ? tr(d.gap > 0 ? `transport gap \u2248 ${d.gap.toFixed(2)} eV` : 'no gap at the Fermi level') + '   \u25A0 ' + tr('bias window') : tr(d.status || 'no data yet'), m + w - 20, m + 24);
   }
   // 2. current and differential conductance
   {
@@ -147,6 +149,6 @@ export function drawElec(c, d) {
       const X = a.px + a.pw * (d.Vbias - L.x) / (H.x - L.x); c.setLineDash([6, 6]); c.strokeStyle = COL.muted; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X, a.py); c.lineTo(X, a.py + a.ph); c.stroke(); c.setLineDash([]);
     }
     c.font = '16px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left';
-    [['I', COL.warn], [`dI/dV (max ${gmax.toFixed(2)} G\u2080)`, COL.ghost]].forEach(([t, col], i) => { c.fillStyle = col; c.fillText('\u25CF ' + t, m + 400 + i * 80, y2 + 24); });
+    [['I', COL.warn], [`dI/dV (max ${gmax.toFixed(2)} G\u2080)`, COL.ghost]].forEach(([t, col], i) => { c.fillStyle = col; c.fillText('\u25CF ' + tr(t), m + 400 + i * 80, y2 + 24); });
   }
 }

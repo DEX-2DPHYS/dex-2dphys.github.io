@@ -1,4 +1,4 @@
-# MD Lab VR (source)
+# 2DPHYS Atomic Workbench (source; folder md-vr-lab)
 
 `index.html` is one self-contained file (Three.js 0.170 bundled inline, works offline). It is generated
 from this folder - edit `src/`, never the bundle.
@@ -105,6 +105,24 @@ starts from nothing.
 - `test/systems.test.mjs` (12 checks): nanotube diameters and stability, zone folding in the transport ((5,5), (9,0) metallic;
   (10,0), (8,0) semiconducting), C₆₀, hBN, junctions (pads fixed, no bond lost, conductance falls with every ring),
   JSON save/restore, cutting many atoms at once.
+
+## Language, thermometer, grabbing pieces, tool shapes
+
+- **Language**: SETTINGS -> Language / Sprog (English, Dansk). The code stays in English; every text the panels draw goes through
+  `tr()` in `src/i18n.js` at draw time. The Danish table `src/i18n-da.js` is GENERATED: `node tools/extract-strings.cjs > strings.json`,
+  translate the new entries into a JSON object (English -> Danish, keep {1} {2} placeholders), then `node tools/build-i18n.cjs <that.json>`.
+  Text built from numbers uses templates ("{1} atoms"), whose inserted parts are translated too. The extractor skips all-caps words
+  (the tab names), so those were added by hand.
+- **Thermometer** on the table (SETTINGS switch, on by default): red liquid = the temperature now, teal ring = the target.
+  Grab the ring (trigger / mouse) and slide it: logarithmic scale, 10-3000 K (materials) or 3-600 K (noble gas). Grabbing it switches
+  the thermostat on.
+- **Grab: piece** (the default tweezers mode, except graphite / MoS2 / benzene, which start on Grab: layer): the piece you grab
+  (connected by bonds: chemical bonds in the chemistry model, bond-length contacts otherwise) is pulled by its centre of mass, so a
+  loose fragment moves as one unit and the rest stays put. A piece larger than half the structure, or a lone atom, falls back to pulling
+  the single atom. `test/grab.test.mjs`: a C2 dimer next to C60 moves 5.6 A, stays bonded, the cage moves 0.00 A.
+- The **grip** buttons are different on purpose: one grip moves the whole structure (or a panel), both grips scale and turn it.
+- **Tool shapes**: the tool at the end of the VR ray (and the desktop cursor) changes with the tool: tweezers, plus, chain link,
+  bond pair, cross, and a cone for the annihilator.
 
 ## Room, table and panels
 

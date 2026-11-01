@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MD Lab VR – build and run a molecular-dynamics simulation in virtual reality</title>
+<title>2DPHYS Atomic Workbench – molecular dynamics and electron transport in virtual reality</title>
 <meta name="description" content="Build and run a Lennard-Jones molecular-dynamics simulation of argon, neon, krypton or xenon in WebXR: Meta Quest browser, Quest via SteamVR/OpenXR on a PC, or desktop with mouse. Runs offline.">
 <meta name="color-scheme" content="dark">
 <style>
@@ -23,7 +23,7 @@
   #plotWrap canvas{display:block;width:min(540px,46vw);aspect-ratio:1024/860;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.55);opacity:.97}
   #tools{position:fixed;left:14px;top:50px;z-index:6;display:flex;flex-direction:column;gap:6px}
   #tools canvas{display:block;width:min(700px,calc(100vw - 480px));height:auto;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
-  #tbWrap canvas{aspect-ratio:1000/92} #ptWrap canvas{aspect-ratio:1000/520}
+  #tbWrap canvas{aspect-ratio:1000/92} #ptWrap canvas{aspect-ratio:1000/590}
   body.light #tools canvas{box-shadow:0 8px 24px rgba(40,60,90,.25)}
   #hint{position:fixed;left:14px;top:calc(56px + min(700px, calc(100vw - 480px)) * 0.092);color:#8798b6;font-size:12px;line-height:1.5;text-shadow:0 1px 6px #000;z-index:3;pointer-events:none}
   #hint b{color:#cfe0ff;font-weight:600}
@@ -39,8 +39,8 @@
 </head>
 <body>
 <div id="top">
-  <span class="brand">MD LAB&nbsp;VR</span>
-  <span class="sub">Lennard-Jones molecular dynamics · DEX · 2DPHYS</span>
+  <span class="brand">2DPHYS ATOMIC&nbsp;WORKBENCH</span>
+  <span class="sub">molecular dynamics · chemistry · electron transport · VR</span>
   <button class="b" id="themeBtn">White lab</button>
   <button class="b" id="panelBtn">Panel</button>
   <button class="b" id="plotBtn">Plots</button>
