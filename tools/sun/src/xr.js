@@ -348,6 +348,7 @@ export function createXR(ctx) {
   const canHalf = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float');
   const rt = new THREE.WebGLRenderTarget(16, 16, { type: canHalf ? THREE.HalfFloatType : THREE.UnsignedByteType, samples: LITE ? 0 : 4 });
   const Qs = new URLSearchParams(location.search);
+  const XRTEST = +(Qs.get("xrtest") || 0);   // 1: plain red composite, no scene; 2: normal + green tint
   const SCALE_MAX = parseFloat(Qs.get('xrrt') || (LITE ? '0.8' : '1'));
   let rtScale = Math.min(SCALE_MAX, LITE ? (Qs.get('safe') === '1' ? 0.4 : 0.55) : 1);
   let lastT = 0, ema = 0, nextAdapt = 0, fps = 0;
@@ -358,16 +359,18 @@ export function createXR(ctx) {
   const _vps = [], _fb = new THREE.Vector2();
   const post = new THREE.Scene();
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
-    uniforms: { tMap: { value: rt.texture }, uSize: { value: new THREE.Vector2(16, 16) } },
+    uniforms: { tMap: { value: rt.texture }, uSize: { value: new THREE.Vector2(16, 16) }, uTest: { value: XRTEST } },
     // straight onto each eye's viewport in clip space: no position in the world, so no near plane can clip it
     // (the Quest clamps depthNear: a quad 5 cm in front of the head was clipped away - a black headset at 69 fps)
     vertexShader: 'void main(){ gl_Position = vec4(position.xy * 2., 0., 1.); }',
-    fragmentShader: `uniform sampler2D tMap; uniform vec2 uSize;
+    fragmentShader: `uniform sampler2D tMap; uniform vec2 uSize; uniform float uTest;
       void main(){
         vec4 c = texture2D(tMap, gl_FragCoord.xy / uSize);
         gl_FragColor = vec4(c.rgb, 1.);
+        if (uTest > 1.5) gl_FragColor.g += .25;                         // ?xrtest=2: tint (is the picture empty?)
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
+        if (uTest > .5 && uTest < 1.5) gl_FragColor = vec4(1., 0., 0., 1.);   // ?xrtest=1: plain red
         // passthrough: glows must stay visible over the room, so alpha follows brightness
         gl_FragColor.a = clamp(max(c.a, max(gl_FragColor.r, max(gl_FragColor.g, gl_FragColor.b))), 0., 1.);
       }`,
@@ -378,7 +381,7 @@ export function createXR(ctx) {
   // A log the flat page shows after VR (the headset itself may show nothing): frames drawn, rate,
   // resolution, render path, errors. ?xrdirect=1, an incomplete target or any error in the
   // two-pass path switch to drawing straight into the headset framebuffer.
-  let direct = Qs.get('xrdirect') === '1', frames = 0, lastSave = 0; const errs = [];
+  let direct = Qs.get('xrdirect') === '1' && !XRTEST, frames = 0, lastSave = 0; const errs = [];
   const gl = renderer.getContext();
   function saveLog(w, h, force, before) {
     const t = performance.now(); if (!force && t - lastSave < 1000) return; lastSave = t;
@@ -431,7 +434,7 @@ export function createXR(ctx) {
     }
     renderer.setRenderTarget(rt);
     if (frames <= 3) { const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER); if (st !== gl.FRAMEBUFFER_COMPLETE) { fail('target incomplete 0x' + st.toString(16)); renderer.setRenderTarget(null); renderer.render(scene, camera); return; } }
-    renderer.render(scene, camera); mark();
+    if (XRTEST !== 1) renderer.render(scene, camera); mark();   // ?xrtest=1: no Sun, only the composite
     for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
     renderer.setRenderTarget(null);
     renderer.render(post, camera);
