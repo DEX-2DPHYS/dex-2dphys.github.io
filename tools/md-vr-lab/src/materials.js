@@ -484,11 +484,32 @@ export class Mat {
       this.extForce = Math.min(1, fm / cap); this.extForceEV = Math.min(fm, cap); return 0;
     }
     const i = e.i; let dx = this.mi(e.x - this.x[i], this.Lx, this.per[0]), dy = this.mi(e.y - this.y[i], this.Ly, this.per[1]), dz = this.mi(e.z - this.z[i], this.Lz, this.per[2]);
-    let Fx = e.k * dx, Fy = e.k * dy, Fz = e.k * dz; const fm = Math.hypot(Fx, Fy, Fz), cap = 8;
+    const kk = e.kk || e.k; let Fx = kk * dx, Fy = kk * dy, Fz = kk * dz; const fm = Math.hypot(Fx, Fy, Fz), cap = e.cap || 8;   // the Hand pulls harder (kk, cap) than the tweezers
     if (fm > cap) { const s = cap / fm; Fx *= s; Fy *= s; Fz *= s; }
     const dm = 0.3 * this.mass[i] * 0.05;
     fx[i] += Fx - dm * this.vx[i]; fy[i] += Fy - dm * this.vy[i]; fz[i] += Fz - dm * this.vz[i];
+    if (e.anchor) this.holdAnchor(e.anchor);
     this.extForce = Math.min(1, fm / cap); this.extForceEV = Math.min(fm, cap); return 0;
+  }
+  // the Hand pulling one atom out of a big piece: every other atom of the piece is held near where it was (a soft,
+  // damped spring each), the way a hand on the table holds it. Holding only the centre of mass is not enough: the sheet
+  // then tents up around the pull and tears instead of letting the atom go.
+  anchorFor(mask) { const N = this.N, p = new Float64Array(3 * N); for (let i = 0; i < N; i++) if (mask[i]) { p[3 * i] = this.x[i]; p[3 * i + 1] = this.y[i]; p[3 * i + 2] = this.z[i]; } return { mask, p, ka: 2 }; }
+  holdAnchor(a) {
+    if (a.p) {
+      const m = a.mask, p = a.p, k = a.ka, g = 0.05;
+      for (let i = 0; i < this.N; i++) if (m[i]) {
+        const dx = this.mi(p[3 * i] - this.x[i], this.Lx, this.per[0]), dy = this.mi(p[3 * i + 1] - this.y[i], this.Ly, this.per[1]), dz = this.mi(p[3 * i + 2] - this.z[i], this.Lz, this.per[2]);
+        const dm = g * this.mass[i]; this.fx[i] += k * dx - dm * this.vx[i]; this.fy[i] += k * dy - dm * this.vy[i]; this.fz[i] += k * dz - dm * this.vz[i];
+      }
+      return;
+    }
+    const N = this.N, m = a.mask, x0 = a.x, y0 = a.y, z0 = a.z; let M = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0, n = 0;
+    for (let i = 0; i < N; i++) if (m[i]) { const w = this.mass[i]; M += w; n++; cx += w * this.mi(this.x[i] - x0, this.Lx, this.per[0]); cy += w * this.mi(this.y[i] - y0, this.Ly, this.per[1]); cz += w * this.mi(this.z[i] - z0, this.Lz, this.per[2]); vx += w * this.vx[i]; vy += w * this.vy[i]; vz += w * this.vz[i]; }
+    if (!M) return; cx /= M; cy /= M; cz /= M; vx /= M; vy /= M; vz /= M;
+    const K = a.k || this.grpK * n, gam = this.grpGam;
+    const Fx = -K * cx - gam * M * vx, Fy = -K * cy - gam * M * vy, Fz = -K * cz - gam * M * vz;
+    for (let i = 0; i < N; i++) if (m[i]) { const w = this.mass[i] / M; this.fx[i] += Fx * w; this.fy[i] += Fy * w; this.fz[i] += Fz * w; }
   }
 
   /* ---------------- time stepping ---------------- */
@@ -533,6 +554,7 @@ export class Mat {
     const l = --this.N; this.listDirty = true;
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_', 'fixed']) this[k][i] = this[k][l]; }
     if (this.ext.mask) { this.ext.mask[i] = this.ext.mask[l]; this.ext.mask[l] = 0; }
+    if (this.ext.anchor) { const A = this.ext.anchor, am = A.mask; am[i] = am[l]; am[l] = 0; if (A.p) for (let c = 0; c < 3; c++) A.p[3 * i + c] = A.p[3 * l + c]; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
     if (this.model === 'uff') this.chem.removeAtom(i, l);
     if (!noForces) this.computeForces();

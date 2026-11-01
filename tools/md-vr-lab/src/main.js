@@ -48,7 +48,7 @@ const MAT_INFO = {
 const CHEM_INFO = 'Chemistry: explicit bonds on the Universal Force Field (UFF). Attach any main-group atom; valence is respected, hybridisation follows the bonds (sp\u00B2 \u2192 sp\u00B3). Bonds snap at 1.6\u00D7 their length.';
 const S = {
   el: 'Ar', TsetK: 30, thermo: true, paused: false, dt: 0.004, speed: 10, periodic: true,
-  color: 'speed', tool: 'tweezers', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
+  color: 'speed', tool: 'hand', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
   cel: 'F', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
@@ -692,6 +692,7 @@ function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty =
 const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
 const nudgeT = (f) => { const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; };
 const TOOLDEF = {
+  hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => S.tool === 'hand', act: () => selectTool('hand') },
   tweezers: { l: 'Tweezers', icon: ICONS.tweezers, tint: '#2bd3cf', on: () => S.tool === 'tweezers', act: () => selectTool('tweezers') },
   add: { l: 'Add', icon: ICONS.add, tint: '#5fd38a', on: () => S.tool === 'add', act: () => selectTool('add') },
   attach: { l: 'Attach', icon: ICONS.attach, tint: '#5fd38a', on: () => S.tool === 'attach', act: () => selectTool('attach') },
@@ -708,9 +709,9 @@ const TOOLDEF = {
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
 };
 const TB_LEVEL = {
-  kid: ['tweezers', 'add', 'zap', 'cool', 'warm', 'run', 'rebuild'],
-  adult: ['tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run'],
-  researcher: ['tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run'],
+  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'rebuild'],
+  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run'],
+  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run'],
 };
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
 function drawToolbar() {
@@ -726,7 +727,7 @@ const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['re
 function setLevel(l) {
   if (!TB_LEVEL[l] || l === S.level) return;
   S.level = l; S.ptOpen = false;
-  if (!TB_LEVEL[l].includes(S.tool)) selectTool('tweezers');
+  if (!TB_LEVEL[l].includes(S.tool)) selectTool(TB_LEVEL[l][0]);
   if (l === 'kid') { S.cel = 'C'; S.addSp = SP.C; S.fillH = false; }
   S.tab = 0; S.plots = l === 'researcher' && window.innerWidth >= 760; dom.plots.style.display = S.plots ? '' : 'none';
   if (S.vr) plotMesh.visible = l === 'researcher';
@@ -769,7 +770,7 @@ function drawKid() {
   ui.row(3);
   for (const k of ['cool', 'warm', 'run']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 160 })) { d.act(); tbar.dirty = true; } }
   ui.row(3);
-  for (const k of ['tweezers', 'add', 'zap']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 150 })) { d.act(); tbar.dirty = true; } }
+  for (const k of ['hand', 'add', 'zap']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 150 })) { d.act(); tbar.dirty = true; } }
   ui.space(6); levelRow(84);
   ui.end();
 }
@@ -792,7 +793,7 @@ function adultRun() {
 }
 function adultElec() {
   ui.paragraph('Mark where the current goes in (\u2212) and out (+). Bonds then light up: violet = little current, yellow = a lot.', { size: 22, color: COL.muted });
-  ui.row(3); for (const k of ['cminus', 'cplus', 'tweezers']) { const d = TOOLDEF[k]; if (ui.button(d.l, { icon: d.icon, tint: d.tint, active: d.on(), h: 96, size: 19 })) { d.act(); tbar.dirty = true; } }
+  ui.row(3); for (const k of ['cminus', 'cplus', 'hand']) { const d = TOOLDEF[k]; if (ui.button(d.l, { icon: d.icon, tint: d.tint, active: d.on(), h: 96, size: 19 })) { d.act(); tbar.dirty = true; } }
   ui.row(2);
   if (ui.button('Contacts at the ends', { h: 52, size: 20 })) contactsAtEnds();
   if (ui.button('Clear contacts', { h: 52, size: 20 })) { clearContacts(); ui.dirty = true; }
@@ -882,6 +883,7 @@ function toolHint() {
   if (t === 'attach') return `Tool: ATTACH ${S.cel}${S.fillH ? ' (+H)' : ''} - ${trig} an atom; the new atom goes on the side you point from`;
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
+  if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece, grip grabs a whole sheet; pull hard to break it off' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off, bring it close to bond';
   return t === 'tweezers' ? `Tool: TWEEZERS - hold ${trig} on an atom and drag` : t === 'add' ? `Tool: ADD ATOM - ${trig} inside the box` : `Tool: DELETE - ${trig} an atom to remove it`;
 }
 
@@ -1273,7 +1275,7 @@ function toolDown(src) {
     if (!ensureChem()) return false;
     const p = pickAtom(o, d); if (!p) return false;
     if (S.tool === 'attach') {
-      const r = toLocal(o, d).o, res = mat.chem.attach(p.i, S.cel, S.fillH, [r.x, r.y, r.z]);
+      const r = toLocal(o, d).o, res = mat.chem.attach(p.i, S.cel, S.fillH, [r.x, r.y, r.z], true);
       if (res.err) { toast(res.err); pulse(src, 0.8, 60); return true; }
       toast(`Attached ${S.cel}${S.fillH && VALENCE[S.cel] > 1 ? 'H' + (VALENCE[S.cel] - 1 > 1 ? VALENCE[S.cel] - 1 : '') : ''} to ${SPECIES[mat.sp[p.i]].sym}`); pulse(src, 0.4, 30);
     } else if (S.bondA < 0 || S.bondA >= md.N) { S.bondA = p.i; toast('Now pick the second atom'); pulse(src, 0.3, 20); }
@@ -1292,8 +1294,9 @@ function toolDown(src) {
     hold.src = src; hold.kind = 'ct'; hold.grab = { w, on: !set.has(p.i) };
     setContact(p.i, w, hold.grab.on); pulse(src, 0.4, 25); return true;
   }
-  if (S.tool === 'tweezers') {
+  if (S.tool === 'tweezers' || S.tool === 'hand') {
     const p = pickAtom(o, d); if (!p) return false;
+    if (S.tool === 'hand') { grabAt(src, o, d, p, 'hand'); pulse(src, 0.5, 40); return true; }
     // the spring pulls a reference point (the atom, or the centre of mass of its layer / molecule) so nothing jumps on grab
     const w0 = o.clone().addScaledVector(d, p.t * p.s), r0 = toLocal(w0, d).o;
     let frag = isMat() && S.grab === 'frag' ? mat.fragmentMask(p.i) : null; const grp = isMat() && S.grab === 'group';
@@ -1342,9 +1345,32 @@ function doDel(src, o, d) {
   const p = pickAtom(o, d); if (!p) return false;
   removeAtomAt(p.i); pulse(src, 0.4, 30); return true;
 }
+// Hand grabs. mode 'hand': a loose piece (at most half the atoms) moves whole, otherwise the atom itself is pulled hard
+// (it breaks out); mode 'sheet': the whole layer the atom belongs to (grip button)
+const HAND_PULL = { kk: 20, cap: 40 };                                   // eV/A^2, eV/A - test/hand.test.mjs uses the same numbers
+function grabAt(src, o, d, p, mode) {
+  let frag = null, grp = false;
+  if (isMat()) {
+    if (mode === 'sheet') grp = true;
+    else { frag = mat.fragmentMask(p.i); if (frag.n < 2 || frag.n > md.N / 2) frag = null; }
+  }
+  const w0 = o.clone().addScaledVector(d, p.t * p.s), r0 = toLocal(w0, d).o;
+  const ref = frag ? mat.maskCOM(p.i, frag.mask) : grp ? mat.groupCOM(p.i) : [md.x[p.i], md.y[p.i], md.z[p.i]];
+  hold.src = src; hold.kind = 'tw'; hold.byGrip = mode === 'sheet'; hold.grab = { i: p.i, dist: p.t * p.s, off: [ref[0] - r0.x, ref[1] - r0.y, ref[2] - r0.z] };
+  if (isMat()) {
+    md.ext.mask = frag ? frag.mask : null; md.ext.kk = frag || grp ? 0 : HAND_PULL.kk; md.ext.cap = frag || grp ? 0 : HAND_PULL.cap;
+    md.ext.anchor = null;
+    if (mode === 'hand' && !frag) {                // pulling one atom out of a big piece: the rest is held in place
+      const rest = mat.fragmentMask(p.i).mask; rest[p.i] = 0; let any = false; for (let k = 0; k < md.N; k++) if (rest[k]) { any = true; break; }
+      if (any) md.ext.anchor = mat.anchorFor(rest);
+    }
+  }
+  md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom';
+}
 function toolUp(src) {
   if (hold.src !== src) return;
-  if (hold.kind === 'tw') md.ext.i = -1;
+  if (hold.kind === 'tw') { md.ext.i = -1; md.ext.kk = 0; md.ext.cap = 0; md.ext.anchor = null; }
+  hold.byGrip = false;
   hold.src = null; hold.kind = null; hold.grab = null;
 }
 function toolUpdate() {
@@ -1515,9 +1541,10 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('selectend', () => { if (vc.uiHeld) { vc.uiHeld.release(i); vc.uiHeld = null; } toolUp(i); });
   obj.addEventListener('squeezestart', () => {
     if (vc.hitObj === uiMesh || vc.hitObj === plotMesh || vc.hitObj === tbMesh || vc.hitObj === ptMesh) { vc.obj.updateWorldMatrix(true, false); vc.hitObj.updateWorldMatrix(true, false); vc.pg = { mesh: vc.hitObj, rel: vc.obj.matrixWorld.clone().invert().multiply(vc.hitObj.matrixWorld) }; pulse(i, 0.3, 30); return; }
+    if (S.tool === 'hand' && hold.src === null && md.N) { const r = rayOf(i), p = pickAtom(r.o, r.d); if (p) { grabAt(i, r.o, r.d, p, 'sheet'); vc.sheet = true; pulse(i, 0.5, 40); return; } }
     vc.sq = true; regrab();
   });
-  obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } vc.sq = null; regrab(); });
+  obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; toolUp(i); return; } vc.sq = null; regrab(); });
   return vc;
 });
 
@@ -1564,17 +1591,17 @@ function makeToolHeads() {
   return { root, H };
 }
 for (const vc of vrc) { vc.tools = makeToolHeads(); vc.obj.add(vc.tools.root); }
-const CURSORS = { tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', cminus: 'pointer', cplus: 'pointer' };
+const CURSORS = { hand: 'grab', tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', cminus: 'pointer', cplus: 'pointer' };
 let lastCursor = '';
 function updateToolShapes() {
   const elCol = (isMat() && SPECIES[SP[S.cel]]) ? SPECIES[SP[S.cel]].color : 0x88a0c0;
   for (const vc of vrc) { if (!vc.tools) continue; for (const k in vc.tools.H) { const g = vc.tools.H[k], on = k === S.tool && !(vc.hit && vc.hit.ui); g.visible = on; if (on && g.userData.atom) g.userData.atom.material.color.setHex(S.tool === 'add' && !isMat() ? new THREE.Color(ELEMENTS[S.el] ? ELEMENTS[S.el].color : 0x88a0c0).getHex() : elCol); } }
-  const cur = hold.src === 'mouse' && S.tool === 'tweezers' ? 'grabbing' : (CURSORS[S.tool] || 'default');
+  const cur = hold.src === 'mouse' && (S.tool === 'tweezers' || S.tool === 'hand') ? 'grabbing' : (CURSORS[S.tool] || 'default');
   if (cur !== lastCursor) { renderer.domElement.style.cursor = cur; lastCursor = cur; }
 }
 function handPose(vc, gp, dt) {
   const t = gp && gp.buttons[0] ? gp.buttons[0].value : 0, g = gp && gp.buttons[1] ? gp.buttons[1].value : 0;
-  const tw = hold.src === vc.i && hold.kind === 'tw', ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg;
+  const handGrab = hold.src === vc.i && hold.kind === 'tw' && S.tool === 'hand', tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab;
   const want = fist ? { index: 0.95, thumb: 0.8, others: 1 } : tw ? { index: 0.6, thumb: 0.9, others: 0.7 } : ui_ ? { index: 0.08 + 0.25 * t, thumb: 0.6, others: 0.9 } : { index: 0.1 + 0.8 * t, thumb: 0.15 + 0.6 * t, others: Math.max(0.25, g) };
   const a = Math.min(1, dt * 14), P = vc.hand3.pose; for (const k in want) P[k] += (want[k] - P[k]) * a; vc.hand3.apply();
 }
@@ -1670,6 +1697,7 @@ function frame() {
   toolUpdate();
 
   md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
+  if (isMat() && mat.model === 'uff' && mat.chem.pending) { mat.chem.relaxPending(S.vr ? 3 : 6); }   // settle a fresh attachment a few iterations per frame
   if (!S.paused && md.N && !md.exploded) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
     while (n < S.speed && now() - t0 < budget) { md.run(1); n++; }
