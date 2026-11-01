@@ -11,6 +11,7 @@
 // test/materials.test.mjs to the bulk interlayer spacing and binding energy).
 export const KB = 8.617333262e-5;           // eV/K
 export const TU_FS = 10.1805055;            // fs per time unit
+const OPEN_MARGIN = 10;                      // A of vacuum round an open flake (its box is display/tweezers room only)
 // equilibrium lattice parameters of the potentials themselves (found by scanning, see test/materials.test.mjs)
 export const GR_B = 1.438;                  // C-C bond in graphene, Lindsay-Broido Tersoff
 export const MOS2 = { a: 3.12, h: 1.559 };  // SW(mod) minimum: a = 3.12 A (exp. 3.16), S height 1.56 A (Mo-S 2.40 A, exp. 2.41)
@@ -68,7 +69,7 @@ export class Mat {
   get density() { return this.N; }
   get periodicAny() { return this.per[0] || this.per[1] || this.per[2]; }
 
-  clear() { this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
+  clear() { this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
 
   addRaw(sp, x, y, z, grp) {
     const i = this.N++; this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass; this.grp[i] = grp;
@@ -76,47 +77,74 @@ export class Mat {
   }
 
   /* ---------------- structure builders ---------------- */
-  // graphene sheet: nx*ny rectangular 4-atom cells (zigzag along x), periodic in x and y
-  buildGraphene(nx, ny, T0, layers = 1, stacked = false) {
+  // graphene sheet: nx*ny rectangular 4-atom cells (zigzag along x), periodic in x and y -
+  // or, with open = true, a free-standing flake: no periodic images, vacuum all round, dangling edge atoms removed
+  buildGraphene(nx, ny, T0, layers = 1, stacked = false, open = false) {
     this.clear(); this.model = 'tersoff'; this.tp = TERSOFF.graphene; this.vdw = stacked ? VDW.graphite : null; this.charges = false;
-    const b = GR_B, a = Math.sqrt(3) * b, dz = 3.35, vac = 14;
-    if (stacked) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (3 * b))); }
+    const b = GR_B, a = Math.sqrt(3) * b, dz = 3.35, vac = 14, M = open ? OPEN_MARGIN : 0;
+    if (stacked && !open) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (3 * b))); }
     if (4 * nx * ny * layers > this.maxN) throw new Error('too many atoms - choose a smaller sheet');
-    this.Lx = nx * a; this.Ly = ny * 3 * b; this.Lz = (layers - 1) * dz + vac; this.per = [true, true, false];
+    this.Lx = nx * a + 2 * M; this.Ly = ny * 3 * b + 2 * M; this.Lz = (layers - 1) * dz + vac; this.per = open ? [false, false, false] : [true, true, false];
+    const Px = nx * a, Py = ny * 3 * b, wrap = (v, Lm) => open ? v : ((v % Lm) + Lm) % Lm;
     const z0 = this.Lz / 2 - (layers - 1) * dz / 2;
     for (let L = 0; L < layers; L++) {
       const sy = (L % 2) * b;                                  // AB (Bernal) stacking: shift of one bond length
       for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (const [px, py] of [[0, 0], [a / 2, b / 2], [a / 2, 1.5 * b], [0, 2 * b]])
-        this.addRaw(SP.C, (i * a + px) % this.Lx, ((j * 3 * b + py + sy) % this.Ly + this.Ly) % this.Ly, z0 + L * dz, L);
+        this.addRaw(SP.C, M + wrap(i * a + px, Px), M + wrap(j * 3 * b + py + sy, Py), z0 + L * dz, L);
     }
-    this.name = layers === 1 ? 'Graphene' : `Graphite (${layers} layers, AB)`;
+    if (open) this.trimEdges(1.7, 2);
+    this.sheet = true;
+    this.name = open ? (layers === 1 ? 'Graphene flake' : `Graphite flake, ${layers} layers`) : (layers === 1 ? 'Graphene' : `Graphite (${layers} layers, AB)`);
     this.finish(T0, 0.5);
   }
   // graphite = stacked graphene with vdW between layers
-  buildGraphite(nx, ny, layers, T0) { this.buildGraphene(nx, ny, T0, layers, true); }
+  buildGraphite(nx, ny, layers, T0, open = false) { this.buildGraphene(nx, ny, T0, layers, true, open); }
 
-  // MoS2 2H: 1 or 2 layers, periodic in x,y
-  buildMoS2(nx, ny, layers, T0) {
+  // MoS2 2H: 1 or 2 layers, periodic in x,y (or an open flake)
+  buildMoS2(nx, ny, layers, T0, open = false) {
     this.clear(); this.model = 'sw'; this.vdw = layers > 1 ? VDW.mos2 : null; this.charges = false;
-    const a = MOS2.a, hS = MOS2.h, c2 = 6.15, vac = 14;
-    if (layers > 1) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (Math.sqrt(3) * a))); }
+    const a = MOS2.a, hS = MOS2.h, c2 = 6.15, vac = 14, M = open ? OPEN_MARGIN : 0;
+    if (layers > 1 && !open) { nx = Math.max(nx, Math.ceil(17 / a)); ny = Math.max(ny, Math.ceil(17 / (Math.sqrt(3) * a))); }
     if (6 * nx * ny * layers > this.maxN) throw new Error('too many atoms - choose a smaller sheet');
-    this.Lx = nx * a; this.Ly = ny * Math.sqrt(3) * a; this.Lz = (layers - 1) * c2 + 2 * hS + vac; this.per = [true, true, false];
+    const Px = nx * a, Py = ny * Math.sqrt(3) * a;
+    this.Lx = Px + 2 * M; this.Ly = Py + 2 * M; this.Lz = (layers - 1) * c2 + 2 * hS + vac; this.per = open ? [false, false, false] : [true, true, false];
     const zc = this.Lz / 2 - (layers - 1) * c2 / 2;
     const ox = a / 2, oy = a / (2 * Math.sqrt(3));
+    const w = (v, Lm) => M + (open ? v : ((v % Lm) + Lm) % Lm);
     for (let L = 0; L < layers; L++) {
       const z = zc + L * c2, flip = L % 2;                      // 2H: second layer has Mo over the first layer's S sites
       for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (const [px, py] of [[0, 0], [a / 2, Math.sqrt(3) * a / 2]]) {
         const X = i * a + px, Y = j * Math.sqrt(3) * a + py;
         const mx = flip ? X + ox : X, my = flip ? Y + oy : Y, sx = flip ? X : X + ox, sy = flip ? Y : Y + oy;
-        const w = (v, Lm) => ((v % Lm) + Lm) % Lm;
-        this.addRaw(SP.Mo, w(mx, this.Lx), w(my, this.Ly), z, L);
-        this.addRaw(SP.S, w(sx, this.Lx), w(sy, this.Ly), z + hS, L);
-        this.addRaw(SP.S, w(sx, this.Lx), w(sy, this.Ly), z - hS, L);
+        this.addRaw(SP.Mo, w(mx, Px), w(my, Py), z, L);
+        this.addRaw(SP.S, w(sx, Px), w(sy, Py), z + hS, L);
+        this.addRaw(SP.S, w(sx, Px), w(sy, Py), z - hS, L);
       }
     }
-    this.name = layers === 1 ? 'MoS₂ monolayer' : `MoS₂ (${layers} layers, 2H)`;
+    if (open) this.trimEdges(2.9, 2);
+    this.sheet = true;
+    this.name = open ? (layers === 1 ? 'MoS₂ flake' : 'MoS₂ flake, 2 layers') : (layers === 1 ? 'MoS₂ monolayer' : `MoS₂ (${layers} layers, 2H)`);
     this.finish(T0, 0.8);
+  }
+
+  // open flakes: repeatedly remove atoms with fewer than minNb covalent neighbours (closer than rb, unlike-species for MoS2)
+  trimEdges(rb, minNb) {
+    for (let pass = 0; pass < 6; pass++) {
+      const keep = [];
+      for (let i = 0; i < this.N; i++) {
+        let n = 0;
+        for (let j = 0; j < this.N; j++) {
+          if (j === i || this.grp[j] !== this.grp[i]) continue;
+          if (this.model === 'sw' && this.sp[j] === this.sp[i]) continue;
+          const dx = this.x[j] - this.x[i], dy = this.y[j] - this.y[i], dz = this.z[j] - this.z[i];
+          if (dx * dx + dy * dy + dz * dz < rb * rb) n++;
+        }
+        if (n >= minNb) keep.push(i);
+      }
+      if (keep.length === this.N) return;
+      keep.forEach((i, k) => { this.sp[k] = this.sp[i]; this.mass[k] = this.mass[i]; this.grp[k] = this.grp[i]; this.x[k] = this.x[i]; this.y[k] = this.y[i]; this.z[k] = this.z[i]; });
+      this.N = keep.length; this.listDirty = true;
+    }
   }
 
   // diamond cluster of given radius (A): bare, carved from the lattice

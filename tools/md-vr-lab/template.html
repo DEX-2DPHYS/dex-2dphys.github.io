@@ -24,18 +24,26 @@
   #hint{position:fixed;left:14px;top:50px;color:#8798b6;font-size:12px;line-height:1.5;text-shadow:0 1px 6px #000;z-index:3;pointer-events:none}
   #hint b{color:#cfe0ff;font-weight:600}
   @media (max-width:760px){#hint{display:none}}
+  body.light{background:#e8edf3;color:#15202f}
+  body.light #top .brand{color:#0b827f;text-shadow:none}
+  body.light #top .sub,body.light #top a,body.light #hint{color:#4f5f79;text-shadow:none}
+  body.light #hint b{color:#15202f}
+  body.light button.b{color:#15202f;background:#dfe6f0;border-color:#b9c5d6}
+  body.light button.b.on{background:#a8dedb;border-color:#0b827f}
+  body.light #uiWrap canvas,body.light #plotWrap canvas{box-shadow:0 8px 30px rgba(40,60,90,.25)}
 </style>
 </head>
 <body>
 <div id="top">
   <span class="brand">MD LAB&nbsp;VR</span>
   <span class="sub">Lennard-Jones molecular dynamics · DEX · 2DPHYS</span>
+  <button class="b" id="themeBtn">White lab</button>
   <button class="b" id="panelBtn">Panel</button>
   <button class="b" id="plotBtn">Plots</button>
   <button class="b" id="vrBtn">Checking VR…</button>
   <a href="../../index.html">← DEX tools</a>
 </div>
-<div id="hint"><b>Mouse:</b> drag atoms with the tweezers · drag empty space to orbit · right-drag to pan · wheel to zoom<br><b>Keys:</b> space run/pause · 1 2 3 tools · R rebuild · P plots</div>
+<div id="hint"><b>Mouse:</b> drag atoms with the tweezers · drag empty space to orbit · right-drag to pan · wheel to zoom<br><b>Keys:</b> space run/pause · 1 2 3 tools · 4 5 −/+ contacts · R rebuild · P plots · T dark/white lab</div>
 <div id="uiWrap"></div>
 <div id="plotWrap"></div>
 <!--BUNDLE-->
