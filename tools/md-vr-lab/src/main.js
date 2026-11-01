@@ -14,6 +14,16 @@ import { DA } from './i18n-da.js';
 addLanguage('da', DA);
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
+// the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
+import POSTER_TRANSPORT from './poster-transport.jpg';
+import POSTER_QUANTUM from './poster-quantum.jpg';
+import POSTER_LIGHT from './poster-light.jpg';
+const posterImgs = [POSTER_TRANSPORT, POSTER_QUANTUM, POSTER_LIGHT].map((s) => { const im = new Image(); im.src = s; return im; });
+function posterMesh(img, w, h) {
+  const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  if (img.complete && img.naturalWidth) tex.needsUpdate = true; else img.addEventListener('load', () => { tex.needsUpdate = true; }, { once: true });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+}
 import { TASKS, VR_HELP } from './content.js';
 
 /* ================================================================== state */
@@ -168,6 +178,20 @@ function makeRoom(th) {
   const sign = canvasTex(1600, 640, drawSign);
   if (!logoImg.complete) logoImg.addEventListener('load', () => { drawSign(sign.image.getContext('2d'), 1600, 640); sign.needsUpdate = true; }, { once: true });
   const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 0.82), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(0, 2.77, Z0 + 0.06); grp.add(sg);
+  // posters at A0 size (0.84 x 1.19 m): two on the wall behind the seat, one on a free-standing board to the left, turned towards the seat
+  const PW = 0.84, PH = 1.19, PY = 1.62;
+  for (const [img, x] of [[posterImgs[0], -2.1], [posterImgs[2], 2.1]]) {
+    box('trim', PW + 0.06, PH + 0.06, 0.02, x, PY, Z1 - 0.06);
+    const p = posterMesh(img, PW, PH); p.position.set(x, PY, Z1 - 0.075); p.rotation.y = Math.PI; grp.add(p);
+  }
+  {
+    const st = new THREE.Group(), dark = new THREE.MeshLambertMaterial({ color: 0x3a4150 }), metal = new THREE.MeshLambertMaterial({ color: 0x9aa3b0 });
+    const bx = (m, w, h, d, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); st.add(o); };
+    bx(dark, PW + 0.08, PH + 0.08, 0.03, 0, PY, 0);                                         // the board
+    for (const s of [-1, 1]) { bx(metal, 0.035, 2.3, 0.035, s * (PW / 2 + 0.06), 1.15, -0.02); bx(metal, 0.06, 0.03, 0.55, s * (PW / 2 + 0.06), 0.015, -0.02); }   // legs and feet
+    const p = posterMesh(posterImgs[1], PW, PH); p.position.set(0, PY, 0.017); st.add(p);
+    const sx = -2.9, sz = -0.3; st.position.set(sx, 0, sz); st.rotation.y = Math.atan2(-sx, -sz); grp.add(st);
+  }
   return grp;
 }
 function disposeTree(o) { o.traverse((c) => { if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); } }); }
@@ -1559,5 +1583,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
