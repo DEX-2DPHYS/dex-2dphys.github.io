@@ -171,6 +171,18 @@ export const TASKS = [
     ],
     ask: 'The electron has the same distance to travel in all three cases. Why does meta conduct so much worse at low bias?',
   },
+  {
+    title: '15 \u00B7 Decorate graphene',
+    goal: 'Attach atoms to a graphene flake and watch the carbon underneath change from flat (sp\u00B2) to tetrahedral (sp\u00B3) - and what that does to the current.',
+    setup: { build: { sys: 'mat', mat: 'graphene', size: 10, Tm: 100, open: true, chem: true }, TsetK: 100, speed: 6, contacts: 'ends', tab: 'ELEC' },
+    steps: [
+      'Load the setup: an open graphene flake in the chemistry mode (explicit bonds, any main-group element), with electrodes on the two ends. Note the current.',
+      'BUILD \u2192 Edit by hand: choose Attach and F, then click a carbon in the middle. The carbon gets a fourth bond, becomes sp\u00B3 and pops out of the sheet by about 0.4 \u00C5; its three C\u2013C bonds stretch from 1.42 to about 1.51 \u00C5. Rotate the view to see the pucker.',
+      'On the ELEC tab: the sp\u00B3 carbon has lost its \u03C0 orbital, so the current has to go round it. Attach H, F and OH (O with "Fill valence with H") across the middle and watch T(E): the band is blocked, while broken π bonds leave localised states near E_F that can even carry current resonantly on a small flake.',
+      'Attach on both sides of the sheet, or put two atoms on neighbouring carbons. Use the tweezers to pull an F off: the bond snaps at 1.6\u00D7 its length and the carbon flattens again.',
+    ],
+    ask: 'Why does one attached atom hurt the current so much more than its size suggests? What would full coverage (graphane, fluorographene) do?',
+  },
 ];
 
 export const VR_HELP = [

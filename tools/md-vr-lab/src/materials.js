@@ -11,16 +11,27 @@
 // test/materials.test.mjs to the bulk interlayer spacing and binding energy).
 export const KB = 8.617333262e-5;           // eV/K
 export const TU_FS = 10.1805055;            // fs per time unit
+import { Chem } from './chem.js';
 const OPEN_MARGIN = 10;                      // A of vacuum round an open flake (its box is display/tweezers room only)
 // equilibrium lattice parameters of the potentials themselves (found by scanning, see test/materials.test.mjs)
 export const GR_B = 1.438;                  // C-C bond in graphene, Lindsay-Broido Tersoff
 export const MOS2 = { a: 3.12, h: 1.559 };  // SW(mod) minimum: a = 3.12 A (exp. 3.16), S height 1.56 A (Mo-S 2.40 A, exp. 2.41)
-export const SP = { C: 0, H: 1, Mo: 2, S: 3 };
+export const SP = { C: 0, H: 1, Mo: 2, S: 3, B: 4, N: 5, O: 6, F: 7, Si: 8, P: 9, Cl: 10, Br: 11, I: 12 };
 export const SPECIES = [
   { sym: 'C', mass: 12.011, color: 0x4d5360, r: 0.46, bond: 1.9 },
   { sym: 'H', mass: 1.008, color: 0xf2f2f2, r: 0.28, bond: 1.3 },
   { sym: 'Mo', mass: 95.95, color: 0x4fb3b3, r: 0.72, bond: 2.9 },
   { sym: 'S', mass: 32.06, color: 0xf2d43d, r: 0.62, bond: 2.9 },
+  // Chemistry mode (src/chem.js) adds the rest of the main groups; colours after the usual CPK scheme
+  { sym: 'B', mass: 10.81, color: 0xffb5b5, r: 0.44, bond: 2.0 },
+  { sym: 'N', mass: 14.007, color: 0x3a5cf0, r: 0.42, bond: 1.9 },
+  { sym: 'O', mass: 15.999, color: 0xe8322b, r: 0.40, bond: 1.9 },
+  { sym: 'F', mass: 18.998, color: 0x8fe05a, r: 0.38, bond: 1.9 },
+  { sym: 'Si', mass: 28.085, color: 0xd9b48a, r: 0.58, bond: 2.5 },
+  { sym: 'P', mass: 30.974, color: 0xff8a1f, r: 0.55, bond: 2.5 },
+  { sym: 'Cl', mass: 35.45, color: 0x36d636, r: 0.52, bond: 2.4 },
+  { sym: 'Br', mass: 79.904, color: 0xa83b2c, r: 0.58, bond: 2.6 },
+  { sym: 'I', mass: 126.904, color: 0x8a2be2, r: 0.66, bond: 2.9 },
 ];
 const KCAL = 0.0433641153;                  // kcal/mol -> eV
 const KE_COUL = 14.399645;                  // eV*A / e^2
@@ -62,7 +73,7 @@ export class Mat {
     this.start = new Int32Array(maxN + 1); this.nbr = new Int32Array(1 << 14);              // covalent full list (CSR)
     this.bonds = []; this.angles = []; this.oops = [];                                       // topology for 'ff'
     this.rdfBins = 120; this.rdfMax = 6; this.rdfHist = new Float64Array(this.rdfBins); this.rdfSamples = 0; this.rdfWant = false;
-    this.label = ''; this.name = '';
+    this.label = ''; this.name = ''; this.chem = new Chem(this);
     this.scratch = { j: new Int32Array(64), dx: new Float64Array(64), dy: new Float64Array(64), dz: new Float64Array(64), r: new Float64Array(64), fc: new Float64Array(64), dfc: new Float64Array(64) };
   }
   get isMat() { return true; }
@@ -196,7 +207,7 @@ export class Mat {
     this.thermostat = true; this.Ttarget = T0; this.listDirty = true; this.exploded = false;
     this.computeForces(); this.quench(400, quenchDt);
     this.thermalise(T0); this.computeForces(); this.mark(); this.resetRDF(); this.time = 0; this.step = 0;
-    this.dt = (this.model === 'ff' ? 0.5 : 1.0) / TU_FS;
+    this.dt = (this.model === 'ff' || this.model === 'uff' ? 0.5 : 1.0) / TU_FS;
   }
 
   quench(steps, dtfs) {
@@ -254,6 +265,9 @@ export class Mat {
 
   buildLists() {
     const N = this.N, pe = this.per, Lx = this.Lx, Ly = this.Ly, Lz = this.Lz;
+    if (this.model === 'uff') {                                   // chemistry mode: bonds come from the topology, not from distances
+      this.chem.syncLists(); this.listN = N; this.xr.set(this.x.subarray(0, N)); this.yr.set(this.y.subarray(0, N)); this.zr.set(this.z.subarray(0, N)); this.listDirty = false; return;
+    }
     const rc = this.rcov() + this.skinC, rc2 = rc * rc, rv = this.rvdw() + this.skinV, rv2 = rv * rv, useV = !!this.vdw;
     let nb = 0, nv = 0; const deg = this.start; deg.fill(0, 0, N + 1);
     const pushB = (i, j) => { if (nb >= this.bi.length) { const a = new Int32Array(nb * 2); a.set(this.bi); this.bi = a; const b = new Int32Array(nb * 2); b.set(this.bj); this.bj = b; } this.bi[nb] = i; this.bj[nb] = j; nb++; deg[i + 1]++; deg[j + 1]++; };
@@ -286,7 +300,7 @@ export class Mat {
     const N = this.N; for (let i = 0; i < N; i++) { this.fx[i] = this.fy[i] = this.fz[i] = 0; }
     if (this.needList()) this.buildLists();
     let pe = 0;
-    if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF();
+    if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF(); else if (this.model === 'uff') pe += this.chem.forces();
     if (this.vdw) pe += this.fVdw();
     pe += this.fExt();
     this.PE = pe; this.updateCoord();
@@ -303,7 +317,7 @@ export class Mat {
       zs[i] += 0.05 * (n - zs[i]);
     }
   }
-  bondLimit(i, j) { const a = this.sp[i], b = this.sp[j]; if (a === SP.S && b === SP.S) return 0; if (a === SP.Mo && b === SP.Mo) return 0; return Math.max(SPECIES[a].bond, SPECIES[b].bond) > 2 ? 2.9 : (a === SP.H || b === SP.H) ? 1.3 : 1.9; }
+  bondLimit(i, j) { if (this.model === 'uff') return 99; const a = this.sp[i], b = this.sp[j]; if (a === SP.S && b === SP.S) return 0; if (a === SP.Mo && b === SP.Mo) return 0; return Math.max(SPECIES[a].bond, SPECIES[b].bond) > 2 ? 2.9 : (a === SP.H || b === SP.H) ? 1.3 : 1.9; }
 
   fTersoff() {
     const P = this.tp, N = this.N, S = this.scratch, Rc = P.R + P.D, Rc2 = Rc * Rc, pe = this.per;
@@ -483,6 +497,7 @@ export class Mat {
       this.move(i, dt * vx[i], dt * vy[i], dt * vz[i]);
     }
     this.computeForces();
+    if (this.model === 'uff' && this.step % 5 === 0 && this.chem.breakStretched()) this.computeForces();     // overstretched bonds snap
     for (let i = 0; i < N; i++) { const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i]; }
     let KE = this.kinetic();
     if (this.thermostat && KE > 0) {
@@ -503,7 +518,7 @@ export class Mat {
     let best = -1, bd = 1e9;
     for (let i = 0; i < this.N; i++) { const d = Math.hypot(this.x[i] - px, this.y[i] - py, this.z[i] - pz); if (d < bd) { bd = d; best = i; } }
     if (bd < 0.9) return -1;
-    const g = best >= 0 ? this.grp[best] : 0, i = this.addRaw(sp, px, py, pz, g);
+    const g = best >= 0 ? this.grp[best] : 0, i = this.addRaw(sp, px, py, pz, g); if (this.model === 'uff') this.chem.dirty = true;
     const s = Math.sqrt(KB * Math.max(this.Ttarget, 10) / this.mass[i]); this.vx[i] = s * this.gauss(); this.vy[i] = s * this.gauss(); this.vz[i] = s * this.gauss();
     this.computeForces(); return i;
   }
@@ -512,7 +527,20 @@ export class Mat {
     const l = --this.N; this.listDirty = true;
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_']) this[k][i] = this[k][l]; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
+    if (this.model === 'uff') this.chem.removeAtom(i, l);
     this.computeForces();
+  }
+
+  /* ---------------- chemistry mode (src/chem.js) ---------------- */
+  // turn the current structure into explicit bonds on the UFF force field (keeps the atoms where they are)
+  toChem(T0) {
+    if (this.model === 'sw') throw new Error('MoS\u2082 is not available in the chemistry mode');
+    this.chem.fromGeometry(); this.model = 'uff'; this.vdw = null; this.charges = false; this.bonds = []; this.angles = []; this.oops = [];
+    this.listDirty = true; this.name = this.name + ' \u00B7 chemistry'; this.finish(T0, 0.3);
+  }
+  buildEmpty(span = 30) {
+    this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.per = [false, false, false];
+    this.Lx = this.Ly = this.Lz = span; this.chem.clear(); this.name = 'Empty box \u00B7 chemistry'; this.listDirty = true; this.finish(10, 0.3);
   }
   groupCOM(i) { const g = this.grp[i], x0 = this.x[i], y0 = this.y[i], z0 = this.z[i]; let M = 0, a = 0, b = 0, c = 0; for (let k = 0; k < this.N; k++) if (this.grp[k] === g) { const m = this.mass[k]; M += m; a += m * this.mi(this.x[k] - x0, this.Lx, this.per[0]); b += m * this.mi(this.y[k] - y0, this.Ly, this.per[1]); c += m * this.mi(this.z[k] - z0, this.Lz, this.per[2]); } return [x0 + a / M, y0 + b / M, z0 + c / M]; }
   switchBoundary() { }
