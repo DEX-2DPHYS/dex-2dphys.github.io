@@ -21,7 +21,11 @@
   #uiWrap canvas{display:block;width:min(430px,94vw,calc((100vh - 66px)*800/1160));aspect-ratio:800/1160;height:auto;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.55)}
   #plotWrap{position:fixed;left:10px;bottom:10px;z-index:4}
   #plotWrap canvas{display:block;width:min(540px,46vw);aspect-ratio:1024/860;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.55);opacity:.97}
-  #hint{position:fixed;left:14px;top:50px;color:#8798b6;font-size:12px;line-height:1.5;text-shadow:0 1px 6px #000;z-index:3;pointer-events:none}
+  #tools{position:fixed;left:14px;top:50px;z-index:6;display:flex;flex-direction:column;gap:6px}
+  #tools canvas{display:block;width:min(700px,calc(100vw - 480px));height:auto;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  #tbWrap canvas{aspect-ratio:1000/92} #ptWrap canvas{aspect-ratio:1000/520}
+  body.light #tools canvas{box-shadow:0 8px 24px rgba(40,60,90,.25)}
+  #hint{position:fixed;left:14px;top:calc(56px + min(700px, calc(100vw - 480px)) * 0.092);color:#8798b6;font-size:12px;line-height:1.5;text-shadow:0 1px 6px #000;z-index:3;pointer-events:none}
   #hint b{color:#cfe0ff;font-weight:600}
   @media (max-width:760px){#hint{display:none}}
   body.light{background:#e8edf3;color:#15202f}
@@ -44,6 +48,7 @@
   <a href="../../index.html">← DEX tools</a>
 </div>
 <div id="hint"><b>Mouse:</b> drag atoms with the tweezers · drag empty space to orbit · right-drag to pan · wheel to zoom<br><b>Keys:</b> space run/pause · 1 2 3 tools · 4 5 −/+ contacts · R rebuild · P plots · T dark/white lab</div>
+<div id="tools"><div id="tbWrap"></div><div id="ptWrap" style="display:none"></div></div>
 <div id="uiWrap"></div>
 <div id="plotWrap"></div>
 <!--BUNDLE-->
