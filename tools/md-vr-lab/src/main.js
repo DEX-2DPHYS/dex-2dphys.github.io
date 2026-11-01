@@ -6,7 +6,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { MD, ELEMENTS, units, MAXN, clamp } from './physics.js';
 import { Mat, TU_FS, SPECIES, TERSOFF, SP } from './materials.js';
 import { CHEM_ELEMENTS, VALENCE } from './chem.js';
-import { UI, COL, setPalette } from './ui.js';
+import { UI, COL, setPalette, roundRect } from './ui.js';
+import { ICONS } from './icons.js';
 import { drawPlots, drawElec, PW, PH } from './plots.js';
 import { analyse as analyseNow } from './tb.js';
 import { tr, setLang, addLanguage } from './i18n.js';
@@ -52,11 +53,11 @@ const S = {
   cel: 'F', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  lang: 'en', quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  lang: 'en', level: 'researcher', quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
-try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'quality', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
+try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'level', 'quality', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
 try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
 const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
@@ -686,16 +687,120 @@ tbMesh.visible = ptMesh.visible = false; bench.add(tbMesh); bench.add(ptMesh);
 const PT_ROWS = ['H,,,,,,,,,,,,,,,,,He', 'Li,Be,,,,,,,,,,,B,C,N,O,F,Ne', 'Na,Mg,,,,,,,,,,,Al,Si,P,S,Cl,Ar', 'K,Ca,Sc,Ti,V,Cr,Mn,Fe,Co,Ni,Cu,Zn,Ga,Ge,As,Se,Br,Kr',
   'Rb,Sr,Y,Zr,Nb,Mo,Tc,Ru,Rh,Pd,Ag,Cd,In,Sn,Sb,Te,I,Xe', 'Cs,Ba,La,Hf,Ta,W,Re,Os,Ir,Pt,Au,Hg,Tl,Pb,Bi,Po,At,Rn', 'Fr,Ra,Ac,Rf,Db,Sg,Bh,Hs,Mt,Ds,Rg,Cn,Nh,Fl,Mc,Lv,Ts,Og'].map((r) => r.split(','));
 function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty = true; }
+/* ---------- levels: Kid, Adult (non-expert), Researcher. Same simulation; the level only decides what is shown and how.
+   Tools are pictograms with a colour per kind: teal = grab, green = build, red/orange = remove, blue/red = electrodes. ---------- */
+const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
+const nudgeT = (f) => { const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; };
+const TOOLDEF = {
+  tweezers: { l: 'Tweezers', icon: ICONS.tweezers, tint: '#2bd3cf', on: () => S.tool === 'tweezers', act: () => selectTool('tweezers') },
+  add: { l: 'Add', icon: ICONS.add, tint: '#5fd38a', on: () => S.tool === 'add', act: () => selectTool('add') },
+  attach: { l: 'Attach', icon: ICONS.attach, tint: '#5fd38a', on: () => S.tool === 'attach', act: () => selectTool('attach') },
+  bond: { l: 'Bond', icon: ICONS.bond, tint: '#5fd38a', on: () => S.tool === 'bond', act: () => selectTool('bond') },
+  delete: { l: 'Delete', icon: ICONS.delete, tint: '#ff6b6b', on: () => S.tool === 'delete', act: () => selectTool('delete') },
+  zap: { l: 'Zap', icon: ICONS.zap, tint: '#ff9f43', on: () => S.tool === 'zap', act: () => selectTool('zap') },
+  element: { l: () => `${S.cel} \u25BE`, icon: ICONS.element, arg: () => S.cel, tint: () => famCol(S.cel), on: () => S.ptOpen, act: () => { S.ptOpen = !S.ptOpen; ptab.dirty = true; } },
+  hfill: { l: 'H fill', icon: ICONS.hfill, tint: '#d8dde6', on: () => S.fillH, act: () => { S.fillH = !S.fillH; } },
+  cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => S.tool === 'cminus', act: () => selectTool('cminus') },
+  cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => S.tool === 'cplus', act: () => selectTool('cplus') },
+  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { S.paused = !S.paused; } },
+  cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
+  warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
+  rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
+};
+const TB_LEVEL = {
+  kid: ['tweezers', 'add', 'zap', 'cool', 'warm', 'run', 'rebuild'],
+  adult: ['tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run'],
+  researcher: ['tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run'],
+};
+const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
 function drawToolbar() {
-  tbar.begin(); tbar.y = 13; tbar.row(11);
-  for (const [v, l] of [['tweezers', 'Tweezers'], ['add', 'Add'], ['attach', 'Attach'], ['bond', 'Bond'], ['delete', 'Delete'], ['zap', 'Zap']]) if (tbar.button(l, { active: S.tool === v, h: 66, size: 20 })) selectTool(v);
-  if (tbar.button(`${S.cel} \u25BE`, { active: S.ptOpen, primary: !S.ptOpen, h: 66, size: 26 })) { S.ptOpen = !S.ptOpen; ptab.dirty = true; }
-  if (tbar.button('H fill', { active: S.fillH, h: 66, size: 19 })) S.fillH = !S.fillH;
-  if (tbar.button('\u2212 contact', { active: S.tool === 'cminus', h: 66, size: 19 })) selectTool('cminus');
-  if (tbar.button('+ contact', { active: S.tool === 'cplus', h: 66, size: 19 })) selectTool('cplus');
-  if (tbar.button(S.paused ? '\u25B6 Run' : '\u275A\u275A Pause', { active: S.paused, h: 66, size: 19 })) S.paused = !S.paused;
+  const list = TB_LEVEL[S.level] || TB_LEVEL.researcher, kid = S.level === 'kid';
+  tbar.begin(); tbar.y = 13; tbar.row(list.length);
+  for (const k of list) {
+    const d = TOOLDEF[k];
+    if (tbar.button(kid ? '' : val(d.l), { icon: iconOf(d), iconArg: d.arg ? d.arg() : undefined, tint: val(d.tint), active: d.on(), h: 66, size: list.length > 10 ? 15 : 17 })) { d.act(); tbar.dirty = true; ui.dirty = true; }
+  }
   tbar.end();
 }
+const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['researcher', 'Researcher', ICONS.researcher]];
+function setLevel(l) {
+  if (!TB_LEVEL[l] || l === S.level) return;
+  S.level = l; S.ptOpen = false;
+  if (!TB_LEVEL[l].includes(S.tool)) selectTool('tweezers');
+  if (l === 'kid') { S.cel = 'C'; S.addSp = SP.C; S.fillH = false; }
+  S.tab = 0; S.plots = l === 'researcher' && window.innerWidth >= 760; dom.plots.style.display = S.plots ? '' : 'none';
+  if (S.vr) plotMesh.visible = l === 'researcher';
+  ui.dirty = true; tbar.dirty = true; ptab.dirty = true;
+  toast(l === 'kid' ? 'Kid level: pictures and simple tools' : l === 'adult' ? 'Adult level: the essentials, with short explanations' : 'Researcher level: everything', 4000);
+}
+// leaving the Kid level takes three taps within two seconds, so a child does not end up in the expert panels by accident
+const levelTaps = { l: '', n: 0, t: 0 };
+function levelRow(h = 64) {
+  ui.row(3);
+  for (const [l, lab, ic] of LEVELS) if (ui.button(lab, { icon: ic, tint: '#2bd3cf', active: S.level === l, h, size: 16 })) {
+    if (S.level !== 'kid' || l === 'kid') setLevel(l);
+    else { const t = now(); if (levelTaps.l !== l || t - levelTaps.t > 2000) { levelTaps.l = l; levelTaps.n = 0; levelTaps.t = t; } if (++levelTaps.n >= 3) { levelTaps.n = 0; setLevel(l); } else toast(`Tap ${3 - levelTaps.n} more times to change the level`, 1500); }
+  }
+}
+const KID_SYS = [['graphene', 'Graphene', ICONS.graphene, '#2bd3cf'], ['cnt', 'Nanotube', ICONS.nanotube, '#5fd38a'], ['c60', 'Football', ICONS.c60, '#ffd166'],
+  ['benzene', 'Benzene', ICONS.benzene, '#ff9f43'], ['nanodiamond', 'Diamond', ICONS.nanodiamond, '#9fd3ff'], ['graphite', 'Graphite', ICONS.graphite, '#c3cad6']];
+const ADULT_SYS = KID_SYS.concat([['hbn', 'hBN', ICONS.graphene, '#b9a6ff'], ['mos2', 'MoS\u2082', ICONS.graphite, '#f2d43d'], ['junction', 'Molecule wire', ICONS.benzene, '#f2c14e']]);
+function systemCards(list, h) {
+  for (let k = 0; k < list.length; k += 3) {
+    ui.row(3);
+    for (const [key, lab, ic, col] of list.slice(k, k + 3)) if (ui.button(lab, { icon: ic, tint: col, active: S.sys.sel === key && S.lastBuild && S.lastBuild.mat === key, h, size: 17 })) { S.sys.sel = key; loadSystem(); }
+  }
+}
+// a temperature bar: blue (cold) to red (hot), white tick = now, ring = target
+function tempBar(h = 64) {
+  const r = ui._rect(h), c = ui.ctx, [lo, hi] = tRange(), T = U.K(md.temperature()), fx = (v) => r.x + 10 + (r.w - 20) * tFrac(v);
+  const g = c.createLinearGradient(r.x, 0, r.x + r.w, 0); g.addColorStop(0, '#3d7cff'); g.addColorStop(0.5, '#f3d36b'); g.addColorStop(1, '#ff4b3e');
+  c.fillStyle = g; roundRect(c, r.x + 10, r.y + h * 0.42, r.w - 20, h * 0.28, h * 0.14); c.fill();
+  c.fillStyle = '#ffffff'; c.fillRect(fx(T) - 3, r.y + h * 0.3, 6, h * 0.52);
+  if (S.thermo) { c.strokeStyle = COL.text; c.lineWidth = 3; c.beginPath(); c.arc(fx(S.TsetK), r.y + h * 0.56, h * 0.2, 0, Math.PI * 2); c.stroke(); }
+  c.font = '700 22px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = COL.text; c.fillText(`${T.toFixed(0)} K`, r.x + 10, r.y + h * 0.14);
+  c.textAlign = 'right'; c.fillStyle = COL.muted; c.font = '18px system-ui,sans-serif'; c.fillText(`${lo} \u2013 ${hi} K`, r.x + r.w - 10, r.y + h * 0.14);
+  ui._advance(h);
+}
+function drawKid() {
+  ui.begin(); ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty');
+  tempBar(70); ui.space(2);
+  systemCards(KID_SYS, 170); ui.space(6);
+  ui.row(3);
+  for (const k of ['cool', 'warm', 'run']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 160 })) { d.act(); tbar.dirty = true; } }
+  ui.row(3);
+  for (const k of ['tweezers', 'add', 'zap']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 150 })) { d.act(); tbar.dirty = true; } }
+  ui.space(6); levelRow(84);
+  ui.end();
+}
+function adultBuild() {
+  ui.section('Pick a material or molecule');
+  systemCards(ADULT_SYS, 132);
+  const Y = S.sys;
+  if (['graphene', 'hbn', 'graphite', 'mos2'].includes(Y.sel)) Y.size = ui.slider('asz', 'Size', clamp(Y.size, 4, 12), 4, 12, (v) => `${(Math.round(v) * 0.249).toFixed(1)} nm`, { step: 1, h: 60 });
+  if (ui.button('Build it', { primary: true, h: 56 })) loadSystem();
+  ui.paragraph('Use the tools on the table to grab, add, bond or remove atoms. Atoms you push together can bond.', { size: 22, color: COL.muted });
+}
+function adultRun() {
+  ui.row(2);
+  if (ui.button(S.paused ? '\u25B6  Run' : '\u275A\u275A  Pause', { primary: !S.paused, active: S.paused, h: 62 })) S.paused = !S.paused;
+  if (ui.button('Start again', { h: 62 })) { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); }
+
+  S.thermo = ui.toggle('Keep the temperature', S.thermo);
+  const [lo, hi] = tRange(); S.TsetK = ui.slider('aT', 'Temperature', S.TsetK, lo, hi, (v) => `${v.toFixed(0)} K`, { step: 5, h: 64 });
+  ui.paragraph('Heat makes the atoms shake. Very hot: bonds break. Cold: everything freezes still.', { size: 22, color: COL.muted });
+}
+function adultElec() {
+  ui.paragraph('Mark where the current goes in (\u2212) and out (+). Bonds then light up: violet = little current, yellow = a lot.', { size: 22, color: COL.muted });
+  ui.row(3); for (const k of ['cminus', 'cplus', 'tweezers']) { const d = TOOLDEF[k]; if (ui.button(d.l, { icon: d.icon, tint: d.tint, active: d.on(), h: 96, size: 19 })) { d.act(); tbar.dirty = true; } }
+  ui.row(2);
+  if (ui.button('Contacts at the ends', { h: 52, size: 20 })) contactsAtEnds();
+  if (ui.button('Clear contacts', { h: 52, size: 20 })) { clearContacts(); ui.dirty = true; }
+  S.curBonds = ui.toggle('Colour the bonds by current', S.curBonds, { h: 50 });
+  if (TR.res && TR.res.TEF !== undefined) ui.readout('How easily electrons pass', `${(100 * Math.min(1, TR.res.TEF)).toFixed(0)} %`, { color: COL.accent });
+  else if (TR.err) ui.label(TR.err, { size: 18, color: COL.muted });
+}
+const ADULT_TABS = [[0, 'BUILD'], [1, 'RUN'], [TAB_ELEC, 'ELEC'], [6, 'SETTINGS']];
 function drawPtable() {
   ptab.begin(); ptab.header('Choose an element', 'highlighted = available');
   for (const row of PT_ROWS) {
@@ -730,8 +835,21 @@ bench.add(uiMesh); bench.add(plotMesh);
 uiMesh.userData.ui = true;
 
 function drawControls() {
+  if (S.level === 'kid') return drawKid();
   const mt = isMat(), T = U.K(md.temperature());
   ui.begin();
+  if (S.level === 'adult') {
+    ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty box');
+    tempBar(64); ui.space(2);
+    let ai = ADULT_TABS.findIndex(([t]) => t === S.tab); if (ai < 0) { ai = 0; S.tab = 0; }
+    ai = ui.tabs(ADULT_TABS.map(([, l]) => l), ai, 17); S.tab = ADULT_TABS[ai][0];
+    ui.space(2);
+    [adultBuild, adultRun, adultElec, tabSettings][ai]();
+    const c = ui.ctx; c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
+    c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = now() < S.msgUntil ? COL.warn : COL.muted;
+    c.fillText(tr(now() < S.msgUntil ? S.msg : toolHint()), ui.pad + 12, CH - 38);
+    ui.end(); return;
+  }
   ui.header('ATOMIC WORKBENCH', md.N ? (mt ? `${md.name} \u00B7 ${md.N} atoms` : `${S.el} \u00B7 ${md.N} atoms \u00B7 box ${U.nm(md.L).toFixed(2)} nm`) : 'empty box');
   const Pb = U.bar(md.pressure());
   ui.row(2); ui.readout('Temperature', T.toFixed(mt ? 0 : 1) + ' K', { color: COL.accent }); ui.readout('Target', S.thermo ? S.TsetK.toFixed(0) + ' K' : 'off (NVE)', { color: S.thermo ? COL.warn : COL.muted });
@@ -986,6 +1104,8 @@ function tabSystems() {
 }
 
 function tabSettings() {
+  ui.section('Level');
+  levelRow(62);
   ui.section('Language / Sprog  \u00B7  Graphics');
   ui.row(4);
   for (const [v, l] of [['en', 'English'], ['da', 'Dansk']]) if (ui.button(l, { active: S.lang === v, h: 48, size: 21 }) && S.lang !== v) setLangUI(v);
@@ -997,12 +1117,12 @@ function tabSettings() {
   S.bonds = ui.toggle('Show bonds', S.bonds, { h: 50 });
   ui.section('Current (ELEC tab)');
   ui.row(2); S.curBonds = ui.toggle('Colour by current', S.curBonds, { h: 50 }); S.arrows = ui.toggle('Arrows', S.arrows, { h: 50 });
-  ui.paragraph('Bond colour: dark violet = little current, through red and orange to yellow = the most; grey = none. Arrows point along the conventional current, from + to \u2212. Currents between graphite layers are computed but not drawn (they are not bonds).', { size: 19, color: COL.muted });
+  ui.paragraph('Violet = little current \u2192 red \u2192 yellow = the most; grey = none. Arrows: conventional current, + to \u2212.', { size: 18, color: COL.muted });
   ui.section('Annihilator and boundary');
   S.zapDeg = ui.slider('zap', 'Annihilator cone (half angle)', S.zapDeg, 1, 25, (v) => `${v.toFixed(0)}\u00B0`, { step: 1, h: 60 });
   S.escape = ui.toggle('Remove atoms that fly out of reach', S.escape, { h: 48 });
   S.thermoOn = ui.toggle('Thermometer on the table', S.thermoOn, { h: 48 });
-  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, quality: S.quality, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
+  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, level: S.level, quality: S.quality, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
 }
 
 function tabElec() {
@@ -1351,7 +1471,7 @@ renderer.xr.addEventListener('sessionstart', () => {
   S.vr = true; needRecenter = 4; document.body.classList.add('vr');
   // the headset's own recentre (e.g. holding the Meta button) moves the tracking origin: put the table back in front of the user
   try { const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { needRecenter = 3; }); } catch (e) { /* not supported */ }
-  uiMesh.visible = plotMesh.visible = tbMesh.visible = true;
+  uiMesh.visible = plotMesh.visible = tbMesh.visible = true; plotMesh.visible = S.level === 'researcher';
   S.xr = renderer.xr.getSession();
 });
 renderer.xr.addEventListener('sessionend', () => {
@@ -1602,5 +1722,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
