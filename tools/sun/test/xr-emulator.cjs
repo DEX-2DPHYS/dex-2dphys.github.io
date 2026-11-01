@@ -15,7 +15,9 @@ fs.mkdirSync(outDir, { recursive: true });
 const html = fs.readFileSync(page0, 'utf8').replace('<head>', () =>
   '<head><script src="/iwer.js"></script><script>window.__dev = new IWER.XRDevice(IWER.metaQuest3); window.__dev.installRuntime({forceInstall:true});' +
   // like the Quest Browser: renderState offers layers without being asked (three.js would switch to projection layers)
-  'const rq = navigator.xr.requestSession.bind(navigator.xr); navigator.xr.requestSession = async (...a) => { const s = await rq(...a); const pr = Object.getPrototypeOf(s.renderState); if (!("layers" in s.renderState)) Object.defineProperty(pr, "layers", { configurable: true, get() { return []; } }); window.__layersOffered = "layers" in s.renderState; return s; };</script>');
+  'const rq = navigator.xr.requestSession.bind(navigator.xr); navigator.xr.requestSession = async (...a) => { const s = await rq(...a); const pr = Object.getPrototypeOf(s.renderState); if (!("layers" in s.renderState)) Object.defineProperty(pr, "layers", { configurable: true, get() { return []; } }); window.__layersOffered = "layers" in s.renderState; ' +
+  // and, like the Quest, never draws closer than 10 cm (WebXR lets a runtime clamp depthNear)
+  'const ur = s.updateRenderState.bind(s); s.updateRenderState = (st) => ur(st && st.depthNear != null ? Object.assign({}, st, { depthNear: Math.max(0.1, st.depthNear) }) : st); return s; };</script>');
 const srv = http.createServer((q, r) => {
   if (q.url.startsWith('/iwer.js')) { r.writeHead(200, { 'content-type': 'text/javascript' }); r.end(fs.readFileSync(IWER)); return; }
   r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html);
@@ -58,6 +60,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const headR = Math.hypot(...d.head);
   ok('eye starts where the desktop camera was (outside the Sun)', headR > 3 && headR < 20, 'head ' + headR.toFixed(2) + ' R');
   await p.screenshot({ path: path.join(outDir, '1-vr-overview.png') });
+  // the pixels: the Sun must actually be in the picture (a clipped composite is black at full frame rate)
+  const shot = await p.screenshot({ encoding: 'base64' });
+  const lit = await p.evaluate(async (b64) => {
+    const im = new Image(); im.src = 'data:image/png;base64,' + b64; await im.decode();
+    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data; let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 150 && d[i + 1] > 60) n++;
+    return n / (d.length / 4);
+  }, shot);
+  ok('the VR picture shows the Sun (bright pixels), with the near plane clamped to 10 cm as on the Quest', lit > 0.005, (lit * 100).toFixed(2) + ' % bright');
 
   const press = async (hand, id, ms = 200) => {
     await p.evaluate((h, b) => window.__dev.controllers[h].updateButtonValue(b, 1), hand, id); await wait(ms);

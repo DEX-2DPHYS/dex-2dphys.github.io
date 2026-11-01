@@ -351,11 +351,17 @@ export function createXR(ctx) {
   const SCALE_MAX = parseFloat(Qs.get('xrrt') || (LITE ? '0.8' : '1'));
   let rtScale = Math.min(SCALE_MAX, LITE ? (Qs.get('safe') === '1' ? 0.4 : 0.55) : 1);
   let lastT = 0, ema = 0, nextAdapt = 0, fps = 0;
+  // GPU back-pressure: the frame callback can run at 69 fps while the GPU is seconds behind (the Quest
+  // menu then updates every ~2 s). A fence after each Sun picture tells whether the GPU has finished it;
+  // while it has not, the frame reuses the last picture instead of queueing another one.
+  let fence = null, winT = 0, winF = 0, winSkip = 0, winDrawn = 0, skippedTot = 0, behind = 0;
   const _vps = [], _fb = new THREE.Vector2();
   const post = new THREE.Scene();
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
     uniforms: { tMap: { value: rt.texture }, uSize: { value: new THREE.Vector2(16, 16) } },
-    vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    // straight onto each eye's viewport in clip space: no position in the world, so no near plane can clip it
+    // (the Quest clamps depthNear: a quad 5 cm in front of the head was clipped away - a black headset at 69 fps)
+    vertexShader: 'void main(){ gl_Position = vec4(position.xy * 2., 0., 1.); }',
     fragmentShader: `uniform sampler2D tMap; uniform vec2 uSize;
       void main(){
         vec4 c = texture2D(tMap, gl_FragCoord.xy / uSize);
@@ -369,7 +375,6 @@ export function createXR(ctx) {
   }));
   quad.frustumCulled = false; quad.matrixAutoUpdate = false;
   post.add(quad);
-  const _qm = new THREE.Matrix4().makeTranslation(0, 0, -0.05).multiply(new THREE.Matrix4().makeScale(2, 2, 1));
   // A log the flat page shows after VR (the headset itself may show nothing): frames drawn, rate,
   // resolution, render path, errors. ?xrdirect=1, an incomplete target or any error in the
   // two-pass path switch to drawing straight into the headset framebuffer.
@@ -377,8 +382,8 @@ export function createXR(ctx) {
   const gl = renderer.getContext();
   function saveLog(w, h, force, before) {
     const t = performance.now(); if (!force && t - lastSave < 1000) return; lastSave = t;
-    try { localStorage.setItem('sun.xrlog', JSON.stringify({ at: Date.now(), mode, frames: before ? frames - 1 : frames, drawing: !!before, fps: Math.round(fps), res: Math.round(rtScale * 100),
-      rt: [rt.width, rt.height], fb: [w, h], half: canHalf, direct, errs: errs.slice(0, 4) })); } catch (e) { /* private mode */ }
+    try { localStorage.setItem('sun.xrlog', JSON.stringify({ at: Date.now(), mode, frames: before ? frames - 1 : frames, drawing: !!before, fps: Math.round(fps), skipped: skippedTot, res: Math.round(rtScale * 100),
+      rt: [rt.width, rt.height], fb: [w, h], half: canHalf, direct, near: xr.getSession()?.renderState?.depthNear, errs: errs.slice(0, 4) })); } catch (e) { /* private mode */ }
   }
   function fail(what, e) {
     errs.push(what + ': ' + (e && e.message ? e.message : e));
@@ -388,9 +393,23 @@ export function createXR(ctx) {
   function render() {
     frames++;
     if (frames <= 3) { renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y, true, true); }   // saved BEFORE drawing: a hang shows as started-not-finished
+    // the Quest menu is open (session visible-blurred / hidden): leave the GPU to the menu - reuse the last
+    // picture instead of drawing the Sun again, or the menu stutters badly
+    const vis = xr.getSession()?.visibilityState;
+    if (vis && vis !== "visible" && frames > 3) {
+      renderer.setRenderTarget(null);
+      if (direct) renderer.clear(); else renderer.render(post, camera);
+      return;
+    }
+    const lag = gpuLag();
+    if (lag && !direct && frames > 3) {           // the GPU is still on the previous Sun: show that one again
+      skippedTot++; adapt(true);
+      renderer.setRenderTarget(null); renderer.render(post, camera);
+      renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y); return;
+    }
     if (direct) {
-      adapt();   // only for the fps read-out here
-      renderer.setRenderTarget(null); renderer.render(scene, camera);
+      adapt(false);   // only for the fps read-out here
+      renderer.setRenderTarget(null); renderer.render(scene, camera); mark();
       renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y); return;
     }
     try { renderTwoPass(); } catch (e) { fail('error', e); renderer.setRenderTarget(null); }
@@ -399,7 +418,7 @@ export function createXR(ctx) {
     const bl = xr.getBaseLayer();
     renderer.getDrawingBufferSize(_fb);   // three sizes the renderer to the headset framebuffer while presenting
     const w = bl?.framebufferWidth || bl?.textureWidth || _fb.x || 2, h = bl?.framebufferHeight || bl?.textureHeight || _fb.y || 2;
-    adapt();
+    adapt(false);
     const rw = Math.max(2, Math.round(w * rtScale)), rh = Math.max(2, Math.round(h * rtScale));
     if (rt.width !== rw || rt.height !== rh) rt.setSize(rw, rh);
     quad.material.uniforms.uSize.value.set(w, h);   // the quad runs on the headset framebuffer
@@ -412,10 +431,8 @@ export function createXR(ctx) {
     }
     renderer.setRenderTarget(rt);
     if (frames <= 3) { const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER); if (st !== gl.FRAMEBUFFER_COMPLETE) { fail('target incomplete 0x' + st.toString(16)); renderer.setRenderTarget(null); renderer.render(scene, camera); return; } }
-    renderer.render(scene, camera);
+    renderer.render(scene, camera); mark();
     for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
-    // the quad sits 5 cm in front of the head (in rig metres), filling both eyes' views
-    quad.matrix.multiplyMatrices(camera.matrixWorld, _qm); quad.matrixWorldNeedsUpdate = true;   // no parent: world = matrix
     renderer.setRenderTarget(null);
     renderer.render(post, camera);
     if (frames === 5) { const e = gl.getError(); if (e) errs.push('gl error 0x' + e.toString(16)); }
@@ -423,17 +440,33 @@ export function createXR(ctx) {
   }
 
   // frame-rate driven resolution: below ~75 % of the headset's rate, render fewer pixels
-  function adapt() {
+  function gpuLag() {
+    if (!fence) return false;
+    const st = gl.clientWaitSync(fence, 0, 0);
+    if (st === gl.TIMEOUT_EXPIRED) { behind++; return true; }
+    gl.deleteSync(fence); fence = null; return false;
+  }
+  function mark() {
+    winDrawn++;
+    if (!fence) { fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); }
+  }
+  // resolution from the share of frames the GPU could not keep up with (measured each second)
+  function adapt(skip) {
     const t = performance.now();
     if (lastT) { const d = Math.min(500, t - lastT); ema = ema ? ema * 0.9 + d * 0.1 : d; }
     lastT = t;
-    if (!ema || t < nextAdapt) return;
-    const target = 1000 / (xr.getSession()?.frameRate || 72);
-    fps = 1000 / ema;
-    if (ema > target * 1.35 && rtScale > 0.3) { rtScale = Math.max(0.3, rtScale * 0.8); nextAdapt = t + 1500; }
-    else if (ema < target * 1.12 && rtScale < SCALE_MAX) { rtScale = Math.min(SCALE_MAX, rtScale * 1.08); nextAdapt = t + 4000; }
-    else nextAdapt = t + 1000;
+    if (!winT) winT = t;
+    winF++; if (skip) winSkip++;
+    if (t - winT < 1000) return;
+    fps = winDrawn * 1000 / (t - winT);            // Sun pictures actually drawn per second
+    const late = winSkip / winF;
+    if (t >= nextAdapt) {
+      if (late > 0.25 && rtScale > 0.2) { rtScale = Math.max(0.2, rtScale * 0.7); nextAdapt = t + 1000; }
+      else if (late < 0.05 && ema < 1000 / (xr.getSession()?.frameRate || 72) * 1.12 && rtScale < SCALE_MAX) { rtScale = Math.min(SCALE_MAX, rtScale * 1.08); nextAdapt = t + 4000; }
+    }
+    winT = t; winF = winSkip = winDrawn = 0;
   }
+
 
   // co-rotation with the Sun in Sun-frame views
   function corotate(dA) { if (mode) rotateRigAbout(new THREE.Vector3(), _Y, dA); }
