@@ -74,6 +74,19 @@ starts from nothing.
   geometry, valence refusals, H fill, pucker and C–C stretch for H / F / OH on graphene, pulling an F off breaks exactly its
   bond, a decorated flake stays intact for 2 ps at 300 K, adsorbates remove π orbitals and lower T(E) near E_F.
 
+## Toolbar and settings
+
+- **Toolbar** (top left on the desktop; a panel at the front edge of the table in VR): Tweezers, Add, Attach, Bond, Delete,
+  the element button (opens a periodic table; the 12 elements with force-field parameters are highlighted, the rest greyed),
+  H fill, the − and + contact tools, Run/Pause.
+- The default model stays the reactive potential. Attaching, bonding, or adding a foreign element to a running structure
+  switches it on the spot to the chemistry model (UFF, explicit bonds), keeping positions and velocities, so other atoms can
+  always be added. MoS₂ has no chemistry model yet.
+- **SETTINGS tab**: one atom size for every element (default 0.32 Å, or element radii scaled), bond width, show bonds,
+  current as bond colours (default) and optional arrows. Saved in the browser.
+- Current is drawn as bond colour: dark violet (little) through red and orange to yellow (most), grey = none. Currents
+  between graphite layers are computed but not drawn (they are not bonds).
+
 ## Room, table and panels
 
 - Dark or white lab (VR tab, the *White lab* button, or key T). The furnished room (benches, cabinets, shelves, windows) is merged
