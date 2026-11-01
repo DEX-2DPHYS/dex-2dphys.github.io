@@ -52,11 +52,11 @@ const S = {
   cel: 'F', fillH: true, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  lang: 'en', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  lang: 'en', quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
-try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
+try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'quality', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
 try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
 const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
@@ -271,6 +271,22 @@ atoms.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAXN *
 atoms.frustumCulled = false; atoms.count = 0;
 { const a = atoms.instanceMatrix.array; for (let i = 0; i < MAXN; i++) { a[16 * i] = a[16 * i + 5] = a[16 * i + 10] = a[16 * i + 15] = 1; } }
 inner.add(atoms);
+/* ---------- graphics quality: Low is for older or slower headsets. It never changes the simulation, only the pixels:
+   VR resolution 70 % (applied when VR starts), matte atoms and bonds lit by one light, coarser spheres, desktop pixel ratio 1. ---------- */
+const sphereCoarse = new THREE.SphereGeometry(1, 8, 6), atomMatLow = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const XR_SCALE = { high: 1, low: 0.7 };
+let bondGeoHigh = null, bondMatHigh = null; const bondGeoLow = new THREE.CylinderGeometry(1, 1, 1, 5, 1, true), bondMatLow = new THREE.MeshLambertMaterial({ color: 0xffffff });
+function applyQuality() {
+  const lo = S.quality === 'low';
+  atoms.geometry = lo ? sphereCoarse : sphereLo; atoms.material = lo ? atomMatLow : atomMat;
+  if (typeof bondsMesh !== 'undefined') { if (!bondGeoHigh) { bondGeoHigh = bondsMesh.geometry; bondMatHigh = bondsMesh.material; } bondsMesh.geometry = lo ? bondGeoLow : bondGeoHigh; bondsMesh.material = lo ? bondMatLow : bondMatHigh; }
+  rim.visible = !lo;
+  if (!renderer.xr.isPresenting) { renderer.setPixelRatio(lo ? 1 : Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(window.innerWidth, window.innerHeight); }
+}
+function setQuality(q) {
+  S.quality = q; applyQuality(); ui.dirty = true;
+  if (renderer.xr.isPresenting) toast(q === 'low' ? 'Low quality now; the lower VR resolution starts the next time you enter VR' : 'High quality now; the full VR resolution starts the next time you enter VR', 6000);
+}
 
 const boxEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.55 }));
 const boxFaces = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false }));
@@ -970,8 +986,10 @@ function tabSystems() {
 }
 
 function tabSettings() {
-  ui.section('Language / Sprog');
-  const lg = ui.choice([['en', 'English'], ['da', 'Dansk']], S.lang, { h: 48, size: 21 }); if (lg !== S.lang) setLangUI(lg);
+  ui.section('Language / Sprog  \u00B7  Graphics');
+  ui.row(4);
+  for (const [v, l] of [['en', 'English'], ['da', 'Dansk']]) if (ui.button(l, { active: S.lang === v, h: 48, size: 21 }) && S.lang !== v) setLangUI(v);
+  for (const [v, l] of [['high', 'High quality'], ['low', 'Low quality']]) if (ui.button(l, { active: S.quality === v, h: 48, size: 19 }) && S.quality !== v) setQuality(v);
   ui.section('Atoms and bonds');
   S.atomR = ui.slider('atomR', 'Atom size', S.atomR, 0.12, 0.6, (v) => `${v.toFixed(2)} \u00C5 radius`, { step: 0.01, h: 58 });
   S.sameSize = ui.toggle('Same size for every element', S.sameSize, { h: 50 });
@@ -984,7 +1002,7 @@ function tabSettings() {
   S.zapDeg = ui.slider('zap', 'Annihilator cone (half angle)', S.zapDeg, 1, 25, (v) => `${v.toFixed(0)}\u00B0`, { step: 1, h: 60 });
   S.escape = ui.toggle('Remove atoms that fly out of reach', S.escape, { h: 48 });
   S.thermoOn = ui.toggle('Thermometer on the table', S.thermoOn, { h: 48 });
-  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
+  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, quality: S.quality, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
 }
 
 function tabElec() {
@@ -1287,6 +1305,7 @@ async function enterVR() {
   try {
     const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
     useBaseLayer(session);
+    renderer.xr.setFramebufferScaleFactor(XR_SCALE[S.quality] || 1);
     await renderer.xr.setSession(session);
   } catch (e) { toast('Could not start VR: ' + (e.message || e)); S.tab = TAB_VR; }
   finally { vrStarting = false; setBtn(dom.vrBtn, 'Enter VR'); }
@@ -1577,11 +1596,11 @@ function applyTheme(name) {
   ui.dirty = true; lastPlot = 0;
   try { localStorage.setItem('mdlab.theme', S.theme); } catch (e) { /* no storage */ }
 }
-setLang(S.lang); applyTheme(S.theme); applyLangDom();
+setLang(S.lang); applyTheme(S.theme); applyLangDom(); applyQuality();
 setTableHeight(0.9, false);
 
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
