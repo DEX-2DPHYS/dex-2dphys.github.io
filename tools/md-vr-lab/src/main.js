@@ -1,4 +1,4 @@
-// MD Lab VR - build and run a Lennard-Jones molecular-dynamics simulation in WebXR
+// 2DPHYS Atomic Workbench (formerly MD Lab VR) - build and run molecular dynamics and electron transport in WebXR
 // (Meta Quest browser, or a Quest on a PC through SteamVR/OpenXR) - or on the desktop with mouse.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -9,13 +9,28 @@ import { CHEM_ELEMENTS, VALENCE } from './chem.js';
 import { UI, COL, setPalette } from './ui.js';
 import { drawPlots, drawElec, PW, PH } from './plots.js';
 import { analyse as analyseNow } from './tb.js';
+import { tr, setLang, addLanguage } from './i18n.js';
+import { DA } from './i18n-da.js';
+addLanguage('da', DA);
+import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
+const logoImg = new Image(); logoImg.src = LOGO;
+// the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
+import POSTER_TRANSPORT from './poster-transport.jpg';
+import POSTER_QUANTUM from './poster-quantum.jpg';
+import POSTER_LIGHT from './poster-light.jpg';
+const posterImgs = [POSTER_TRANSPORT, POSTER_QUANTUM, POSTER_LIGHT].map((s) => { const im = new Image(); im.src = s; return im; });
+function posterMesh(img, w, h) {
+  const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  if (img.complete && img.naturalWidth) tex.needsUpdate = true; else img.addEventListener('load', () => { tex.needsUpdate = true; }, { once: true });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+}
 import { TASKS, VR_HELP } from './content.js';
 
 /* ================================================================== state */
 const lj = new MD(MAXN), mat = new Mat(1200);
 let md = lj;                                                                 // the active engine: noble-gas LJ or the materials engine
-const B = { sys: 'lj', el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30,   // build recipe shown on the BUILD tab
-  mat: 'graphene', size: 8, layers: 3, nmol: 7, rad: 7, Tm: 300, open: false, chem: false };
+const B = { sys: 'mat', el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30,   // build recipe shown on the BUILD tab
+  mat: 'graphene', size: 10, layers: 3, nmol: 7, rad: 7, Tm: 300, open: true, chem: false };
 const MAT_DEFAULTS = { empty: { Tm: 50 }, benzene: { nmol: 7, Tm: 100 }, graphene: { size: 8, Tm: 300 }, graphite: { size: 7, layers: 3, Tm: 300 }, mos2: { size: 7, layers: 2, Tm: 300 }, nanodiamond: { rad: 7, Tm: 300 } };
 const MAT_INFO = {
   benzene: 'OPLS-style force field: bonds, angles, planarity; LJ + charges between molecules.',
@@ -24,6 +39,10 @@ const MAT_INFO = {
   mos2: 'Stillinger-Weber (Jiang) layers + van der Waals between layers (2H stacking).',
   nanodiamond: 'Tersoff carbon cluster cut from diamond. Bare surface: it can reconstruct.',
   empty: 'An empty box: place atoms with Add, connect them with Bond, grow molecules with Attach.',
+  cnt: 'Single-wall carbon nanotube rolled from graphene (Tersoff carbon). Set (n, m) and length on the SYSTEMS tab.',
+  c60: 'Buckminsterfullerene C60 (Tersoff carbon).',
+  hbn: 'Hexagonal boron nitride on the chemistry model (UFF, explicit bonds).',
+  junction: 'Benzene rings between gold pads (held fixed), thiol anchors, chemistry model. Contacts on the anchor carbons.',
 };
 const CHEM_INFO = 'Chemistry: explicit bonds on the Universal Force Field (UFF). Attach any main-group atom; valence is respected, hybridisation follows the bonds (sp\u00B2 \u2192 sp\u00B3). Bonds snap at 1.6\u00D7 their length.';
 const S = {
@@ -33,10 +52,11 @@ const S = {
   cel: 'F', fillH: true, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false,                                 // SETTINGS tab, periodic-table popup
+  lang: 'en', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
-const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS'], TAB_ELEC = 4, TAB_VR = 5;
-try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['atomR', 'sameSize', 'bondR', 'arrows', 'curBonds']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
+const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
+try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
 try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
 const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
@@ -150,12 +170,28 @@ function makeRoom(th) {
   const win = (w, x, z, ry) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, winY1 - winY0), skyMat); p.position.set(x, (winY0 + winY1) / 2, z); p.rotation.y = ry; grp.add(p); };
   backWins.forEach(([c, w]) => win(w, c, Z0 - 0.08, 0)); sideWins.forEach(([c, w]) => { win(w, X0 - 0.08, c, Math.PI / 2); win(w, X1 + 0.08, c, -Math.PI / 2); });
   // title sign above the middle window
-  const sign = canvasTex(1024, 192, (g, w, h) => {
-    g.fillStyle = th.sign[0]; g.fillRect(0, 0, w, h);
-    g.fillStyle = th.sign[1]; g.font = '700 78px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('MD LAB', 36, 70);
-    g.fillStyle = th.sign[2]; g.font = '32px system-ui,sans-serif'; g.fillText('Molecular dynamics in virtual reality  ·  DEX · 2DPHYS · DTU', 40, 148);
-  });
-  const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.49), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(0, 2.75, Z0 + 0.06); grp.add(sg);
+  const drawSign = (g, w, h) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    if (logoImg.complete && logoImg.naturalWidth) g.drawImage(logoImg, 40, 10, w - 80, (w - 80) * logoImg.naturalHeight / logoImg.naturalWidth);
+    g.fillStyle = '#1b1b1f'; g.font = '700 74px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ATOMIC WORKBENCH', w / 2, h - 58);
+  };
+  const sign = canvasTex(1600, 640, drawSign);
+  if (!logoImg.complete) logoImg.addEventListener('load', () => { drawSign(sign.image.getContext('2d'), 1600, 640); sign.needsUpdate = true; }, { once: true });
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 0.82), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(0, 2.77, Z0 + 0.06); grp.add(sg);
+  // posters at A0 size (0.84 x 1.19 m): two on the wall behind the seat, one on a free-standing board to the left, turned towards the seat
+  const PW = 0.84, PH = 1.19, PY = 1.62;
+  for (const [img, x] of [[posterImgs[0], -2.1], [posterImgs[2], 2.1]]) {
+    box('trim', PW + 0.06, PH + 0.06, 0.02, x, PY, Z1 - 0.06);
+    const p = posterMesh(img, PW, PH); p.position.set(x, PY, Z1 - 0.075); p.rotation.y = Math.PI; grp.add(p);
+  }
+  {
+    const st = new THREE.Group(), dark = new THREE.MeshLambertMaterial({ color: 0x3a4150 }), metal = new THREE.MeshLambertMaterial({ color: 0x9aa3b0 });
+    const bx = (m, w, h, d, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); st.add(o); };
+    bx(dark, PW + 0.08, PH + 0.08, 0.03, 0, PY, 0);                                         // the board
+    for (const s of [-1, 1]) { bx(metal, 0.035, 2.3, 0.035, s * (PW / 2 + 0.06), 1.15, -0.02); bx(metal, 0.06, 0.03, 0.55, s * (PW / 2 + 0.06), 0.015, -0.02); }   // legs and feet
+    const p = posterMesh(posterImgs[1], PW, PH); p.position.set(0, PY, 0.017); st.add(p);
+    const sx = -2.9, sz = -0.3; st.position.set(sx, 0, sz); st.rotation.y = Math.atan2(-sx, -sz); grp.add(st);
+  }
   return grp;
 }
 function disposeTree(o) { o.traverse((c) => { if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); } }); }
@@ -168,6 +204,48 @@ for (const sx of [-0.64, 0.64]) for (const sz of [-1.34, -0.66]) { const l = new
 const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.008, 8, 96), new THREE.MeshBasicMaterial({ color: 0x4ae3e1 })); ring.rotation.x = Math.PI / 2;
 const disc = new THREE.Mesh(new THREE.CircleGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.07 })); disc.rotation.x = -Math.PI / 2;
 desk.add(deskTop); desk.add(ring); desk.add(disc);
+/* ---------- the thermometer on the table: red liquid = the temperature now, teal handle = the target. Grab the handle (trigger /
+   mouse) and slide it up or down to set the target (logarithmic scale; it switches the thermostat on). ---------- */
+const THERMO = { g: new THREE.Group(), H: 0.34, y0: 0.06, shownT: 0, lastLabel: 0 };
+{
+  const T = THERMO, g = T.g, glass = new THREE.MeshPhongMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.28, shininess: 120, depthWrite: false }), red = new THREE.MeshPhongMaterial({ color: 0xe8322b, emissive: 0x4a0a08 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.09), new THREE.MeshLambertMaterial({ color: 0x2a3550 })); base.position.y = 0.01; g.add(base);
+  const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, T.H, 24, 1, true), glass); tube.position.y = T.y0 + T.H / 2; g.add(tube);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.017, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass); cap.position.y = T.y0 + T.H; g.add(cap);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.027, 20, 14), red); bulb.position.y = T.y0 - 0.008; g.add(bulb);
+  T.liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 1, 14), red); T.liquid.position.y = T.y0; g.add(T.liquid);
+  const tickM = new THREE.MeshBasicMaterial({ color: 0x9fb2cf });
+  for (let k = 0; k <= 8; k++) { const t = new THREE.Mesh(new THREE.BoxGeometry(k % 2 ? 0.008 : 0.014, 0.0016, 0.002), tickM); t.position.set(-0.024, T.y0 + T.H * k / 8, 0.012); g.add(t); }
+  T.knob = new THREE.Group(); const km = new THREE.MeshPhongMaterial({ color: 0x2bd3cf, emissive: 0x0a3a3a, shininess: 80 });
+  const ring_ = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0055, 10, 28), km); ring_.rotation.x = Math.PI / 2; T.knob.add(ring_);
+  const tab = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.012), km); tab.position.x = 0.04; T.knob.add(tab); T.knobMat = km; g.add(T.knob);
+  T.hit = new THREE.Mesh(new THREE.BoxGeometry(0.12, T.H + 0.1, 0.1), new THREE.MeshBasicMaterial({ visible: false })); T.hit.position.y = T.y0 + T.H / 2; g.add(T.hit);
+  T.bottom = new THREE.Object3D(); T.bottom.position.y = T.y0; g.add(T.bottom);
+  T.cv = document.createElement('canvas'); T.cv.width = 320; T.cv.height = 120; T.tex = new THREE.CanvasTexture(T.cv); T.tex.colorSpace = THREE.SRGBColorSpace;
+  T.label = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), new THREE.MeshBasicMaterial({ map: T.tex, transparent: true, toneMapped: false })); T.label.position.set(0, T.y0 + T.H + 0.07, 0); g.add(T.label);
+  g.position.set(0.56, 0.9, -0.72); g.rotation.y = -0.35; desk.add(g);
+}
+const tRange = () => (isMat() ? [10, 3000] : [3, 600]);
+const tFrac = (T) => { const [a, b] = tRange(); return clamp(Math.log(Math.max(T, a) / a) / Math.log(b / a), 0, 1); };
+const thermoRay = new THREE.Raycaster();
+function thermoHit(o, d) { if (!S.thermoOn || !THERMO.g.visible) return false; thermoRay.set(o, d); THERMO.g.updateWorldMatrix(true, true); return thermoRay.intersectObject(THERMO.hit, false).length > 0; }
+function thermoDrag(o, d) {
+  const b = THERMO.bottom.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(d.x, 0, d.z); if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
+  const den = n.dot(d); if (Math.abs(den) < 1e-4) return;
+  const t = n.dot(b.clone().sub(o)) / den, y = o.y + d.y * t, f = clamp((y - b.y) / THERMO.H, 0, 1), [lo, hi] = tRange();
+  S.TsetK = Math.round(lo * Math.pow(hi / lo, f) / (isMat() ? 5 : 1)) * (isMat() ? 5 : 1); S.thermo = true; ui.dirty = true;
+}
+function updateThermo(t) {
+  const T = THERMO; T.g.visible = S.thermoOn; if (!S.thermoOn) return;
+  const now_ = md.N ? U.K(md.temperature()) : 0; T.shownT += (now_ - T.shownT) * 0.15;
+  const fl = Math.max(0.02, tFrac(T.shownT)) * T.H; T.liquid.scale.y = fl; T.liquid.position.y = T.y0 + fl / 2;
+  T.knob.position.y = T.y0 + tFrac(S.TsetK) * T.H; T.knobMat.opacity = 1; T.knobMat.emissive.setHex(S.thermo ? 0x0a3a3a : 0x000000); T.knobMat.color.setHex(S.thermo ? 0x2bd3cf : 0x66707f);
+  if (t - T.lastLabel > 250) {
+    T.lastLabel = t; const c = T.cv.getContext('2d'); c.clearRect(0, 0, 320, 120); c.fillStyle = S.theme === 'light' ? 'rgba(255,255,255,0.88)' : 'rgba(10,17,32,0.85)'; c.fillRect(0, 0, 320, 120);
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ff6a5c'; c.font = '700 54px system-ui,sans-serif'; c.fillText(`${now_.toFixed(0)} K`, 160, 44);
+    c.fillStyle = S.thermo ? '#2bd3cf' : '#8894a8'; c.font = '28px system-ui,sans-serif'; c.fillText(S.thermo ? `${tr('target')} ${S.TsetK.toFixed(0)} K` : tr('thermostat off'), 160, 96); T.tex.needsUpdate = true;
+  }
+}
 
 /* ---------- simulation objects ---------- */
 const simRoot = new THREE.Group(); scene.add(simRoot);           // placed in the world, scaled: world metres per sigma
@@ -178,7 +256,7 @@ simRoot.position.copy(SIM_HOME);
 function setTableHeight(h, moveSim = true) {
   h = clamp(h, 0.5, 1.2); const dh = h - S.tableH; S.tableH = h;
   deskTop.position.set(0, h, -1.0); for (const l of legs) { l.scale.y = h - 0.025; l.position.y = (h - 0.025) / 2; }
-  ring.position.set(0, h + 0.03, -1.0); disc.position.set(0, h + 0.029, -1.0); rim.position.set(0, h + 1.0, -1.0);
+  ring.position.set(0, h + 0.03, -1.0); disc.position.set(0, h + 0.029, -1.0); rim.position.set(0, h + 1.0, -1.0); THERMO.g.position.y = h + 0.025;
   SIM_HOME.y = h + 0.43;
   if (dh && typeof tbMesh !== "undefined") { tbMesh.position.y += dh; ptMesh.position.y += dh; }
   if (moveSim && dh) { simRoot.position.y += dh; if (!S.vr) { controls.target.y += dh; camera.position.y += dh; } }
@@ -242,14 +320,18 @@ function buildMat(r, opts) {
     else if (r.mat === 'graphene') mat.buildGraphene(n, ny, T0, 1, false, !!r.open);
     else if (r.mat === 'graphite') mat.buildGraphite(n, ny, Math.round(r.layers), T0, !!r.open);
     else if (r.mat === 'mos2') mat.buildMoS2(n, ny, Math.round(r.layers), T0, !!r.open);
+    else if (r.mat === 'cnt') mat.buildCNT(r.n, r.m, r.len, T0);
+    else if (r.mat === 'c60') mat.buildC60(T0);
+    else if (r.mat === 'hbn') mat.buildHBN(n, ny, T0, !!r.open);
+    else if (r.mat === 'junction') mat.buildJunction(r.rings, T0);
     else mat.buildNanodiamond(r.rad, T0);
-    if (r.chem && r.mat !== 'empty') mat.toChem(T0);
+    if (r.chem && mat.model !== 'uff') mat.toChem(T0);
   } catch (e) { toast(String(e.message || e)); return; }
   md = mat; U = matUnits(); S.el = r.mat;
   S.TsetK = T0; S.thermo = true; mat.thermostat = true; mat.Ttarget = T0; S.dtFs = mat.dt * TU_FS;
   if (S.color === 'speed' && !opts.keepColor) S.color = 'el';
   S.tool = S.tool === 'add' && r.mat === 'benzene' ? 'tweezers' : S.tool;
-  S.grab = (r.mat === 'graphite' || r.mat === 'mos2' || r.mat === 'benzene') ? 'group' : 'atom';
+  S.grab = (r.mat === 'graphite' || r.mat === 'mos2' || r.mat === 'benzene') ? 'group' : 'frag';
   S.addSp = r.mat === 'mos2' ? 3 : 0;
   // metres per angstrom so that the object is about half a metre across
   let ext;
@@ -258,6 +340,7 @@ function buildMat(r, opts) {
   else { let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < mat.N; i++) { lo[0] = Math.min(lo[0], mat.x[i]); hi[0] = Math.max(hi[0], mat.x[i]); lo[1] = Math.min(lo[1], mat.y[i]); hi[1] = Math.max(hi[1], mat.y[i]); lo[2] = Math.min(lo[2], mat.z[i]); hi[2] = Math.max(hi[2], mat.z[i]); } ext = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) + 5; }
   wps = clamp(0.45 / ext, 0.006, 0.14);
   S.paused = false; resetHistory(); retag();
+  if (r.mat === 'junction' && mat.junction) { S.cm.add(mat.junction[0]); S.cp.add(mat.junction[1]); S.gamma = 0.5; contactsChanged(); }
   if (!opts.quiet) toast(`Built ${mat.name}: ${mat.N} atoms`);
 }
 
@@ -392,10 +475,57 @@ const transportOK = () => isMat() && (mat.model === 'tersoff' || mat.model === '
 const hasCurrent = () => isMat() && !!TR.res && TR.res.N === mat.N && TR.Jmax > 0;
 function clearContacts() { S.cm.clear(); S.cp.clear(); TR.res = null; TR.curve = null; TR.err = ''; arrows.count = 0; }
 function contactsChanged() { TR.curve = null; requestTransport(true); }
+/* ---------- removing many atoms at once: the annihilator and the boundary sphere ---------- */
+function removeAtomsBatch(list) {
+  const sorted = [...new Set(list)].sort((a, b) => b - a); if (!sorted.length) return;
+  if (isMat() && mat.model === 'ff' && !ensureChem()) return;
+  for (const i of sorted) {
+    if (i >= md.N) continue; const last = md.N - 1, n0 = md.N; md.removeAtom(i, true); if (md.N === n0) continue;
+    if (S.tag === i) S.tag = -1; else if (S.tag === last) S.tag = i;
+    if (S.bondA === i || S.bondA === last) S.bondA = -1;
+    for (const s of [S.cm, S.cp]) { s.delete(i); if (s.delete(last)) s.add(i); }
+  }
+  md.computeForces(); if (S.tag < 0 && md.N) retag();
+  if (S.cm.size && S.cp.size) contactsChanged(); else { TR.res = null; arrows.count = 0; }
+}
+// every atom inside a cone around the pointing ray (half angle S.zapDeg), any distance in front
+function doZap(src, o, d) {
+  const r = toLocal(o, d), dl = Math.hypot(r.d.x, r.d.y, r.d.z), ux = r.d.x / dl, uy = r.d.y / dl, uz = r.d.z / dl, tn = Math.tan(S.zapDeg * Math.PI / 180), pad = 0.5, hit = [];
+  for (let i = 0; i < md.N; i++) {
+    const vx = md.x[i] - r.o.x, vy = md.y[i] - r.o.y, vz = md.z[i] - r.o.z, t = vx * ux + vy * uy + vz * uz; if (t <= 0) continue;
+    const lim = t * tn + pad; if (vx * vx + vy * vy + vz * vz - t * t < lim * lim) hit.push(i);
+  }
+  if (!hit.length) return false;
+  for (const i of hit) flashAt(md.x[i], md.y[i], md.z[i], 0xff5533);
+  removeAtomsBatch(hit); pulse(src, 0.7, 40); return true;
+}
+const FLASH = [], flashGeo = new THREE.SphereGeometry(1, 12, 8); let flashI = 0;
+for (let k = 0; k < 40; k++) { const m = new THREE.Mesh(flashGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.visible = false; inner.add(m); FLASH.push({ m, age: 9 }); }
+function flashAt(x, y, z, col) { const f = FLASH[flashI++ % FLASH.length]; f.m.position.set(x, y, z); f.m.material.color.setHex(col); f.age = 0; f.m.visible = true; }
+function updateFlashes(dt) {
+  for (const f of FLASH) { if (!f.m.visible) continue; f.age += dt; const a = f.age / 0.6; if (a >= 1) { f.m.visible = false; continue; } f.m.scale.setScalar(0.5 * (1 + 3 * a)); f.m.material.opacity = 1 - a; }
+}
+// atoms that fly beyond a sphere well outside the system (out of reach of the tweezers) light up and are removed
+let escapeTick = 0;
+function escapeCheck() {
+  if (++escapeTick % 10) return;
+  const m = mat, per = m.per, c = [m.Lx / 2, m.Ly / 2, m.Lz / 2], L = [m.Lx, m.Ly, m.Lz]; let R2 = 0;
+  for (let k = 0; k < 3; k++) if (!per[k]) R2 += L[k] * L[k]; if (!R2) return;
+  const R = 0.5 * Math.sqrt(R2) + 15, held = m.ext.i, hg = m.ext.mode === 'group' && held >= 0 ? m.grp[held] : -999, out = [];
+  for (let i = 0; i < m.N; i++) {
+    if (i === held || m.grp[i] === hg) continue; let s = 0; const P = [m.x[i], m.y[i], m.z[i]];
+    for (let k = 0; k < 3; k++) if (!per[k]) s += (P[k] - c[k]) ** 2;
+    if (s > R * R) out.push(i);
+  }
+  if (!out.length) return;
+  for (const i of out) flashAt(m.x[i], m.y[i], m.z[i], 0x66ccff);
+  removeAtomsBatch(out); toast(`${out.length} stray atom${out.length > 1 ? 's' : ''} flew out of reach and ${out.length > 1 ? 'were' : 'was'} removed`);
+}
 function contactsAtEnds(w = 2.3) {                          // electrodes on the two ends of the sheet (along x)
   clearContacts(); if (!isMat()) return;
-  let lo = 1e9, hi = -1e9; for (let i = 0; i < mat.N; i++) if (mat.sp[i] === 0 || mat.model === 'tersoff') { lo = Math.min(lo, mat.x[i]); hi = Math.max(hi, mat.x[i]); }
-  for (let i = 0; i < mat.N; i++) { if (mat.sp[i] !== 0) continue; if (mat.x[i] < lo + w) S.cm.add(i); else if (mat.x[i] > hi - w) S.cp.add(i); }
+  const A = [mat.x, mat.y, mat.z], ext = [0, 1, 2].map((k) => { let a = 1e9, b = -1e9; for (let i = 0; i < mat.N; i++) if (mat.sp[i] === 0) { a = Math.min(a, A[k][i]); b = Math.max(b, A[k][i]); } return [a, b]; });
+  const k = mat.sheet ? 0 : [0, 1, 2].reduce((p, q) => (ext[q][1] - ext[q][0] > ext[p][1] - ext[p][0] ? q : p), 0), X = A[k], lo = ext[k][0], hi = ext[k][1];
+  for (let i = 0; i < mat.N; i++) { if (mat.sp[i] !== 0) continue; if (X[i] < lo + w) S.cm.add(i); else if (X[i] > hi - w) S.cp.add(i); }
   contactsChanged();
 }
 function setContact(i, which, on) {
@@ -524,7 +654,13 @@ const PANEL_W = 0.72;
 const uiMesh = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W, PANEL_W * CH / CW), new THREE.MeshBasicMaterial({ map: uiTex, transparent: true, toneMapped: false }));
 const plotMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86 * PH / PW), new THREE.MeshBasicMaterial({ map: plotTex, transparent: true, toneMapped: false }));
 /* ---------- toolbar (essential editing tools) and the periodic-table popup: DOM canvases on the desktop, panels in VR ---------- */
-const TBW = 1000, TBH = 92, PTW = 1000, PTH = 520;
+const TBW = 1000, TBH = 92, PTW = 1000, PTH = 590;
+// element families, coloured the usual way
+const FAMILY = { alkali: ['Alkali metal', '#ff9e80'], alkaline: ['Alkaline earth', '#ffd180'], transition: ['Transition metal', '#ffe9a8'], post: ['Post-transition metal', '#b9e3b0'],
+  metalloid: ['Metalloid', '#8fd8cf'], nonmetal: ['Nonmetal', '#9fd8fb'], halogen: ['Halogen', '#c6b4f2'], noble: ['Noble gas', '#e7a6ee'], lanact: ['Lanthanide / actinide', '#f6a9c6'], unknown: ['Unknown', '#cfd8dc'] };
+const FAM_OF = {};
+for (const [f, list] of Object.entries({ alkali: 'Li Na K Rb Cs Fr', alkaline: 'Be Mg Ca Sr Ba Ra', transition: 'Sc Ti V Cr Mn Fe Co Ni Cu Zn Y Zr Nb Mo Tc Ru Rh Pd Ag Cd Hf Ta W Re Os Ir Pt Au Hg Rf Db Sg Bh Hs Cn',
+  post: 'Al Ga In Sn Tl Pb Bi Po', metalloid: 'B Si Ge As Sb Te', nonmetal: 'H C N O P S Se', halogen: 'F Cl Br I At', noble: 'He Ne Ar Kr Xe Rn', lanact: 'La Ac', unknown: 'Mt Ds Rg Nh Fl Mc Lv Ts Og' })) for (const e of list.split(' ')) FAM_OF[e] = f;
 const tbar = new UI(TBW, TBH); tbar.pad = 10; tbar.gap = 8;
 const ptab = new UI(PTW, PTH); ptab.pad = 14; ptab.gap = 6;
 const tbTex = makeTex(tbar.canvas), ptTex = makeTex(ptab.canvas);
@@ -535,8 +671,8 @@ const PT_ROWS = ['H,,,,,,,,,,,,,,,,,He', 'Li,Be,,,,,,,,,,,B,C,N,O,F,Ne', 'Na,Mg,
   'Rb,Sr,Y,Zr,Nb,Mo,Tc,Ru,Rh,Pd,Ag,Cd,In,Sn,Sb,Te,I,Xe', 'Cs,Ba,La,Hf,Ta,W,Re,Os,Ir,Pt,Au,Hg,Tl,Pb,Bi,Po,At,Rn', 'Fr,Ra,Ac,Rf,Db,Sg,Bh,Hs,Mt,Ds,Rg,Cn,Nh,Fl,Mc,Lv,Ts,Og'].map((r) => r.split(','));
 function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty = true; }
 function drawToolbar() {
-  tbar.begin(); tbar.y = 13; tbar.row(10);
-  for (const [v, l] of [['tweezers', 'Tweezers'], ['add', 'Add'], ['attach', 'Attach'], ['bond', 'Bond'], ['delete', 'Delete']]) if (tbar.button(l, { active: S.tool === v, h: 66, size: 20 })) selectTool(v);
+  tbar.begin(); tbar.y = 13; tbar.row(11);
+  for (const [v, l] of [['tweezers', 'Tweezers'], ['add', 'Add'], ['attach', 'Attach'], ['bond', 'Bond'], ['delete', 'Delete'], ['zap', 'Zap']]) if (tbar.button(l, { active: S.tool === v, h: 66, size: 20 })) selectTool(v);
   if (tbar.button(`${S.cel} \u25BE`, { active: S.ptOpen, primary: !S.ptOpen, h: 66, size: 26 })) { S.ptOpen = !S.ptOpen; ptab.dirty = true; }
   if (tbar.button('H fill', { active: S.fillH, h: 66, size: 19 })) S.fillH = !S.fillH;
   if (tbar.button('\u2212 contact', { active: S.tool === 'cminus', h: 66, size: 19 })) selectTool('cminus');
@@ -551,13 +687,19 @@ function drawPtable() {
     for (const e of row) {
       if (!e) { ptab.skip(50); continue; }
       const ok = CHEM_ELEMENTS.includes(e);
-      if (ptab.button(e, { h: 50, size: 20, disabled: !ok, active: e === S.cel, primary: ok && e !== S.cel }) && ok) {
+      const fam = FAMILY[FAM_OF[e] || 'unknown'];
+      if (ptab.button(e, { h: 50, size: e === S.cel ? 24 : 20, bg: fam[1], fg: '#15202f', bd: ok ? '#15202f' : fam[1], alpha: ok ? 1 : 0.45, disabled: !ok, active: false }) && ok) {
         S.cel = e; S.addSp = SP[e]; S.ptOpen = false; if (S.tool !== 'attach' && S.tool !== 'add') selectTool('attach'); tbar.dirty = true; ui.dirty = true;
       }
     }
   }
-  ptab.space(4);
-  ptab.label(`${S.cel}: valence ${VALENCE[S.cel]}. Attach it to any atom with a free bond. Greyed: no force-field parameters in this version.`, { size: 18 });
+  // the chosen element gets a white ring
+  { const c = ptab.ctx; c.save(); for (let r = 0; r < PT_ROWS.length; r++) { const col = PT_ROWS[r].indexOf(S.cel); if (col < 0) continue; const cw = (PTW - 2 * ptab.pad - 17 * ptab.gap) / 18, x = ptab.pad + col * (cw + ptab.gap), y = ptab.pad + 42 + r * 56; c.strokeStyle = COL.text; c.lineWidth = 5; c.strokeRect(x - 3, y - 3, cw + 6, 56); } c.restore(); }
+  ptab.space(2);
+  { const c = ptab.ctx, keys = Object.keys(FAMILY); c.font = '16px system-ui,Segoe UI,sans-serif'; c.textBaseline = 'middle'; c.textAlign = 'left'; let x = ptab.pad, y = ptab.y + 10;
+    for (const k of keys) { const nm = tr(FAMILY[k][0]), col = FAMILY[k][1], wd = c.measureText(nm).width + 34; if (x + wd > PTW - ptab.pad) { x = ptab.pad; y += 26; } c.fillStyle = col; c.fillRect(x, y - 8, 16, 16); c.fillStyle = COL.text; c.fillText(nm, x + 21, y); x += wd + 8; }
+    ptab.y = y + 22; }
+  ptab.label(`${S.cel}: valence ${VALENCE[S.cel]}. Bright = available; faded = no force-field parameters yet.`, { size: 18 });
   ptab.end();
 }
 function placePanels(y) {                 // either side of the table (it spans x = -0.7..0.7), angled towards the user
@@ -574,7 +716,7 @@ uiMesh.userData.ui = true;
 function drawControls() {
   const mt = isMat(), T = U.K(md.temperature());
   ui.begin();
-  ui.header('MD LAB', md.N ? (mt ? `${md.name} \u00B7 ${md.N} atoms` : `${S.el} \u00B7 ${md.N} atoms \u00B7 box ${U.nm(md.L).toFixed(2)} nm`) : 'empty box');
+  ui.header('ATOMIC WORKBENCH', md.N ? (mt ? `${md.name} \u00B7 ${md.N} atoms` : `${S.el} \u00B7 ${md.N} atoms \u00B7 box ${U.nm(md.L).toFixed(2)} nm`) : 'empty box');
   const Pb = U.bar(md.pressure());
   ui.row(2); ui.readout('Temperature', T.toFixed(mt ? 0 : 1) + ' K', { color: COL.accent }); ui.readout('Target', S.thermo ? S.TsetK.toFixed(0) + ' K' : 'off (NVE)', { color: S.thermo ? COL.warn : COL.muted });
   if (mt) { ui.row(2); ui.readout('Pressure', 'n/a'); ui.readout('Atoms', String(md.N)); }
@@ -585,9 +727,9 @@ function drawControls() {
   ui.row(2); ui.readout(mt ? 'System' : 'Looks like', ph, { color: pc }); ui.readout('Speed', `${(U.ps(md.dt) * S.sps).toFixed(mt ? 2 : 1)} ps/s`, {});
   if (md.exploded) { ui.label('\u26A0 The simulation blew up - the time step was too large. Press Rebuild.', { color: COL.bad, size: 20, bold: true }); }
   ui.space(2);
-  S.tab = ui.tabs(TABS, S.tab, 18);
+  S.tab = ui.tabs(TABS, S.tab, 15);
   ui.space(2);
-  [tabBuild, tabRun, tabData, tabLab, tabElec, tabVR, tabSettings][S.tab]();
+  [tabBuild, tabRun, tabData, tabLab, tabElec, tabVR, tabSettings, tabSystems][S.tab]();
   // footer
   const c = ui.ctx;
   c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
@@ -595,13 +737,14 @@ function drawControls() {
   const msgOn = now() < S.msgUntil;
   c.fillStyle = msgOn ? COL.warn : COL.muted;
   const fN = md.ext.i >= 0 ? (isMat() ? md.extForceEV * 1.602177 : md.extForce * 60 * (U.eps / U.sigma) * 1e9) : 0;
-  c.fillText(msgOn ? S.msg : fN > 0 ? `Tweezer force: ${fN.toFixed(fN < 10 ? 2 : 1)} nN` : toolHint(), ui.pad + 12, CH - 38);
+  c.fillText(tr(msgOn ? S.msg : fN > 0 ? `Tweezer force: ${fN.toFixed(fN < 10 ? 2 : 1)} nN` : toolHint()), ui.pad + 12, CH - 38);
   ui.end();
 }
 
 function toolHint() {
   const t = S.tool;
   const trig = S.vr ? 'trigger' : 'click';
+  if (t === 'zap') return `Tool: ANNIHILATOR - hold ${trig}: every atom in the ${S.zapDeg.toFixed(0)}\u00B0 cone is removed`;
   if (t === 'attach') return `Tool: ATTACH ${S.cel}${S.fillH ? ' (+H)' : ''} - ${trig} an atom; the new atom goes on the side you point from`;
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
@@ -664,8 +807,7 @@ function tabBuild() {
     ui.section('Edit by hand');
     if (isMat() && mat.model === 'uff') { chemTools(); return; }
     S.tool = ui.choice([['tweezers', 'Tweezers'], ['add', 'Add atom'], ['delete', 'Delete']], S.tool);
-    if (isMat() && mat.model === 'sw') { ui.row(2); S.grab = ui.choice([['atom', 'Grab: atom'], ['group', 'Grab: layer']], S.grab, { h: 50 }); }
-    else if (isMat()) { S.grab = ui.choice([['atom', 'Grab: atom'], ['group', mat.model === 'ff' ? 'Grab: molecule' : 'Grab: layer']], S.grab, { h: 50 }); }
+    if (isMat()) { S.grab = ui.choice([['atom', 'Grab: atom'], ['frag', 'Grab: piece'], ['group', mat.model === 'ff' ? 'Grab: molecule' : 'Grab: layer']], S.grab, { h: 50, size: 19 }); }
     if (isMat() && mat.model === 'sw') S.addSp = ui.choice([[2, 'Add Mo'], [3, 'Add S']], S.addSp, { h: 50 });
   }
 }
@@ -678,6 +820,7 @@ function chemTools() {
   const a = ui.choice(row1, S.cel, { h: 42, size: 21 }), b = ui.choice(row2, S.cel, { h: 42, size: 21 });
   S.cel = a !== S.cel ? a : b !== S.cel ? b : S.cel; S.addSp = SP[S.cel];
   ui.row(2); S.fillH = ui.toggle('Fill valence with H', S.fillH, { h: 46 }); ui.readout('valence', String(VALENCE[S.cel]), { h: 46 });
+  if (S.tool === 'tweezers') { const g = ui.choice([['atom', 'Grab: atom'], ['frag', 'Grab: piece']], S.grab === 'group' ? 'frag' : S.grab, { h: 44, size: 19 }); S.grab = g; }
 }
 
 function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); controls.target.copy(SIM_HOME); camera.position.set(0.85, 1.75, 0.55); controls.update(); } }
@@ -746,7 +889,7 @@ function recordRow() {
 function exportCSV() {
   if (!S.rows.length) { toast('Nothing recorded yet'); return; }
   const txt = 'T_K,rho_star,P_bar,U_meV_per_atom,D_1e-9_m2_per_s\n' + S.rows.map((r) => [r.T.toFixed(2), r.rho.toFixed(4), r.P.toFixed(3), r.U.toFixed(3), r.D === null ? '' : r.D.toFixed(4)].join(',')).join('\n');
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/csv' })); a.download = 'md-lab-measurements.csv'; a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/csv' })); a.download = 'atomic-workbench-measurements.csv'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
@@ -756,27 +899,92 @@ function tabLab() {
   if (ui.button('◀ Prev', { disabled: S.taskPage === 0 })) S.taskPage = Math.max(0, S.taskPage - 1);
   ui.skip();
   if (ui.button('Next ▶', { disabled: S.taskPage === TASKS.length - 1 })) S.taskPage = Math.min(TASKS.length - 1, S.taskPage + 1);
-  ui.ctx.fillStyle = COL.muted; ui.ctx.font = '20px system-ui'; ui.ctx.textAlign = 'center'; ui.ctx.fillText(`Task ${S.taskPage + 1} of ${TASKS.length}`, CW / 2, ui.y - 35);
+  ui.ctx.fillStyle = COL.muted; ui.ctx.font = '20px system-ui'; ui.ctx.textAlign = 'center'; ui.ctx.fillText(tr(`Task ${S.taskPage + 1} of ${TASKS.length}`), CW / 2, ui.y - 35);
   ui.label(t.title, { size: 28, bold: true, color: COL.accent });
   ui.paragraph(t.goal, { size: 22, color: COL.text });
   ui.row(1);
   if (ui.button('Load this setup  ▶', { primary: true, h: 58 })) applyTask(t);
   ui.space(2);
-  t.steps.forEach((s, i) => ui.paragraph(`${i + 1}.  ${s}`, { size: 21, color: COL.muted }));
-  if (t.ask) { ui.space(2); ui.paragraph('Think about: ' + t.ask, { size: 21, color: COL.warn }); }
+  t.steps.forEach((s, i) => ui.paragraph(`${i + 1}.  ${tr(s)}`, { size: 21, color: COL.muted }));
+  if (t.ask) { ui.space(2); ui.paragraph(tr('Think about:') + ' ' + tr(t.ask), { size: 21, color: COL.warn }); }
+}
+
+const SYS_LIST = [['graphene', 'Graphene'], ['graphite', 'Graphite'], ['mos2', 'MoS\u2082'], ['hbn', 'hBN'], ['nanodiamond', 'Nanodiamond'], ['cnt', 'Nanotube'], ['c60', 'C\u2086\u2080'], ['benzene', 'Benzene'], ['junction', 'Molecular junction']];
+function readSaved() { try { return JSON.parse(localStorage.getItem('mdlab.systems') || '[]'); } catch (e) { return []; } }
+function writeSaved(list) { try { localStorage.setItem('mdlab.systems', JSON.stringify(list)); return true; } catch (e) { toast('Could not save: the browser storage is full or blocked'); return false; } }
+function saveCurrent() {
+  if (!isMat() || !mat.N) { toast('Saving works for materials (not the noble-gas box)'); return; }
+  const d = new Date(), list = readSaved();
+  list.unshift({ name: mat.name, N: mat.N, date: `${d.getDate()}/${d.getMonth() + 1} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, T: S.TsetK, cm: [...S.cm], cp: [...S.cp], gamma: S.gamma, bias: S.bias, data: mat.serialize() });
+  if (writeSaved(list)) toast(`Saved: ${mat.name} (${mat.N} atoms)`);
+}
+function loadSaved(e) {
+  try { mat.restore(e.data); } catch (err) { toast('Could not load this system: ' + (err.message || err)); return; }
+  md = mat; U = matUnits(); S.el = 'saved'; S.lastBuild = null; clearContacts();
+  S.TsetK = e.T; S.thermo = true; mat.thermostat = true; mat.Ttarget = e.T; S.dtFs = mat.dt * TU_FS; S.bondA = -1;
+  let ext; if (mat.periodicAny) ext = Math.max(mat.Lx, mat.Ly); else { let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < mat.N; i++) { const P = [mat.x[i], mat.y[i], mat.z[i]]; for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], P[k]); hi[k] = Math.max(hi[k], P[k]); } } ext = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) + 5; }
+  wps = clamp(0.45 / ext, 0.006, 0.14); userScale = 1;
+  S.paused = false; resetHistory(); retag();
+  for (const i of e.cm || []) S.cm.add(i); for (const i of e.cp || []) S.cp.add(i); S.gamma = e.gamma ?? S.gamma; S.bias = e.bias ?? S.bias;
+  if (S.cm.size && S.cp.size) contactsChanged();
+  toast(`Loaded: ${e.name} (${e.N} atoms)`);
+}
+function loadSystem() {
+  const Y = S.sys, r = Object.assign({}, B, { sys: 'mat', mat: Y.sel, size: Y.size, layers: Y.layers, open: Y.open, rad: Y.rad, n: Y.n, m: Y.m, len: Y.len, nmol: Y.nmol, rings: Y.rings, Tm: Y.T, chem: false });
+  Object.assign(B, r); S.TsetK = Y.T; build(r);
+}
+function tabSystems() {
+  const Y = S.sys;
+  ui.section('Built-in systems');
+  for (let k = 0; k < 3; k++) { const v = ui.choice(SYS_LIST.slice(3 * k, 3 * k + 3), Y.sel, { h: 46, size: 20 }); if (v !== Y.sel) Y.sel = v; }
+  const sl = (id, lab, key, lo, hi, fmt, step = 1) => { Y[key] = ui.slider('sys' + id, lab, clamp(Y[key], lo, hi), lo, hi, fmt, { step, h: 56 }); };
+  if (Y.sel === 'graphene' || Y.sel === 'hbn') sl('sz', 'Size (unit cells along x)', 'size', 3, 16, (v) => `${Math.round(v)} cells \u2248 ${(Math.round(v) * 0.249).toFixed(1)} nm`);
+  if (Y.sel === 'graphite') { sl('sz', 'Size (unit cells along x)', 'size', 4, 12, (v) => `${Math.round(v)} cells`); sl('ly', 'Layers', 'layers', 2, 4, (v) => `${Math.round(v)} layers`); }
+  if (Y.sel === 'mos2') { sl('sz', 'Size (unit cells along x)', 'size', 4, 10, (v) => `${Math.round(v)} cells`); sl('ly', 'Layers', 'layers', 1, 2, (v) => `${Math.round(v)}`); }
+  if (Y.sel === 'nanodiamond') sl('rd', 'Radius', 'rad', 4, 9, (v) => `${v.toFixed(1)} \u00C5`, 0.5);
+  if (Y.sel === 'benzene') sl('nm', 'Molecules', 'nmol', 1, 19, (v) => `${Math.round(v)}`);
+  if (Y.sel === 'junction') { sl('rg', 'Benzene rings between the electrodes', 'rings', 1, 3, (v) => ['1  (benzene-dithiol)', '2  (biphenyl-dithiol)', '3  (terphenyl-dithiol)'][Math.round(v) - 1]); ui.label('Gold pads held fixed; the transport contacts sit on the anchor carbons.', { size: 17 }); }
+  if (Y.sel === 'cnt') {
+    sl('n', 'Chirality n', 'n', 3, 14, (v) => `n = ${Math.round(v)}`); sl('m', 'Chirality m', 'm', 0, Math.round(Y.n), (v) => `m = ${Math.round(v)}`);
+    sl('len', 'Length', 'len', 1, 6, (v) => `${v.toFixed(1)} nm`, 0.5);
+    const n = Math.round(Y.n), m = Math.round(Y.m), dia = 0.246 * Math.sqrt(n * n + n * m + m * m) / Math.PI;
+    ui.label(`(${n},${m}) ${m === n ? 'armchair' : m === 0 ? 'zigzag' : 'chiral'}, \u00D8 ${dia.toFixed(2)} nm, ${(n - m) % 3 === 0 ? 'metallic' : 'semiconducting'} (zone folding)`, { size: 17 });
+  }
+  if (Y.sel === 'graphene' || Y.sel === 'graphite' || Y.sel === 'mos2' || Y.sel === 'hbn') Y.open = ui.choice([[false, 'Periodic'], [true, 'Open flake']], Y.open, { h: 44, size: 20 });
+  sl('T', 'Temperature', 'T', 5, 1500, (v) => `${v.toFixed(0)} K`, 5);
+  ui.row(1); if (ui.button(`Load ${SYS_LIST.find((s) => s[0] === Y.sel)[1]}`, { primary: true, h: 52, size: 22 })) loadSystem();
+  ui.section('My systems (stored in this browser / headset)');
+  ui.row(2);
+  if (ui.button('Save current system', { h: 48, size: 20 })) saveCurrent();
+  if (ui.button(S.saveDel ? 'Delete mode: ON' : 'Delete mode', { h: 48, size: 20, danger: S.saveDel })) S.saveDel = !S.saveDel;
+  const list = readSaved(), per = 4, pages = Math.max(1, Math.ceil(list.length / per)); S.savePage = Math.min(S.savePage, pages - 1);
+  if (!list.length) ui.label('Nothing saved yet.', { size: 18 });
+  list.slice(S.savePage * per, S.savePage * per + per).forEach((e, k) => {
+    ui.row(1);
+    if (ui.button(`${S.saveDel ? '\u2715 ' : ''}${e.name} \u00B7 ${e.N} atoms \u00B7 ${e.date}`, { h: 44, size: 19, danger: S.saveDel })) {
+      const idx = S.savePage * per + k;
+      if (S.saveDel) { list.splice(idx, 1); writeSaved(list); toast('Deleted'); } else loadSaved(list[idx]);
+    }
+  });
+  if (pages > 1) { ui.row(3); if (ui.button('\u25C0', { h: 40, disabled: S.savePage === 0 })) S.savePage--; ui.skip(40); if (ui.button('\u25B6', { h: 40, disabled: S.savePage >= pages - 1 })) S.savePage++; ui.ctx.fillStyle = COL.muted; ui.ctx.font = '18px system-ui'; ui.ctx.textAlign = 'center'; ui.ctx.fillText(`${S.savePage + 1} / ${pages}`, CW / 2, ui.y - 28); }
 }
 
 function tabSettings() {
+  ui.section('Language / Sprog');
+  const lg = ui.choice([['en', 'English'], ['da', 'Dansk']], S.lang, { h: 48, size: 21 }); if (lg !== S.lang) setLangUI(lg);
   ui.section('Atoms and bonds');
-  S.atomR = ui.slider('atomR', 'Atom size', S.atomR, 0.12, 0.6, (v) => `${v.toFixed(2)} \u00C5 radius`, { step: 0.01, h: 64 });
+  S.atomR = ui.slider('atomR', 'Atom size', S.atomR, 0.12, 0.6, (v) => `${v.toFixed(2)} \u00C5 radius`, { step: 0.01, h: 58 });
   S.sameSize = ui.toggle('Same size for every element', S.sameSize, { h: 50 });
-  S.bondR = ui.slider('bondR', 'Bond width', S.bondR, 0.02, 0.16, (v) => `${(2 * v).toFixed(2)} \u00C5`, { step: 0.005, h: 64 });
+  S.bondR = ui.slider('bondR', 'Bond width', S.bondR, 0.02, 0.16, (v) => `${(2 * v).toFixed(2)} \u00C5`, { step: 0.005, h: 58 });
   S.bonds = ui.toggle('Show bonds', S.bonds, { h: 50 });
   ui.section('Current (ELEC tab)');
-  S.curBonds = ui.toggle('Colour the bonds by current', S.curBonds, { h: 50 });
-  S.arrows = ui.toggle('Arrows on the bonds', S.arrows, { h: 50 });
+  ui.row(2); S.curBonds = ui.toggle('Colour by current', S.curBonds, { h: 50 }); S.arrows = ui.toggle('Arrows', S.arrows, { h: 50 });
   ui.paragraph('Bond colour: dark violet = little current, through red and orange to yellow = the most; grey = none. Arrows point along the conventional current, from + to \u2212. Currents between graphite layers are computed but not drawn (they are not bonds).', { size: 19, color: COL.muted });
-  try { localStorage.setItem('mdlab.view', JSON.stringify({ atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds })); } catch (e) { /* no storage */ }
+  ui.section('Annihilator and boundary');
+  S.zapDeg = ui.slider('zap', 'Annihilator cone (half angle)', S.zapDeg, 1, 25, (v) => `${v.toFixed(0)}\u00B0`, { step: 1, h: 60 });
+  S.escape = ui.toggle('Remove atoms that fly out of reach', S.escape, { h: 48 });
+  S.thermoOn = ui.toggle('Thermometer on the table', S.thermoOn, { h: 48 });
+  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
 }
 
 function tabElec() {
@@ -849,6 +1057,19 @@ const dom = {
   vrBtn: document.getElementById('vrBtn'), plotBtn: document.getElementById('plotBtn'), panelBtn: document.getElementById('panelBtn'), themeBtn: document.getElementById('themeBtn'),
 };
 dom.ui.appendChild(ui.canvas); dom.plots.appendChild(plotCanvas);
+// DOM buttons keep their English text in data-en and show the translation; the hint line has one version per language
+function setBtn(el, en) { el.dataset.en = en; el.textContent = tr(en); }
+const HINT = {
+  en: '<b>Mouse:</b> drag atoms with the tweezers \u00B7 drag empty space to orbit \u00B7 right-drag to pan \u00B7 wheel to zoom<br><b>Keys:</b> space run/pause \u00B7 1 2 3 tools \u00B7 4 5 \u2212/+ contacts \u00B7 6 attach \u00B7 7 bond \u00B7 8 zap \u00B7 R rebuild \u00B7 P plots \u00B7 T dark/white lab',
+  da: '<b>Mus:</b> tr\u00E6k atomer med pincetten \u00B7 tr\u00E6k i tomt rum for at dreje \u00B7 h\u00F8jre-tr\u00E6k for at flytte \u00B7 hjul for at zoome<br><b>Taster:</b> mellemrum k\u00F8r/pause \u00B7 1 2 3 v\u00E6rkt\u00F8jer \u00B7 4 5 \u2212/+ kontakter \u00B7 6 p\u00E5s\u00E6t \u00B7 7 bind \u00B7 8 zap \u00B7 R byg igen \u00B7 P grafer \u00B7 T m\u00F8rkt/lyst laboratorium',
+};
+function setLangUI(lg) { S.lang = lg; setLang(lg); applyLangDom(); ui.dirty = true; }
+function applyLangDom() {
+  for (const el of [dom.vrBtn, dom.themeBtn, dom.plotBtn, dom.panelBtn]) { if (!el.dataset.en) el.dataset.en = el.textContent; el.textContent = tr(el.dataset.en); }
+  const h = document.getElementById('hint'); if (h) h.innerHTML = HINT[S.lang] || HINT.en;
+  const sb = document.querySelector('.brand .sub, header .sub, .sub'); if (sb) { if (!sb.dataset.en) sb.dataset.en = sb.textContent; sb.textContent = tr(sb.dataset.en); }
+  document.documentElement.lang = S.lang; ui.dirty = true; tbar.dirty = true; ptab.dirty = true; lastPlot = 0;
+}
 dom.tb = document.getElementById('tbWrap'); dom.pt = document.getElementById('ptWrap'); dom.tb.appendChild(tbar.canvas); dom.pt.appendChild(ptab.canvas);
 for (const U_ of [tbar, ptab]) {               // the toolbar canvases take the mouse exactly like the main panel
   const cv = U_.canvas; cv.style.touchAction = 'none';
@@ -908,6 +1129,8 @@ function rayOf(src) {
 function toolDown(src) {
   if (hold.src !== null) return false;
   const { o, d } = rayOf(src);
+  if (thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
+  if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; doZap(src, o, d); return true; }
   if (S.tool === 'attach' || S.tool === 'bond') {
     if (!ensureChem()) return false;
     const p = pickAtom(o, d); if (!p) return false;
@@ -935,9 +1158,12 @@ function toolDown(src) {
     const p = pickAtom(o, d); if (!p) return false;
     // the spring pulls a reference point (the atom, or the centre of mass of its layer / molecule) so nothing jumps on grab
     const w0 = o.clone().addScaledVector(d, p.t * p.s), r0 = toLocal(w0, d).o;
-    const grp = isMat() && S.grab === 'group', ref = grp ? mat.groupCOM(p.i) : [md.x[p.i], md.y[p.i], md.z[p.i]];
+    let frag = isMat() && S.grab === 'frag' ? mat.fragmentMask(p.i) : null; const grp = isMat() && S.grab === 'group';
+    if (frag && (frag.n < 2 || frag.n > md.N / 2)) frag = null;   // a lone atom, or the main structure: pull the atom itself
+    const ref = frag ? mat.maskCOM(p.i, frag.mask) : grp ? mat.groupCOM(p.i) : [md.x[p.i], md.y[p.i], md.z[p.i]];
+    if (isMat()) md.ext.mask = frag ? frag.mask : null;
     hold.src = src; hold.kind = 'tw'; hold.grab = { i: p.i, dist: p.t * p.s, off: [ref[0] - r0.x, ref[1] - r0.y, ref[2] - r0.z] };
-    md.ext.i = p.i; md.ext.mode = grp ? 'group' : 'atom'; pulse(src, 0.5, 40); return true;
+    md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom'; pulse(src, 0.5, 40); return true;
   }
   if (S.tool === 'add' || S.tool === 'delete') {
     hold.src = src; hold.kind = S.tool === 'add' ? 'add' : 'del'; hold.next = now() + 380;
@@ -992,6 +1218,10 @@ function toolUpdate() {
     const cl = (v, k) => per[k] || !isMat() ? clamp(v, 0, DM[k]) : clamp(v, -DM[k], 2 * DM[k]);
     md.ext.x = cl(r.o.x + off[0], 0); md.ext.y = cl(r.o.y + off[1], 1); md.ext.z = cl(r.o.z + off[2], 2); md.ext.i = hold.grab.i;
     if (hold.src !== 'mouse') pulse(hold.src, 0.08 + 0.5 * md.extForce, 30);
+  } else if (hold.kind === 'thermo') {
+    thermoDrag(o, d);
+  } else if (hold.kind === 'zap') {
+    if (now() > hold.next) { hold.next = now() + 120; doZap(hold.src, o, d); }
   } else if (hold.kind === 'ct' && hold.grab) {             // drag over atoms to paint (or erase) a contact
     const p = pickAtom(o, d); if (p) { const set = hold.grab.w === 'm' ? S.cm : S.cp; if (set.has(p.i) !== hold.grab.on) { setContact(p.i, hold.grab.w, hold.grab.on); pulse(hold.src, 0.25, 15); } }
   } else if (hold.kind === 'add' || hold.kind === 'del') {
@@ -1027,6 +1257,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { S.paused = !S.paused; e.preventDefault(); }
   else if (e.key === '1') S.tool = 'tweezers'; else if (e.key === '2') S.tool = 'add'; else if (e.key === '3') S.tool = 'delete';
   else if (e.key === '4') S.tool = 'cminus'; else if (e.key === '5') S.tool = 'cplus';
+  else if (e.key === '8') S.tool = 'zap';
   else if (e.key === '6') S.tool = 'attach'; else if (e.key === '7') { S.tool = 'bond'; S.bondA = -1; }
   else if (e.key === 'Escape') S.bondA = -1;
   else if (e.key === 't' || e.key === 'T') applyTheme(S.theme === 'dark' ? 'light' : 'dark');
@@ -1038,8 +1269,8 @@ window.addEventListener('resize', () => { camera.aspect = window.innerWidth / wi
 /* ================================================================== WebXR */
 const xrState = { supported: false };
 if (navigator.xr && navigator.xr.isSessionSupported) {
-  navigator.xr.isSessionSupported('immersive-vr').then((ok) => { xrState.supported = ok; dom.vrBtn.textContent = ok ? 'Enter VR' : 'VR not detected'; dom.vrBtn.classList.toggle('on', ok); }).catch(() => { dom.vrBtn.textContent = 'VR not detected'; });
-} else dom.vrBtn.textContent = 'WebXR unavailable';
+  navigator.xr.isSessionSupported('immersive-vr').then((ok) => { xrState.supported = ok; setBtn(dom.vrBtn, ok ? 'Enter VR' : 'VR not detected'); dom.vrBtn.classList.toggle('on', ok); }).catch(() => { dom.vrBtn.textContent = 'VR not detected'; });
+} else setBtn(dom.vrBtn, 'WebXR unavailable');
 let vrStarting = false;
 // Chrome exposes the WebXR Layers API, and three.js then renders through a projection layer. With the Quest via
 // Meta Horizon Link that path delivers no frames at all (the headset waits, then reports "page not responding"),
@@ -1052,13 +1283,13 @@ function useBaseLayer(session) {
 async function enterVR() {
   if (!navigator.xr) { S.tab = TAB_VR; return; }
   if (vrStarting || renderer.xr.getSession()) return;            // a second click must not ask for a second session
-  vrStarting = true; dom.vrBtn.textContent = 'Starting VR\u2026';
+  vrStarting = true; setBtn(dom.vrBtn, 'Starting VR\u2026');
   try {
     const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
     useBaseLayer(session);
     await renderer.xr.setSession(session);
   } catch (e) { toast('Could not start VR: ' + (e.message || e)); S.tab = TAB_VR; }
-  finally { vrStarting = false; dom.vrBtn.textContent = 'Enter VR'; }
+  finally { vrStarting = false; setBtn(dom.vrBtn, 'Enter VR'); }
 }
 function endVR() { const s = renderer.xr.getSession(); if (s) s.end(); }
 dom.vrBtn.onclick = () => { if (xrState.supported) enterVR(); else { S.tab = TAB_VR; S.helpPage = 0; toast('No VR device found - see the VR tab for setup help', 6000); } };
@@ -1095,10 +1326,12 @@ function locomotion(vc, gp, dt) {
   }
 }
 
-let needRecenter = false;
+let needRecenter = 0;          // frames to wait: the camera only carries the headset pose after the first rendered VR frames
 renderer.xr.addEventListener('sessionstart', () => {
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
-  S.vr = true; needRecenter = true; document.body.classList.add('vr');
+  S.vr = true; needRecenter = 4; document.body.classList.add('vr');
+  // the headset's own recentre (e.g. holding the Meta button) moves the tracking origin: put the table back in front of the user
+  try { const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { needRecenter = 3; }); } catch (e) { /* not supported */ }
   uiMesh.visible = plotMesh.visible = tbMesh.visible = true;
   S.xr = renderer.xr.getSession();
 });
@@ -1149,11 +1382,75 @@ const vrc = [0, 1].map((i) => {
   return vc;
 });
 
+/* ---------- hands: a glove on each controller. The laser leaves the index fingertip; trigger curls the index finger,
+   holding an atom with the tweezers pinches, grip makes a fist. Built from simple shapes (no model files). ---------- */
+function makeHand() {
+  const mat = new THREE.MeshLambertMaterial({ color: 0xe8eef8, emissive: 0x1b2433 });
+  const g = new THREE.Group(), fingers = [], thumb = [];
+  const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), mat); palm.scale.set(0.041, 0.015, 0.047); palm.position.set(0, 0, 0.105); g.add(palm);
+  const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.025, 0.05, 14), mat); wrist.rotation.x = Math.PI / 2; wrist.scale.set(1.25, 1, 0.65); wrist.position.set(0, -0.002, 0.16); g.add(wrist);
+  const knuckle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.074, 12), mat); knuckle.rotation.z = Math.PI / 2; knuckle.position.set(0, 0, 0.072); g.add(knuckle);
+  const seg = (len, r) => { const j = new THREE.Group(), m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r, len, 10), mat); m.rotation.x = Math.PI / 2; m.position.z = -len / 2; j.add(m); j.add(new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat)); return j; };
+  const chain = (parent, lens, r) => { const out = []; let p = parent; for (const len of lens) { const j = seg(len, r); p.add(j); out.push(j); const nx = new THREE.Group(); nx.position.z = -len; j.add(nx); p = nx; } p.add(new THREE.Mesh(new THREE.SphereGeometry(r * 0.95, 10, 8), mat)); return out; };
+  for (const [x, L, r] of [[-0.026, [0.040, 0.024, 0.019], 0.0088], [-0.009, [0.044, 0.027, 0.020], 0.009], [0.009, [0.041, 0.025, 0.019], 0.0088], [0.026, [0.032, 0.020, 0.017], 0.0078]]) {
+    const base = new THREE.Group(); base.position.set(x, 0, 0.07); g.add(base); fingers.push(chain(base, L, r));
+  }
+  const tb = new THREE.Group(); tb.position.set(-0.036, -0.006, 0.105); tb.rotation.set(0, 0.75, 0); g.add(tb); thumb.push(...chain(tb, [0.036, 0.03], 0.0098));
+  const pose = { index: 0, thumb: 0.1, others: 0.25 };
+  const apply = () => {
+    const C = [1.15, 1.5, 1.1];
+    fingers.forEach((ch, k) => { const c = k === 0 ? pose.index : pose.others; ch.forEach((j, q) => { j.rotation.x = -c * C[q]; }); });
+    thumb[0].rotation.set(-pose.thumb * 0.35, -pose.thumb * 0.85, 0); thumb[1].rotation.set(-pose.thumb * 0.7, 0, 0);
+  };
+  apply(); return { group: g, pose, apply, mat };
+}
+for (const vc of vrc) {
+  vc.hand3 = makeHand(); vc.obj.add(vc.hand3.group); vc.obj.children[0].visible = false;          // the glove replaces the stick
+  vc.obj.addEventListener('connected', (e) => { vc.hand3.group.scale.x = e.data && e.data.handedness === 'left' ? -1 : 1; });
+}
+function makeToolHeads() {
+  const P = (c, e = 0x000000) => new THREE.MeshPhongMaterial({ color: c, emissive: e, shininess: 60, specular: 0x666666 });
+  const H = {}, add = (k) => (H[k] = new THREE.Group());
+  const box = (g, m, w, h, d, x, y, z, ry = 0) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.rotation.y = ry; g.add(b); return b; };
+  const cyl = (g, m, r, len, x, y, z) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), m); c.rotation.x = Math.PI / 2; c.position.set(x, y, z); g.add(c); return c; };
+  const ball = (g, m, r, x, y, z) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), m); s.position.set(x, y, z); g.add(s); return s; };
+  { const g = add('tweezers'), m = P(0xd9c27a); box(g, m, 0.004, 0.003, 0.07, -0.006, 0, -0.025, -0.16); box(g, m, 0.004, 0.003, 0.07, 0.006, 0, -0.025, 0.16); box(g, m, 0.02, 0.006, 0.01, 0, 0, 0.012); }
+  { const g = add('add'); g.userData.atom = ball(g, P(0x888888), 0.012, 0, 0.004, -0.02); const m = P(0x7be495, 0x1d5a2b); box(g, m, 0.018, 0.004, 0.004, 0, 0.022, -0.02); box(g, m, 0.004, 0.018, 0.004, 0, 0.022, -0.02); }
+  { const g = add('attach'); g.userData.atom = ball(g, P(0x888888), 0.011, 0, 0, -0.035); cyl(g, P(0xcfd6e0), 0.003, 0.03, 0, 0, -0.012); }
+  { const g = add('bond'), m = P(0xcfd6e0); cyl(g, m, 0.0035, 0.045, 0, 0, -0.02); ball(g, P(0x4d5360), 0.007, 0, 0, 0.003); ball(g, P(0x4d5360), 0.007, 0, 0, -0.043); }
+  { const g = add('delete'); box(g, P(0xff8fa3), 0.022, 0.012, 0.03, 0, 0, -0.018); box(g, P(0x6aa8ff), 0.022, 0.0125, 0.012, 0, 0, 0.003); }
+  { const g = add('zap'); cyl(g, P(0x8e9aaf), 0.008, 0.055, 0, 0, -0.01); for (const z of [-0.02, -0.03]) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.0095, 0.0022, 8, 20), P(0xff6a3d, 0x5a1a00)); t.position.set(0, 0, z); g.add(t); } ball(g, P(0xff4422, 0xaa2200), 0.006, 0, 0, -0.04); }
+  for (const [k, col] of [['cminus', 0x3a6cf0], ['cplus', 0xe8473a]]) { const g = add(k), m = P(col, col === 0x3a6cf0 ? 0x0a1a50 : 0x500a0a); box(g, m, 0.018, 0.016, 0.022, 0, 0, -0.005); const pm = P(0xd9c27a); box(g, pm, 0.003, 0.003, 0.016, -0.004, 0, -0.024); box(g, pm, 0.003, 0.003, 0.016, 0.004, 0, -0.024); }
+  const root = new THREE.Group(); for (const k in H) { H[k].visible = false; root.add(H[k]); } root.position.z = -0.004; root.scale.setScalar(1.6);
+  return { root, H };
+}
+for (const vc of vrc) { vc.tools = makeToolHeads(); vc.obj.add(vc.tools.root); }
+const CURSORS = { tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', cminus: 'pointer', cplus: 'pointer' };
+let lastCursor = '';
+function updateToolShapes() {
+  const elCol = (isMat() && SPECIES[SP[S.cel]]) ? SPECIES[SP[S.cel]].color : 0x88a0c0;
+  for (const vc of vrc) { if (!vc.tools) continue; for (const k in vc.tools.H) { const g = vc.tools.H[k], on = k === S.tool && !(vc.hit && vc.hit.ui); g.visible = on; if (on && g.userData.atom) g.userData.atom.material.color.setHex(S.tool === 'add' && !isMat() ? new THREE.Color(ELEMENTS[S.el] ? ELEMENTS[S.el].color : 0x88a0c0).getHex() : elCol); } }
+  const cur = hold.src === 'mouse' && S.tool === 'tweezers' ? 'grabbing' : (CURSORS[S.tool] || 'default');
+  if (cur !== lastCursor) { renderer.domElement.style.cursor = cur; lastCursor = cur; }
+}
+function handPose(vc, gp, dt) {
+  const t = gp && gp.buttons[0] ? gp.buttons[0].value : 0, g = gp && gp.buttons[1] ? gp.buttons[1].value : 0;
+  const tw = hold.src === vc.i && hold.kind === 'tw', ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg;
+  const want = fist ? { index: 0.95, thumb: 0.8, others: 1 } : tw ? { index: 0.6, thumb: 0.9, others: 0.7 } : ui_ ? { index: 0.08 + 0.25 * t, thumb: 0.6, others: 0.9 } : { index: 0.1 + 0.8 * t, thumb: 0.15 + 0.6 * t, others: Math.max(0.25, g) };
+  const a = Math.min(1, dt * 14), P = vc.hand3.pose; for (const k in want) P[k] += (want[k] - P[k]) * a; vc.hand3.apply();
+}
+const zapGeo = new THREE.ConeGeometry(1.6, 1.6, 28, 1, true); zapGeo.rotateX(Math.PI / 2); zapGeo.translate(0, 0, -0.8);      // apex at the hand, 1.6 m long
+for (const vc of vrc) { vc.cone = new THREE.Mesh(zapGeo, new THREE.MeshBasicMaterial({ color: 0xff4422, transparent: true, opacity: 0.13, depthWrite: false, side: THREE.DoubleSide })); vc.cone.visible = false; vc.obj.add(vc.cone); }
 // grip = pick up the experiment; both grips = scale it
 let grabRef = null;
 function regrab() {
   const dr = vrc.filter((v) => v.sq);
   if (!dr.length) { grabRef = null; return; }
+  if (dr.length > 1) {                     // both grips: the point between the hands is the pivot; spreading the hands scales, twisting them turns
+    const a = dr[0].obj.getWorldPosition(new THREE.Vector3()), b = dr[1].obj.getWorldPosition(new THREE.Vector3());
+    grabRef = { two: true, a: dr[0], b: dr[1], mid0: a.clone().add(b).multiplyScalar(0.5), v0: b.clone().sub(a), pos0: simRoot.position.clone(), q0: simRoot.quaternion.clone(), s0: userScale };
+    return;
+  }
   const d = dr[0], q = d.obj.getWorldQuaternion(new THREE.Quaternion()), p = d.obj.getWorldPosition(new THREE.Vector3());
   const qi = q.clone().invert();
   grabRef = {
@@ -1171,16 +1468,22 @@ function updatePanelGrabs() {
 function updateGrab() {
   updatePanelGrabs();
   if (!grabRef) return;
+  if (grabRef.two) {
+    const a = grabRef.a.obj.getWorldPosition(new THREE.Vector3()), b = grabRef.b.obj.getWorldPosition(new THREE.Vector3());
+    const mid = a.clone().add(b).multiplyScalar(0.5), v = b.clone().sub(a), l0 = grabRef.v0.length(), l = v.length(); if (l0 < 0.02 || l < 0.02) return;
+    const k = clamp(grabRef.s0 * l / l0, 0.15, 6) / grabRef.s0, q = new THREE.Quaternion().setFromUnitVectors(grabRef.v0.clone().normalize(), v.clone().normalize());
+    simRoot.position.copy(grabRef.pos0).sub(grabRef.mid0).multiplyScalar(k).applyQuaternion(q).add(mid);
+    simRoot.quaternion.copy(q).multiply(grabRef.q0); userScale = grabRef.s0 * k;
+    return;
+  }
   const d = grabRef.drv, q = d.obj.getWorldQuaternion(new THREE.Quaternion()), p = d.obj.getWorldPosition(new THREE.Vector3());
   simRoot.position.copy(grabRef.relP).applyQuaternion(q).add(p);
   simRoot.quaternion.copy(q).multiply(grabRef.relQ);
-  const dr = vrc.filter((v) => v.sq);
-  if (dr.length > 1 && grabRef.two && grabRef.dist0 > 0.05) userScale = clamp(grabRef.s0 * dr[0].obj.position.distanceTo(dr[1].obj.position) / grabRef.dist0, 0.25, 4);
 }
 
 const rc = new THREE.Raycaster();
 function vrInput(dt) {
-  if (needRecenter && renderer.xr.getCamera().cameras && renderer.xr.getCamera().cameras.length) { recenter(); needRecenter = false; }
+  if (needRecenter > 0 && renderer.xr.getCamera().cameras && renderer.xr.getCamera().cameras.length && --needRecenter === 0) recenter();
   bench.updateMatrixWorld(true);
   for (const vc of vrc) {
     vc.hit = null; if (!vc.pg) vc.hitObj = null;
@@ -1196,7 +1499,8 @@ function vrInput(dt) {
       if (U_) { vc.hit = { ui: U_ }; U_.move(h.uv.x * U_.w, (1 - h.uv.y) * U_.h, vc.i); } else vc.hit = { ui: null };
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
-    vc.laser.scale.z = len;
+    vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt);
+    vc.cone.visible = S.tool === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
     vc.laser.material.color.set(vc.hit ? 0xffffff : 0x4ae3e1);
 
     const gp = vc.src.gamepad;
@@ -1234,6 +1538,8 @@ function frame() {
     const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('Simulation unstable: lower the time step and Rebuild', 8000); }
+  if (S.escape && isMat() && md.N && !S.paused) escapeCheck();
+  updateFlashes(dt); updateToolShapes(); updateThermo(t);
 
   // transport: the live part (bond currents, current at the bias) a few times a second while atoms move; the curves on demand
   if (isMat() && S.cm.size && S.cp.size && !TR.busy) {
@@ -1267,15 +1573,15 @@ function applyTheme(name) {
   deskTop.material.color.set(th.top); legM.color.set(th.cab); ring.material.color.set(th.accent); disc.material.color.set(th.accent);
   boxEdges.material.color.set(th.accent); boxFaces.material.color.set(th.accent);
   cMinus.set(COL.minus); cPlus.set(COL.plus);
-  document.body.classList.toggle('light', S.theme === 'light'); dom.themeBtn.textContent = S.theme === 'light' ? 'Dark lab' : 'White lab';
+  document.body.classList.toggle('light', S.theme === 'light'); setBtn(dom.themeBtn, S.theme === 'light' ? 'Dark lab' : 'White lab');
   ui.dirty = true; lastPlot = 0;
   try { localStorage.setItem('mdlab.theme', S.theme); } catch (e) { /* no storage */ }
 }
-applyTheme(S.theme);
+setLang(S.lang); applyTheme(S.theme); applyLangDom();
 setTableHeight(0.9, false);
 
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };

@@ -16,7 +16,7 @@ const OPEN_MARGIN = 10;                      // A of vacuum round an open flake 
 // equilibrium lattice parameters of the potentials themselves (found by scanning, see test/materials.test.mjs)
 export const GR_B = 1.438;                  // C-C bond in graphene, Lindsay-Broido Tersoff
 export const MOS2 = { a: 3.12, h: 1.559 };  // SW(mod) minimum: a = 3.12 A (exp. 3.16), S height 1.56 A (Mo-S 2.40 A, exp. 2.41)
-export const SP = { C: 0, H: 1, Mo: 2, S: 3, B: 4, N: 5, O: 6, F: 7, Si: 8, P: 9, Cl: 10, Br: 11, I: 12 };
+export const SP = { C: 0, H: 1, Mo: 2, S: 3, B: 4, N: 5, O: 6, F: 7, Si: 8, P: 9, Cl: 10, Br: 11, I: 12, Au: 13 };
 export const SPECIES = [
   { sym: 'C', mass: 12.011, color: 0x4d5360, r: 0.46, bond: 1.9 },
   { sym: 'H', mass: 1.008, color: 0xf2f2f2, r: 0.28, bond: 1.3 },
@@ -32,6 +32,7 @@ export const SPECIES = [
   { sym: 'Cl', mass: 35.45, color: 0x36d636, r: 0.52, bond: 2.4 },
   { sym: 'Br', mass: 79.904, color: 0xa83b2c, r: 0.58, bond: 2.6 },
   { sym: 'I', mass: 126.904, color: 0x8a2be2, r: 0.66, bond: 2.9 },
+  { sym: 'Au', mass: 196.967, color: 0xf2c14e, r: 0.72, bond: 2.9 },
 ];
 const KCAL = 0.0433641153;                  // kcal/mol -> eV
 const KE_COUL = 14.399645;                  // eV*A / e^2
@@ -60,6 +61,7 @@ export class Mat {
     this.maxN = maxN; const f = () => new Float64Array(maxN);
     this.x = f(); this.y = f(); this.z = f(); this.vx = f(); this.vy = f(); this.vz = f(); this.fx = f(); this.fy = f(); this.fz = f();
     this.cx = f(); this.cy = f(); this.cz = f(); this.xr = f(); this.yr = f(); this.zr = f();
+    this.fixed = new Uint8Array(maxN);                             // atoms held in place (electrode pads)
     this.mass = f(); this.sp = new Uint8Array(maxN); this.grp = new Int16Array(maxN); this.z_ = new Float32Array(maxN);
     this.N = 0; this.Lx = 20; this.Ly = 20; this.Lz = 20; this.per = [false, false, false];
     this.model = 'none'; this.tp = TERSOFF.graphene; this.vdw = null; this.charges = false;
@@ -83,7 +85,7 @@ export class Mat {
   clear() { this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
 
   addRaw(sp, x, y, z, grp) {
-    const i = this.N++; this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass; this.grp[i] = grp;
+    const i = this.N++; this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass; this.grp[i] = grp; this.fixed[i] = 0;
     this.x[i] = x; this.y[i] = y; this.z[i] = z; this.vx[i] = this.vy[i] = this.vz[i] = 0; this.cx[i] = this.cy[i] = this.cz[i] = 0; this.z_[i] = 0; this.listDirty = true; return i;
   }
 
@@ -214,7 +216,7 @@ export class Mat {
     const dt = dtfs / TU_FS; for (let i = 0; i < this.N; i++) this.vx[i] = this.vy[i] = this.vz[i] = 0;
     for (let s = 0; s < steps; s++) {
       let P = 0;
-      for (let i = 0; i < this.N; i++) { const im = 1 / this.mass[i]; this.vx[i] += dt * this.fx[i] * im; this.vy[i] += dt * this.fy[i] * im; this.vz[i] += dt * this.fz[i] * im; P += this.fx[i] * this.vx[i] + this.fy[i] * this.vy[i] + this.fz[i] * this.vz[i]; }
+      for (let i = 0; i < this.N; i++) { if (this.fixed[i]) continue; const im = 1 / this.mass[i]; this.vx[i] += dt * this.fx[i] * im; this.vy[i] += dt * this.fy[i] * im; this.vz[i] += dt * this.fz[i] * im; P += this.fx[i] * this.vx[i] + this.fy[i] * this.vy[i] + this.fz[i] * this.vz[i]; }
       if (P < 0) for (let i = 0; i < this.N; i++) this.vx[i] = this.vy[i] = this.vz[i] = 0;
       for (let i = 0; i < this.N; i++) { this.move(i, Math.max(-0.1, Math.min(0.1, dt * this.vx[i])), Math.max(-0.1, Math.min(0.1, dt * this.vy[i])), Math.max(-0.1, Math.min(0.1, dt * this.vz[i])), false); }
       this.computeForces();
@@ -224,15 +226,16 @@ export class Mat {
 
   gauss(rand = Math.random) { let u = 0; while (u === 0) u = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand()); }
   thermalise(T) {
-    for (let i = 0; i < this.N; i++) { const s = Math.sqrt(KB * T / this.mass[i]); this.vx[i] = s * this.gauss(); this.vy[i] = s * this.gauss(); this.vz[i] = s * this.gauss(); }
+    for (let i = 0; i < this.N; i++) { if (this.fixed[i]) { this.vx[i] = this.vy[i] = this.vz[i] = 0; continue; } const s = Math.sqrt(KB * T / this.mass[i]); this.vx[i] = s * this.gauss(); this.vy[i] = s * this.gauss(); this.vz[i] = s * this.gauss(); }
     this.removeCOM(); const cur = this.temperature(); if (cur > 0) { const k = Math.sqrt(T / cur); for (let i = 0; i < this.N; i++) { this.vx[i] *= k; this.vy[i] *= k; this.vz[i] *= k; } }
   }
   removeCOM() {
-    let M = 0, px = 0, py = 0, pz = 0; for (let i = 0; i < this.N; i++) { M += this.mass[i]; px += this.mass[i] * this.vx[i]; py += this.mass[i] * this.vy[i]; pz += this.mass[i] * this.vz[i]; }
-    if (!M) return; for (let i = 0; i < this.N; i++) { this.vx[i] -= px / M; this.vy[i] -= py / M; this.vz[i] -= pz / M; }
+    let M = 0, px = 0, py = 0, pz = 0; for (let i = 0; i < this.N; i++) { if (this.fixed[i]) continue; M += this.mass[i]; px += this.mass[i] * this.vx[i]; py += this.mass[i] * this.vy[i]; pz += this.mass[i] * this.vz[i]; }
+    if (!M) return; for (let i = 0; i < this.N; i++) { if (this.fixed[i]) continue; this.vx[i] -= px / M; this.vy[i] -= py / M; this.vz[i] -= pz / M; }
   }
 
   move(i, dx, dy, dz, track = true) {
+    if (this.fixed[i]) return;
     this.x[i] += dx; this.y[i] += dy; this.z[i] += dz; if (track) { this.cx[i] += dx; this.cy[i] += dy; this.cz[i] += dz; }
     if (this.per[0]) { if (this.x[i] < 0) this.x[i] += this.Lx; else if (this.x[i] >= this.Lx) this.x[i] -= this.Lx; }
     if (this.per[1]) { if (this.y[i] < 0) this.y[i] += this.Ly; else if (this.y[i] >= this.Ly) this.y[i] -= this.Ly; }
@@ -241,7 +244,7 @@ export class Mat {
 
   /* ---------------- observables ---------------- */
   kinetic() { let s = 0; for (let i = 0; i < this.N; i++) s += this.mass[i] * (this.vx[i] ** 2 + this.vy[i] ** 2 + this.vz[i] ** 2); return 0.5 * s; }
-  temperature() { return 2 * this.kinetic() / (Math.max(1, 3 * this.N - 3) * KB); }
+  temperature() { let nf = 0; for (let i = 0; i < this.N; i++) nf += this.fixed[i]; return 2 * this.kinetic() / (Math.max(1, 3 * (this.N - nf) - 3) * KB); }
   pressure() { return 0; }
   meanCoord() { let s = 0; for (let i = 0; i < this.N; i++) s += this.z_[i]; return this.N ? s / this.N : 0; }
   msd() { let s = 0; for (let i = 0; i < this.N; i++) s += this.cx[i] ** 2 + this.cy[i] ** 2 + this.cz[i] ** 2; return this.N ? s / this.N : 0; }
@@ -468,16 +471,16 @@ export class Mat {
     const e = this.ext, N = this.N; this.extForce = 0; this.extForceEV = 0;
     if (e.i < 0 || e.i >= N) return 0;
     const fx = this.fx, fy = this.fy, fz = this.fz;
-    if (e.mode === 'group') {
-      const g = this.grp[e.i]; let M = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0, n = 0;
+    if (e.mode === 'group' || e.mode === 'frag') {
+      const g = this.grp[e.i], fr = e.mode === 'frag' && e.mask, inG = (k) => (fr ? fr[k] === 1 : this.grp[k] === g); let M = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0, n = 0;
       const x0 = this.x[e.i], y0 = this.y[e.i], z0 = this.z[e.i];
-      for (let i = 0; i < N; i++) if (this.grp[i] === g) { const m = this.mass[i]; M += m; n++; cx += m * this.mi(this.x[i] - x0, this.Lx, this.per[0]); cy += m * this.mi(this.y[i] - y0, this.Ly, this.per[1]); cz += m * this.mi(this.z[i] - z0, this.Lz, this.per[2]); vx += m * this.vx[i]; vy += m * this.vy[i]; vz += m * this.vz[i]; }
+      for (let i = 0; i < N; i++) if (inG(i)) { const m = this.mass[i]; M += m; n++; cx += m * this.mi(this.x[i] - x0, this.Lx, this.per[0]); cy += m * this.mi(this.y[i] - y0, this.Ly, this.per[1]); cz += m * this.mi(this.z[i] - z0, this.Lz, this.per[2]); vx += m * this.vx[i]; vy += m * this.vy[i]; vz += m * this.vz[i]; }
       cx = cx / M + x0; cy = cy / M + y0; cz = cz / M + z0; vx /= M; vy /= M; vz /= M;
       const K = this.grpK * n, cap = this.grpCap * n; let Fx = K * this.mi(e.x - cx, this.Lx, this.per[0]), Fy = K * this.mi(e.y - cy, this.Ly, this.per[1]), Fz = K * this.mi(e.z - cz, this.Lz, this.per[2]);
       const fm = Math.hypot(Fx, Fy, Fz); if (fm > cap) { const s = cap / fm; Fx *= s; Fy *= s; Fz *= s; }
       const gam = this.grpGam;               // strong damping of the centre-of-mass motion: the layer follows the hand slowly (~100 m/s)
       Fx -= gam * M * vx; Fy -= gam * M * vy; Fz -= gam * M * vz;
-      for (let i = 0; i < N; i++) if (this.grp[i] === g) { const w = this.mass[i] / M; fx[i] += Fx * w; fy[i] += Fy * w; fz[i] += Fz * w; }
+      for (let i = 0; i < N; i++) if (inG(i)) { const w = this.mass[i] / M; fx[i] += Fx * w; fy[i] += Fy * w; fz[i] += Fz * w; }
       this.extForce = Math.min(1, fm / cap); this.extForceEV = Math.min(fm, cap); return 0;
     }
     const i = e.i; let dx = this.mi(e.x - this.x[i], this.Lx, this.per[0]), dy = this.mi(e.y - this.y[i], this.Ly, this.per[1]), dz = this.mi(e.z - this.z[i], this.Lz, this.per[2]);
@@ -493,20 +496,23 @@ export class Mat {
     const N = this.N; if (!N || this.exploded) return;
     const dt = this.dt, hdt = 0.5 * dt, vx = this.vx, vy = this.vy, vz = this.vz, fx = this.fx, fy = this.fy, fz = this.fz, m = this.mass;
     for (let i = 0; i < N; i++) {
+      if (this.fixed[i]) { vx[i] = vy[i] = vz[i] = 0; continue; }
       const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i];
       this.move(i, dt * vx[i], dt * vy[i], dt * vz[i]);
     }
     this.computeForces();
     if (this.model === 'uff' && this.step % 5 === 0 && this.chem.breakStretched()) this.computeForces();     // overstretched bonds snap
-    for (let i = 0; i < N; i++) { const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i]; }
+    for (let i = 0; i < N; i++) { if (this.fixed[i]) continue; const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i]; }
     let KE = this.kinetic();
     if (this.thermostat && KE > 0) {
-      const T = 2 * KE / (Math.max(1, 3 * N - 3) * KB);
+      let nf = 0; for (let i = 0; i < N; i++) nf += this.fixed[i];                 // fixed atoms carry no degrees of freedom
+      const T = 2 * KE / (Math.max(1, 3 * (N - nf) - 3) * KB);
       let lam = Math.sqrt(1 + (dt / this.tauT) * (this.Ttarget / T - 1)); lam = Math.max(0.97, Math.min(1.03, lam));
       for (let i = 0; i < N; i++) { vx[i] *= lam; vy[i] *= lam; vz[i] *= lam; } KE *= lam * lam;
     }
     this.KE = KE; this.time += dt; this.step++;
-    if (this.ext.i < 0 && this.step % 100 === 0) this.removeCOM();
+    // drift removal; not with atoms held fixed (they push the rest, so its momentum is real)
+    if (this.ext.i < 0 && this.step % 100 === 0 && !this.fixed.subarray(0, N).some((v) => v)) this.removeCOM();
     if (this.step % 40 === 0) this.sampleRDF();
     if (!isFinite(KE) || !isFinite(this.PE) || KE / N > 50) this.exploded = true;
   }
@@ -522,13 +528,14 @@ export class Mat {
     const s = Math.sqrt(KB * Math.max(this.Ttarget, 10) / this.mass[i]); this.vx[i] = s * this.gauss(); this.vy[i] = s * this.gauss(); this.vz[i] = s * this.gauss();
     this.computeForces(); return i;
   }
-  removeAtom(i) {
+  removeAtom(i, noForces = false) {
     if (i < 0 || i >= this.N || this.model === 'ff') return;
     const l = --this.N; this.listDirty = true;
-    if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_']) this[k][i] = this[k][l]; }
+    if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_', 'fixed']) this[k][i] = this[k][l]; }
+    if (this.ext.mask) { this.ext.mask[i] = this.ext.mask[l]; this.ext.mask[l] = 0; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
     if (this.model === 'uff') this.chem.removeAtom(i, l);
-    this.computeForces();
+    if (!noForces) this.computeForces();
   }
 
   /* ---------------- chemistry mode (src/chem.js) ---------------- */
@@ -544,10 +551,126 @@ export class Mat {
     this.chem.fromGeometry(); this.model = 'uff'; this.vdw = null; this.charges = false; this.bonds = []; this.angles = []; this.oops = [];
     this.dt = 0.5 / TU_FS; this.listDirty = true; if (!/chemistry/.test(this.name)) this.name = this.name + ' \u00B7 chemistry'; this.computeForces();
   }
+  // single-wall carbon nanotube (n, m), 'len' nm long, rolled from the graphene lattice (Tersoff carbon, open ends)
+  buildCNT(n, m, len, T0) {
+    n = Math.round(n); m = Math.round(m); if (n < 1 || m < 0 || m > n) throw new Error('nanotube needs n >= 1 and 0 <= m <= n');
+    this.clear(); this.model = 'tersoff'; this.tp = TERSOFF.graphene; this.vdw = null; this.charges = false;
+    const b = GR_B, a = Math.sqrt(3) * b, a1 = [a * Math.sqrt(3) / 2, a / 2], a2 = [a * Math.sqrt(3) / 2, -a / 2];
+    const gcd = (p, q) => q ? gcd(q, p % q) : Math.abs(p), dR = gcd(2 * m + n, 2 * n + m), t1 = (2 * m + n) / dR, t2 = -(2 * n + m) / dR;
+    const Ch = [n * a1[0] + m * a2[0], n * a1[1] + m * a2[1]], Tv = [t1 * a1[0] + t2 * a2[0], t1 * a1[1] + t2 * a2[1]];
+    const C2 = Ch[0] ** 2 + Ch[1] ** 2, T2 = Tv[0] ** 2 + Tv[1] ** 2, R = Math.sqrt(C2) / (2 * Math.PI), cells = Math.max(1, Math.round(len * 10 / Math.sqrt(T2)));
+    if (4 * (n * n + n * m + m * m) / dR * cells > this.maxN) throw new Error('nanotube too long for ' + this.maxN + ' atoms - make it shorter');
+    const corners = [[0, 0], [n, m], [t1 * cells, t2 * cells], [n + t1 * cells, m + t2 * cells]], dl = [a / Math.sqrt(3), 0], pts = [];
+    const i0 = Math.floor(Math.min(...corners.map((c) => c[0]))) - 2, i1 = Math.ceil(Math.max(...corners.map((c) => c[0]))) + 2, j0 = Math.floor(Math.min(...corners.map((c) => c[1]))) - 2, j1 = Math.ceil(Math.max(...corners.map((c) => c[1]))) + 2;
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const off of [[0, 0], dl]) {
+      const px = i * a1[0] + j * a2[0] + off[0] + 1e-7, py = i * a1[1] + j * a2[1] + off[1] + 2e-7;
+      const s = (px * Ch[0] + py * Ch[1]) / C2, u = (px * Tv[0] + py * Tv[1]) / T2;
+      if (s >= 0 && s < 1 && u >= 0 && u < cells) pts.push([R * Math.cos(2 * Math.PI * s), R * Math.sin(2 * Math.PI * s), u * Math.sqrt(T2)]);
+    }
+    const Lz = cells * Math.sqrt(T2); this.Lx = this.Ly = 2 * R + 24; this.Lz = Lz + 24; this.per = [false, false, false];
+    for (const [x, y, z] of pts) this.addRaw(SP.C, x + this.Lx / 2, y + this.Ly / 2, z + 12, 0);
+    this.trimEdges(1.7, 2);
+    this.name = `Nanotube (${n},${m})`; this.finish(T0, 0.5);
+  }
+  // C60 buckminsterfullerene: the truncated icosahedron (cyclic permutations of the three vertex families), bond 1.42 A
+  buildC60(T0) {
+    this.clear(); this.model = 'tersoff'; this.tp = TERSOFF.graphene; this.vdw = null; this.charges = false;
+    const p = (1 + Math.sqrt(5)) / 2, fam = [[0, 1, 3 * p], [1, 2 + p, 2 * p], [p, 2, 2 * p + 1]], pts = [];
+    for (const [a, b, c] of fam) for (const sa of [1, -1]) for (const sb of [1, -1]) for (const sc of [1, -1]) {
+      if ((a === 0 && sa < 0)) continue;
+      const v = [a * sa, b * sb, c * sc]; for (let k = 0; k < 3; k++) pts.push([v[k % 3], v[(k + 1) % 3], v[(k + 2) % 3]]);
+    }
+    const s = 1.42 / 2, span = 30; this.Lx = this.Ly = this.Lz = span; this.per = [false, false, false];
+    for (const q of pts) this.addRaw(SP.C, span / 2 + q[0] * s, span / 2 + q[1] * s, span / 2 + q[2] * s, 0);
+    this.name = 'C\u2086\u2080'; this.finish(T0, 0.4);
+  }
+  // hexagonal boron nitride: the graphene lattice at 1.446 A with B and N on the two sublattices, on the chemistry model (UFF)
+  buildHBN(nx, ny, T0, open = false) {
+    this.buildGraphene(nx, ny, 1, 1, false, open);
+    const k = 1.446 / GR_B, b = GR_B * k, y0 = open ? OPEN_MARGIN : 0;
+    for (let i = 0; i < this.N; i++) { this.x[i] = (this.x[i] - (open ? OPEN_MARGIN : 0)) * k + (open ? OPEN_MARGIN : 0); this.y[i] = (this.y[i] - y0) * k + y0; }
+    if (open) { this.Lx = (this.Lx - 2 * OPEN_MARGIN) * k + 2 * OPEN_MARGIN; this.Ly = (this.Ly - 2 * OPEN_MARGIN) * k + 2 * OPEN_MARGIN; } else { this.Lx *= k; this.Ly *= k; }
+    for (let i = 0; i < this.N; i++) {                         // sublattice from the height in the 4-atom cell: 0 or 1.5 b -> B, 0.5 or 2 b -> N
+      const q = ((Math.round((this.y[i] - y0) / (0.5 * b)) % 6) + 6) % 6, sp = (q === 0 || q === 3) ? SP.B : SP.N;
+      this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass;
+    }
+    this.name = open ? 'hBN flake' : 'hBN'; this.chem.fromGeometry(); this.model = 'uff'; this.vdw = null; this.listDirty = true; this.finish(T0, 0.3);
+  }
+  // molecular junction: 1-3 para-linked benzene rings, thiol (S) anchors, gold electrode pads held fixed (chemistry model).
+  // Returns the two anchor carbons, where the transport contacts go.
+  buildJunction(rings, T0) {
+    rings = Math.max(1, Math.min(3, Math.round(rings)));
+    this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.chem.clear(); this.per = [false, false, false];
+    const rc = 1.40, rh = 2.48, step = 2 * rc + 1.49, tw = 35 * Math.PI / 180, bonds = [], ring = [];
+    const xs = (rings - 1) * step, span = xs + 2 * (rc + 1.77 + 2.4 + 2.35) + 30; this.Lx = span; this.Ly = this.Lz = 34;
+    const X0 = span / 2 - xs / 2, Y = this.Ly / 2, Z = this.Lz / 2;
+    for (let k = 0; k < rings; k++) {
+      const t = (k % 2) * tw, ids = [];
+      for (let j = 0; j < 6; j++) { const th = j * Math.PI / 3; ids.push(this.addRaw(SP.C, X0 + k * step + rc * Math.cos(th), Y + rc * Math.sin(th) * Math.cos(t), Z + rc * Math.sin(th) * Math.sin(t), 0)); }
+      for (let j = 0; j < 6; j++) bonds.push([ids[j], ids[(j + 1) % 6]]);
+      for (const j of [1, 2, 4, 5]) { const th = j * Math.PI / 3, h = this.addRaw(SP.H, X0 + k * step + rh * Math.cos(th), Y + rh * Math.sin(th) * Math.cos(t), Z + rh * Math.sin(th) * Math.sin(t), 0); bonds.push([ids[j], h]); }
+      if (k) bonds.push([ring[k - 1][0], ids[3]]);
+      ring.push(ids);
+    }
+    const ends = [[ring[0][3], -1], [ring[rings - 1][0], 1]], anchors = [];
+    for (const [c, sgn] of ends) {
+      // the Au-S bond leaves at 30 degrees to the molecular axis: a straight C-S-Au line is an unstable balance point where the
+      // torsion about C-S is undefined, and thermal motion off it throws huge forces (measured: tens of eV appear in 2 fs)
+      const sx = this.x[c] + sgn * 1.77, s = this.addRaw(SP.S, sx, Y, Z, 0); bonds.push([c, s]); anchors.push(c);
+      const ax = sx + sgn * 2.40 * Math.cos(Math.PI / 6), ay = Y + 2.40 * Math.sin(Math.PI / 6);
+      for (const dy of [-2.88, 0, 2.88]) for (const dz of [-2.88, 0, 2.88]) { const g = this.addRaw(SP.Au, ax, ay + dy, Z + dz, 1); this.fixed[g] = 1; if (!dy && !dz) bonds.push([s, g]); }
+      for (const dy of [-1.44, 1.44]) for (const dz of [-1.44, 1.44]) { const g = this.addRaw(SP.Au, ax + sgn * 2.35, ay + dy, Z + dz, 1); this.fixed[g] = 1; }
+    }
+    this.chem.bonds = bonds; this.chem.dirty = true; this.chem.retype(); this.listDirty = true;
+    this.name = ['Benzene-dithiol', 'Biphenyl-dithiol', 'Terphenyl-dithiol'][rings - 1] + ' junction'; this.junction = anchors;
+    // nudge (a symmetric start minimises onto a saddle and releases its energy as heat later), then relax fully
+    for (let i = 0; i < this.N; i++) if (!this.fixed[i]) { this.x[i] += (Math.random() - 0.5) * 0.1; this.y[i] += (Math.random() - 0.5) * 0.1; this.z[i] += (Math.random() - 0.5) * 0.1; }
+    this.listDirty = true; this.computeForces(); this.quench(3000, 0.3);
+    this.finish(T0, 0.3);
+    return anchors;
+  }
+
+  // everything needed to put the system back exactly as it is (positions, velocities, species, bonds, fixed atoms)
+  serialize() {
+    const N = this.N, r4 = (a) => Array.from(a.subarray(0, N), (v) => Math.round(v * 1e4) / 1e4);
+    const vdwKey = Object.keys(VDW).find((k) => VDW[k] === this.vdw) || null;
+    return { v: 1, name: this.name, model: this.model, tp: this.tp === TERSOFF.diamond ? 'diamond' : 'graphene', vdw: vdwKey, charges: this.charges, per: this.per.slice(), L: [this.Lx, this.Ly, this.Lz], sheet: this.sheet,
+      sp: Array.from(this.sp.subarray(0, N)), grp: Array.from(this.grp.subarray(0, N)), fixed: Array.from(this.fixed.subarray(0, N)),
+      x: r4(this.x), y: r4(this.y), z: r4(this.z), vx: r4(this.vx), vy: r4(this.vy), vz: r4(this.vz), dt: this.dt,
+      chem: this.model === 'uff' ? this.chem.bonds.map((b) => b.slice()) : null, ff: this.model === 'ff' ? { bonds: this.bonds, angles: this.angles, oops: this.oops } : null };
+  }
+  restore(d) {
+    this.clear(); this.model = d.model; this.tp = d.tp === 'diamond' ? TERSOFF.diamond : TERSOFF.graphene; this.vdw = d.vdw ? VDW[d.vdw] : null; this.charges = !!d.charges;
+    this.per = d.per.slice(); [this.Lx, this.Ly, this.Lz] = d.L; this.sheet = !!d.sheet; this.name = d.name;
+    for (let i = 0; i < d.sp.length; i++) { this.addRaw(d.sp[i], d.x[i], d.y[i], d.z[i], d.grp[i]); this.fixed[i] = d.fixed ? d.fixed[i] : 0; this.vx[i] = d.vx[i]; this.vy[i] = d.vy[i]; this.vz[i] = d.vz[i]; }
+    if (d.ff) { this.bonds = d.ff.bonds; this.angles = d.ff.angles; this.oops = d.ff.oops; }
+    this.chem.clear(); if (d.chem) { this.chem.bonds = d.chem.map((b) => b.slice()); this.chem.dirty = true; this.chem.retype(); }
+    this.dt = d.dt; this.listDirty = true; this.computeForces(); this.KE = this.kinetic(); this.mark(); this.resetRDF();
+  }
   buildEmpty(span = 30) {
     this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.per = [false, false, false];
     this.Lx = this.Ly = this.Lz = span; this.chem.clear(); this.name = 'Empty box \u00B7 chemistry'; this.listDirty = true; this.finish(10, 0.3);
   }
+  // the connected piece an atom belongs to: chemical bonds in the chemistry model, otherwise bond-length contacts
+  // (graphite layers 3.35 A apart stay separate pieces). Returns a mask over the atoms and their count.
+  fragmentMask(i0) {
+    const N = this.N, mask = new Uint8Array(this.x.length), st = [i0]; mask[i0] = 1; let n = 1;
+    const adj = this.model === 'uff' && this.chem ? (() => { const a = Array.from({ length: N }, () => []); for (const [p, q] of this.chem.bonds) if (p < N && q < N) { a[p].push(q); a[q].push(p); } return a; })() : null;
+    while (st.length) {
+      const i = st.pop();
+      if (adj) { for (const j of adj[i]) if (!mask[j]) { mask[j] = 1; n++; st.push(j); } continue; }
+      const ri = SPECIES[this.sp[i]].bond;
+      for (let j = 0; j < N; j++) {
+        if (mask[j]) continue; const c = Math.max(ri, SPECIES[this.sp[j]].bond);
+        const dx = this.mi(this.x[j] - this.x[i], this.Lx, this.per[0]); if (dx > c || dx < -c) continue;
+        const dy = this.mi(this.y[j] - this.y[i], this.Ly, this.per[1]); if (dy > c || dy < -c) continue;
+        const dz = this.mi(this.z[j] - this.z[i], this.Lz, this.per[2]);
+        if (dx * dx + dy * dy + dz * dz < c * c) { mask[j] = 1; n++; st.push(j); }
+      }
+    }
+    return { mask, n };
+  }
+  maskCOM(i, mask) { const x0 = this.x[i], y0 = this.y[i], z0 = this.z[i]; let M = 0, a = 0, b = 0, c = 0; for (let k = 0; k < this.N; k++) if (mask[k]) { const m = this.mass[k]; M += m; a += m * this.mi(this.x[k] - x0, this.Lx, this.per[0]); b += m * this.mi(this.y[k] - y0, this.Ly, this.per[1]); c += m * this.mi(this.z[k] - z0, this.Lz, this.per[2]); } return [x0 + a / M, y0 + b / M, z0 + c / M]; }
   groupCOM(i) { const g = this.grp[i], x0 = this.x[i], y0 = this.y[i], z0 = this.z[i]; let M = 0, a = 0, b = 0, c = 0; for (let k = 0; k < this.N; k++) if (this.grp[k] === g) { const m = this.mass[k]; M += m; a += m * this.mi(this.x[k] - x0, this.Lx, this.per[0]); b += m * this.mi(this.y[k] - y0, this.Ly, this.per[1]); c += m * this.mi(this.z[k] - z0, this.Lz, this.per[2]); } return [x0 + a / M, y0 + b / M, z0 + c / M]; }
   switchBoundary() { }
   setBox() { }
