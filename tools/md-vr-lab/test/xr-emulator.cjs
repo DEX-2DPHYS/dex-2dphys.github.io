@@ -120,6 +120,25 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const hp2 = await head(); let d2 = hp2.yaw - hp1.yaw; if (d2 > 180) d2 -= 360; if (d2 < -180) d2 += 360;
   ok('one push = one step (holding the stick does not keep turning)', Math.abs(d2 - 30) < 1.5, `${d2.toFixed(1)} deg`);
   await p.screenshot({ path: path.join(outDir, '2-vr-after-walk.png') });
+  // grip on an atom carries exactly its connected piece: graphene + an hBN block; lift the graphene 10 cm, the hBN stays
+  await ev(() => { const L = window.__mdlab; Object.assign(L.B, { sys: 'mat', mat: 'graphene', size: 6, Tm: 20, open: true }); L.build(Object.assign({}, L.B)); L.S.sys.sel = 'hbn'; L.S.sys.size = 5; L.S.sys.T = 20; L.addBlock(); L.S.paused = false; }); await wait(800);
+  const before = await ev(() => { const L = window.__mdlab, m = L.mat, V = L.camera.position.constructor, inner = L.simRoot.children[0].children[0]; inner.updateWorldMatrix(true, false);
+    let gi = -1; for (let i = 0; i < m.N; i++) if (m.sp[i] === 0 && m.fragmentMask(i).n > 20) { gi = i; break; }
+    const w = new V(m.x[gi], m.y[gi], m.z[gi]).applyMatrix4(inner.matrixWorld), rc = window.__dev.controllers.right;
+    // the controllers ride on the dolly (the user walked and turned earlier): put the hand 15 cm above the atom, pointing down, in dolly coordinates
+    L.dolly.updateMatrixWorld(); const lp = L.dolly.worldToLocal(w.clone().add(new V(0, 0.15, 0))); rc.position.set(lp.x, lp.y, lp.z);
+    const Q = L.camera.quaternion.constructor, dq = L.dolly.getWorldQuaternion(new Q()).invert(), q = dq.multiply(new Q().setFromAxisAngle(new V(1, 0, 0), -Math.PI / 2)); rc.quaternion.set(q.x, q.y, q.z, q.w);
+    const com = (sp) => { let x = 0, y = 0, z = 0, n = 0; for (let i = 0; i < m.N; i++) if ((m.sp[i] === 0) === sp) { x += m.x[i]; y += m.y[i]; z += m.z[i]; n++; } return [x / n, y / n, z / n]; };
+    return { C: com(true), BN: com(false), root: L.simRoot.position.toArray(), apm: 1 / L.simRoot.scale.x / L.simRoot.children[0].scale.x };
+  }); await wait(300);
+  await ev(() => window.__dev.controllers.right.updateButtonValue('squeeze', 1)); await wait(300);
+  const held = await ev(() => { const c = window.__mdlab.carry; return c ? c.n : 0; });
+  await ev(() => { const rc = window.__dev.controllers.right; rc.position.set(rc.position.x, rc.position.y + 0.1, rc.position.z); }); await wait(2500);
+  await ev(() => window.__dev.controllers.right.updateButtonValue('squeeze', 0)); await wait(300);
+  const after = await ev(() => { const L = window.__mdlab, m = L.mat; const com = (sp) => { let x = 0, y = 0, z = 0, n = 0; for (let i = 0; i < m.N; i++) if ((m.sp[i] === 0) === sp) { x += m.x[i]; y += m.y[i]; z += m.z[i]; n++; } return [x / n, y / n, z / n]; }; return { C: com(true), BN: com(false), root: L.simRoot.position.toArray(), carry: !!L.carry }; });
+  const dC = after.C[2] - before.C[2], dBN = Math.abs(after.BN[2] - before.BN[2]),      // the lift (sheets: box z is up)
+    dRoot = Math.hypot(...after.root.map((v, k) => v - before.root[k])), want = 0.1 * before.apm;
+  ok('grip on the graphene carries just the graphene (10 cm hand move), the hBN block and the experiment stay', held > 20 && dC > 0.6 * want && dBN < 0.3 * want && dRoot < 0.001 && !after.carry, `held ${held} atoms; graphene lifted ${dC.toFixed(1)} A of ${want.toFixed(1)}, hBN ${dBN.toFixed(1)} A, experiment ${(dRoot * 100).toFixed(1)} cm`);
   // the camera: its head shows on the controller with a live preview; shooting renders a photo and puts a print on the table
   await ev(() => window.__mdlab.TOOLDEF.camera.act()); await wait(800);
   const cam = await ev(() => { const L = window.__mdlab, v = L.vrc.find((c) => c.tools && c.tools.H.camera.visible); return { head: !!v, pv: L.CAM.lastPreview > 0 }; });
