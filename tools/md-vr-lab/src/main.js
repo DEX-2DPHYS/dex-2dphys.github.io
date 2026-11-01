@@ -1273,7 +1273,7 @@ function toolDown(src) {
     if (!ensureChem()) return false;
     const p = pickAtom(o, d); if (!p) return false;
     if (S.tool === 'attach') {
-      const r = toLocal(o, d).o, res = mat.chem.attach(p.i, S.cel, S.fillH, [r.x, r.y, r.z]);
+      const r = toLocal(o, d).o, res = mat.chem.attach(p.i, S.cel, S.fillH, [r.x, r.y, r.z], true);
       if (res.err) { toast(res.err); pulse(src, 0.8, 60); return true; }
       toast(`Attached ${S.cel}${S.fillH && VALENCE[S.cel] > 1 ? 'H' + (VALENCE[S.cel] - 1 > 1 ? VALENCE[S.cel] - 1 : '') : ''} to ${SPECIES[mat.sp[p.i]].sym}`); pulse(src, 0.4, 30);
     } else if (S.bondA < 0 || S.bondA >= md.N) { S.bondA = p.i; toast('Now pick the second atom'); pulse(src, 0.3, 20); }
@@ -1670,6 +1670,7 @@ function frame() {
   toolUpdate();
 
   md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
+  if (isMat() && mat.model === 'uff' && mat.chem.pending) { mat.chem.relaxPending(S.vr ? 3 : 6); }   // settle a fresh attachment a few iterations per frame
   if (!S.paused && md.N && !md.exploded) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
     while (n < S.speed && now() - t0 < budget) { md.run(1); n++; }
