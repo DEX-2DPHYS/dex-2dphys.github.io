@@ -13,7 +13,9 @@ const [, , page0, outDir = 'xr-out'] = process.argv;
 fs.mkdirSync(outDir, { recursive: true });
 
 const html = fs.readFileSync(page0, 'utf8').replace('<head>', () =>
-  '<head><script src="/iwer.js"></script><script>window.__dev = new IWER.XRDevice(IWER.metaQuest3); window.__dev.installRuntime({forceInstall:true});</script>');
+  '<head><script src="/iwer.js"></script><script>window.__dev = new IWER.XRDevice(IWER.metaQuest3); window.__dev.installRuntime({forceInstall:true});' +
+  // like the Quest Browser: renderState offers layers without being asked (three.js would switch to projection layers)
+  'const rq = navigator.xr.requestSession.bind(navigator.xr); navigator.xr.requestSession = async (...a) => { const s = await rq(...a); const pr = Object.getPrototypeOf(s.renderState); if (!("layers" in s.renderState)) Object.defineProperty(pr, "layers", { configurable: true, get() { return []; } }); window.__layersOffered = "layers" in s.renderState; return s; };</script>');
 const srv = http.createServer((q, r) => {
   if (q.url.startsWith('/iwer.js')) { r.writeHead(200, { 'content-type': 'text/javascript' }); r.end(fs.readFileSync(IWER)); return; }
   r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(html);
@@ -49,6 +51,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const D = () => p.evaluate(() => window.__sun.xr.debug());
   let d = await D();
   ok('session started (vr)', d.mode === 'vr', JSON.stringify(d));
+  const lay = await p.evaluate(() => window.__layersOffered);
+  ok('session offers WebXR layers (as the Quest Browser does) and the Sun is still drawn at headset size', lay && d.rt[0] > 200 && d.rt[1] > 100, 'layers ' + lay + ', image ' + d.rt.join('x'));
   ok('both controllers connected with gamepads', d.ctrls.filter((c) => c.includes('+gp')).length === 2, d.ctrls.join(','));
   ok('initial scale is the overview one (1.2 m per R)', Math.abs(d.mPerR - 1.2) < 0.01, d.mPerR);
   const headR = Math.hypot(...d.head);
