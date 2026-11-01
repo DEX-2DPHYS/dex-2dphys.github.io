@@ -393,29 +393,34 @@ export function createXR(ctx) {
     const cams = xr.getCamera().cameras; for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
     direct = true; say('Drawing directly (' + what + ')');
   }
+  // three points rendering at the headset framebuffer (its own XR render target) at the start of each XR
+  // frame. setRenderTarget(null) would mean the PAGE canvas - invisible in a headset (the emulator mirrors
+  // to the canvas, which is why it passed there). So every pass returns to the target three chose.
+  let out = null;
   function render() {
+    out = renderer.getRenderTarget();
     frames++;
     if (frames <= 3) { renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y, true, true); }   // saved BEFORE drawing: a hang shows as started-not-finished
     // the Quest menu is open (session visible-blurred / hidden): leave the GPU to the menu - reuse the last
     // picture instead of drawing the Sun again, or the menu stutters badly
     const vis = xr.getSession()?.visibilityState;
     if (vis && vis !== "visible" && frames > 3) {
-      renderer.setRenderTarget(null);
+      renderer.setRenderTarget(out);
       if (direct) renderer.clear(); else renderer.render(post, camera);
       return;
     }
     const lag = gpuLag();
     if (lag && !direct && frames > 3) {           // the GPU is still on the previous Sun: show that one again
       skippedTot++; adapt(true);
-      renderer.setRenderTarget(null); renderer.render(post, camera);
+      renderer.setRenderTarget(out); renderer.render(post, camera);
       renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y); return;
     }
     if (direct) {
       adapt(false);   // only for the fps read-out here
-      renderer.setRenderTarget(null); renderer.render(scene, camera); mark();
+      renderer.setRenderTarget(out); renderer.render(scene, camera); mark();
       renderer.getDrawingBufferSize(_fb); saveLog(_fb.x, _fb.y); return;
     }
-    try { renderTwoPass(); } catch (e) { fail('error', e); renderer.setRenderTarget(null); }
+    try { renderTwoPass(); } catch (e) { fail('error', e); renderer.setRenderTarget(out); }
   }
   function renderTwoPass() {
     const bl = xr.getBaseLayer();
@@ -433,10 +438,10 @@ export function createXR(ctx) {
       v.set(Math.round(v.x * rtScale), Math.round(v.y * rtScale), Math.round(v.z * rtScale), Math.round(v.w * rtScale));
     }
     renderer.setRenderTarget(rt);
-    if (frames <= 3) { const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER); if (st !== gl.FRAMEBUFFER_COMPLETE) { fail('target incomplete 0x' + st.toString(16)); renderer.setRenderTarget(null); renderer.render(scene, camera); return; } }
+    if (frames <= 3) { const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER); if (st !== gl.FRAMEBUFFER_COMPLETE) { fail('target incomplete 0x' + st.toString(16)); renderer.setRenderTarget(out); renderer.render(scene, camera); return; } }
     if (XRTEST !== 1) renderer.render(scene, camera); mark();   // ?xrtest=1: no Sun, only the composite
     for (let i = 0; i < cams.length; i++) if (cams[i].viewport && _vps[i]) cams[i].viewport.copy(_vps[i]);
-    renderer.setRenderTarget(null);
+    renderer.setRenderTarget(out);
     renderer.render(post, camera);
     if (frames === 5) { const e = gl.getError(); if (e) errs.push('gl error 0x' + e.toString(16)); }
     saveLog(w, h);
