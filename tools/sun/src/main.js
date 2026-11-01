@@ -70,11 +70,12 @@ function showXRLog(onLoad) {
     const L = JSON.parse(localStorage.getItem('sun.xrlog') || 'null');
     if (!L || Date.now() - L.at > 10 * 60e3) return;
     if (onLoad) localStorage.removeItem('sun.xrlog');
-    notice((onLoad ? 'Last VR session' : 'VR session') + ': ' + L.frames + ' frames, ' + L.fps + ' fps, resolution ' + L.res + ' % (' + L.rt.join('x') + ' of ' + L.fb.join('x') + ')' +
+    notice((onLoad ? 'Last VR session' : 'VR session') + ': ' + L.frames + ' frames' + (L.drawing ? ' (stopped while drawing frame ' + (L.frames + 1) + ')' : '') + ', ' + L.fps + ' fps, resolution ' + L.res + ' % (' + L.rt.join('x') + ' of ' + L.fb.join('x') + ')' +
       ', ' + (L.direct ? 'direct' : 'two-pass') + (L.half ? '' : ', 8-bit') + (L.errs.length ? '\n' + L.errs.join('\n') : '') + '\nGPU: ' + GPU, 60000);
   } catch (e) { /* ignore */ }
 }
 showXRLog(true);
+{ const b = document.createElement("div"); b.textContent = "build 261101.6"; b.style.cssText = "position:fixed;right:8px;bottom:6px;color:#6f6458;font:11px system-ui,sans-serif;z-index:30;pointer-events:none"; document.body.appendChild(b); }
 renderer.setClearColor(0x000000, 1);   // the clear colour reaches the output sRGB-encoded: keep it truly black
 renderer.domElement.tabIndex = 0;
 stage.appendChild(renderer.domElement);
