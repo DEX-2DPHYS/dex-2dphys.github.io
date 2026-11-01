@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MD Lab VR – build and run a molecular-dynamics simulation in virtual reality</title>
+<meta name="description" content="Build and run a Lennard-Jones molecular-dynamics simulation of argon, neon, krypton or xenon in WebXR: Meta Quest browser, Quest via SteamVR/OpenXR on a PC, or desktop with mouse. Runs offline.">
+<meta name="color-scheme" content="dark">
+<style>
+  html,body{margin:0;height:100%;background:#070b13;color:#e8eef8;font-family:system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+  #top{position:fixed;top:0;left:0;right:0;display:flex;gap:10px;align-items:center;padding:10px 14px;pointer-events:none;z-index:5}
+  #top>*{pointer-events:auto}
+  #top .brand{font-weight:700;letter-spacing:.04em;color:#4ae3e1;font-size:15px;text-shadow:0 1px 6px #000}
+  #top .sub{color:#9fb2cf;font-size:12px;flex:1;text-shadow:0 1px 6px #000}
+  #top a{color:#9fb2cf;font-size:12px}
+  button.b{font:600 13px system-ui,sans-serif;color:#e8eef8;background:#1d2a45;border:1px solid #2a3a5c;border-radius:10px;padding:8px 12px;cursor:pointer}
+  button.b:hover{border-color:#4ae3e1}
+  button.b.on{background:#17696a;border-color:#4ae3e1}
+  #uiWrap{position:fixed;top:54px;right:10px;z-index:4}
+  #uiWrap canvas{display:block;width:min(430px,94vw,calc((100vh - 66px)*800/1160));aspect-ratio:800/1160;height:auto;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.55)}
+  #plotWrap{position:fixed;left:10px;bottom:10px;z-index:4}
+  #plotWrap canvas{display:block;width:min(540px,46vw);aspect-ratio:1024/860;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.55);opacity:.97}
+  #hint{position:fixed;left:14px;top:50px;color:#8798b6;font-size:12px;line-height:1.5;text-shadow:0 1px 6px #000;z-index:3;pointer-events:none}
+  #hint b{color:#cfe0ff;font-weight:600}
+  @media (max-width:760px){#hint{display:none}}
+</style>
+</head>
+<body>
+<div id="top">
+  <span class="brand">MD LAB&nbsp;VR</span>
+  <span class="sub">Lennard-Jones molecular dynamics · DEX · 2DPHYS</span>
+  <button class="b" id="panelBtn">Panel</button>
+  <button class="b" id="plotBtn">Plots</button>
+  <button class="b" id="vrBtn">Checking VR…</button>
+  <a href="../../index.html">← DEX tools</a>
+</div>
+<div id="hint"><b>Mouse:</b> drag atoms with the tweezers · drag empty space to orbit · right-drag to pan · wheel to zoom<br><b>Keys:</b> space run/pause · 1 2 3 tools · R rebuild · P plots</div>
+<div id="uiWrap"></div>
+<div id="plotWrap"></div>
+<!--BUNDLE-->
+</body>
+</html>
