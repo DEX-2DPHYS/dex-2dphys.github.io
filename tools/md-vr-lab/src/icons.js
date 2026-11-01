@@ -22,6 +22,12 @@ export const ICONS = {
     for (const [dx, dy] of [[0.85, -0.85], [0.95, -0.25], [0.85, 0.4]]) stick(c, x + s * dx, y + s * dy, x + s * (dx + 0.12), y + s * (dy + 0.04), s * 0.1, col);
     atom(c, x - s * 0.35, y + s * 0.65, s * 0.16, col); c.restore();
   },
+  hand(c, x, y, s, col) {             // an open hand: palm and four fingers and a thumb
+    c.save(); c.fillStyle = col; c.strokeStyle = col; c.lineCap = 'round';
+    c.beginPath(); c.ellipse(x, y + s * 0.3, s * 0.42, s * 0.45, 0, 0, TAU); c.fill();
+    c.lineWidth = s * 0.17; for (const [dx, h] of [[-0.3, 0.75], [-0.1, 0.92], [0.1, 0.92], [0.3, 0.78]]) { c.beginPath(); c.moveTo(x + dx * s, y + s * 0.1); c.lineTo(x + dx * s * 1.15, y - h * s); c.stroke(); }
+    c.beginPath(); c.moveTo(x - s * 0.3, y + s * 0.35); c.lineTo(x - s * 0.82, y - s * 0.05); c.stroke(); c.restore();
+  },
   hfill(c, x, y, s, col) { atom(c, x, y, s * 0.4, col); for (const a of [-0.5, 0.5, Math.PI]) { const ex = x + s * 0.85 * Math.cos(a - Math.PI / 2), ey = y + s * 0.85 * Math.sin(a - Math.PI / 2); stick(c, x, y, ex, ey, s * 0.1, col); atom(c, ex, ey, s * 0.17, '#f2f2f2', col); } },
   cminus(c, x, y, s, col) { c.fillStyle = col; c.fillRect(x - s * 0.9, y - s * 0.7, s * 0.55, s * 1.4); stick(c, x - s * 0.35, y, x + s * 0.2, y, s * 0.1, col); atom(c, x + s * 0.4, y, s * 0.22, col); stick(c, x + s * 0.55, y - s * 0.75, x + s * 0.95, y - s * 0.75, s * 0.13, col); },
   cplus(c, x, y, s, col) { c.fillStyle = col; c.fillRect(x + s * 0.35, y - s * 0.7, s * 0.55, s * 1.4); stick(c, x - s * 0.2, y, x + s * 0.35, y, s * 0.1, col); atom(c, x - s * 0.4, y, s * 0.22, col); stick(c, x - s * 0.95, y - s * 0.75, x - s * 0.55, y - s * 0.75, s * 0.13, col); stick(c, x - s * 0.75, y - s * 0.95, x - s * 0.75, y - s * 0.55, s * 0.13, col); },
