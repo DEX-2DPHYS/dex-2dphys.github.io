@@ -1,13 +1,13 @@
 # The Sun – interactive textbook (source)
 
-`index.html` is one self-contained file (Three.js 0.170 bundled inline, works offline from
+`../SunTextbook.html` is one self-contained file (Three.js 0.170 bundled inline, works offline from
 file://). It is generated from this folder. Built on the same pattern as the salmonella model
 (`2026 Interactive Notes/InteractivePresentations/2026 09 29 DTU BOARD/sims/salmonella-src`).
 
 ## Rebuild
 
 ```
-node build.js index.html
+node build.js "../SunTextbook.html"
 ```
 
 node_modules live outside Dropbox in `%LOCALAPPDATA%\ulam-build\node_modules` (three@0.170.0,
@@ -42,6 +42,26 @@ esbuild@0.24.0), shared with the salmonella and Ulam builds. Edit the src files,
 The solar-cycle slider sets `uAct`, `uPolarN` and `uSpotVis` (corona shape, coronal holes, polar
 field, spots fading at minimum). In eclipse mode `behindMoon()` hides whatever lies in front of the disc.
 GLSL note: `filter` is a reserved word in GLSL ES 3.0 - don't use it as a name.
+
+## Virtual reality (WebXR, Meta Quest 2/3) - `src/xr.js`
+
+"Enter VR" (bottom left, and in the panel) appears wherever the browser offers an immersive session:
+the Quest Browser opening the published page, or desktop Chrome with Quest Link / Air Link. WebXR
+needs https:// or localhost - the file:// copy has no VR. "Passthrough" (Quest 3) puts a 36 cm Sun
+in the room.
+
+The scene stays in solar radii; the headset camera sits in a scaled rig (`1 R☉ = x m`, shown on the
+wrist panel). Each view has its own scale (`VIEW_M`). Bloom is skipped in VR (the composer cannot
+render stereo); tone mapping still applies. The hover read-out becomes the right trigger: `pickRay`
+in main.js is the same function the mouse uses.
+
+Right stick fly · left stick forward/back world size, sideways snap turn · grip grab the world ·
+right trigger read-out · A instrument · B next view (with a fade) · X flare + CME · Y cutaway ·
+left trigger listen · stick press: T-map (right), field lines (left). `?xr=vr` starts VR at once,
+`?xrscale=0.8` lowers the render resolution if a Quest 2 struggles.
+
+Test without a headset: `node test/xr-emulator.cjs dist/sun.html <outdir>` (Meta's IWER Quest 3
+emulator + puppeteer-core; 22 checks, screenshots). iwer@2.7.0 is in `%LOCALAPPDATA%/ulam-build`.
 
 ## Published
 
