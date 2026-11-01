@@ -12,6 +12,7 @@
 export const KB = 8.617333262e-5;           // eV/K
 export const TU_FS = 10.1805055;            // fs per time unit
 import { Chem } from './chem.js';
+import { substrateForces } from './substrate.js';
 const OPEN_MARGIN = 10;                      // A of vacuum round an open flake (its box is display/tweezers room only)
 // equilibrium lattice parameters of the potentials themselves (found by scanning, see test/materials.test.mjs)
 export const GR_B = 1.438;                  // C-C bond in graphene, Lindsay-Broido Tersoff
@@ -82,7 +83,7 @@ export class Mat {
   get density() { return this.N; }
   get periodicAny() { return this.per[0] || this.per[1] || this.per[2]; }
 
-  clear() { this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
+  clear() { this.sub = null; this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
 
   addRaw(sp, x, y, z, grp) {
     const i = this.N++; this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass; this.grp[i] = grp; this.fixed[i] = 0;
@@ -306,6 +307,7 @@ export class Mat {
     if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF(); else if (this.model === 'uff') pe += this.chem.forces();
     if (this.vdw) pe += this.fVdw();
     pe += this.fExt();
+    if (this.sub) pe += substrateForces(this, this.sub);               // a fixed substrate: van der Waals only (src/substrate.js)
     this.PE = pe; this.updateCoord();
   }
 
@@ -558,6 +560,16 @@ export class Mat {
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
     if (this.model === 'uff') this.chem.removeAtom(i, l);
     if (!noForces) this.computeForces();
+  }
+
+  // append another structure (a building block), shifted by (dx, dy, dz). It keeps its own groups (so Grab: layer takes
+  // it as one piece), velocities and fixed atoms; in the chemistry model its bonds come along.
+  mergeFrom(o, dx, dy, dz) {
+    if (this.N + o.N > this.maxN) throw new Error(`too many atoms (${this.N + o.N}, at most ${this.maxN})`);
+    const off = this.N; let G = 0; for (let i = 0; i < this.N; i++) G = Math.max(G, this.grp[i] + 1);
+    for (let i = 0; i < o.N; i++) { const k = this.addRaw(o.sp[i], o.x[i] + dx, o.y[i] + dy, o.z[i] + dz, o.grp[i] + G); this.vx[k] = o.vx[i]; this.vy[k] = o.vy[i]; this.vz[k] = o.vz[i]; this.fixed[k] = o.fixed[i]; }
+    if (this.model === 'uff') { for (const [a, b] of o.chem.bonds) this.chem.bonds.push([a + off, b + off]); this.chem.dirty = true; this.chem.retype(); }
+    this.listDirty = true; this.mark(); this.resetRDF(); this.computeForces(); return off;
   }
 
   /* ---------------- chemistry mode (src/chem.js) ---------------- */
