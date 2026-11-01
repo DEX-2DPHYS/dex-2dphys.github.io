@@ -27,7 +27,7 @@ const S = {
   el: 'Ar', TsetK: 30, thermo: true, paused: false, dt: 0.004, speed: 10, periodic: true,
   color: 'speed', tool: 'tweezers', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
-  theme: 'dark', tableH: 0.9,
+  theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: true, live: true, Tlog: false,     // electron transport (ELEC tab)
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR'], TAB_ELEC = 4, TAB_VR = 5;
@@ -55,6 +55,7 @@ scene.background = new THREE.Color(0x070b13);
 scene.fog = new THREE.Fog(0x070b13, 6, 16);
 const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.03, 60);
 camera.position.set(0.9, 1.65, 0.55);
+const dolly = new THREE.Group(); scene.add(dolly); dolly.add(camera);       // the user's "rig" for seated movement in VR
 
 const hemi = new THREE.HemisphereLight(0xaec6ff, 0x1a2234, 1.15); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(1.5, 4, 2); scene.add(sun);
@@ -720,7 +721,12 @@ function tabVR() {
   ui.row(2);
   if (ui.button('Fit table + panels to me', { h: 50, size: 20, disabled: !S.vr })) recenter();
   if (ui.button('Reset panels', { h: 50, size: 20 })) placePanels(S.vr ? uiMesh.position.y : 1.32);
-  ui.space(4);
+  ui.row(3);
+  if (ui.button('Snap turn', { h: 48, size: 20, active: S.snapTurn })) S.snapTurn = true;
+  if (ui.button('Smooth turn', { h: 48, size: 20, active: !S.snapTurn })) S.snapTurn = false;
+  S.vignette = ui.toggle('Vignette', S.vignette, { h: 48 });
+  S.moveSpeed = ui.slider('mspeed', 'Walking speed (left stick)', S.moveSpeed, 0.3, 3, (x) => `${x.toFixed(1)} m/s`, { step: 0.1, h: 60 });
+  ui.space(2);
   const p = VR_HELP[S.helpPage];
   ui.row(3);
   if (ui.button('◀ Prev', { disabled: S.helpPage === 0 })) S.helpPage = Math.max(0, S.helpPage - 1);
@@ -930,13 +936,46 @@ function endVR() { const s = renderer.xr.getSession(); if (s) s.end(); }
 dom.vrBtn.onclick = () => { if (xrState.supported) enterVR(); else { S.tab = TAB_VR; S.helpPage = 0; toast('No VR device found - see the VR tab for setup help', 6000); } };
 dom.themeBtn.onclick = () => applyTheme(S.theme === 'dark' ? 'light' : 'dark');
 
+/* ---------- seated movement: the left stick glides, the right stick turns (30 degree snaps or smooth) ----------
+   The headset camera and both controllers ride on a "dolly"; moving or turning the dolly moves the user through the room.
+   three.js composes the dolly with the tracked poses, so rays, grabs and recentring all keep working in world space. */
+const LOCO = { snapArmed: true, active: 0 };
+const UP = new THREE.Vector3(0, 1, 0), locoH = new THREE.Vector3();
+function locoMove(wx, wz) { dolly.position.x += wx; dolly.position.z += wz; }
+function locoTurn(a) {                                            // a > 0 turns left (counter-clockwise seen from above), about the head
+  camera.getWorldPosition(locoH); locoH.y = 0;
+  dolly.position.sub(locoH).applyAxisAngle(UP, a).add(locoH); dolly.rotation.y += a;
+}
+// comfort vignette: a dark ring round the edge of the view while gliding or turning smoothly
+const vign = new THREE.Mesh(new THREE.RingGeometry(0.16, 1.2, 48), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false }));
+vign.position.z = -0.25; vign.renderOrder = 9999; vign.visible = false; camera.add(vign);
+function locomotion(vc, gp, dt) {
+  const dz = 0.15, axv = (k) => { const v = gp.axes[k] || 0; return Math.abs(v) > dz ? (v - Math.sign(v) * dz) / (1 - dz) : 0; };
+  const x = axv(2), y = axv(3);
+  if (vc.hand === 'left' && !(hold.src === vc.i && hold.grab) && (x || y)) {
+    const cam = camera, f = new THREE.Vector3(); cam.getWorldDirection(f); f.y = 0;
+    if (f.lengthSq() < 1e-6) f.set(0, 0, -1); f.normalize();
+    const r = new THREE.Vector3(-f.z, 0, f.x), s = S.moveSpeed * dt;          // r = f x up
+    locoMove((f.x * -y + r.x * x) * s, (f.z * -y + r.z * x) * s); LOCO.active = 0.25;
+  }
+  if (vc.hand === 'right') {
+    const xr = gp.axes[2] || 0;
+    if (S.snapTurn) {
+      if (Math.abs(xr) > 0.7 && LOCO.snapArmed) { locoTurn(-Math.sign(xr) * Math.PI / 6); LOCO.snapArmed = false; pulse(vc.i, 0.2, 15); }
+      else if (Math.abs(xr) < 0.3) LOCO.snapArmed = true;
+    } else if (Math.abs(xr) > 0.2) { locoTurn(-xr * dt * 1.6); LOCO.active = 0.25; }
+  }
+}
+
 let needRecenter = false;
 renderer.xr.addEventListener('sessionstart', () => {
+  dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
   S.vr = true; needRecenter = true; document.body.classList.add('vr');
   uiMesh.visible = plotMesh.visible = true;
   S.xr = renderer.xr.getSession();
 });
 renderer.xr.addEventListener('sessionend', () => {
+  dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); vign.visible = false;
   S.vr = false; document.body.classList.remove('vr'); uiMesh.visible = plotMesh.visible = false;
   bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); userScale = 1;
   for (const vc of vrc) { vc.src = null; vc.obj.visible = false; vc.sq = null; vc.hit = null; toolUp(vc.i); }
@@ -946,7 +985,7 @@ renderer.xr.addEventListener('sessionend', () => {
 });
 
 function recenter() {
-  const cam = renderer.xr.getCamera();
+  const cam = camera;                                   // the user camera rides on the dolly, so its world pose includes seated movement
   const p = new THREE.Vector3(), f = new THREE.Vector3();
   cam.getWorldPosition(p); cam.getWorldDirection(f); f.y = 0;
   if (f.lengthSq() < 1e-4) f.set(0, 0, -1); f.normalize();
@@ -959,7 +998,7 @@ function recenter() {
 
 // controllers: simple geometry (no network needed)
 const vrc = [0, 1].map((i) => {
-  const obj = renderer.xr.getController(i); scene.add(obj); obj.visible = false;
+  const obj = renderer.xr.getController(i); dolly.add(obj); obj.visible = false;
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.02, 0.1, 12), new THREE.MeshPhongMaterial({ color: 0x2a3a5c, emissive: 0x0a1020 }));
   body.rotation.x = Math.PI / 2; body.position.z = 0.04; obj.add(body);
   const tip = new THREE.Mesh(new THREE.SphereGeometry(0.012, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4ae3e1 })); obj.add(tip);
@@ -1032,6 +1071,7 @@ function vrInput(dt) {
 
     const gp = vc.src.gamepad;
     if (gp) {
+      locomotion(vc, gp, dt);
       const ay = Math.abs(gp.axes[3] || 0) > 0.2 ? gp.axes[3] : 0;
       const btn = [!!(gp.buttons[4] && gp.buttons[4].pressed), !!(gp.buttons[5] && gp.buttons[5].pressed), !!(gp.buttons[3] && gp.buttons[3].pressed)];
       if (btn[0] && !vc.prev[0]) { S.tool = S.tool === 'tweezers' ? 'add' : S.tool === 'add' ? 'delete' : 'tweezers'; toast('Tool: ' + S.tool); }
@@ -1041,15 +1081,12 @@ function vrInput(dt) {
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * 0.9, 0.12, 3.5);
         else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
-        else if (vc.hand === 'left' && isMat()) setTableHeight(S.tableH - ay * dt * 0.25);     // left stick: table up / down
-        else if (md.N && !isMat()) {
-          const Lmin = Math.cbrt(md.N / 1.4), Lmax = Math.cbrt(md.N / 0.02);
-          const Ln = clamp(md.L * (1 - ay * dt * 0.3), Lmin, Lmax); if (Ln !== md.L) md.setBox(Ln);
-        }
       }
     }
   }
   updateGrab();
+  LOCO.active = Math.max(0, LOCO.active - dt);
+  const vo = S.vignette && LOCO.active > 0 ? 0.62 : 0; vign.material.opacity += (vo - vign.material.opacity) * Math.min(1, dt * 10); vign.visible = vign.material.opacity > 0.01;
 }
 
 /* ================================================================== main loop */
@@ -1107,5 +1144,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { LOCO, vign, dolly, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
