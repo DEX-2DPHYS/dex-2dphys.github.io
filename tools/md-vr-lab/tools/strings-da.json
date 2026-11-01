@@ -498,5 +498,8 @@
  "A block can only be added to an open structure (a flake, tube or molecule), not to a periodic sheet": "En byggeklods kan kun tilføjes en åben struktur (flage, rør eller molekyle), ikke et periodisk lag",
  "That system is periodic; choose Open flake to use it as a block": "Det system er periodisk; vælg Åben flage for at bruge det som byggeklods",
  "MoS₂ can only be combined with MoS₂ - its potential has no partner elements": "MoS₂ kan kun kombineres med MoS₂ - dets potential har ingen partnergrundstoffer",
- "Too many atoms: {1} + {2} (at most {3})": "For mange atomer: {1} + {2} (højst {3})"
+ "Too many atoms: {1} + {2} (at most {3})": "For mange atomer: {1} + {2} (højst {3})",
+ "Tool: HAND - trigger grabs an atom or a loose piece (pull hard to break it off); grip carries the piece you point at": "Værktøj: HÅND - aftrækkeren griber et atom eller et løst stykke (træk hårdt for at bryde det løs); grebet bærer det stykke, du peger på",
+ "Holding {1} atom{2} - move and turn your hand, let go of the grip to put it down": "Holder {1} atomer - flyt og drej hånden, slip grebet for at lægge det fra dig",
+ "Holding {1} atom{2} - move the mouse (wheel: nearer / farther), release to put it down": "Holder {1} atomer - flyt musen (hjulet: nærmere / længere væk), slip for at lægge det fra dig"
 }
