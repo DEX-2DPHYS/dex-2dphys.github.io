@@ -1,7 +1,7 @@
 {
   "slug": "md-vr-lab",
   "name": "MD Lab VR",
-  "description": "Build and run a molecular-dynamics simulation in virtual reality. Pick neon, argon, krypton or xenon, build a crystal or a gas, then heat, squeeze and pull atoms with controller tweezers while T, P, energy, g(r) and diffusion update live. Seven guided lab tasks (melting, diffusion, Boyle's law, condensation…). Runs on a Meta Quest headset – standalone in the Quest browser, or on a PC through SteamVR/OpenXR – and on the desktop with a mouse.",
+  "description": "Build and run a molecular-dynamics simulation in virtual reality. Pick neon, argon, krypton or xenon, or real materials: benzene, graphene, graphite (with van der Waals), MoS₂ and a nanodiamond. Heat, squeeze, and pull atoms or whole layers with controller tweezers while temperature, energy, pair distances and diffusion update live. Twelve guided lab tasks (melting, diffusion, Boyle's law, condensation, peeling graphite, MoS₂ layers, nanodiamond…). Runs on a Meta Quest headset – standalone in the Quest browser, or on a PC through SteamVR/OpenXR – and on the desktop with a mouse.",
   "status": "live",
   "url": "tools/md-vr-lab/index.html",
   "icon": "atom",

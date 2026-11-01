@@ -86,6 +86,67 @@ export const TASKS = [
     ],
     ask: 'Which atoms vibrate most strongly: bulk atoms, surface atoms or neighbours of the vacancy?',
   },
+  {
+    title: '8 \u00B7 Benzene',
+    goal: 'A real molecule: six carbons and six hydrogens in a flat ring. Watch it vibrate, then let seven molecules find out how benzene sticks together.',
+    setup: { build: { sys: 'mat', mat: 'benzene', nmol: 1, Tm: 300 }, TsetK: 300, speed: 20 },
+    steps: [
+      'Load the setup: one benzene molecule at 300 K. Bonds are drawn as sticks, white = H, grey = C.',
+      'Open the Pair distances plot: peaks at 1.08 \u00C5 (C\u2013H), 1.40 \u00C5 (C\u2013C), 2.42 \u00C5 and 2.80 \u00C5 (meta and para carbons).',
+      'Pick Grab: molecule and pull it. Raise the temperature to 1500 K: the ring stays flat but wobbles; the C\u2013H stretch (3060 cm\u207B\u00B9) has a period of about 11 fs.',
+      'Now go to BUILD, choose Benzene with 7 molecules at 100 K and let it relax: look for the molecules lining up edge-to-face (T-shaped), driven by the partial charges.',
+    ],
+    ask: 'Why do neighbouring benzene rings prefer a T-shaped or slipped-parallel arrangement and not sitting directly face-to-face?',
+  },
+  {
+    title: '9 \u00B7 Graphene',
+    goal: 'A single sheet of carbon atoms. Heat it, watch it ripple, and tear a hole in it.',
+    setup: { build: { sys: 'mat', mat: 'graphene', size: 10, Tm: 300 }, TsetK: 300, speed: 8 },
+    steps: [
+      'Load the setup: a periodic sheet at 300 K (bond 1.44 \u00C5 in this potential; experiment 1.42 \u00C5). Every atom has three bonds.',
+      'Rotate the view to see the sheet edge-on: thermal ripples grow with temperature. Try 1000 K and 2000 K.',
+      'Delete one atom with the Delete tool. Colour by Defects: three neighbours now have only two bonds. Watch whether the hole reconstructs into a pentagon and a nine-ring.',
+      'Delete a short line of atoms and heat to 2500 K: where does the sheet fail first?',
+    ],
+    ask: 'Why can a layer one atom thick be so strong and still ripple so easily?',
+  },
+  {
+    title: '10 \u00B7 Graphite and van der Waals',
+    goal: 'Graphite is graphene layers held together only by weak van der Waals forces. Peel one layer off and measure the force.',
+    setup: { build: { sys: 'mat', mat: 'graphite', size: 7, layers: 3, Tm: 100 }, TsetK: 100, speed: 6 },
+    steps: [
+      'Load the setup: three AB-stacked layers at 100 K, spaced 3.35 \u00C5 apart.',
+      'Choose Tweezers with Grab: layer, aim at the top layer and pull upwards slowly. The footer shows the tweezer force in nN.',
+      'Pull slowly: the reading is the force in the tweezer spring and it peaks just before the layer lets go. Lift the layer 6 \u00C5 and note the largest force; per atom it should be a few tens of meV/\u00C5. Release: the layer falls back and re-stacks.',
+      'Estimate the work (force \u00D7 distance) and divide by the number of atoms in the layer. The binding energy of graphite is about 50 meV per atom.',
+      'Slide the top layer sideways instead of lifting it. Is it easier or harder?',
+    ],
+    ask: 'Why is sliding along the layers so much easier than pulling them apart? What does that say about graphite as a lubricant and as pencil lead?',
+  },
+  {
+    title: '11 \u00B7 MoS\u2082 layers',
+    goal: 'A transition-metal dichalcogenide: each layer is a Mo plane between two S planes. Compare it with graphite.',
+    setup: { build: { sys: 'mat', mat: 'mos2', size: 7, layers: 2, Tm: 300 }, TsetK: 300, speed: 6 },
+    steps: [
+      'Load the setup: a 2H bilayer at 300 K. Mo atoms are teal, S yellow; each Mo has six S neighbours.',
+      'Colour by Defects: edges and surface atoms stay blue (the S atoms keep their three Mo bonds).',
+      'Grab one layer and slide it. The footer shows the force. Compare with task 10.',
+      'Heat the bilayer in steps up to 700 K and watch the layer thickness (S\u2013S distance across one layer). Then go above 800 K and wait: the lattice collapses into a dense, much lower-energy state that real MoS\u2082 does not have.',
+    ],
+    ask: 'The potential gives a = 3.12 \u00C5 (experiment 3.16 \u00C5) and fails above ~800 K. What does that tell you about trusting any force field outside the conditions it was fitted for?',
+  },
+  {
+    title: '12 \u00B7 Nanodiamond',
+    goal: 'A nanometre-sized piece of diamond, cut from the lattice. Its surface is bare, so see what the atoms do about their dangling bonds.',
+    setup: { build: { sys: 'mat', mat: 'nanodiamond', rad: 7, Tm: 300 }, TsetK: 300, speed: 8 },
+    steps: [
+      'Load the setup: a diamond cluster about 1.4 nm across. Colour by Defects: the core (4 bonds) is blue and the surface is red.',
+      'Heat to 1500 K and then 2500 K in steps. Watch how the surface atoms rearrange.',
+      'Compare the Pair distances plot at 300 K and 2500 K: diamond has a peak at 1.54 \u00C5 (sp\u00B3); graphite-like carbon (sp\u00B2) has one near 1.42 \u00C5.',
+      'Cool it back to 300 K. Is it still diamond?',
+    ],
+    ask: 'Real nanodiamonds have hydrogen or oxygen on the surface. What would change here if every dangling bond were capped?',
+  },
 ];
 
 export const VR_HELP = [
@@ -114,6 +175,15 @@ export const VR_HELP = [
       'GRIP: pick up and rotate the experiment. Both grips: stretch to scale it.',
       'RIGHT stick up/down: heat or cool (target T).  LEFT stick up/down: expand or compress the box.',
       'A / X: next tool.  B / Y: run or pause.  Thumbstick click: recentre in front of you.',
+    ],
+  },
+  {
+    title: 'Materials: how they are modelled',
+    lines: [
+      'Graphene, graphite and nanodiamond use the Tersoff bond-order potential for carbon: bonds can stretch, break and re-form. Graphene uses the Lindsay-Broido parameters, diamond the original Tersoff set.',
+      'MoS\u2082 uses Jiang\u2019s Stillinger-Weber potential (LAMMPS "sw/mod"). Benzene uses an OPLS-style molecular force field with partial charges; it cannot break.',
+      'Layers and molecules attract each other through Lennard-Jones van der Waals terms tuned to the graphite binding energy (about 50 meV per atom) and the MoS\u2082 interlayer spacing and binding (0.2 J/m\u00B2).',
+      'Energies and forces of the Tersoff and Stillinger-Weber models were checked against LAMMPS (agreement 10\u207B\u00B9\u00B2 eV). Pressure is not computed for materials.',
     ],
   },
   {
