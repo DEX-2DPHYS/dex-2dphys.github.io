@@ -2,7 +2,32 @@
 // noise for granulation, an approximate black-body colour and the inferno colour map.
 // All colours are returned in linear light; the OutputPass does tone mapping and sRGB.
 
+// LITE: the Quest Browser (a phone-class GPU) and ?lite=1. Lower resolution, no bloom and a 2x2x2 cell
+// search for the granulation (cheaper per pixel).
+export const LITE = (typeof navigator !== 'undefined' && /OculusBrowser|Quest|Pico/i.test(navigator.userAgent)) ||
+  (typeof location !== 'undefined' && /[?&]lite=1/.test(location.search));
+// Only the photosphere (the expensive shader) is lightened: it puts PHOTO_LITE before commonGLSL.
+// Measured (desktop GPU, link time of the photosphere): 5 octaves 2.5 s, 3 octaves 1.7 s, the 8-cell
+// search changes nothing - but 3 octaves turn the faculae into pink blotches. So LITE keeps five
+// octaves (same look) and only the cheaper per-pixel cell search; the freeze is solved by compiling
+// in the background (main.js prepare()). ?oct=N overrides for testing.
+const OCT_Q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('oct') : null;
+export const PHOTO_LITE = LITE ? `#define FBM_OCT ${OCT_Q || 5}\n#define WORLEY8` : '';
+// cells searched by worley(): all 27 neighbours, or (WORLEY8) the 8 on the side of the nearest corner
+const CELLS = `
+#ifdef WORLEY8
+  vec3 s0 = step(.5, f) - 1.; for (int z = 0; z <= 1; z++) for (int y = 0; y <= 1; y++) for (int x = 0; x <= 1; x++){
+    vec3 g = s0 + vec3(float(x), float(y), float(z));
+#else
+  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++){
+    vec3 g = vec3(float(x), float(y), float(z));
+#endif
+`;
+
 export const commonGLSL = /* glsl */`
+#ifndef FBM_OCT
+#define FBM_OCT 5
+#endif
 // sin-free hashes (Hoskins), stable for the large lattice coordinates granulation needs
 vec3 hash33(vec3 p3){ p3 = fract(p3 * vec3(.1031, .1030, .0973)); p3 += dot(p3, p3.yxz + 33.33); return fract((p3.xxy + p3.yxx) * p3.zyx); }
 float hash13(vec3 p3){ p3 = fract(p3 * .1031); p3 += dot(p3, p3.zyx + 31.32); return fract((p3.x + p3.y) * p3.z); }
@@ -15,14 +40,13 @@ float vnoise(vec3 p){
   float h = hash13(i + vec3(0,1,1)), k = hash13(i + vec3(1,1,1));
   return mix(mix(mix(a,b,u.x), mix(c,d,u.x), u.y), mix(mix(e,g,u.x), mix(h,k,u.x), u.y), u.z);
 }
-float fbm(vec3 p){ float s = 0., a = .5; for (int i = 0; i < 5; i++){ s += a * vnoise(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= .5; } return s; }
+float fbm(vec3 p){ float s = 0., a = .5; for (int i = 0; i < FBM_OCT; i++){ s += a * vnoise(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= .5; } return s; }
 
 // cellular noise: x = distance to the nearest feature point, y = to the second nearest.
 // The feature points wander with t, so cells are born, grow and fade like granules.
 vec2 worley(vec3 p, float t){
   vec3 i = floor(p), f = fract(p); float d1 = 8., d2 = 8.;
-  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++){
-    vec3 g = vec3(float(x), float(y), float(z));
+  ${CELLS}
     vec3 o = hash33(i + g);
     o = .5 + .42 * sin(t * (.6 + .8 * o.zxy) + 6.2831 * o);
     vec3 r = g + o - f; float d = dot(r, r);
@@ -35,8 +59,7 @@ vec2 worley(vec3 p, float t){
 // gives the direction of a supergranule's outflow for the Dopplergram
 vec2 worleyR(vec3 p, float t, out vec3 rn){
   vec3 i = floor(p), f = fract(p); float d1 = 8., d2 = 8.; rn = vec3(0.);
-  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++){
-    vec3 g = vec3(float(x), float(y), float(z));
+  ${CELLS}
     vec3 o = hash33(i + g);
     o = .5 + .42 * sin(t * (.6 + .8 * o.zxy) + 6.2831 * o);
     vec3 r = g + o - f; float d = dot(r, r);

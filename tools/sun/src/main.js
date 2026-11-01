@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { buildSun, U } from './sun.js';
+import { LITE } from './glsl.js';
 import { buildLoops, buildProminence, buildFieldLines, buildParkerSpiral, buildCME, buildRandomWalk } from './active.js';
 import { buildWind, buildEarth, buildStars } from './wind.js';
 import { interiorTip, surfaceTip, offDiscTip, OBJ } from './tips.js';
@@ -22,7 +23,9 @@ const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 // ------------------------------------------------------------------ renderer / scene
 // Scene unit: 1 = one solar radius (695 700 km). The Sun turns about +y.
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(LITE ? 1 : Math.min(window.devicePixelRatio, 1.5));
+// a link-status query would make the page wait for every shader; only ask when debugging
+renderer.debug.checkShaderErrors = Q.get('debug') === '1';
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -52,6 +55,10 @@ scene.add(cme.mesh);
 const walk = buildRandomWalk();
 scene.add(walk.line);
 
+// The custom shaders return linear light; tone mapping + sRGB happen ONCE, on the finished image
+// (the OutputPass on screen, xr.js render() in VR). Per-layer conversion would make the faint
+// additive layers (chromosphere, corona, loops) far too bright over the disc.
+
 // ------------------------------------------------------------------ post-processing
 const size = new THREE.Vector2();
 renderer.getDrawingBufferSize(size);
@@ -60,7 +67,7 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.55, 0.55, 0.92);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
-if (Q.get("nobloom") === "1") bloom.enabled = false;   // test switches
+if (Q.get("nobloom") === "1" || LITE) bloom.enabled = false;   // test switches
 if (Q.get("debug") === "1") window.__sun = { scene, renderer, composer, U };
 
 // ------------------------------------------------------------------ state
@@ -648,8 +655,33 @@ function frame() {
   sound.tick(dt);
   if (sound.isOn() && specEl) sound.draw(specEl);
 
-  if (xr.presenting) { renderer.render(scene, camera); return; }
+  if (xr.presenting) { xr.render(); return; }
   composer.render();
   if (figQueue.length) { serveFigure(); controls.update(); updateBillboards(); composer.render(); }
 }
-renderer.setAnimationLoop(frame);
+// Compile every shader variant before the first frame, in the background where the browser has
+// KHR_parallel_shader_compile: the photosphere program alone takes seconds to link, and a first
+// draw that waits for it freezes the page ("Page isn't responding" in the Quest Browser).
+// The scene is always drawn into an offscreen target (the composer's, or the VR one in xr.js), so
+// its shaders have one variant whatever the instrument's tone mapping; every overlay is compiled
+// now, so switching something on later never stalls.
+async function prepare() {
+  const note = document.createElement('div');
+  note.id = 'prep';
+  note.textContent = 'Preparing the Sun…';
+  note.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:#f0c48a;font:600 16px system-ui,sans-serif;letter-spacing:.06em;z-index:20;pointer-events:none';
+  document.body.appendChild(note);
+  const shown = [];
+  scene.traverse((o) => { if (!o.visible) { shown.push(o); o.visible = true; } });
+  try {
+    renderer.setRenderTarget(composer.readBuffer);
+    await renderer.compileAsync(scene, camera);
+  } catch (e) { /* compile on first draw instead */ }
+  renderer.setRenderTarget(null);
+  for (const o of shown) o.visible = false;
+  note.remove();
+  last = performance.now() / 1000;
+  renderer.setAnimationLoop(frame);
+  window.__sunReady = true;
+}
+prepare();

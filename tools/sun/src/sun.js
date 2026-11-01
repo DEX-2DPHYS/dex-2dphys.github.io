@@ -1,7 +1,7 @@
 // The Sun itself: photosphere (granulation, limb darkening, sunspots, faculae, eight instruments),
 // the two cut faces of the interior cutaway, the chromosphere shell and the corona billboard.
 import * as THREE from 'three';
-import { commonGLSL, cutGLSL } from './glsl.js';
+import { commonGLSL, cutGLSL, PHOTO_LITE } from './glsl.js';
 import { SPOTS, AR_N, AR_S, dirLL, DEG } from './spec.js';
 import { SSM_R, SSM_LOGT } from './model.js';
 
@@ -54,6 +54,7 @@ function photosphereMaterial() {
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: /* glsl */`
+      ${PHOTO_LITE}
       ${commonGLSL}
       ${cutGLSL}
       uniform float uTime, uFilter, uGran, uFlare, uAct, uPolarN, uSpotVis;
