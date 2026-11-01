@@ -120,6 +120,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const hp2 = await head(); let d2 = hp2.yaw - hp1.yaw; if (d2 > 180) d2 -= 360; if (d2 < -180) d2 += 360;
   ok('one push = one step (holding the stick does not keep turning)', Math.abs(d2 - 30) < 1.5, `${d2.toFixed(1)} deg`);
   await p.screenshot({ path: path.join(outDir, '2-vr-after-walk.png') });
+  // the camera: its head shows on the controller with a live preview; shooting renders a photo and puts a print on the table
+  await ev(() => window.__mdlab.TOOLDEF.camera.act()); await wait(800);
+  const cam = await ev(() => { const L = window.__mdlab, v = L.vrc.find((c) => c.tools && c.tools.H.camera.visible); return { head: !!v, pv: L.CAM.lastPreview > 0 }; });
+  ok('camera tool: a camera on the controller with a live preview', cam.head && cam.pv, JSON.stringify(cam));
+  await ev(() => window.__mdlab.shoot(window.__mdlab.vrc.find((c) => c.src).i)); await wait(600);
+  ok('shooting in VR makes a photo and a print on the table', await ev(() => window.__mdlab.printMesh.visible && window.__mdlab.CAM.photo.width >= 1280 && window.__mdlab.renderer.xr.isPresenting));
+  await p.screenshot({ path: path.join(outDir, '3-vr-camera.png') });
+  await ev(() => window.__mdlab.TOOLDEF.hand.act());
   await ev(() => window.__mdlab.renderer.xr.getSession().end()); await wait(800);
   ok('left VR cleanly', !(await ev(() => window.__mdlab.S.vr)));
   ok('no page errors', errs.length === 0, errs.slice(0, 3).join(' | '));

@@ -8,6 +8,7 @@ import { Mat, TU_FS, SPECIES, TERSOFF, SP } from './materials.js';
 import { CHEM_ELEMENTS, VALENCE } from './chem.js';
 import { UI, COL, setPalette, roundRect } from './ui.js';
 import { ICONS } from './icons.js';
+import { buildSubstrate, SUB_KINDS } from './substrate.js';
 import { drawPlots, drawElec, PW, PH } from './plots.js';
 import { analyse as analyseNow } from './tb.js';
 import { tr, setLang, addLanguage } from './i18n.js';
@@ -53,7 +54,7 @@ const S = {
   cel: 'F', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  lang: 'en', level: 'researcher', quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'none', lang: 'en', level: 'researcher', quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -327,23 +328,79 @@ function build(recipe, opts = {}) {
   if (!opts.quiet) toast(`Built ${md.N} ${ELEMENTS[S.el].name.toLowerCase()} atoms in a ${U.nm(md.L).toFixed(2)} nm box`);
 }
 
+function buildInto(m, r) {
+  const T0 = r.Tm, n = Math.round(r.size), ny = Math.max(2, Math.round(n / 1.73));
+  if (r.mat === 'empty') m.buildEmpty(30);
+  else if (r.mat === 'benzene') m.buildBenzene(Math.round(r.nmol), T0);
+  else if (r.mat === 'graphene') m.buildGraphene(n, ny, T0, 1, false, !!r.open);
+  else if (r.mat === 'graphite') m.buildGraphite(n, ny, Math.round(r.layers), T0, !!r.open);
+  else if (r.mat === 'mos2') m.buildMoS2(n, ny, Math.round(r.layers), T0, !!r.open);
+  else if (r.mat === 'cnt') m.buildCNT(r.n, r.m, r.len, T0);
+  else if (r.mat === 'c60') m.buildC60(T0);
+  else if (r.mat === 'hbn') m.buildHBN(n, ny, T0, !!r.open);
+  else if (r.mat === 'junction') m.buildJunction(r.rings, T0);
+  else m.buildNanodiamond(r.rad, T0);
+  if (r.chem && m.model !== 'uff') m.toChem(T0);
+}
+// Load a system as a BUILDING BLOCK: it is built on its own and placed 6 A beside the current structure, so nothing bonds
+// until you push the two together with the Hand. Carbon + carbon keeps the reactive model; anything else switches both
+// to the chemistry model. MoS2 combines only with MoS2 (its potential has no partners). A periodic sheet cannot take a block.
+function addBlock() {
+  if (!isMat() || !mat.N) { loadSystem(); return; }
+  if (mat.periodicAny) { toast('A block can only be added to an open structure (a flake, tube or molecule), not to a periodic sheet'); return; }
+  const Y = S.sys, r = Object.assign({}, B, { sys: 'mat', mat: Y.sel, size: Y.size, layers: Y.layers, open: true, rad: Y.rad, n: Y.n, m: Y.m, len: Y.len, nmol: Y.nmol, rings: Y.rings, Tm: Y.T, chem: false });
+  const o = new Mat(1200);
+  try { buildInto(o, r); } catch (e) { toast(String(e.message || e)); return; }
+  if (o.periodicAny) { toast('That system is periodic; choose Open flake to use it as a block'); return; }
+  if (mat.N + o.N > mat.maxN) { toast(`Too many atoms: ${mat.N} + ${o.N} (at most ${mat.maxN})`); return; }
+  const sw = mat.model === 'sw' || o.model === 'sw';
+  if (sw && !(mat.model === 'sw' && o.model === 'sw')) { toast('MoS\u2082 can only be combined with MoS\u2082 - its potential has no partner elements'); return; }
+  const allC = (m) => { for (let i = 0; i < m.N; i++) if (m.sp[i] !== SP.C) return false; return true; };
+  try {
+    if (!sw && !(mat.model === 'tersoff' && o.model === 'tersoff' && allC(mat) && allC(o))) { if (mat.model !== 'uff') mat.toChemLive(); if (o.model !== 'uff') o.toChem(Y.T); S.dtFs = mat.dt * TU_FS; }
+  } catch (e) { toast(String(e.message || e)); return; }
+  const box = (m) => { const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < m.N; i++) { const p = [m.x[i], m.y[i], m.z[i]]; for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); } } return { lo, hi }; };
+  const a = box(mat), b = box(o), up = mat.sheet ? 2 : 1, side = up === 2 ? 1 : 2;      // beside the structure along x, centred in the other two
+  const d = [a.hi[0] + 6 - b.lo[0], 0, 0]; d[up] = (a.lo[up] + a.hi[up]) / 2 - (b.lo[up] + b.hi[up]) / 2; d[side] = (a.lo[side] + a.hi[side]) / 2 - (b.lo[side] + b.hi[side]) / 2;
+  try { mat.mergeFrom(o, d[0], d[1], d[2]); } catch (e) { toast(String(e.message || e)); return; }
+  rebox(); mat.name = `${mat.name.replace(/ \u00B7 chemistry$/, '')} + ${o.name}`;
+  applySubstrate(); resetHistory(); ui.dirty = true;
+  toast(`Added ${o.name} (${o.N} atoms) as a block. Take the Hand and push it onto the structure to join them.`, 6000);
+}
+// keep every atom inside the (open) box after something was added: shift and grow the box where needed
+function rebox() {
+  const L = [mat.Lx, mat.Ly, mat.Lz], P = [mat.x, mat.y, mat.z];
+  for (let k = 0; k < 3; k++) {
+    if (mat.per[k]) continue; let lo = 1e9, hi = -1e9; for (let i = 0; i < mat.N; i++) { lo = Math.min(lo, P[k][i]); hi = Math.max(hi, P[k][i]); }
+    if (lo < 5 || hi > L[k] - 5) { const sh = 8 - lo; for (let i = 0; i < mat.N; i++) P[k][i] += sh; L[k] = Math.max(L[k], hi - lo + 16); if (mat.ext.i >= 0) { const e = mat.ext; if (k === 0) e.x += sh; else if (k === 1) e.y += sh; else e.z += sh; } }
+  }
+  mat.Lx = L[0]; mat.Ly = L[1]; mat.Lz = L[2]; mat.listDirty = true; mat.computeForces();
+}
+/* ---------- the fixed substrate (src/substrate.js): about the size of the circle on the table, under the structure ---------- */
+const SUB_COL = { C: 0x4a5160, Mo: 0x3f9a9a, S: 0xcdb03c, Si: 0xb8966e, O: 0xc23a30 };
+const subAtoms = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshLambertMaterial({ color: 0xffffff }), 9000);
+subAtoms.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(9000 * 3), 3); subAtoms.count = 0; subAtoms.frustumCulled = false; inner.add(subAtoms);
+let subDrawnR = 0;
+function drawSubstrate() {
+  const sb = isMat() ? mat.sub : null; subAtoms.count = 0; if (!sb) return;
+  const n = Math.min(sb.n, 9000), m = subAtoms.instanceMatrix.array, c = subAtoms.instanceColor.array, s = S.atomR * 0.85, col = new THREE.Color();
+  for (let k = 0; k < n; k++) { const j = 16 * k; m.fill(0, j, j + 16); m[j] = m[j + 5] = m[j + 10] = s; m[j + 15] = 1; m[j + 12] = sb.x[k]; m[j + 13] = sb.y[k]; m[j + 14] = sb.z[k]; col.setHex(SUB_COL[sb.el[k]] || 0x888888); c[3 * k] = col.r; c[3 * k + 1] = col.g; c[3 * k + 2] = col.b; }
+  subAtoms.count = n; subAtoms.instanceMatrix.needsUpdate = true; subAtoms.instanceColor.needsUpdate = true; subDrawnR = S.atomR;
+}
+function applySubstrate() {
+  if (!isMat()) return;
+  if (S.substrate === 'none' || !mat.N || mat.model === 'ff') { mat.sub = null; drawSubstrate(); if (mat.N) mat.computeForces(); return; }
+  const axis = mat.sheet ? 'z' : 'y', up = axis === 'z' ? mat.z : mat.y, other = axis === 'z' ? mat.y : mat.z;
+  let a = 0, b = 0, low = 1e9; for (let i = 0; i < mat.N; i++) { a += mat.x[i]; b += other[i]; low = Math.min(low, up[i]); }
+  let ext = 0; for (let i = 0; i < mat.N; i++) ext = Math.max(ext, Math.hypot(mat.x[i] - a / mat.N, other[i] - b / mat.N));
+  const R = clamp(Math.max(0.3 / (wps * userScale), ext + 10), 15, 55);      // the circle on the table, but always 10 A beyond the structure
+  mat.sub = buildSubstrate(S.substrate, axis, [a / mat.N, b / mat.N], low - 3.4, R); mat.computeForces(); drawSubstrate();
+}
 function buildMat(r, opts) {
   const T0 = r.Tm, n = Math.round(r.size), ny = Math.max(2, Math.round(n / 1.73));
   S.bondA = -1;
   if (r.chem && r.mat === 'mos2') { toast('MoS\u2082 is not available in the chemistry mode - built with its own potential'); r = Object.assign({}, r, { chem: false }); }
-  try {
-    if (r.mat === 'empty') mat.buildEmpty(30);
-    else if (r.mat === 'benzene') mat.buildBenzene(Math.round(r.nmol), T0);
-    else if (r.mat === 'graphene') mat.buildGraphene(n, ny, T0, 1, false, !!r.open);
-    else if (r.mat === 'graphite') mat.buildGraphite(n, ny, Math.round(r.layers), T0, !!r.open);
-    else if (r.mat === 'mos2') mat.buildMoS2(n, ny, Math.round(r.layers), T0, !!r.open);
-    else if (r.mat === 'cnt') mat.buildCNT(r.n, r.m, r.len, T0);
-    else if (r.mat === 'c60') mat.buildC60(T0);
-    else if (r.mat === 'hbn') mat.buildHBN(n, ny, T0, !!r.open);
-    else if (r.mat === 'junction') mat.buildJunction(r.rings, T0);
-    else mat.buildNanodiamond(r.rad, T0);
-    if (r.chem && mat.model !== 'uff') mat.toChem(T0);
-  } catch (e) { toast(String(e.message || e)); return; }
+  try { buildInto(mat, r); } catch (e) { toast(String(e.message || e)); return; }
   md = mat; U = matUnits(); S.el = r.mat;
   S.TsetK = T0; S.thermo = true; mat.thermostat = true; mat.Ttarget = T0; S.dtFs = mat.dt * TU_FS;
   if (S.color === 'speed' && !opts.keepColor) S.color = 'el';
@@ -358,6 +415,7 @@ function buildMat(r, opts) {
   wps = clamp(0.45 / ext, 0.006, 0.14);
   S.paused = false; resetHistory(); retag();
   if (r.mat === 'junction' && mat.junction) { S.cm.add(mat.junction[0]); S.cp.add(mat.junction[1]); S.gamma = 0.5; contactsChanged(); }
+  applySubstrate();
   if (!opts.quiet) toast(`Built ${mat.name}: ${mat.N} atoms`);
 }
 
@@ -621,6 +679,11 @@ function updateAtoms() {
     else { rgb[0] = Math.sqrt(base.r); rgb[1] = Math.sqrt(base.g); rgb[2] = Math.sqrt(base.b); }
     c[3 * i] = rgb[0] * rgb[0]; c[3 * i + 1] = rgb[1] * rgb[1]; c[3 * i + 2] = rgb[2] * rgb[2];
   }
+  for (const hi of HOVER.values()) if (hi >= 0 && hi < N) {        // the atom under the laser or the mouse: bigger and glowing cyan-white
+    const k = 16 * hi; m[k] *= 1.35; m[k + 5] *= 1.35; m[k + 10] *= 1.35;
+    c[3 * hi] = 0.4 * c[3 * hi] + 0.6 * 0.7; c[3 * hi + 1] = 0.4 * c[3 * hi + 1] + 0.6 * 1.0; c[3 * hi + 2] = 0.4 * c[3 * hi + 2] + 0.6 * 1.0;
+  }
+  if (subAtoms.count && subDrawnR !== S.atomR) drawSubstrate();
   atoms.instanceMatrix.needsUpdate = true; atoms.instanceColor.needsUpdate = true;
   updateBonds(); updateArrows();
 
@@ -692,6 +755,7 @@ function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty =
 const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
 const nudgeT = (f) => { const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; };
 const TOOLDEF = {
+  camera: { l: 'Camera', icon: ICONS.camera, tint: '#b48cff', on: () => S.tool === 'camera', act: () => selectTool('camera') },
   hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => S.tool === 'hand', act: () => selectTool('hand') },
   tweezers: { l: 'Tweezers', icon: ICONS.tweezers, tint: '#2bd3cf', on: () => S.tool === 'tweezers', act: () => selectTool('tweezers') },
   add: { l: 'Add', icon: ICONS.add, tint: '#5fd38a', on: () => S.tool === 'add', act: () => selectTool('add') },
@@ -709,9 +773,9 @@ const TOOLDEF = {
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
 };
 const TB_LEVEL = {
-  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'rebuild'],
-  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run'],
-  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run'],
+  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'camera', 'rebuild'],
+  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run', 'camera'],
+  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera'],
 };
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
 function drawToolbar() {
@@ -779,7 +843,9 @@ function adultBuild() {
   systemCards(ADULT_SYS, 132);
   const Y = S.sys;
   if (['graphene', 'hbn', 'graphite', 'mos2'].includes(Y.sel)) Y.size = ui.slider('asz', 'Size', clamp(Y.size, 4, 12), 4, 12, (v) => `${(Math.round(v) * 0.249).toFixed(1)} nm`, { step: 1, h: 60 });
-  if (ui.button('Build it', { primary: true, h: 56 })) loadSystem();
+  ui.row(2); if (ui.button('Replace', { primary: true, h: 56 })) loadSystem(); if (ui.button('Add next to it', { h: 56 })) addBlock();
+  ui.label('Surface underneath:', { size: 20 });
+  { const sb = ui.choice(SUB_KINDS, S.substrate, { h: 48, size: 19 }); if (sb !== S.substrate) { S.substrate = sb; applySubstrate(); } }
   ui.paragraph('Use the tools on the table to grab, add, bond or remove atoms. Atoms you push together can bond.', { size: 22, color: COL.muted });
 }
 function adultRun() {
@@ -883,6 +949,7 @@ function toolHint() {
   if (t === 'attach') return `Tool: ATTACH ${S.cel}${S.fillH ? ' (+H)' : ''} - ${trig} an atom; the new atom goes on the side you point from`;
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
+  if (t === 'camera') return S.vr ? 'Tool: CAMERA - aim and press the trigger; the photo goes to the Downloads folder on the PC' : 'Tool: CAMERA - click in the view to take a photo (1920 x 1080 PNG, saved to Downloads)';
   if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece, grip grabs a whole sheet; pull hard to break it off' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off, bring it close to bond';
   return t === 'tweezers' ? `Tool: TWEEZERS - hold ${trig} on an atom and drag` : t === 'add' ? `Tool: ADD ATOM - ${trig} inside the box` : `Tool: DELETE - ${trig} an atom to remove it`;
 }
@@ -1088,7 +1155,9 @@ function tabSystems() {
   }
   if (Y.sel === 'graphene' || Y.sel === 'graphite' || Y.sel === 'mos2' || Y.sel === 'hbn') Y.open = ui.choice([[false, 'Periodic'], [true, 'Open flake']], Y.open, { h: 44, size: 20 });
   sl('T', 'Temperature', 'T', 5, 1500, (v) => `${v.toFixed(0)} K`, 5);
-  ui.row(1); if (ui.button(`Load ${SYS_LIST.find((s) => s[0] === Y.sel)[1]}`, { primary: true, h: 52, size: 22 })) loadSystem();
+  ui.row(2); if (ui.button('Replace system', { primary: true, h: 52, size: 20 })) loadSystem(); if (ui.button('Add as a block', { h: 52, size: 20 })) addBlock();
+  ui.label('Substrate (fixed atoms, van der Waals only):', { size: 17 });
+  { const sb = ui.choice(SUB_KINDS, S.substrate, { h: 42, size: 18 }); if (sb !== S.substrate) { S.substrate = sb; applySubstrate(); } }
   ui.section('My systems (stored in this browser / headset)');
   ui.row(2);
   if (ui.button('Save current system', { h: 48, size: 20 })) saveCurrent();
@@ -1270,6 +1339,7 @@ function toolDown(src) {
   if (hold.src !== null) return false;
   const { o, d } = rayOf(src);
   if (thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
+  if (S.tool === 'camera') { shoot(src); return true; }
   if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; doZap(src, o, d); return true; }
   if (S.tool === 'attach' || S.tool === 'bond') {
     if (!ensureChem()) return false;
@@ -1400,6 +1470,9 @@ function pulse(src, strength, ms) {
 
 /* ---------- desktop mouse ---------- */
 const mouseRay = new THREE.Ray(); const ndc = new THREE.Vector2(); const ray = new THREE.Raycaster();
+const HOVER = new Map();                                       // pointer (controller index or 'mouse') -> atom it points at
+let mouseIn = false;
+function updateMouseHover() { HOVER.delete('mouse'); if (!S.vr && mouseIn && md.N && S.tool !== 'camera') { const p = pickAtom(mouseRay.origin, mouseRay.direction); if (p) HOVER.set('mouse', p.i); } }
 function setMouse(e) {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -1411,7 +1484,8 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const hit = e.button === 0 && !S.vr && toolDown('mouse');
   controls.mouseButtons.LEFT = hit ? -1 : THREE.MOUSE.ROTATE; controls.touches.ONE = hit ? -1 : THREE.TOUCH.ROTATE;
 }, true);
-renderer.domElement.addEventListener('pointermove', (e) => { setMouse(e); }, true);
+renderer.domElement.addEventListener('pointermove', (e) => { setMouse(e); mouseIn = true; }, true);
+renderer.domElement.addEventListener('pointerleave', () => { mouseIn = false; });
 window.addEventListener('pointerup', () => toolUp('mouse'));
 controls.target.copy(SIM_HOME); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 0.3; controls.maxDistance = 6;
 controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
@@ -1574,6 +1648,63 @@ for (const vc of vrc) {
   vc.hand3 = makeHand(); vc.obj.add(vc.hand3.group); vc.obj.children[0].visible = false;          // the glove replaces the stick
   vc.obj.addEventListener('connected', (e) => { vc.hand3.group.scale.x = e.data && e.data.handedness === 'left' ? -1 : 1; });
 }
+/* ---------- the camera tool: a camera on the controller (VR) or the view itself (desktop). Shoot = trigger / click.
+   A photo is rendered on its own at 1920 x 1080 (lasers, pointer dots and the camera itself hidden), saved as a PNG to the
+   browser's download folder and shown as a print on the table. ---------- */
+const CAM = {
+  cam: new THREE.PerspectiveCamera(55, 16 / 9, 0.01, 60),
+  preview: new THREE.WebGLRenderTarget(256, 144), photo: null, n: 0, last: null, lastPreview: 0,
+};
+CAM.preview.texture.colorSpace = THREE.SRGBColorSpace;
+function camPose(src) {                                   // put the photo camera where the lens is (VR) or where the view is (desktop)
+  if (src === 'mouse' || src === undefined || src === null || !S.vr) { camera.updateMatrixWorld(); CAM.cam.position.setFromMatrixPosition(camera.matrixWorld); CAM.cam.quaternion.setFromRotationMatrix(camera.matrixWorld); CAM.cam.fov = camera.fov; }
+  else { const o = vrc[src].obj; o.updateMatrixWorld(); o.getWorldQuaternion(CAM.cam.quaternion); o.getWorldPosition(CAM.cam.position); CAM.cam.position.add(new THREE.Vector3(0, 0, -0.075).applyQuaternion(CAM.cam.quaternion)); CAM.cam.fov = 55; }
+  CAM.cam.aspect = 16 / 9; CAM.cam.updateProjectionMatrix(); CAM.cam.updateMatrixWorld();
+}
+function renderInto(rt) {
+  const hidden = [];
+  for (const vc of vrc) for (const o of [vc.laser, vc.dot, vc.tools && vc.tools.root]) if (o && o.visible) { o.visible = false; hidden.push(o); }
+  const xr = renderer.xr.enabled, prev = renderer.getRenderTarget();
+  renderer.xr.enabled = false; renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, CAM.cam); renderer.setRenderTarget(prev); renderer.xr.enabled = xr;
+  for (const o of hidden) o.visible = true;
+}
+function camPreviewSrc() { const v = vrc.find((c) => c.src && c.hand === 'right') || vrc.find((c) => c.src); return v ? v.i : null; }
+function updateCamPreview(t) {                            // the live picture on the back of the VR camera, a few times a second
+  if (!S.vr || S.tool !== 'camera' || t - CAM.lastPreview < (S.quality === 'low' ? 200 : 90)) return;
+  const s = camPreviewSrc(); if (s === null) return; CAM.lastPreview = t; camPose(s); renderInto(CAM.preview);
+}
+function stamp() { const d = new Date(), p = (v) => String(v).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+function shoot(src) {
+  const W = S.quality === 'low' ? 1280 : 1920, H = Math.round(W * 9 / 16);
+  if (!CAM.photo || CAM.photo.width !== W) { if (CAM.photo) CAM.photo.dispose(); CAM.photo = new THREE.WebGLRenderTarget(W, H, { samples: 4 }); CAM.photo.texture.colorSpace = THREE.SRGBColorSpace; }
+  camPose(src); renderInto(CAM.photo);
+  const px = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(CAM.photo, 0, 0, W, H, px);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'), img = c.createImageData(W, H);
+  for (let y = 0; y < H; y++) img.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);      // WebGL rows run bottom-up
+  for (let k = 3; k < img.data.length; k += 4) img.data[k] = 255;
+  c.putImageData(img, 0, 0);
+  CAM.n++; const name = `2DPHYS-workbench_${stamp()}.png`;
+  cv.toBlob((blob) => {
+    if (!blob) { toast('Could not save the photo'); return; }
+    const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    CAM.last = { name, url }; setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }, 'image/png');
+  showPrint(cv); camFlash(src);
+  toast(`Photo saved to your Downloads folder: ${name}`, 5000);
+}
+// the latest photo lies on the table as a print, so in the headset you see that it worked
+const printTex = new THREE.CanvasTexture(document.createElement('canvas')); printTex.colorSpace = THREE.SRGBColorSpace;
+const printMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.256, 0.162), new THREE.MeshBasicMaterial({ map: printTex, toneMapped: false })); printMesh.visible = false;
+printMesh.rotation.set(-Math.PI / 2, 0, 0.3); printMesh.position.set(-0.4, 0.027, 0.2); deskTop.add(printMesh);   // front left of the table top
+function showPrint(src) {
+  const cv = printTex.image; cv.width = 512; cv.height = 324; const c = cv.getContext('2d');
+  c.fillStyle = '#f4f1ea'; c.fillRect(0, 0, 512, 324); c.drawImage(src, 16, 16, 480, 270); c.fillStyle = '#5a5a5a'; c.font = '18px system-ui,sans-serif'; c.textAlign = 'right'; c.fillText(stamp().replace('_', '  '), 496, 312);
+  printTex.needsUpdate = true; printMesh.visible = true;
+}
+function camFlash(src) {
+  if (S.vr && src !== 'mouse') { pulse(src, 0.7, 60); for (const vc of vrc) { const s = vc.tools && vc.tools.H.camera && vc.tools.H.camera.userData.screen; if (s) { s.material.color.setRGB(4, 4, 4); setTimeout(() => s.material.color.setRGB(1, 1, 1), 120); } } }
+  else { const f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:.85;pointer-events:none;transition:opacity .35s;z-index:99'; document.body.appendChild(f); requestAnimationFrame(() => { f.style.opacity = '0'; }); setTimeout(() => f.remove(), 450); }
+}
 function makeToolHeads() {
   const P = (c, e = 0x000000) => new THREE.MeshPhongMaterial({ color: c, emissive: e, shininess: 60, specular: 0x666666 });
   const H = {}, add = (k) => (H[k] = new THREE.Group());
@@ -1587,11 +1718,14 @@ function makeToolHeads() {
   { const g = add('delete'); box(g, P(0xff8fa3), 0.022, 0.012, 0.03, 0, 0, -0.018); box(g, P(0x6aa8ff), 0.022, 0.0125, 0.012, 0, 0, 0.003); }
   { const g = add('zap'); cyl(g, P(0x8e9aaf), 0.008, 0.055, 0, 0, -0.01); for (const z of [-0.02, -0.03]) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.0095, 0.0022, 8, 20), P(0xff6a3d, 0x5a1a00)); t.position.set(0, 0, z); g.add(t); } ball(g, P(0xff4422, 0xaa2200), 0.006, 0, 0, -0.04); }
   for (const [k, col] of [['cminus', 0x3a6cf0], ['cplus', 0xe8473a]]) { const g = add(k), m = P(col, col === 0x3a6cf0 ? 0x0a1a50 : 0x500a0a); box(g, m, 0.018, 0.016, 0.022, 0, 0, -0.005); const pm = P(0xd9c27a); box(g, pm, 0.003, 0.003, 0.016, -0.004, 0, -0.024); box(g, pm, 0.003, 0.003, 0.016, 0.004, 0, -0.024); }
+  { const g = add('camera'); box(g, P(0x2a2f3a), 0.05, 0.03, 0.022, 0, 0, -0.012); box(g, P(0x2a2f3a), 0.016, 0.008, 0.012, -0.012, 0.018, -0.012);
+    cyl(g, P(0x111418), 0.009, 0.014, 0, 0, -0.03); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0095, 0.0016, 8, 20), P(0xb48cff, 0x2a1050)); ring.position.set(0, 0, -0.037); g.add(ring);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.044, 0.0248), new THREE.MeshBasicMaterial({ map: CAM.preview.texture, toneMapped: false })); scr.position.set(0, 0, -0.0005); g.add(scr); g.userData.screen = scr; }
   const root = new THREE.Group(); for (const k in H) { H[k].visible = false; root.add(H[k]); } root.position.z = -0.004; root.scale.setScalar(1.6);
   return { root, H };
 }
 for (const vc of vrc) { vc.tools = makeToolHeads(); vc.obj.add(vc.tools.root); }
-const CURSORS = { hand: 'grab', tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', cminus: 'pointer', cplus: 'pointer' };
+const CURSORS = { camera: 'zoom-in', hand: 'grab', tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', cminus: 'pointer', cplus: 'pointer' };
 let lastCursor = '';
 function updateToolShapes() {
   const elCol = (isMat() && SPECIES[SP[S.cel]]) ? SPECIES[SP[S.cel]].color : 0x88a0c0;
@@ -1665,6 +1799,8 @@ function vrInput(dt) {
       if (U_) { vc.hit = { ui: U_ }; U_.move(h.uv.x * U_.w, (1 - h.uv.y) * U_.h, vc.i); } else vc.hit = { ui: null };
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
+    HOVER.delete(vc.i);
+    if (!hits.length && md.N && S.tool !== 'camera') { const p = pickAtom(o, d); if (p) HOVER.set(vc.i, p.i); }
     vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt);
     vc.cone.visible = S.tool === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
     vc.laser.material.color.set(vc.hit ? 0xffffff : 0x4ae3e1);
@@ -1727,6 +1863,7 @@ function frame() {
     else drawPlots(pctx, plotData());
     lastPlot = t; if (S.vr) plotTex.needsUpdate = true;
   }
+  updateCamPreview(t); updateMouseHover();
   renderer.render(scene, camera);
 }
 /* ================================================================== themes */
@@ -1750,5 +1887,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
