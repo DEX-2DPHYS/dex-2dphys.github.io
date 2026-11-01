@@ -116,6 +116,15 @@
   .gap{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;
     align-items:center;gap:4px 12px}
   .gap:empty{display:none}
+  .c2db{font-size:14px;line-height:1.7;color:var(--ink);margin-top:8px}
+  .c2db:empty{display:none}
+  .c2db .k{font-weight:700;letter-spacing:.04em;margin-right:8px}
+  .c2db a{color:#1a5fb4;text-decoration:none;border-bottom:1px solid #b7cdef}
+  .c2db a:hover{border-bottom-color:#1a5fb4}
+  .c2db small{color:#6b7385}
+  .c2db .sep{margin:0 8px;color:#9aa3b3}
+  .c2db .n{color:#6b7385}
+  .c2db .cur b{background:#e8eef9;border-radius:4px;padding:0 4px}
   .gv{display:flex;flex-direction:column;gap:1px;margin-right:8px}
   .gv span{font-size:12px;color:var(--muted)}
   .gap b{font-size:21px;font-weight:600;white-space:nowrap}
@@ -207,6 +216,7 @@
       </div>
       <div class="stats cstats" id="cStats"></div>
       <div class="gap" id="cGap"></div>
+      <div class="c2db" id="cC2db"></div>
       <p class="desc" id="cDesc"></p>
       <div class="ctrl">
         <button id="cPrev">&lsaquo; Previous</button>
@@ -465,6 +475,48 @@ function placeElectrons(t){
 }
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
+
+
+/* ---------- links to the Computational 2D Materials Database (C2DB, DTU): https://c2db.fysik.dtu.dk ----------
+   TMDs: both phases, found by layer group (2H = p-6m2, 1T = p-3m1), with C2DB's energy above the convex hull (eV/atom).
+   Xenes and hBN: the entry with the structure drawn here; where C2DB has no such structure, related entries or a note. */
+const C2DB_URL = 'https://c2db.fysik.dtu.dk/material/';
+const C2DB_TMD = {Ti:[{'2H':['1TiS2-2',0.145],'1T':['1TiS2-1',0]},{'2H':['1TiSe2-2',0.126],'1T':['1TiSe2-1',0.009]},{'2H':['1TiTe2-2',0.109],'1T':['1TiTe2-1',0.009]}],
+  Zr:[{'2H':['1ZrS2-2',0.19],'1T':['1ZrS2-1',0]},{'2H':['1ZrSe2-2',0.144],'1T':['1ZrSe2-1',0]},{'2H':['1ZrTe2-2',0.11],'1T':['1ZrTe2-1',0.012]}],
+  Hf:[{'2H':['1HfS2-2',0.217],'1T':['1HfS2-1',0]},{'2H':['1HfSe2-2',0.174],'1T':['1HfSe2-1',0]},{'2H':['1HfTe2-2',0.133],'1T':['1HfTe2-1',0.007]}],
+  V:[{'2H':['1VS2-1',0],'1T':['1VS2-2',0.017]},{'2H':['1VSe2-1',0],'1T':['1VSe2-2',0.016]},{'2H':['1VTe2-1',0.016],'1T':['1VTe2-2',0.018]}],
+  Nb:[{'2H':['1NbS2-1',0],'1T':['1NbS2-2',0.033]},{'2H':['1NbSe2-1',0.001],'1T':['1NbSe2-2',0.033]},{'2H':['1NbTe2-1',0.018],'1T':['1NbTe2-2',0.028]}],
+  Ta:[{'2H':['1TaS2-1',0],'1T':['1TaS2-2',0.02]},{'2H':['1TaSe2-1',0],'1T':['1TaSe2-2',0.023]},{'2H':['1TaTe2-1',0.044],'1T':['1TaTe2-2',0.049]}],
+  Mo:[{'2H':['1MoS2-1',0],'1T':['1MoS2-2',0.277]},{'2H':['1MoSe2-1',0],'1T':['1MoSe2-2',0.234]},{'2H':['1MoTe2-1',0],'1T':['1MoTe2-2',0.171]}],
+  W:[{'2H':['1WS2-1',0],'1T':['1WS2-2',0.296]},{'2H':['1WSe2-1',0],'1T':['1WSe2-2',0.258]},{'2H':['1WTe2-1',0.026],'1T':['1WTe2-2',0.215]}],
+  Re:[{'2H':['1ReS2-1',0.316],'1T':['1ReS2-2',0.372]},{'2H':['1ReSe2-1',0.308],'1T':['1ReSe2-2',0.372]},{'2H':['1ReTe2-1',0.273],'1T':['1ReTe2-2',0.4]}],
+  Pd:[{'2H':['1PdS2-3',0.35],'1T':['1PdS2-2',0.101]},{'2H':['1PdSe2-2',0.268],'1T':['1PdSe2-1',0.026]},{'2H':['1PdTe2-2',0.227],'1T':['1PdTe2-1',0.086]}],
+  Pt:[{'2H':['1PtS2-3',0.593],'1T':['1PtS2-1',0]},{'2H':['1PtSe2-2',0.452],'1T':['1PtSe2-1',0]},{'2H':['1PtTe2-2',0.326],'1T':['1PtTe2-1',0.027]}]};   // per metal: [S, Se, Te]
+const C2DB_XENE = {
+  C:{id:'2C-1'}, Si:{id:'2Si-1'}, Ge:{id:'2Ge-1'}, Sn:{id:'2Sn-1'},
+  P:{id:'4P-1', also:[['2P-1','blue phosphorene']]},
+  As:{id:'2As-1'}, Sb:{id:'2Sb-1'}, Bi:{id:'2Bi-1'},
+  B:{id:null, note:'β₁₂ borophene is not in C2DB; related:', also:[['2B-1','striped'],['2B-2','flat hexagonal']]},
+  Au:{id:null, note:'Goldene is not in C2DB.'},
+  Te:{id:null, note:'The helical-chain layer is not in C2DB; related:', also:[['2Te-1','square'],['2Te-2','β, 1T-like']]}
+};
+const C2DB_OTHER = { hBN:{id:'1BN-1'} };
+const c2dbA = (id, text) => `<a href="${C2DB_URL}${id}" target="_blank" rel="noopener">${text || id}</a>`;
+function c2dbHTML(rows){ return rows.length ? '<span class="k">C2DB</span>' + rows.join('<span class="sep">·</span>') : ''; }
+function c2dbXene(sym){
+  const e = C2DB_XENE[sym]; if (!e) return ''; const r = [];
+  if (e.id) r.push(c2dbA(e.id));
+  if (e.note) r.push(`<span class="n">${e.note}</span>`);
+  for (const [id, what] of e.also || []) r.push(c2dbA(id, `${id} <small>(${what})</small>`));
+  return c2dbHTML(r);
+}
+function c2dbOther(key){ const e = C2DB_OTHER[key]; return e ? c2dbHTML([c2dbA(e.id)]) : ''; }
+function c2dbTMD(m, x, shown){
+  const e = C2DB_TMD[m] && C2DB_TMD[m][CHALCOGENS.indexOf(x)]; if (!e) return '';
+  
+  return c2dbHTML(['2H', '1T'].map((ph) => { const [id, h] = e[ph], stab = h < 0.0005 ? 'on the convex hull' : `+${h.toFixed(2)} eV/atom above the hull`;
+    return `<span class="${ph === shown ? 'cur' : ''}"><b>${ph}</b> ${c2dbA(id)} <small>(${stab})</small></span>`; }));
+}
 
 /* ---------- 2D materials data ---------- */
 const XENES = {
@@ -1090,6 +1142,7 @@ function openXene(sym){
   $('cStats').innerHTML = statsHTML(rows);
   $('cDesc').textContent = X.desc;
   $('cGap').innerHTML = gapHTML(GAP_XENE[sym]);
+  $('cC2db').innerHTML = c2dbXene(sym);
   $('cPrev').hidden = $('cNext').hidden = false;
   showCrystal(cr, false);
 }
@@ -1103,6 +1156,7 @@ function openOther(key){
     [`${O.els[0]}–${O.els[1]} bond`, fmt(cr.nn)]]);
   $('cDesc').textContent = O.desc;
   $('cGap').innerHTML = gapHTML(GAP_OTHER[key]);
+  $('cC2db').innerHTML = c2dbOther(key);
   $('cPrev').hidden = $('cNext').hidden = true;
   showCrystal(cr, false);
 }
@@ -1136,6 +1190,7 @@ function openTMD(m, x, phase){
     else gapNote = `Value for the natural form, not the ${shown} shown.`;
   }
   $('cGap').innerHTML = gapHTML(gap, gapNote);
+  $('cC2db').innerHTML = c2dbTMD(m, x, shown);
   $('cPrev').hidden = $('cNext').hidden = true;
   showCrystal(cr, same);
 }
