@@ -501,7 +501,7 @@ export class Mat {
       this.move(i, dt * vx[i], dt * vy[i], dt * vz[i]);
     }
     this.computeForces();
-    if (this.model === 'uff' && this.step % 5 === 0 && this.chem.breakStretched()) this.computeForces();     // overstretched bonds snap
+    if (this.model === 'uff' && this.step % 5 === 0 && (this.chem.breakStretched() + this.chem.formClose())) this.computeForces();     // overstretched bonds snap, radicals that meet bond
     for (let i = 0; i < N; i++) { if (this.fixed[i]) continue; const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i]; }
     let KE = this.kinetic();
     if (this.thermostat && KE > 0) {

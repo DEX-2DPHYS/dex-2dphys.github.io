@@ -70,6 +70,10 @@ export class Chem {
   sym(i) { return SPECIES[this.m.sp[i]].sym; }
   valence(i) { return VALENCE[this.sym(i)] ?? 4; }
   free(i) { return this.valence(i) - this.deg[i]; }
+  // an OPEN atom has a real dangling bond: no bonds at all, or two or more missing (a bare edge carbon, a lone C or O).
+  // Graphene carbons (3 of 4) are not open - their fourth valence is the pi bond - so stacked layers never fuse.
+  open(i) { return !this.m.fixed[i] && (this.deg[i] === 0 || this.free(i) >= 2); }
+  reactivePair(i, j) { const f = this.m.fixed; return !f[i] && !f[j] && ((this.open(i) && this.free(j) > 0) || (this.open(j) && this.free(i) > 0)); }
   bonded(i, j) { for (const [a, b] of this.bonds) if ((a === i && b === j) || (a === j && b === i)) return true; return false; }
   neighbours(i) { const r = []; for (const [a, b] of this.bonds) { if (a === i) r.push(b); else if (b === i) r.push(a); } return r; }
   clear() { this.bonds = []; this.dirty = true; }
@@ -178,6 +182,7 @@ export class Chem {
     const r2c = (RC + SKIN) ** 2; let np = 0;
     for (let i = 0; i < N - 1; i++) for (let j = i + 1; j < N; j++) {
       if (this.excl.has(i * 65536 + j)) continue;
+      if (this.reactivePair(i, j)) continue;          // radicals feel no van der Waals wall: they can meet and bond (formClose)
       const dx = m.mi(m.x[j] - m.x[i], m.Lx, m.per[0]), dy = m.mi(m.y[j] - m.y[i], m.Ly, m.per[1]), dz = m.mi(m.z[j] - m.z[i], m.Lz, m.per[2]);
       if (dx * dx + dy * dy + dz * dz > r2c) continue;
       if (np >= this.pi.length) { const a = new Int32Array(np * 2); a.set(this.pi); this.pi = a; const b = new Int32Array(np * 2); b.set(this.pj); this.pj = b; }
@@ -285,6 +290,27 @@ export class Chem {
     return E;
   }
 
+  // new bonds: an open atom bonds to a neighbour with a free valence once they are closer than 1.3 x the sum of
+  // the covalent radii (bonds break at 1.6 rest lengths, so a fresh bond does not flicker). Returns how many formed.
+  formClose() {
+    const m = this.m, N = m.N; if (this.dirty || !this.nb || this.nb.length !== N) this.retype();
+    const opens = []; for (let i = 0; i < N; i++) if (this.open(i)) opens.push(i);
+    if (!opens.length) return 0;
+    const cand = [], rad = (i) => T[typeFor(this.sym(i), 1)][0];
+    for (const i of opens) for (let j = 0; j < N; j++) {
+      if (j === i || this.free(j) < 1 || m.fixed[j] || (this.open(j) && j < i)) continue;
+      const lim = 1.3 * (rad(i) + rad(j));
+      const dx = m.mi(m.x[j] - m.x[i], m.Lx, m.per[0]); if (dx > lim || dx < -lim) continue;
+      const dy = m.mi(m.y[j] - m.y[i], m.Ly, m.per[1]); if (dy > lim || dy < -lim) continue;
+      const dz = m.mi(m.z[j] - m.z[i], m.Lz, m.per[2]); const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < lim * lim && !this.bonded(i, j)) cand.push([d2, i, j]);
+    }
+    if (!cand.length) return 0;
+    cand.sort((p, q) => p[0] - q[0]); let n = 0; const got = new Set();               // one new bond per atom per check: no grabbing several at once
+    for (const [, i, j] of cand) if (!got.has(i) && !got.has(j) && this.free(i) > 0 && this.free(j) > 0 && !this.bonded(i, j)) { this.bonds.push([i, j]); this.deg[i]++; this.deg[j]++; got.add(i); got.add(j); n++; }
+    if (n) { this.dirty = true; this.retype(); m.listDirty = true; }
+    return n;
+  }
   // remove bonds stretched past SW_HI rest lengths (after a force call); returns how many broke
   breakStretched() {
     if (!this.lastR) return 0; const keep = [], R = this.lastR; let n = 0;
