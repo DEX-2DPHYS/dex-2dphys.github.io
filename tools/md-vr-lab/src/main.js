@@ -2,17 +2,19 @@
 // (Meta Quest browser, or a Quest on a PC through SteamVR/OpenXR) - or on the desktop with mouse.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MD, ELEMENTS, units, MAXN, clamp } from './physics.js';
 import { Mat, TU_FS, SPECIES, TERSOFF } from './materials.js';
-import { UI, COL } from './ui.js';
-import { drawPlots, PW, PH } from './plots.js';
+import { UI, COL, setPalette } from './ui.js';
+import { drawPlots, drawElec, PW, PH } from './plots.js';
+import { analyse as analyseNow } from './tb.js';
 import { TASKS, VR_HELP } from './content.js';
 
 /* ================================================================== state */
 const lj = new MD(MAXN), mat = new Mat(1200);
 let md = lj;                                                                 // the active engine: noble-gas LJ or the materials engine
 const B = { sys: 'lj', el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30,   // build recipe shown on the BUILD tab
-  mat: 'graphene', size: 8, layers: 3, nmol: 7, rad: 7, Tm: 300 };
+  mat: 'graphene', size: 8, layers: 3, nmol: 7, rad: 7, Tm: 300, open: false };
 const MAT_DEFAULTS = { benzene: { nmol: 7, Tm: 100 }, graphene: { size: 8, Tm: 300 }, graphite: { size: 7, layers: 3, Tm: 300 }, mos2: { size: 7, layers: 2, Tm: 300 }, nanodiamond: { rad: 7, Tm: 300 } };
 const MAT_INFO = {
   benzene: 'OPLS-style force field: bonds, angles, planarity; LJ + charges between molecules.',
@@ -25,7 +27,11 @@ const S = {
   el: 'Ar', TsetK: 30, thermo: true, paused: false, dt: 0.004, speed: 10, periodic: true,
   color: 'speed', tool: 'tweezers', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
+  theme: 'dark', tableH: 0.9,
+  cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: true, live: true, Tlog: false,     // electron transport (ELEC tab)
 };
+const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR'], TAB_ELEC = 4, TAB_VR = 5;
+try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
 const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
 let U = ljUnits(S.el);
@@ -50,42 +56,125 @@ scene.fog = new THREE.Fog(0x070b13, 6, 16);
 const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.03, 60);
 camera.position.set(0.9, 1.65, 0.55);
 
-scene.add(new THREE.HemisphereLight(0xaec6ff, 0x1a2234, 1.15));
+const hemi = new THREE.HemisphereLight(0xaec6ff, 0x1a2234, 1.15); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(1.5, 4, 2); scene.add(sun);
 const rim = new THREE.PointLight(0x4ae3e1, 6, 4); rim.position.set(0, 1.9, -1.0); scene.add(rim);
 
-/* ---------- the lab room ---------- */
-const bench = new THREE.Group(); scene.add(bench);
-{
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(7, 64), new THREE.MeshLambertMaterial({ color: 0x0c121d }));
-  floor.rotation.x = -Math.PI / 2; bench.add(floor);
-  const grid = new THREE.GridHelper(14, 28, 0x20314f, 0x131d31); grid.position.y = 0.002; bench.add(grid);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.06, 1.0), new THREE.MeshLambertMaterial({ color: 0x1c2640 }));
-  top.position.set(0, 0.9, -1.0); bench.add(top);
-  const legM = new THREE.MeshLambertMaterial({ color: 0x141b2e });
-  for (const sx of [-0.92, 0.92]) for (const sz of [-1.42, -0.58]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.06), legM); leg.position.set(sx, 0.45, sz); bench.add(leg);
-  }
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.008, 8, 96), new THREE.MeshBasicMaterial({ color: 0x4ae3e1 }));
-  ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.935, -1.0); bench.add(ring);
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.34, 64), new THREE.MeshBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.07 }));
-  disc.rotation.x = -Math.PI / 2; disc.position.set(0, 0.934, -1.0); bench.add(disc);
-  // back wall with title
-  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 256;
-  const g = cv.getContext('2d'); g.fillStyle = '#0a1120'; g.fillRect(0, 0, 1024, 256);
-  g.fillStyle = '#4ae3e1'; g.font = '700 84px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('MD LAB', 40, 100);
-  g.fillStyle = '#9fb2cf'; g.font = '34px system-ui,sans-serif'; g.fillText('Molecular dynamics in virtual reality  ·  DEX · 2DPHYS · DTU', 44, 190);
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  const wall = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), new THREE.MeshBasicMaterial({ map: tex }));
-  wall.position.set(0, 2.1, -3.2); bench.add(wall);
+/* ---------- the lab room: a furnished lab, dark or white ----------
+   Everything static is merged into one mesh per material (a handful of draw calls), Lambert-shaded and without shadows,
+   so the room costs the GPU well under a millisecond per frame and the CPU nothing at all. */
+const THEMES = {
+  dark: { bg: 0x070b13, fog: [8, 20], floor: 0x0c121d, grid: [0x20314f, 0x131d31], wall: 0x111a2b, trim: 0x1a2640, top: 0x1c2640, cab: 0x141b2e,
+    accent: 0x4ae3e1, glass: 0x9fd6ff, prop: 0x2d6f8f, screen: 0x0e2a3a, lamp: 0x9fb8d8,
+    sky: ['#03060d', '#0a1730', '#1a2c50'], stars: true, sign: ['#0a1120', '#4ae3e1', '#9fb2cf'], hemi: [0xaec6ff, 0x1a2234, 1.15], sun: 1.7, rim: 6 },
+  light: { bg: 0xe8edf3, fog: [10, 28], floor: 0xcdd4de, grid: [0xb3bfce, 0xc4cdd8], wall: 0xf4f6f9, trim: 0xd9dfe7, top: 0xbfc8d4, cab: 0xe4e8ee,
+    accent: 0x0b827f, glass: 0x7fb3dc, prop: 0x2b8fa8, screen: 0x1b2532, lamp: 0xffffff,
+    sky: ['#6fa9e2', '#b9d8f4', '#f3f8ff'], stars: false, sign: ['#ffffff', '#0b827f', '#4f5f79'], hemi: [0xffffff, 0xb5bfcc, 1.55], sun: 1.25, rim: 2.5 },
+};
+const bench = new THREE.Group(); scene.add(bench);      // the whole room; recentring turns and moves it to face the user
+let room = null;
+function canvasTex(w, h, draw) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; }
+function makeRoom(th) {
+  const grp = new THREE.Group(), parts = {};
+  const add = (key, geo) => { (parts[key] = parts[key] || []).push(geo); };
+  const box = (key, w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); add(key, g); };
+  const cyl = (key, r, h, x, y, z) => { const g = new THREE.CylinderGeometry(r, r * 0.92, h, 14, 1); g.translate(x, y, z); add(key, g); };
+  const X0 = -4.5, X1 = 4.5, Z0 = -4.8, Z1 = 3.6, H = 3.2, W = X1 - X0, Dp = Z1 - Z0, ZC = (Z0 + Z1) / 2;
+  // floor, ceiling, walls (with openings for the windows: walls are built from strips around them)
+  box('floor', W, 0.02, Dp, 0, -0.01, ZC);
+  box('wall', W, 0.04, Dp, 0, H, ZC);
+  const winY0 = 1.2, winY1 = 2.35;                                     // window band
+  const wallStrips = (axis, at, from, to, holes) => {                  // a wall along one axis with rectangular holes in the window band
+    const seg = (a, b, y0, y1) => { if (b - a < 1e-3 || y1 - y0 < 1e-3) return; const m = (a + b) / 2, l = b - a, hy = y1 - y0, cy = (y0 + y1) / 2; if (axis === 'x') box('wall', l, hy, 0.1, m, cy, at); else box('wall', 0.1, hy, l, at, cy, m); };
+    seg(from, to, 0, winY0); seg(from, to, winY1, H);
+    let p = from; for (const [c, w] of holes) { seg(p, c - w / 2, winY0, winY1); p = c + w / 2; } seg(p, to, winY0, winY1);
+  };
+  const backWins = [[-2.6, 1.8], [0, 1.8], [2.6, 1.8]], sideWins = [[-3.1, 1.5], [-0.8, 1.5]];
+  wallStrips('x', Z0, X0, X1, backWins); wallStrips('x', Z1, X0, X1, []);
+  wallStrips('z', X0, Z0, Z1, sideWins); wallStrips('z', X1, Z0, Z1, sideWins);
+  // window frames and sills
+  const frame = (axis, at, c, w) => {
+    const t = 0.06, inset = axis === 'x' ? (at < 0 ? 0.06 : -0.06) : (at < 0 ? 0.06 : -0.06);
+    if (axis === 'x') { box('trim', w + 0.12, t, 0.14, c, winY0 - t / 2, at + inset); box('trim', w + 0.12, t, 0.1, c, winY1 + t / 2, at + inset); box('trim', t, winY1 - winY0, 0.1, c - w / 2 - t / 2, (winY0 + winY1) / 2, at + inset); box('trim', t, winY1 - winY0, 0.1, c + w / 2 + t / 2, (winY0 + winY1) / 2, at + inset); box('trim', 0.03, winY1 - winY0, 0.05, c, (winY0 + winY1) / 2, at + inset); }
+    else { box('trim', 0.14, t, w + 0.12, at + inset, winY0 - t / 2, c); box('trim', 0.1, t, w + 0.12, at + inset, winY1 + t / 2, c); box('trim', 0.1, winY1 - winY0, t, at + inset, (winY0 + winY1) / 2, c - w / 2 - t / 2); box('trim', 0.1, winY1 - winY0, t, at + inset, (winY0 + winY1) / 2, c + w / 2 + t / 2); box('trim', 0.05, winY1 - winY0, 0.03, at + inset, (winY0 + winY1) / 2, c); }
+  };
+  backWins.forEach(([c, w]) => frame('x', Z0, c, w)); sideWins.forEach(([c, w]) => { frame('z', X0, c, w); frame('z', X1, c, w); });
+  // skirting
+  box('trim', W, 0.1, 0.03, 0, 0.05, Z0 + 0.06); box('trim', W, 0.1, 0.03, 0, 0.05, Z1 - 0.06); box('trim', 0.03, 0.1, Dp, X0 + 0.06, 0.05, ZC); box('trim', 0.03, 0.1, Dp, X1 - 0.06, 0.05, ZC);
+  // lab benches all round: worktop + cabinets with handles
+  const run = (axis, at, from, to, depthSign) => {               // depthSign: +1 bench extends towards +axis from the wall
+    const d = 0.7, l = to - from, m = (from + to) / 2, c0 = at + depthSign * d / 2;
+    if (axis === 'x') { box('top', l, 0.04, d + 0.02, m, 0.92, c0); box('cab', l - 0.02, 0.84, d - 0.06, m, 0.46, c0 - depthSign * 0.02); }
+    else { box('top', d + 0.02, 0.04, l, c0, 0.92, m); box('cab', d - 0.06, 0.84, l - 0.02, c0 - depthSign * 0.02, 0.46, m); }
+    const nDoor = Math.max(1, Math.round(l / 0.6));
+    for (let k = 0; k < nDoor; k++) {
+      const p = from + (k + 0.5) * l / nDoor, f = at + depthSign * (d - 0.035);
+      if (axis === 'x') { box('trim', l / nDoor - 0.03, 0.78, 0.012, p, 0.47, f); box('accent', 0.12, 0.018, 0.02, p, 0.78, f + depthSign * 0.012); }
+      else { box('trim', 0.012, 0.78, l / nDoor - 0.03, f, 0.47, p); box('accent', 0.02, 0.018, 0.12, f + depthSign * 0.012, 0.78, p); }
+    }
+  };
+  run('x', Z0 + 0.05, -3.9, 3.9, 1);
+  run('z', X0 + 0.05, -4.0, 2.9, 1); run('z', X1 - 0.05, -4.0, 2.9, -1);
+  // shelves on the side walls, behind the user
+  for (const xs of [X0 + 0.2, X1 - 0.2]) for (const y of [1.55, 2.0]) box('top', 0.28, 0.03, 2.4, xs, y, 1.7);
+  // props: beakers, flasks and bottles on the benches and shelves, two monitors on the back bench
+  const rnd = (() => { let s = 99; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; })();
+  for (let k = 0; k < 14; k++) { const r = 0.035 + 0.03 * rnd(), h = 0.1 + 0.16 * rnd(); cyl('glass', r, h, -3.6 + 7.2 * rnd(), 0.94 + h / 2, Z0 + 0.25 + 0.3 * rnd()); }
+  for (const xs of [X0 + 0.4, X1 - 0.4]) for (let k = 0; k < 9; k++) { const r = 0.03 + 0.03 * rnd(), h = 0.1 + 0.18 * rnd(); cyl(k % 3 ? 'glass' : 'prop', r, h, xs + (rnd() - 0.5) * 0.25, 0.94 + h / 2, -3.6 + 6 * rnd()); }
+  for (const xs of [X0 + 0.2, X1 - 0.2]) for (const y of [1.565, 2.015]) for (let k = 0; k < 7; k++) { const r = 0.03 + 0.02 * rnd(), h = 0.12 + 0.12 * rnd(); cyl(k % 2 ? 'prop' : 'glass', r, h, xs, y + h / 2 + 0.015, 0.7 + 2 * rnd()); }
+  for (const xm of [-1.5, 1.5]) { box('cab', 0.64, 0.4, 0.04, xm, 1.32, Z0 + 0.35); box('screen', 0.6, 0.36, 0.01, xm, 1.32, Z0 + 0.375); box('cab', 0.05, 0.36, 0.05, xm, 1.12, Z0 + 0.3); box('cab', 0.24, 0.02, 0.16, xm, 0.95, Z0 + 0.3); }
+  // ceiling lights
+  for (const x of [-2.2, 2.2]) for (const z of [-2.8, 0.6]) box('lamp', 1.4, 0.03, 0.4, x, H - 0.03, z);
+  const mats = {
+    floor: new THREE.MeshLambertMaterial({ color: th.floor }), wall: new THREE.MeshLambertMaterial({ color: th.wall }), trim: new THREE.MeshLambertMaterial({ color: th.trim }),
+    top: new THREE.MeshLambertMaterial({ color: th.top }), cab: new THREE.MeshLambertMaterial({ color: th.cab }), accent: new THREE.MeshBasicMaterial({ color: th.accent }),
+    glass: new THREE.MeshLambertMaterial({ color: th.glass, transparent: true, opacity: 0.45, depthWrite: false }), prop: new THREE.MeshLambertMaterial({ color: th.prop }),
+    screen: new THREE.MeshBasicMaterial({ color: th.screen }), lamp: new THREE.MeshBasicMaterial({ color: th.lamp }),
+  };
+  for (const k in parts) { const m = new THREE.Mesh(mergeGeometries(parts[k]), mats[k]); parts[k].forEach((g) => g.dispose()); grp.add(m); }
+  const grid = new THREE.GridHelper(8.6, 43, th.grid[0], th.grid[1]); grid.position.set(0, 0.002, ZC); grp.add(grid);
+  // the sky outside the windows: one texture, one plane per window just outside the wall
+  const sky = canvasTex(256, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, th.sky[0]); gr.addColorStop(0.6, th.sky[1]); gr.addColorStop(1, th.sky[2]); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    if (th.stars) { g.fillStyle = '#ffffff'; for (let k = 0; k < 70; k++) { g.globalAlpha = 0.3 + 0.7 * rnd(); g.fillRect(rnd() * w, rnd() * h * 0.7, 1.5, 1.5); } g.globalAlpha = 1; }
+    else { g.fillStyle = 'rgba(255,255,255,0.75)'; for (let k = 0; k < 5; k++) { const cx = rnd() * w, cy = 40 + rnd() * 90; for (let j = 0; j < 6; j++) { g.beginPath(); g.ellipse(cx + j * 14 - 35, cy + (j % 2) * 6, 22, 11, 0, 0, 6.28); g.fill(); } } }
+  });
+  const skyMat = new THREE.MeshBasicMaterial({ map: sky, fog: false });
+  const win = (w, x, z, ry) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, winY1 - winY0), skyMat); p.position.set(x, (winY0 + winY1) / 2, z); p.rotation.y = ry; grp.add(p); };
+  backWins.forEach(([c, w]) => win(w, c, Z0 - 0.08, 0)); sideWins.forEach(([c, w]) => { win(w, X0 - 0.08, c, Math.PI / 2); win(w, X1 + 0.08, c, -Math.PI / 2); });
+  // title sign above the middle window
+  const sign = canvasTex(1024, 192, (g, w, h) => {
+    g.fillStyle = th.sign[0]; g.fillRect(0, 0, w, h);
+    g.fillStyle = th.sign[1]; g.font = '700 78px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('MD LAB', 36, 70);
+    g.fillStyle = th.sign[2]; g.font = '32px system-ui,sans-serif'; g.fillText('Molecular dynamics in virtual reality  ·  DEX · 2DPHYS · DTU', 40, 148);
+  });
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.49), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(0, 2.75, Z0 + 0.06); grp.add(sg);
+  return grp;
 }
+function disposeTree(o) { o.traverse((c) => { if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); } }); }
+
+/* ---------- the experiment table: its height follows the user (seated or standing) ---------- */
+const desk = new THREE.Group(); bench.add(desk);
+const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.8), new THREE.MeshLambertMaterial({ color: 0x1c2640 }));
+const legM = new THREE.MeshLambertMaterial({ color: 0x141b2e }), legs = [];
+for (const sx of [-0.64, 0.64]) for (const sz of [-1.34, -0.66]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1, 0.05), legM); l.position.set(sx, 0, sz); legs.push(l); desk.add(l); }
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.008, 8, 96), new THREE.MeshBasicMaterial({ color: 0x4ae3e1 })); ring.rotation.x = Math.PI / 2;
+const disc = new THREE.Mesh(new THREE.CircleGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.07 })); disc.rotation.x = -Math.PI / 2;
+desk.add(deskTop); desk.add(ring); desk.add(disc);
 
 /* ---------- simulation objects ---------- */
 const simRoot = new THREE.Group(); scene.add(simRoot);           // placed in the world, scaled: world metres per sigma
 const tilt = new THREE.Group(); simRoot.add(tilt);                // lays 2D sheets flat on the bench (sim z -> up)
 const inner = new THREE.Group(); tilt.add(inner);             // box coordinates [0,L]^3 -> centred
-const SIM_HOME = new THREE.Vector3(0, 1.33, -1.0);               // in bench coordinates
+const SIM_HOME = new THREE.Vector3(0, 1.33, -1.0);               // in bench coordinates (its height follows the table)
 simRoot.position.copy(SIM_HOME);
+function setTableHeight(h, moveSim = true) {
+  h = clamp(h, 0.5, 1.2); const dh = h - S.tableH; S.tableH = h;
+  deskTop.position.set(0, h, -1.0); for (const l of legs) { l.scale.y = h - 0.025; l.position.y = (h - 0.025) / 2; }
+  ring.position.set(0, h + 0.03, -1.0); disc.position.set(0, h + 0.029, -1.0); rim.position.set(0, h + 1.0, -1.0);
+  SIM_HOME.y = h + 0.43;
+  if (moveSim && dh) { simRoot.position.y += dh; if (!S.vr) { controls.target.y += dh; camera.position.y += dh; } }
+}
 let userScale = 1, wps = 0.1;                                     // wps = metres per sigma at build time
 
 const sphereLo = new THREE.SphereGeometry(1, 12, 9);
@@ -120,7 +209,7 @@ const H = { t: [], T: [], ke: [], pe: [], e: [], P: [], mt: [], my: [], pt: [], 
 function resetHistory() { for (const k of ['t', 'T', 'ke', 'pe', 'e', 'P', 'mt', 'my', 'pt', 'py']) H[k].length = 0; H.lastStep = md.step; S.D = null; }
 
 function build(recipe, opts = {}) {
-  S.lastBuild = Object.assign({}, recipe);
+  S.lastBuild = Object.assign({}, recipe); clearContacts();
   if (recipe.sys === 'mat') return buildMat(recipe, opts);
   md = lj; S.el = recipe.el; U = ljUnits(S.el); if (S.dt > 0.02 || S.dt < 0.001) S.dt = 0.004;
   md.periodic = S.periodic; md.dt = S.dt;
@@ -139,9 +228,9 @@ function buildMat(r, opts) {
   const T0 = r.Tm, n = Math.round(r.size), ny = Math.max(2, Math.round(n / 1.73));
   try {
     if (r.mat === 'benzene') mat.buildBenzene(Math.round(r.nmol), T0);
-    else if (r.mat === 'graphene') mat.buildGraphene(n, ny, T0);
-    else if (r.mat === 'graphite') mat.buildGraphite(n, ny, Math.round(r.layers), T0);
-    else if (r.mat === 'mos2') mat.buildMoS2(n, ny, Math.round(r.layers), T0);
+    else if (r.mat === 'graphene') mat.buildGraphene(n, ny, T0, 1, false, !!r.open);
+    else if (r.mat === 'graphite') mat.buildGraphite(n, ny, Math.round(r.layers), T0, !!r.open);
+    else if (r.mat === 'mos2') mat.buildMoS2(n, ny, Math.round(r.layers), T0, !!r.open);
     else mat.buildNanodiamond(r.rad, T0);
   } catch (e) { toast(String(e.message || e)); return; }
   md = mat; U = matUnits(); S.el = r.mat;
@@ -173,8 +262,11 @@ function addRandom(k) {
   H.my.length = 0; H.mt.length = 0; md.mark();
 }
 function removeAtomAt(i) {
-  const last = md.N - 1; md.removeAtom(i);
+  const last = md.N - 1, n0 = md.N; md.removeAtom(i);
+  if (md.N === n0) return;                                       // not removable (molecules)
   if (S.tag === i) retag(); else if (S.tag === last) S.tag = i;
+  for (const s of [S.cm, S.cp]) { s.delete(i); if (s.delete(last)) s.add(i); }   // removeAtom moved the last atom into slot i
+  contactsChanged();
 }
 function removeRandom(k) { for (let i = 0; i < k && md.N > 2; i++) removeAtomAt(Math.floor(Math.random() * md.N)); }
 
@@ -186,6 +278,10 @@ function applyTask(t) {
   if (B.sys === 'mat') { S.TsetK = t.setup.TsetK; md.Ttarget = S.TsetK; if (t.setup.dtFs) S.dtFs = t.setup.dtFs; }
   if (t.setup.equil) for (const [steps, K] of t.setup.equil) equilibrate(steps, K);
   if (t.setup.thermo === false) S.thermo = false;
+  if (t.setup.bias !== undefined) S.bias = t.setup.bias;
+  if (t.setup.contacts === 'ends') contactsAtEnds();
+  else if (Array.isArray(t.setup.contacts)) { clearContacts(); t.setup.contacts[0].forEach((i) => S.cm.add(i)); t.setup.contacts[1].forEach((i) => S.cp.add(i)); contactsChanged(); }
+  if (t.setup.tab === 'ELEC') S.tab = TAB_ELEC;
   S.paused = false; resetHistory(); md.mark(); md.resetRDF();
   toast('Loaded: ' + t.title);
 }
@@ -239,7 +335,7 @@ bondsMesh.frustumCulled = false; bondsMesh.count = 0; inner.add(bondsMesh);
 function updateBonds() {
   if (!isMat() || !S.bonds) { bondsMesh.count = 0; return; }
   const m = bondsMesh.instanceMatrix.array, c = bondsMesh.instanceColor.array, per = mat.per, Lx = mat.Lx, Ly = mat.Ly, Lz = mat.Lz; let n = 0;
-  const BR = 0.115;
+  const BR = showingCurrents() ? 0.06 : 0.115;
   for (let p = 0; p < mat.nb && n < BMAX - 1; p++) {
     const i = mat.bi[p], j = mat.bj[p], lim = mat.bondLimit(i, j); if (lim === 0) continue;
     let dx = mat.x[j] - mat.x[i], dy = mat.y[j] - mat.y[i], dz = mat.z[j] - mat.z[i];
@@ -262,14 +358,91 @@ function updateBonds() {
   bondsMesh.count = n; bondsMesh.instanceMatrix.needsUpdate = true; bondsMesh.instanceColor.needsUpdate = true;
 }
 
+/* ---------- electron transport: contacts, worker, current arrows ---------- */
+const cMinus = new THREE.Color(), cPlus = new THREE.Color();
+const ARR_MAX = 6000;
+const arrows = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 10, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), ARR_MAX);   // unlit: readable from any side
+arrows.instanceMatrix.setUsage(THREE.DynamicDrawUsage); arrows.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ARR_MAX * 3), 3); arrows.instanceColor.setUsage(THREE.DynamicDrawUsage);
+arrows.frustumCulled = false; arrows.count = 0; inner.add(arrows);
+const TR = { worker: null, busy: false, pendingCurve: false, pendingLive: false, res: null, curve: null, id: 0, last: 0, err: '', Jmax: 0, curveKey: '' };
+try { TR.worker = new Worker(URL.createObjectURL(new Blob([window.__TB_WORKER || ''], { type: 'text/javascript' }))); TR.worker.onmessage = (e) => onTransport(e.data); TR.worker.onerror = () => { TR.worker = null; TR.busy = false; }; } catch (e) { TR.worker = null; }
+const transportOK = () => isMat() && (mat.model === 'tersoff' || mat.model === 'ff');
+// while currents are drawn, atoms and bonds are drawn thinner so the arrows between them can be seen
+const showingCurrents = () => S.arrows && isMat() && !!TR.res && TR.res.N === mat.N && TR.Jmax > 0;
+function clearContacts() { S.cm.clear(); S.cp.clear(); TR.res = null; TR.curve = null; TR.err = ''; arrows.count = 0; }
+function contactsChanged() { TR.curve = null; requestTransport(true); }
+function contactsAtEnds(w = 2.3) {                          // electrodes on the two ends of the sheet (along x)
+  clearContacts(); if (!isMat()) return;
+  let lo = 1e9, hi = -1e9; for (let i = 0; i < mat.N; i++) if (mat.sp[i] === 0 || mat.model === 'tersoff') { lo = Math.min(lo, mat.x[i]); hi = Math.max(hi, mat.x[i]); }
+  for (let i = 0; i < mat.N; i++) { if (mat.sp[i] !== 0) continue; if (mat.x[i] < lo + w) S.cm.add(i); else if (mat.x[i] > hi - w) S.cp.add(i); }
+  contactsChanged();
+}
+function setContact(i, which, on) {
+  const a = which === 'm' ? S.cm : S.cp, b = which === 'm' ? S.cp : S.cm;
+  if (on) { if (a.has(i)) return; b.delete(i); a.add(i); } else { if (!a.has(i)) return; a.delete(i); }
+  contactsChanged();
+}
+function requestTransport(curve) {
+  if (curve) TR.pendingCurve = true; else TR.pendingLive = true;
+  if (TR.busy) return;
+  if (!transportOK() || !S.cm.size || !S.cp.size) { TR.pendingCurve = TR.pendingLive = false; TR.res = null; arrows.count = 0; TR.err = !isMat() ? 'Electron transport needs a material (carbon).' : !transportOK() ? 'MoS₂ needs a d-orbital model - not supported yet. Use graphene, graphite or benzene.' : 'Mark at least one − and one + contact.'; return; }
+  const wantCurve = TR.pendingCurve; TR.pendingCurve = TR.pendingLive = false;
+  const N = mat.N, orb = new Uint8Array(N); for (let i = 0; i < N; i++) orb[i] = mat.sp[i] === 0 ? 1 : 0;      // SP.C = 0
+  const msg = { id: ++TR.id, N, x: mat.x.slice(0, N), y: mat.y.slice(0, N), z: mat.z.slice(0, N), orb, per: mat.per.slice(), L: [mat.Lx, mat.Ly, mat.Lz],
+    cm: [...S.cm], cp: [...S.cp], opts: { gamma: S.gamma, V: S.bias, kT: 0.02585, curve: wantCurve, nE: 801, Vmax: Math.max(2, Math.ceil(S.bias)), nV: 81 } };
+  TR.last = now();
+  if (TR.worker) { TR.busy = true; TR.worker.postMessage(msg, [msg.x.buffer, msg.y.buffer, msg.z.buffer]); }
+  else {                                                    // no worker (very old browser): compute here, live part only
+    const sys = { N, x: msg.x, y: msg.y, z: msg.z, per: msg.per, L: msg.L, orb: (i) => orb[i] === 1 };
+    const r = analyseNow(sys, msg.cm, msg.cp, Object.assign({}, msg.opts, { curve: false })); r.id = msg.id; r.curve = false; r.N = N; onTransport(r);
+  }
+}
+function onTransport(r) {
+  TR.busy = false;
+  if (r.error) { TR.err = r.error; TR.res = null; arrows.count = 0; }
+  else {
+    TR.err = ''; TR.res = r; let jm = 0; for (let p = 0; p < r.J.length; p++) jm = Math.max(jm, Math.abs(r.J[p])); TR.Jmax = jm;
+    if (r.curve) { TR.curve = r; TR.curveAt = now(); }
+  }
+  lastPlot = 0; ui.dirty = true;
+  if (TR.pendingCurve || TR.pendingLive) requestTransport(TR.pendingCurve);
+}
+function updateArrows() {
+  const r = TR.res;
+  if (!S.arrows || !r || !isMat() || r.N !== mat.N || !TR.Jmax) { arrows.count = 0; return; }
+  const m = arrows.instanceMatrix.array, c = arrows.instanceColor.array, P = r.pairs, J = r.J, per = mat.per, Lx = mat.Lx, Ly = mat.Ly, Lz = mat.Lz; let n = 0;
+  for (let p = 0; p < J.length && n < ARR_MAX; p++) {
+    const f = Math.abs(J[p]) / TR.Jmax; if (f < 0.04) continue;
+    // electron flow a -> b for J > 0; draw conventional current (opposite), from + towards -
+    let a = P[2 * p], b = P[2 * p + 1]; if (J[p] > 0) { const t = a; a = b; b = t; }
+    let dx = mat.x[b] - mat.x[a], dy = mat.y[b] - mat.y[a], dz = mat.z[b] - mat.z[a];
+    if (per[0]) dx -= Lx * Math.round(dx / Lx); if (per[1]) dy -= Ly * Math.round(dy / Ly); if (per[2]) dz -= Lz * Math.round(dz / Lz);
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz); if (d < 1e-6 || d > 2.0) continue;      // arrows on bonds only
+    const ux = dx / d, uy = dy / d, uz = dz / d, sq = Math.sqrt(f), R = 0.1 + 0.2 * sq, Lh = 0.45 + 0.5 * sq;
+    let hx = 0, hy = 0, hz = 1; if (Math.abs(uz) > 0.9) { hx = 1; hz = 0; }
+    let xx = uy * hz - uz * hy, xy = uz * hx - ux * hz, xz = ux * hy - uy * hx; const xl = Math.hypot(xx, xy, xz); xx /= xl; xy /= xl; xz /= xl;
+    const zx = xy * uz - xz * uy, zy = xz * ux - xx * uz, zz = xx * uy - xy * ux;
+    const k = 16 * n;
+    m[k] = xx * R; m[k + 1] = xy * R; m[k + 2] = xz * R; m[k + 3] = 0;
+    m[k + 4] = ux * Lh; m[k + 5] = uy * Lh; m[k + 6] = uz * Lh; m[k + 7] = 0;
+    m[k + 8] = zx * R; m[k + 9] = zy * R; m[k + 10] = zz * R; m[k + 11] = 0;
+    m[k + 12] = mat.x[a] + dx / 2; m[k + 13] = mat.y[a] + dy / 2; m[k + 14] = mat.z[a] + dz / 2 + 0; m[k + 15] = 1;
+    ramp(0.2 + 0.8 * f, rgb); c[3 * n] = rgb[0]; c[3 * n + 1] = rgb[1]; c[3 * n + 2] = rgb[2]; n++;
+  }
+  arrows.count = n; arrows.instanceMatrix.needsUpdate = true; arrows.instanceColor.needsUpdate = true;
+}
+
 function updateAtoms() {
-  const N = md.N, m = atoms.instanceMatrix.array, c = atoms.instanceColor.array, mt = isMat();
+  const N = md.N, m = atoms.instanceMatrix.array, c = atoms.instanceColor.array, mt = isMat(), shrink = showingCurrents() ? 0.5 : 1;
   atoms.count = N;
   const T = Math.max(mt ? md.temperature() * KBT : md.temperature(), 0.03);
   const base = mt ? null : col.set(ELEMENTS[S.el].color);
   for (let i = 0; i < N; i++) {
-    const k = 16 * i, R0 = mt ? SPECIES[md.sp[i]].r : 0.47, s = i === S.tag ? R0 * 1.35 : R0;
+    const k = 16 * i, R0 = (mt ? SPECIES[md.sp[i]].r : 0.47) * shrink, s = i === S.tag ? R0 * 1.35 : R0;
     m[k] = m[k + 5] = m[k + 10] = s; m[k + 12] = md.x[i]; m[k + 13] = md.y[i]; m[k + 14] = md.z[i];
+    if (mt && (S.cm.has(i) || S.cp.has(i))) {                       // electrodes: blue = "-" contact, red = "+" contact
+      const q = S.cm.has(i) ? cMinus : cPlus; m[k] = m[k + 5] = m[k + 10] = s * 1.25; c[3 * i] = q.r; c[3 * i + 1] = q.g; c[3 * i + 2] = q.b; continue;
+    }
     if (i === S.tag) { rgb[0] = 1; rgb[1] = 0.95; rgb[2] = 0.55; }
     else if (S.color === 'speed') { const ke = mt ? 0.5 * md.mass[i] * (md.vx[i] ** 2 + md.vy[i] ** 2 + md.vz[i] ** 2) : 0.5 * (md.vx[i] ** 2 + md.vy[i] ** 2 + md.vz[i] ** 2); ramp(ke / (T * 4), rgb); }
     else if (S.color === 'coord') ramp(mt ? clamp(Math.abs(idealZ(i) - md.z_[i]) / 2, 0, 1) : 1 - clamp((md.z_[i] - 3) / 9, 0, 1), rgb);
@@ -278,7 +451,7 @@ function updateAtoms() {
     c[3 * i] = rgb[0] * rgb[0]; c[3 * i + 1] = rgb[1] * rgb[1]; c[3 * i + 2] = rgb[2] * rgb[2];
   }
   atoms.instanceMatrix.needsUpdate = true; atoms.instanceColor.needsUpdate = true;
-  updateBonds();
+  updateBonds(); updateArrows();
 
   const [Lx, Ly, Lz] = dims();
   inner.position.set(-Lx / 2, -Ly / 2, -Lz / 2);
@@ -288,7 +461,7 @@ function updateAtoms() {
   boxEdges.visible = showBox; boxFaces.visible = showBox && !mt && !md.periodic;
   boxEdges.material.opacity = (mt || md.periodic) ? 0.5 : 0.95;
   simRoot.scale.setScalar((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale);
-  tilt.rotation.x = (mt && mat.per[0] && mat.per[1] && !mat.per[2]) ? -Math.PI / 2 : 0;
+  tilt.rotation.x = (mt && mat.sheet) ? -Math.PI / 2 : 0;
 
   // trail of the tagged atom (unwrapped)
   if (S.trail && S.tag >= 0 && S.tag < N) {
@@ -326,8 +499,11 @@ const uiTex = makeTex(ui.canvas), plotTex = makeTex(plotCanvas);
 const PANEL_W = 0.72;
 const uiMesh = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_W, PANEL_W * CH / CW), new THREE.MeshBasicMaterial({ map: uiTex, transparent: true, toneMapped: false }));
 const plotMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86 * PH / PW), new THREE.MeshBasicMaterial({ map: plotTex, transparent: true, toneMapped: false }));
-uiMesh.position.set(-0.86, 1.32, -0.74); uiMesh.rotation.y = 0.56;
-plotMesh.position.set(0.98, 1.3, -0.78); plotMesh.rotation.y = -0.6;
+function placePanels(y) {                 // either side of the table (it spans x = -0.7..0.7), angled towards the user
+  uiMesh.position.set(-1.13, y, -0.8); uiMesh.rotation.set(0, 0.72, 0);
+  plotMesh.position.set(1.18, y - 0.02, -0.82); plotMesh.rotation.set(0, -0.72, 0);
+}
+placePanels(1.32);
 uiMesh.visible = plotMesh.visible = false;
 bench.add(uiMesh); bench.add(plotMesh);
 uiMesh.userData.ui = true;
@@ -346,9 +522,9 @@ function drawControls() {
   ui.row(2); ui.readout(mt ? 'System' : 'Looks like', ph, { color: pc }); ui.readout('Speed', `${(U.ps(md.dt) * S.sps).toFixed(mt ? 2 : 1)} ps/s`, {});
   if (md.exploded) { ui.label('\u26A0 The simulation blew up - the time step was too large. Press Rebuild.', { color: COL.bad, size: 20, bold: true }); }
   ui.space(2);
-  S.tab = ui.tabs(['BUILD', 'RUN', 'DATA', 'LAB', 'VR'], S.tab);
+  S.tab = ui.tabs(TABS, S.tab);
   ui.space(2);
-  [tabBuild, tabRun, tabData, tabLab, tabVR][S.tab]();
+  [tabBuild, tabRun, tabData, tabLab, tabElec, tabVR][S.tab]();
   // footer
   const c = ui.ctx;
   c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
@@ -363,6 +539,7 @@ function drawControls() {
 function toolHint() {
   const t = S.tool;
   const trig = S.vr ? 'trigger' : 'click';
+  if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
   return t === 'tweezers' ? `Tool: TWEEZERS - hold ${trig} on an atom and drag` : t === 'add' ? `Tool: ADD ATOM - ${trig} inside the box` : `Tool: DELETE - ${trig} an atom to remove it`;
 }
 
@@ -409,6 +586,7 @@ function tabBuild() {
       B.size = Math.round(ui.slider('size', 'Sheet size (unit cells along x)', clamp(B.size, lo, hi), lo, hi, (v) => `${Math.round(v)} cells  \u2248 ${(Math.round(v) * (B.mat === 'mos2' ? 0.312 : 0.249)).toFixed(1)} nm wide`, { step: 1, h: 64 }));
       if (B.mat === 'graphite') B.layers = Math.round(ui.slider('layers', 'Layers', clamp(B.layers, 2, 4), 2, 4, (v) => `${Math.round(v)} layers`, { step: 1, h: 64 }));
       if (B.mat === 'mos2') B.layers = Math.round(ui.slider('layers', 'Layers', clamp(B.layers, 1, 2), 1, 2, (v) => `${Math.round(v)} ${Math.round(v) === 1 ? 'layer' : 'layers (2H)'}`, { step: 1, h: 64 }));
+      B.open = ui.choice([[false, 'Periodic sheet'], [true, 'Open flake (free edges)']], B.open, { h: 50, size: 21 });
     }
     B.Tm = ui.slider('Tm', 'Start temperature', B.Tm, 5, 2500, (v) => `${v.toFixed(0)} K`, { step: 5, h: 64 });
     ui.space(4);
@@ -443,7 +621,7 @@ function tabRun() {
     S.dt = ui.slider('dt', 'Time step', S.dt, 0.001, 0.02, (v) => `${v.toFixed(3)}   (${U.fs(v).toFixed(1)} fs)`, { h: 66 });
     if (S.dt > 0.01) ui.label('Large steps: watch the total energy drift (DATA).', { color: COL.warn, size: 18 });
   } else {
-    ui.label(mat.periodicAny ? 'Periodic in x and y (sheet); free surfaces along z.' : 'Isolated cluster in vacuum.', { size: 19 });
+    ui.label(mat.periodicAny ? 'Periodic in x and y (sheet); free surfaces along z.' : mat.sheet ? 'Open flake: free edges, no periodic images.' : 'Isolated cluster in vacuum.', { size: 19 });
     S.dtFs = ui.slider('dtfs', 'Time step', S.dtFs, 0.1, 3, (v) => `${v.toFixed(2)} fs`, { h: 66 });
     if (S.dtFs > (mat.model === 'ff' ? 1.0 : 2.0)) ui.label('Large steps: watch the total energy drift (DATA).', { color: COL.warn, size: 18 });
     if (mat.model === 'sw' && S.TsetK > 700) ui.label('\u26A0 This MoS\u2082 potential is unreliable above ~700 K (unphysical collapse).', { color: COL.warn, size: 18 });
@@ -509,7 +687,40 @@ function tabLab() {
   if (t.ask) { ui.space(2); ui.paragraph('Think about: ' + t.ask, { size: 21, color: COL.warn }); }
 }
 
+function tabElec() {
+  ui.label('\u03C0-electron tight binding from the live geometry. Mark the electrodes:', { size: 19 });
+  S.tool = ui.choice([['cminus', '\u2212 contact'], ['cplus', '+ contact'], ['tweezers', 'Tweezers']], S.tool, { h: 50 });
+  ui.row(3);
+  if (ui.button('Contacts at ends', { h: 50, size: 20 })) contactsAtEnds();
+  if (ui.button('Clear contacts', { h: 50, size: 20 })) { clearContacts(); ui.dirty = true; }
+  if (ui.button('T(E), I(V)', { h: 50, size: 20, primary: true })) requestTransport(true);
+  ui.row(2); ui.readout('\u2212 contact atoms', String(S.cm.size), { color: COL.minus, h: 30 }); ui.readout('+ contact atoms', String(S.cp.size), { color: COL.plus, h: 30 });
+  const g = ui.slider('gamma', 'Contact coupling \u0393', S.gamma, 0.05, 3, (v) => `${v.toFixed(2)} eV`, { log: true, h: 60 });
+  const v = ui.slider('bias', 'Bias voltage', S.bias, 0.01, 6, (x) => `${x.toFixed(2)} V`, { h: 60 });
+  if (g !== S.gamma || v !== S.bias) { S.gamma = g; S.bias = v; TR.dirtyAt = now(); }
+  ui.row(3); S.arrows = ui.toggle('Arrows', S.arrows, { h: 46 }); S.live = ui.toggle('Live', S.live, { h: 46 }); S.Tlog = ui.toggle('Log T', S.Tlog, { h: 46 });
+  ui.section('Result');
+  const r = TR.res;
+  if (TR.err) ui.paragraph(TR.err, { size: 20, color: COL.warn });
+  else if (!r) ui.label(TR.busy ? 'computing\u2026' : '\u2026', { size: 20 });
+  else {
+    const cur = r.Ibias * 1e6, Ga = r.TEF * 77.48;
+    ui.row(2); ui.readout('Current at bias', (cur < 0.01 ? cur.toExponential(1) : cur.toFixed(cur < 1 ? 3 : 2)) + ' \u00B5A', { color: COL.warn }); ui.readout('T(E_F)', r.TEF < 1e-3 ? r.TEF.toExponential(1) : r.TEF.toFixed(3));
+    ui.row(2); ui.readout('Conductance', (Ga < 0.1 ? Ga.toExponential(1) : Ga.toFixed(2)) + ' \u00B5S'); ui.readout('HOMO\u2013LUMO', r.gapHL.toFixed(2) + ' eV');
+    const cv = TR.curve; ui.row(2); ui.readout('Transport gap', cv ? (cv.gap > 0 ? cv.gap.toFixed(2) + ' eV' : 'none') : '\u2026'); ui.readout('Orbitals / time', `${r.n} / ${r.ms.toFixed(0)} ms`);
+    if (mat.periodicAny) ui.paragraph('Periodic sheet: current can also run round the boundary. Rebuild as an Open flake for a clean device.', { size: 18, color: COL.warn });
+  }
+}
+
 function tabVR() {
+  ui.row(2);
+  const th = ui.choice([['dark', 'Dark lab'], ['light', 'White lab']], S.theme, { h: 50, size: 21 }); if (th !== S.theme) applyTheme(th);
+  const h = ui.slider('table', 'Table height', S.tableH, 0.5, 1.2, (x) => `${(x * 100).toFixed(0)} cm`, { step: 0.01, h: 62 });
+  if (h !== S.tableH) setTableHeight(h);
+  ui.row(2);
+  if (ui.button('Fit table + panels to me', { h: 50, size: 20, disabled: !S.vr })) recenter();
+  if (ui.button('Reset panels', { h: 50, size: 20 })) placePanels(S.vr ? uiMesh.position.y : 1.32);
+  ui.space(4);
   const p = VR_HELP[S.helpPage];
   ui.row(3);
   if (ui.button('◀ Prev', { disabled: S.helpPage === 0 })) S.helpPage = Math.max(0, S.helpPage - 1);
@@ -517,7 +728,7 @@ function tabVR() {
   if (ui.button('Next ▶', { disabled: S.helpPage === VR_HELP.length - 1 })) S.helpPage = Math.min(VR_HELP.length - 1, S.helpPage + 1);
   ui.ctx.fillStyle = COL.muted; ui.ctx.font = '20px system-ui'; ui.ctx.textAlign = 'center'; ui.ctx.fillText(`${S.helpPage + 1} / ${VR_HELP.length}`, CW / 2, ui.y - 35);
   ui.label(p.title, { size: 26, bold: true, color: COL.accent });
-  p.lines.forEach((l) => ui.paragraph(l, { size: 22, color: COL.text }));
+  p.lines.forEach((l) => ui.paragraph(l, { size: 20, color: COL.text }));
   ui.row(1);
   if (S.vr) { if (ui.button('Exit VR', { danger: true, h: 56 })) endVR(); }
   else if (ui.button(xrState.supported ? 'Enter VR' : 'VR not detected on this device', { primary: xrState.supported, h: 56, disabled: !xrState.supported })) enterVR();
@@ -538,7 +749,7 @@ function plotData() {
 /* ================================================================== DOM wiring (desktop) */
 const dom = {
   ui: document.getElementById('uiWrap'), plots: document.getElementById('plotWrap'),
-  vrBtn: document.getElementById('vrBtn'), plotBtn: document.getElementById('plotBtn'), panelBtn: document.getElementById('panelBtn'),
+  vrBtn: document.getElementById('vrBtn'), plotBtn: document.getElementById('plotBtn'), panelBtn: document.getElementById('panelBtn'), themeBtn: document.getElementById('themeBtn'),
 };
 dom.ui.appendChild(ui.canvas); dom.plots.appendChild(plotCanvas);
 function canvasXY(cv, ev) { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * cv.width / r.width, (ev.clientY - r.top) * cv.height / r.height]; }
@@ -591,6 +802,13 @@ function rayOf(src) {
 function toolDown(src) {
   if (hold.src !== null) return false;
   const { o, d } = rayOf(src);
+  if (S.tool === 'cminus' || S.tool === 'cplus') {
+    if (!isMat()) { toast('Contacts need a material: build graphene, graphite or benzene'); return false; }
+    const p = pickAtom(o, d); if (!p) return false;
+    const w = S.tool === 'cminus' ? 'm' : 'p', set = w === 'm' ? S.cm : S.cp;
+    hold.src = src; hold.kind = 'ct'; hold.grab = { w, on: !set.has(p.i) };
+    setContact(p.i, w, hold.grab.on); pulse(src, 0.4, 25); return true;
+  }
   if (S.tool === 'tweezers') {
     const p = pickAtom(o, d); if (!p) return false;
     // the spring pulls a reference point (the atom, or the centre of mass of its layer / molecule) so nothing jumps on grab
@@ -642,6 +860,8 @@ function toolUpdate() {
     const cl = (v, k) => per[k] || !isMat() ? clamp(v, 0, DM[k]) : clamp(v, -DM[k], 2 * DM[k]);
     md.ext.x = cl(r.o.x + off[0], 0); md.ext.y = cl(r.o.y + off[1], 1); md.ext.z = cl(r.o.z + off[2], 2); md.ext.i = hold.grab.i;
     if (hold.src !== 'mouse') pulse(hold.src, 0.08 + 0.5 * md.extForce, 30);
+  } else if (hold.kind === 'ct' && hold.grab) {             // drag over atoms to paint (or erase) a contact
+    const p = pickAtom(o, d); if (p) { const set = hold.grab.w === 'm' ? S.cm : S.cp; if (set.has(p.i) !== hold.grab.on) { setContact(p.i, hold.grab.w, hold.grab.on); pulse(hold.src, 0.25, 15); } }
   } else if (hold.kind === 'add' || hold.kind === 'del') {
     if (now() > hold.next) { hold.next = now() + (hold.kind === 'add' ? 140 : 220); if (hold.kind === 'add') doAdd(hold.src, o, d); else doDel(hold.src, o, d); }
   }
@@ -674,6 +894,8 @@ window.addEventListener('keydown', (e) => {
   if (e.target && /input|textarea/i.test(e.target.tagName)) return;
   if (e.code === 'Space') { S.paused = !S.paused; e.preventDefault(); }
   else if (e.key === '1') S.tool = 'tweezers'; else if (e.key === '2') S.tool = 'add'; else if (e.key === '3') S.tool = 'delete';
+  else if (e.key === '4') S.tool = 'cminus'; else if (e.key === '5') S.tool = 'cplus';
+  else if (e.key === 't' || e.key === 'T') applyTheme(S.theme === 'dark' ? 'light' : 'dark');
   else if (e.key === 'r' || e.key === 'R') { if (S.lastBuild) build(S.lastBuild); }
   else if (e.key === 'p' || e.key === 'P') dom.plotBtn.click();
 });
@@ -684,15 +906,29 @@ const xrState = { supported: false };
 if (navigator.xr && navigator.xr.isSessionSupported) {
   navigator.xr.isSessionSupported('immersive-vr').then((ok) => { xrState.supported = ok; dom.vrBtn.textContent = ok ? 'Enter VR' : 'VR not detected'; dom.vrBtn.classList.toggle('on', ok); }).catch(() => { dom.vrBtn.textContent = 'VR not detected'; });
 } else dom.vrBtn.textContent = 'WebXR unavailable';
+let vrStarting = false;
+// Chrome exposes the WebXR Layers API, and three.js then renders through a projection layer. With the Quest via
+// Meta Horizon Link that path delivers no frames at all (the headset waits, then reports "page not responding"),
+// while the classic XRWebGLLayer path works. Hiding renderState.layers on our session makes three.js take that path.
+function useBaseLayer(session) {
+  const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(session), 'renderState');
+  if (!desc || !desc.get) return;
+  Object.defineProperty(session, 'renderState', { configurable: true, get() { const r = desc.get.call(session); return new Proxy(r, { get(t, k) { if (k === 'layers') return undefined; const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } }); } });
+}
 async function enterVR() {
-  if (!navigator.xr) { S.tab = 4; return; }
+  if (!navigator.xr) { S.tab = TAB_VR; return; }
+  if (vrStarting || renderer.xr.getSession()) return;            // a second click must not ask for a second session
+  vrStarting = true; dom.vrBtn.textContent = 'Starting VR\u2026';
   try {
-    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] });
+    const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
+    useBaseLayer(session);
     await renderer.xr.setSession(session);
-  } catch (e) { toast('Could not start VR: ' + (e.message || e)); S.tab = 4; }
+  } catch (e) { toast('Could not start VR: ' + (e.message || e)); S.tab = TAB_VR; }
+  finally { vrStarting = false; dom.vrBtn.textContent = 'Enter VR'; }
 }
 function endVR() { const s = renderer.xr.getSession(); if (s) s.end(); }
-dom.vrBtn.onclick = () => { if (xrState.supported) enterVR(); else { S.tab = 4; S.helpPage = 0; toast('No VR device found - see the VR tab for setup help', 6000); } };
+dom.vrBtn.onclick = () => { if (xrState.supported) enterVR(); else { S.tab = TAB_VR; S.helpPage = 0; toast('No VR device found - see the VR tab for setup help', 6000); } };
+dom.themeBtn.onclick = () => applyTheme(S.theme === 'dark' ? 'light' : 'dark');
 
 let needRecenter = false;
 renderer.xr.addEventListener('sessionstart', () => {
@@ -704,7 +940,9 @@ renderer.xr.addEventListener('sessionend', () => {
   S.vr = false; document.body.classList.remove('vr'); uiMesh.visible = plotMesh.visible = false;
   bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); userScale = 1;
   for (const vc of vrc) { vc.src = null; vc.obj.visible = false; vc.sq = null; vc.hit = null; toolUp(vc.i); }
-  S.xr = null; renderer.setSize(window.innerWidth, window.innerHeight); camera.position.set(0.85, 1.75, 0.55); controls.update();
+  S.xr = null; renderer.setSize(window.innerWidth, window.innerHeight);
+  setTableHeight(0.9, false); placePanels(1.32); simRoot.position.copy(SIM_HOME);
+  camera.position.set(0.85, 1.75, 0.55); controls.target.copy(SIM_HOME); controls.update();
 });
 
 function recenter() {
@@ -713,11 +951,10 @@ function recenter() {
   cam.getWorldPosition(p); cam.getWorldDirection(f); f.y = 0;
   if (f.lengthSq() < 1e-4) f.set(0, 0, -1); f.normalize();
   bench.rotation.set(0, Math.atan2(-f.x, -f.z), 0); bench.position.set(p.x, 0, p.z);
+  // fit to this person, seated or standing: table half a metre below the eyes, panels just below eye level
+  setTableHeight(clamp(p.y - 0.52, 0.55, 1.05), false); placePanels(clamp(p.y - 0.12, 0.85, 1.75));
   bench.updateMatrixWorld(true);
   simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); simRoot.quaternion.copy(bench.quaternion); userScale = 1;
-  // keep the panels at a comfortable height for this person
-  const h = clamp(p.y - 0.12, 0.95, 1.7);
-  uiMesh.position.y = h; plotMesh.position.y = h - 0.02; simRoot.position.y = h + 0.02;
 }
 
 // controllers: simple geometry (no network needed)
@@ -729,7 +966,7 @@ const vrc = [0, 1].map((i) => {
   const laser = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.8 }));
   laser.scale.z = 1.5; obj.add(laser);
   const dot = new THREE.Mesh(new THREE.SphereGeometry(0.008, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff })); dot.visible = false; scene.add(dot);
-  const vc = { i, obj, laser, dot, src: null, hit: null, uiHeld: false, sq: null, prev: [false, false, false], hand: '' };
+  const vc = { i, obj, laser, dot, src: null, hit: null, hitObj: null, pg: null, uiHeld: false, sq: null, prev: [false, false, false], hand: '' };
   obj.addEventListener('connected', (e) => { vc.src = e.data; vc.hand = e.data.handedness; obj.visible = true; });
   obj.addEventListener('disconnected', () => { vc.src = null; obj.visible = false; });
   obj.addEventListener('selectstart', () => {
@@ -737,8 +974,11 @@ const vrc = [0, 1].map((i) => {
     toolDown(i);
   });
   obj.addEventListener('selectend', () => { if (vc.uiHeld) { ui.release(i); vc.uiHeld = false; } toolUp(i); });
-  obj.addEventListener('squeezestart', () => { vc.sq = true; regrab(); });
-  obj.addEventListener('squeezeend', () => { vc.sq = null; regrab(); });
+  obj.addEventListener('squeezestart', () => {
+    if (vc.hitObj === uiMesh || vc.hitObj === plotMesh) { vc.obj.updateWorldMatrix(true, false); vc.hitObj.updateWorldMatrix(true, false); vc.pg = { mesh: vc.hitObj, rel: vc.obj.matrixWorld.clone().invert().multiply(vc.hitObj.matrixWorld) }; pulse(i, 0.3, 30); return; }
+    vc.sq = true; regrab();
+  });
+  obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } vc.sq = null; regrab(); });
   return vc;
 });
 
@@ -754,7 +994,15 @@ function regrab() {
     s0: userScale, dist0: dr.length > 1 ? dr[0].obj.position.distanceTo(dr[1].obj.position) : 0, two: dr.length > 1,
   };
 }
+const pgM = new THREE.Matrix4(), pgS = new THREE.Vector3();
+function updatePanelGrabs() {
+  for (const vc of vrc) if (vc.pg) {
+    pgM.multiplyMatrices(vc.obj.matrixWorld, vc.pg.rel); pgM.premultiply(tmpM.copy(bench.matrixWorld).invert());
+    pgM.decompose(vc.pg.mesh.position, vc.pg.mesh.quaternion, pgS);
+  }
+}
 function updateGrab() {
+  updatePanelGrabs();
   if (!grabRef) return;
   const d = grabRef.drv, q = d.obj.getWorldQuaternion(new THREE.Quaternion()), p = d.obj.getWorldPosition(new THREE.Vector3());
   simRoot.position.copy(grabRef.relP).applyQuaternion(q).add(p);
@@ -768,14 +1016,14 @@ function vrInput(dt) {
   if (needRecenter && renderer.xr.getCamera().cameras && renderer.xr.getCamera().cameras.length) { recenter(); needRecenter = false; }
   bench.updateMatrixWorld(true);
   for (const vc of vrc) {
-    vc.hit = null;
+    vc.hit = null; if (!vc.pg) vc.hitObj = null;
     if (!vc.src) continue;
     const o = new THREE.Vector3().setFromMatrixPosition(vc.obj.matrixWorld), d = new THREE.Vector3(0, 0, -1).transformDirection(vc.obj.matrixWorld);
     rc.set(o, d); rc.far = 3;
     const hits = rc.intersectObjects([uiMesh, plotMesh], false);
     let len = 1.5;
     if (hits.length) {
-      const h = hits[0]; len = h.distance;
+      const h = hits[0]; len = h.distance; if (!vc.pg) vc.hitObj = h.object;
       if (h.object === uiMesh) { vc.hit = { ui: true }; ui.move(h.uv.x * CW, (1 - h.uv.y) * CH, vc.i); } else vc.hit = { ui: false };
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); }
@@ -793,6 +1041,7 @@ function vrInput(dt) {
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * 0.9, 0.12, 3.5);
         else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
+        else if (vc.hand === 'left' && isMat()) setTableHeight(S.tableH - ay * dt * 0.25);     // left stick: table up / down
         else if (md.N && !isMat()) {
           const Lmin = Math.cbrt(md.N / 1.4), Lmax = Math.cbrt(md.N / 0.02);
           const Ln = clamp(md.L * (1 - ay * dt * 0.3), Lmin, Lmax); if (Ln !== md.L) md.setBox(Ln);
@@ -819,13 +1068,44 @@ function frame() {
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('Simulation unstable: lower the time step and Rebuild', 8000); }
 
+  // transport: the live part (bond currents, current at the bias) a few times a second while atoms move; the curves on demand
+  if (isMat() && S.cm.size && S.cp.size && !TR.busy) {
+    const moving = !S.paused || md.ext.i >= 0;
+    if (TR.dirtyAt && t - TR.dirtyAt > 250) { TR.dirtyAt = 0; TR.curve = null; requestTransport(true); }
+    else if (S.live && moving && t - TR.last > 250 && (S.tab === TAB_ELEC || S.arrows)) requestTransport(S.tab === TAB_ELEC && (!TR.curve || t - TR.curveAt > 2000));
+    else if (TR.res && TR.res.N !== mat.N && t - TR.last > 250) requestTransport(false);          // atoms were added: refresh
+    else if (S.tab === TAB_ELEC && !TR.curve && !TR.err && t - TR.last > 400) requestTransport(true);
+  }
   updateAtoms();
 
   if (ui.pressed || ui.released || (ui.dirty && t - lastUI >= (S.vr ? 33 : 0)) || t - lastUI > (S.vr ? 130 : 90)) { drawControls(); lastUI = t; if (S.vr) uiTex.needsUpdate = true; }
-  if (t - lastPlot > (S.vr ? 600 : 300) && (S.plots || S.vr)) { drawPlots(pctx, plotData()); lastPlot = t; if (S.vr) plotTex.needsUpdate = true; }
+  if (t - lastPlot > (S.vr ? 600 : 300) && (S.plots || S.vr)) {
+    if (S.tab === TAB_ELEC) { const cv = TR.curve; drawElec(pctx, cv ? { E: cv.E, T: cv.T, EF: cv.EF, V: cv.V, I: cv.I, dIdV: cv.dIdV, Vbias: S.bias, gap: cv.gap, log: S.Tlog } : { status: TR.err || (TR.busy ? 'computing\u2026' : 'mark contacts, then press T(E), I(V)'), Vbias: S.bias }); }
+    else drawPlots(pctx, plotData());
+    lastPlot = t; if (S.vr) plotTex.needsUpdate = true;
+  }
   renderer.render(scene, camera);
 }
+/* ================================================================== themes */
+function applyTheme(name) {
+  S.theme = name === 'light' ? 'light' : 'dark'; const th = THEMES[S.theme];
+  setPalette(S.theme);
+  scene.background.set(th.bg); scene.fog.color.set(th.bg); scene.fog.near = th.fog[0]; scene.fog.far = th.fog[1];
+  hemi.color.set(th.hemi[0]); hemi.groundColor.set(th.hemi[1]); hemi.intensity = th.hemi[2]; sun.intensity = th.sun;
+  rim.color.set(th.accent); rim.intensity = th.rim;
+  if (room) { bench.remove(room); disposeTree(room); } room = makeRoom(th); bench.add(room);
+  deskTop.material.color.set(th.top); legM.color.set(th.cab); ring.material.color.set(th.accent); disc.material.color.set(th.accent);
+  boxEdges.material.color.set(th.accent); boxFaces.material.color.set(th.accent);
+  cMinus.set(COL.minus); cPlus.set(COL.plus);
+  document.body.classList.toggle('light', S.theme === 'light'); dom.themeBtn.textContent = S.theme === 'light' ? 'Dark lab' : 'White lab';
+  ui.dirty = true; lastPlot = 0;
+  try { localStorage.setItem('mdlab.theme', S.theme); } catch (e) { /* no storage */ }
+}
+applyTheme(S.theme);
+setTableHeight(0.9, false);
+
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR };
+window.__mdlab = { TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };

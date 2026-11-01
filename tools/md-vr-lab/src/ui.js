@@ -1,10 +1,23 @@
 // Tiny immediate-mode UI drawn on a 2D canvas. The canvas is shown as a DOM element on the desktop
 // (mouse / touch) and as a texture on a floating panel in VR (controller rays) - one code path for both.
 
-export const COL = {
-  bg: '#0d1422', card: '#162036', card2: '#1d2a45', line: '#2a3a5c', text: '#e8eef8', muted: '#9fb2cf',
-  accent: '#4ae3e1', accentDim: '#17696a', warn: '#ffb454', bad: '#ff7b7b', good: '#7be495', hover: '#26395f',
+// two palettes; COL is switched in place (setPalette), so every widget picks up the change on its next draw
+export const PALETTES = {
+  dark: {
+    bg: '#0d1422', card: '#162036', card2: '#1d2a45', line: '#2a3a5c', text: '#e8eef8', muted: '#9fb2cf',
+    accent: '#4ae3e1', accentDim: '#17696a', warn: '#ffb454', bad: '#ff7b7b', good: '#7be495', hover: '#26395f',
+    track: '#26324f', off: '#3a4663', disabled: '#6b7a95', dangerBg: '#4a1d27', onText: '#04202a', primaryHover: '#1f8c8d',
+    grid: '#223152', ghost: '#5a6a8c', blue: '#6aa8ff', minus: '#5b8cff', plus: '#ff6a5c',
+  },
+  light: {
+    bg: '#f6f8fb', card: '#e8edf4', card2: '#dfe6f0', line: '#b9c5d6', text: '#15202f', muted: '#4f5f79',
+    accent: '#0b827f', accentDim: '#a8dedb', warn: '#a95f00', bad: '#c0352a', good: '#1d7f45', hover: '#d2deef',
+    track: '#cfd8e5', off: '#aab6c8', disabled: '#97a3b6', dangerBg: '#f6d8d5', onText: '#ffffff', primaryHover: '#8fd3cf',
+    grid: '#d5dde8', ghost: '#9aa7bb', blue: '#2f6fd6', minus: '#2357d6', plus: '#d23a2c',
+  },
 };
+export const COL = Object.assign({}, PALETTES.dark);
+export function setPalette(name) { Object.assign(COL, PALETTES[name] || PALETTES.dark); }
 
 export class UI {
   constructor(w, h) {
@@ -109,12 +122,12 @@ export class UI {
     if (hov) this.cursorOver = true;
     let bg = COL.card2, fg = COL.text, bd = COL.line;
     if (o.primary) { bg = COL.accentDim; bd = COL.accent; }
-    if (o.danger) { bg = '#4a1d27'; bd = COL.bad; }
-    if (o.active) { bg = COL.accent; fg = '#04202a'; bd = COL.accent; }
-    if (hov) { if (!o.active) bg = o.primary ? '#1f8c8d' : COL.hover; bd = COL.accent; }
-    if (o.disabled) { fg = '#6b7a95'; }
+    if (o.danger) { bg = COL.dangerBg; bd = COL.bad; }
+    if (o.active) { bg = COL.accent; fg = COL.onText; bd = COL.accent; }
+    if (hov) { if (!o.active) bg = o.primary ? COL.primaryHover : COL.hover; bd = COL.accent; }
+    if (o.disabled) { fg = COL.disabled; }
     c.fillStyle = bg; roundRect(c, r.x, r.y, r.w, r.h, 14); c.fill();
-    c.strokeStyle = hov && this.down ? '#fff' : bd; c.lineWidth = hov ? 3 : 2; roundRect(c, r.x, r.y, r.w, r.h, 14); c.stroke();
+    c.strokeStyle = hov && this.down ? COL.text : bd; c.lineWidth = hov ? 3 : 2; roundRect(c, r.x, r.y, r.w, r.h, 14); c.stroke();
     c.fillStyle = fg; c.font = '600 ' + (o.size || 23) + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
     this._advance(r.h);
     return hov && this.pressed && this.owner !== null;
@@ -136,7 +149,7 @@ export class UI {
     c.fillStyle = hov ? COL.hover : COL.card; roundRect(c, r.x, r.y, r.w, r.h, 14); c.fill();
     c.font = '22px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.text; c.fillText(label, r.x + 16, r.y + r.h / 2 + 1);
     const sw = 64, sh = 30, sx = r.x + r.w - sw - 14, sy = r.y + (r.h - sh) / 2;
-    c.fillStyle = value ? COL.accent : '#3a4663'; roundRect(c, sx, sy, sw, sh, 15); c.fill();
+    c.fillStyle = value ? COL.accent : COL.off; roundRect(c, sx, sy, sw, sh, 15); c.fill();
     c.fillStyle = '#fff'; c.beginPath(); c.arc(value ? sx + sw - 15 : sx + 15, sy + 15, 11, 0, 6.2832); c.fill();
     this._advance(r.h);
     return hov && this.pressed ? !value : value;
@@ -158,10 +171,10 @@ export class UI {
     const f = o.log ? Math.log(v / min) / Math.log(max / min) : (v - min) / (max - min);
     c.font = '21px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.muted; c.fillText(label, r.x, r.y + 14);
     c.textAlign = 'right'; c.font = '700 23px system-ui,Segoe UI,sans-serif'; c.fillStyle = COL.text; c.fillText(fmt(v), r.x + r.w, r.y + 14);
-    c.fillStyle = '#26324f'; roundRect(c, trackX, ty - 5, trackW, 10, 5); c.fill();
+    c.fillStyle = COL.track; roundRect(c, trackX, ty - 5, trackW, 10, 5); c.fill();
     c.fillStyle = COL.accentDim; roundRect(c, trackX, ty - 5, Math.max(10, trackW * f), 10, 5); c.fill();
     const kx = trackX + trackW * f, act = this.active === id || hov;
-    c.fillStyle = act ? '#fff' : COL.accent; c.beginPath(); c.arc(kx, ty, act ? 16 : 13, 0, 6.2832); c.fill();
+    c.fillStyle = act ? COL.text : COL.accent; c.beginPath(); c.arc(kx, ty, act ? 16 : 13, 0, 6.2832); c.fill();
     this._advance(r.h);
     return v;
   }
@@ -169,7 +182,7 @@ export class UI {
   // thin progress / status bar
   bar(frac, color = COL.accent, h = 10) {
     const r = this._rect(h), c = this.ctx;
-    c.fillStyle = '#26324f'; roundRect(c, r.x, r.y, r.w, h, h / 2); c.fill();
+    c.fillStyle = COL.track; roundRect(c, r.x, r.y, r.w, h, h / 2); c.fill();
     c.fillStyle = color; roundRect(c, r.x, r.y, Math.max(h, r.w * Math.max(0, Math.min(1, frac))), h, h / 2); c.fill();
     this._advance(h);
   }
