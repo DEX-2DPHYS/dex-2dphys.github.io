@@ -75,7 +75,7 @@ function showXRLog(onLoad) {
   } catch (e) { /* ignore */ }
 }
 showXRLog(true);
-{ const b = document.createElement("div"); b.textContent = "build 261101.8"; b.style.cssText = "position:fixed;right:8px;bottom:6px;color:#6f6458;font:11px system-ui,sans-serif;z-index:30;pointer-events:none"; document.body.appendChild(b); }
+{ const b = document.createElement("div"); b.textContent = "build 261101.9"; b.style.cssText = "position:fixed;right:8px;bottom:6px;color:#6f6458;font:11px system-ui,sans-serif;z-index:30;pointer-events:none"; document.body.appendChild(b); }
 renderer.setClearColor(0x000000, 1);   // the clear colour reaches the output sRGB-encoded: keep it truly black
 renderer.domElement.tabIndex = 0;
 stage.appendChild(renderer.domElement);
