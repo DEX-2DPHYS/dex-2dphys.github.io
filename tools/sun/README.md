@@ -71,6 +71,14 @@ instrument change never recompiles. `checkShaderErrors` is on only with `?debug=
 8-cell granulation search. Chrome on a PC (also in VR through Quest Link) keeps everything.
 Fewer fbm octaves were measured (2.5 -> 1.7 s link) and rejected: they blotch the faculae.
 
+**A dark headset = the GPU gave up.** In VR the scene is drawn at `rtScale` of the headset framebuffer
+(LITE starts at 55 %, max 80 %; PC max 100 %; `?xrrt=` sets the max) and adapts to the frame rate
+(below ~75 % of the session rate: x0.8, down to 30 %). Each eye's viewport is scaled with it - three
+sets them in framebuffer pixels. No MSAA in LITE; 8-bit target if the GPU cannot render half float.
+The wrist panel shows fps and resolution. `webglcontextlost` shows a notice, stores what it knew
+(GPU, mode, resolution, fps) in localStorage `sun.lost` and reloads with `?lite=1&safe=1` (lower start
+resolution); the next load reports it. The flat page in LITE lowers its pixel ratio (to 0.5) when slow.
+
 Right stick fly · left stick forward/back world size, sideways snap turn · grip grab the world ·
 right trigger read-out · A instrument · B next view (with a fade) · X flare + CME · Y cutaway ·
 left trigger listen · stick press: T-map (right), field lines (left). `?xr=vr` starts VR at once,
