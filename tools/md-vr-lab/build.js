@@ -11,7 +11,7 @@ if (!MODULES.length) { console.error('no node_modules found: run  npm install th
 const esbuild = require(path.join(MODULES[0], 'esbuild'));
 const built = esbuild.buildSync({
   entryPoints: [path.join(here, 'src/main.js')],
-  bundle: true, format: 'iife', minify: true, target: ['es2020'], legalComments: 'none',
+  bundle: true, format: 'iife', minify: true, target: ['es2020'], legalComments: 'none', loader: { '.jpg': 'dataurl' },
   nodePaths: MODULES, write: false, outfile: 'bundle.js', logLevel: 'warning',
 });
 // the transport worker (src/tbworker.js) is bundled on its own and handed to the page as a string (started from a Blob URL)

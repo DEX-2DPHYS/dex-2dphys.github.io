@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Tiny immediate-mode UI drawn on a 2D canvas. The canvas is shown as a DOM element on the desktop
 // (mouse / touch) and as a texture on a floating panel in VR (controller rays) - one code path for both.
 
@@ -71,7 +72,7 @@ export class UI {
 
   /* ---- widgets ---- */
   header(text, sub) {
-    const c = this.ctx;
+    text = tr(text); sub = tr(sub); const c = this.ctx;
     c.fillStyle = COL.accent; c.font = '700 30px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left';
     c.fillText(text, this.pad, this.y + 18);
     if (sub) { c.fillStyle = COL.muted; c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillText(sub, this.w - this.pad, this.y + 18); }
@@ -79,14 +80,14 @@ export class UI {
   }
 
   label(text, o = {}) {
-    const c = this.ctx, size = o.size || 22;
+    text = tr(text); const c = this.ctx, size = o.size || 22;
     c.font = (o.bold ? '700 ' : '') + size + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = o.color || COL.muted;
     c.fillText(text, this.pad + (o.indent || 0), this.y + size * 0.6);
     this.y += size + 8;
   }
 
   section(text) {
-    const c = this.ctx;
+    text = tr(text); const c = this.ctx;
     this.y += 4;
     c.font = '700 21px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.accent;
     c.fillText(text.toUpperCase(), this.pad, this.y + 12);
@@ -95,7 +96,7 @@ export class UI {
   }
 
   paragraph(text, o = {}) {
-    const c = this.ctx, size = o.size || 22, lh = Math.round(size * 1.32), maxW = this.w - 2 * this.pad - (o.indent || 0);
+    text = tr(text); const c = this.ctx, size = o.size || 22, lh = Math.round(size * 1.32), maxW = this.w - 2 * this.pad - (o.indent || 0);
     c.font = (o.bold ? '700 ' : '') + size + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = o.color || COL.text;
     let line = '';
     for (const para of String(text).split('\n')) {
@@ -110,14 +111,14 @@ export class UI {
   }
 
   readout(label, value, o = {}) {
-    const r = this._rect(o.h || 34), c = this.ctx;
+    label = tr(label); value = tr(value); const r = this._rect(o.h || 34), c = this.ctx;
     c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.muted; c.fillText(label, r.x, r.y + r.h / 2);
     c.font = '700 24px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillStyle = o.color || COL.text; c.fillText(value, r.x + r.w, r.y + r.h / 2);
     this._advance(r.h);
   }
 
   button(label, o = {}) {
-    const r = this._rect(o.h || 58), c = this.ctx;
+    label = tr(label); const r = this._rect(o.h || 58), c = this.ctx;
     const hov = this._hover(r) && !o.disabled;
     if (hov) this.cursorOver = true;
     let bg = COL.card2, fg = COL.text, bd = COL.line;
@@ -126,9 +127,12 @@ export class UI {
     if (o.active) { bg = COL.accent; fg = COL.onText; bd = COL.accent; }
     if (hov) { if (!o.active) bg = o.primary ? COL.primaryHover : COL.hover; bd = COL.accent; }
     if (o.disabled) { fg = COL.disabled; }
+    if (o.bg) { bg = o.bg; fg = o.fg || fg; if (!hov && !o.active) bd = o.bd || bg; }       // custom colours (periodic table)
+    const ga = c.globalAlpha; if (o.alpha !== undefined) c.globalAlpha = o.alpha;
     c.fillStyle = bg; roundRect(c, r.x, r.y, r.w, r.h, 14); c.fill();
     c.strokeStyle = hov && this.down ? COL.text : bd; c.lineWidth = hov ? 3 : 2; roundRect(c, r.x, r.y, r.w, r.h, 14); c.stroke();
     c.fillStyle = fg; c.font = '600 ' + (o.size || 23) + 'px system-ui,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+    c.globalAlpha = ga;
     this._advance(r.h);
     return hov && this.pressed && this.owner !== null;
   }
@@ -144,7 +148,7 @@ export class UI {
   }
 
   toggle(label, value, o = {}) {
-    const r = this._rect(o.h || 52), c = this.ctx;
+    label = tr(label); const r = this._rect(o.h || 52), c = this.ctx;
     const hov = this._hover(r); if (hov) this.cursorOver = true;
     c.fillStyle = hov ? COL.hover : COL.card; roundRect(c, r.x, r.y, r.w, r.h, 14); c.fill();
     c.font = '22px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.text; c.fillText(label, r.x + 16, r.y + r.h / 2 + 1);
@@ -169,8 +173,8 @@ export class UI {
       v = Math.max(min, Math.min(max, v));
     }
     const f = o.log ? Math.log(v / min) / Math.log(max / min) : (v - min) / (max - min);
-    c.font = '21px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.muted; c.fillText(label, r.x, r.y + 14);
-    c.textAlign = 'right'; c.font = '700 23px system-ui,Segoe UI,sans-serif'; c.fillStyle = COL.text; c.fillText(fmt(v), r.x + r.w, r.y + 14);
+    c.font = '21px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.muted; c.fillText(tr(label), r.x, r.y + 14);
+    c.textAlign = 'right'; c.font = '700 23px system-ui,Segoe UI,sans-serif'; c.fillStyle = COL.text; c.fillText(tr(fmt(v)), r.x + r.w, r.y + 14);
     c.fillStyle = COL.track; roundRect(c, trackX, ty - 5, trackW, 10, 5); c.fill();
     c.fillStyle = COL.accentDim; roundRect(c, trackX, ty - 5, Math.max(10, trackW * f), 10, 5); c.fill();
     const kx = trackX + trackW * f, act = this.active === id || hov;

@@ -471,16 +471,16 @@ export class Mat {
     const e = this.ext, N = this.N; this.extForce = 0; this.extForceEV = 0;
     if (e.i < 0 || e.i >= N) return 0;
     const fx = this.fx, fy = this.fy, fz = this.fz;
-    if (e.mode === 'group') {
-      const g = this.grp[e.i]; let M = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0, n = 0;
+    if (e.mode === 'group' || e.mode === 'frag') {
+      const g = this.grp[e.i], fr = e.mode === 'frag' && e.mask, inG = (k) => (fr ? fr[k] === 1 : this.grp[k] === g); let M = 0, cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0, n = 0;
       const x0 = this.x[e.i], y0 = this.y[e.i], z0 = this.z[e.i];
-      for (let i = 0; i < N; i++) if (this.grp[i] === g) { const m = this.mass[i]; M += m; n++; cx += m * this.mi(this.x[i] - x0, this.Lx, this.per[0]); cy += m * this.mi(this.y[i] - y0, this.Ly, this.per[1]); cz += m * this.mi(this.z[i] - z0, this.Lz, this.per[2]); vx += m * this.vx[i]; vy += m * this.vy[i]; vz += m * this.vz[i]; }
+      for (let i = 0; i < N; i++) if (inG(i)) { const m = this.mass[i]; M += m; n++; cx += m * this.mi(this.x[i] - x0, this.Lx, this.per[0]); cy += m * this.mi(this.y[i] - y0, this.Ly, this.per[1]); cz += m * this.mi(this.z[i] - z0, this.Lz, this.per[2]); vx += m * this.vx[i]; vy += m * this.vy[i]; vz += m * this.vz[i]; }
       cx = cx / M + x0; cy = cy / M + y0; cz = cz / M + z0; vx /= M; vy /= M; vz /= M;
       const K = this.grpK * n, cap = this.grpCap * n; let Fx = K * this.mi(e.x - cx, this.Lx, this.per[0]), Fy = K * this.mi(e.y - cy, this.Ly, this.per[1]), Fz = K * this.mi(e.z - cz, this.Lz, this.per[2]);
       const fm = Math.hypot(Fx, Fy, Fz); if (fm > cap) { const s = cap / fm; Fx *= s; Fy *= s; Fz *= s; }
       const gam = this.grpGam;               // strong damping of the centre-of-mass motion: the layer follows the hand slowly (~100 m/s)
       Fx -= gam * M * vx; Fy -= gam * M * vy; Fz -= gam * M * vz;
-      for (let i = 0; i < N; i++) if (this.grp[i] === g) { const w = this.mass[i] / M; fx[i] += Fx * w; fy[i] += Fy * w; fz[i] += Fz * w; }
+      for (let i = 0; i < N; i++) if (inG(i)) { const w = this.mass[i] / M; fx[i] += Fx * w; fy[i] += Fy * w; fz[i] += Fz * w; }
       this.extForce = Math.min(1, fm / cap); this.extForceEV = Math.min(fm, cap); return 0;
     }
     const i = e.i; let dx = this.mi(e.x - this.x[i], this.Lx, this.per[0]), dy = this.mi(e.y - this.y[i], this.Ly, this.per[1]), dz = this.mi(e.z - this.z[i], this.Lz, this.per[2]);
@@ -532,6 +532,7 @@ export class Mat {
     if (i < 0 || i >= this.N || this.model === 'ff') return;
     const l = --this.N; this.listDirty = true;
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_', 'fixed']) this[k][i] = this[k][l]; }
+    if (this.ext.mask) { this.ext.mask[i] = this.ext.mask[l]; this.ext.mask[l] = 0; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
     if (this.model === 'uff') this.chem.removeAtom(i, l);
     if (!noForces) this.computeForces();
@@ -650,6 +651,26 @@ export class Mat {
     this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.per = [false, false, false];
     this.Lx = this.Ly = this.Lz = span; this.chem.clear(); this.name = 'Empty box \u00B7 chemistry'; this.listDirty = true; this.finish(10, 0.3);
   }
+  // the connected piece an atom belongs to: chemical bonds in the chemistry model, otherwise bond-length contacts
+  // (graphite layers 3.35 A apart stay separate pieces). Returns a mask over the atoms and their count.
+  fragmentMask(i0) {
+    const N = this.N, mask = new Uint8Array(this.x.length), st = [i0]; mask[i0] = 1; let n = 1;
+    const adj = this.model === 'uff' && this.chem ? (() => { const a = Array.from({ length: N }, () => []); for (const [p, q] of this.chem.bonds) if (p < N && q < N) { a[p].push(q); a[q].push(p); } return a; })() : null;
+    while (st.length) {
+      const i = st.pop();
+      if (adj) { for (const j of adj[i]) if (!mask[j]) { mask[j] = 1; n++; st.push(j); } continue; }
+      const ri = SPECIES[this.sp[i]].bond;
+      for (let j = 0; j < N; j++) {
+        if (mask[j]) continue; const c = Math.max(ri, SPECIES[this.sp[j]].bond);
+        const dx = this.mi(this.x[j] - this.x[i], this.Lx, this.per[0]); if (dx > c || dx < -c) continue;
+        const dy = this.mi(this.y[j] - this.y[i], this.Ly, this.per[1]); if (dy > c || dy < -c) continue;
+        const dz = this.mi(this.z[j] - this.z[i], this.Lz, this.per[2]);
+        if (dx * dx + dy * dy + dz * dz < c * c) { mask[j] = 1; n++; st.push(j); }
+      }
+    }
+    return { mask, n };
+  }
+  maskCOM(i, mask) { const x0 = this.x[i], y0 = this.y[i], z0 = this.z[i]; let M = 0, a = 0, b = 0, c = 0; for (let k = 0; k < this.N; k++) if (mask[k]) { const m = this.mass[k]; M += m; a += m * this.mi(this.x[k] - x0, this.Lx, this.per[0]); b += m * this.mi(this.y[k] - y0, this.Ly, this.per[1]); c += m * this.mi(this.z[k] - z0, this.Lz, this.per[2]); } return [x0 + a / M, y0 + b / M, z0 + c / M]; }
   groupCOM(i) { const g = this.grp[i], x0 = this.x[i], y0 = this.y[i], z0 = this.z[i]; let M = 0, a = 0, b = 0, c = 0; for (let k = 0; k < this.N; k++) if (this.grp[k] === g) { const m = this.mass[k]; M += m; a += m * this.mi(this.x[k] - x0, this.Lx, this.per[0]); b += m * this.mi(this.y[k] - y0, this.Ly, this.per[1]); c += m * this.mi(this.z[k] - z0, this.Lz, this.per[2]); } return [x0 + a / M, y0 + b / M, z0 + c / M]; }
   switchBoundary() { }
   setBox() { }
