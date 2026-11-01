@@ -1307,15 +1307,19 @@ function toLocal(o, d) {
   const lo = o.clone().applyMatrix4(tmpM), ld = d.clone().transformDirection(tmpM);
   return { o: lo, d: ld, s: simRoot.scale.x };
 }
-function pickAtom(o, d) {
-  const r = toLocal(o, d), R2 = isMat() ? 0.55 * 0.55 : 0.7 * 0.7; let best = -1, bt = 1e9;
+// the atom the ray points at: of the atoms within Rpick of the ray (A; 1.6 for materials, so a laser between the atoms of a
+// sheet still finds it), take the front layer (within 1.5 A of the nearest one) and in it the atom closest to the ray
+function pickAtom(o, d, Rpick = 0) {
+  const r = toLocal(o, d), R = Rpick || (isMat() ? 1.6 : 0.7), R2 = R * R; let tmin = 1e9;
+  const T = new Float64Array(md.N), D2 = new Float64Array(md.N);
   for (let i = 0; i < md.N; i++) {
     const px = md.x[i] - r.o.x, py = md.y[i] - r.o.y, pz = md.z[i] - r.o.z;
-    const t = px * r.d.x + py * r.d.y + pz * r.d.z; if (t < 0) continue;
-    const d2 = px * px + py * py + pz * pz - t * t;
-    if (d2 < R2 && t < bt) { bt = t; best = i; }
+    const t = px * r.d.x + py * r.d.y + pz * r.d.z; T[i] = t; D2[i] = t < 0 ? 1e9 : px * px + py * py + pz * pz - t * t;
+    if (D2[i] < R2 && t < tmin) tmin = t;
   }
-  return best < 0 ? null : { i: best, t: bt, s: r.s };
+  if (tmin === 1e9) return null;
+  let best = -1, bd = 1e9; for (let i = 0; i < md.N; i++) if (D2[i] < R2 && T[i] < tmin + 1.5 && D2[i] < bd) { bd = D2[i]; best = i; }
+  return { i: best, t: T[best], s: r.s };
 }
 function rayBox(o, d) {
   const r = toLocal(o, d), DM = dims(); let t0 = 0, t1 = 1e9;
@@ -1482,7 +1486,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 renderer.domElement.addEventListener('pointerdown', (e) => {
   setMouse(e);
   let hit = false;
-  if (e.button === 0 && e.shiftKey && !S.vr && isMat() && md.N && !carry) { const p = pickAtom(mouseRay.origin, mouseRay.direction); if (p) { startCarry('mouse', p.i); hit = true; } }
+  if (e.button === 0 && e.shiftKey && !S.vr && isMat() && md.N && !carry) { const p = pickAtom(mouseRay.origin, mouseRay.direction, 2.0); if (p) { startCarry('mouse', p.i); hit = true; } }
   if (!hit) hit = e.button === 0 && !S.vr && toolDown('mouse');
   controls.mouseButtons.LEFT = hit ? -1 : THREE.MOUSE.ROTATE; controls.touches.ONE = hit ? -1 : THREE.TOUCH.ROTATE;
 }, true);
@@ -1618,7 +1622,7 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('selectend', () => { if (vc.uiHeld) { vc.uiHeld.release(i); vc.uiHeld = null; } toolUp(i); });
   obj.addEventListener('squeezestart', () => {
     if (vc.hitObj === uiMesh || vc.hitObj === plotMesh || vc.hitObj === tbMesh || vc.hitObj === ptMesh) { vc.obj.updateWorldMatrix(true, false); vc.hitObj.updateWorldMatrix(true, false); vc.pg = { mesh: vc.hitObj, rel: vc.obj.matrixWorld.clone().invert().multiply(vc.hitObj.matrixWorld) }; pulse(i, 0.3, 30); return; }
-    if (isMat() && md.N && !carry) { const r = rayOf(i), p = pickAtom(r.o, r.d); if (p) { startCarry(i, p.i); vc.sheet = true; pulse(i, 0.5, 40); return; } }
+    if (isMat() && md.N && !carry) { const r = rayOf(i), p = pickAtom(r.o, r.d, 2.0); if (p) { startCarry(i, p.i); vc.sheet = true; pulse(i, 0.5, 40); return; } }
     vc.sq = true; regrab();
   });
   obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; stopCarry(); return; } vc.sq = null; regrab(); });
