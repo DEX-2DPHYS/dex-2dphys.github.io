@@ -54,6 +54,26 @@ run round the boundary.
 current, Kirchhoff at every inner atom of a flake, benzene para / meta / ortho interference, uniform vs dimerised carbon chain
 (gap = 2|t₁ − t₂|), open flakes stable for 3 ps at 300 K, periodic sheets unchanged, speed.
 
+## Chemistry mode (BUILD → Materials → Chemistry)
+
+Explicit bonds between any of the main-group elements H, B, C, N, O, F, Si, P, S, Cl, Br, I on the Universal Force Field
+(`src/chem.js`, Rappé et al. 1992). Graphene, graphite, benzene and nanodiamond are converted to bonds as built; *Empty box*
+starts from nothing.
+
+- Tools: **Attach** (pick an element, click an atom; the new atom goes on the side you point from; *Fill valence with H*
+  turns O into OH, C into CH₃, N into NH₂), **Bond** (click two atoms), **Add**, **Delete**. Valence is enforced
+  (H 1, O 2, N 3, C 4 …); the hybridisation follows the number of bonds, so an attached graphene carbon becomes sp³,
+  puckers ~0.4 Å out of the sheet and its C–C bonds stretch from 1.42 to ~1.51 Å.
+- Bonds are Morse (70 kcal/mol per bond order) times a smooth switch between 1.25 and 1.6 rest lengths; past 1.6 the bond
+  is removed, so atoms can be pulled off with the tweezers. Angles (UFF Fourier), torsions, sp² inversion, UFF van der
+  Waals (1-2, 1-3 excluded), no charges. One change from UFF: aromatic C–C in a sheet rests at 1.42 Å (graphene).
+- Attach places the new atoms clear of their neighbours and relaxes them before the dynamics continue.
+- Transport: carbons with 4 bonds (sp³) carry no π orbital; other elements carry none either (a vacancy-like model
+  of an adsorbate). Published adsorbate orbital parameters (H, F, OH, CH₃) are not in yet.
+- `test/chem.test.mjs` (15 checks): forces against −∇E for every term including the bond switch, CH₄, H₂O and benzene
+  geometry, valence refusals, H fill, pucker and C–C stretch for H / F / OH on graphene, pulling an F off breaks exactly its
+  bond, a decorated flake stays intact for 2 ps at 300 K, adsorbates remove π orbitals and lower T(E) near E_F.
+
 ## Room, table and panels
 
 - Dark or white lab (VR tab, the *White lab* button, or key T). The furnished room (benches, cabinets, shelves, windows) is merged
