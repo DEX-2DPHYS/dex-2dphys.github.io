@@ -165,7 +165,7 @@ export class MD {
     return i;
   }
 
-  removeAtom(i) {
+  removeAtom(i, noForces = false) {
     if (i < 0 || i >= this.N) return;
     const l = --this.N; this.listDirty = true;
     if (i !== l) {
@@ -173,7 +173,7 @@ export class MD {
       this.z_[i] = this.z_[l];
     }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
-    this.computeForces();
+    if (!noForces) this.computeForces();
   }
 
   // Change the box edge, scaling positions affinely (a piston move). Positions only: velocities kept.
