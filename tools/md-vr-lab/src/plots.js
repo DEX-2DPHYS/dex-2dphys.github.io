@@ -84,13 +84,12 @@ export function drawPlots(c, d) {
   }
   // 3. g(r)
   {
-    const a = frame(c, m, 2 * m + h, w, h, 'Radial distribution g(r)', 'r (nm)', 'g(r)');
+    const a = frame(c, m, 2 * m + h, w, h, d.rdfTitle || 'Radial distribution g(r)', d.rdfX || 'r (nm)', d.rdfY || 'g(r)');
     const { r, g } = d.rdf;
-    let top = 3; for (const v of g) if (v > top) top = v * 1.05;
+    let top = d.rdfMin || 3; for (const v of g) if (v > top) top = v * 1.05;
     const L = { x: 0, y: 0 }, H = { x: r.length ? r[r.length - 1] : 1, y: top };
-    ticks(c, a, L, H, 5, 3, f2, f1);
-    // g = 1 reference
-    c.setLineDash([8, 8]); line(c, a, L, H, [0, H.x], [1, 1], '#5a6a8c', 1.5); c.setLineDash([]);
+    ticks(c, a, L, H, 5, 3, d.rdfRef === false ? f1 : f2, top < 2 ? f2 : f1);
+    if (d.rdfRef !== false) { c.setLineDash([8, 8]); line(c, a, L, H, [0, H.x], [1, 1], '#5a6a8c', 1.5); c.setLineDash([]); }
     line(c, a, L, H, r, g, COL.accent, 3);
   }
   // 4. MSD

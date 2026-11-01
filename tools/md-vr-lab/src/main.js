@@ -3,19 +3,35 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { MD, ELEMENTS, units, MAXN, clamp } from './physics.js';
+import { Mat, TU_FS, SPECIES, TERSOFF } from './materials.js';
 import { UI, COL } from './ui.js';
 import { drawPlots, PW, PH } from './plots.js';
 import { TASKS, VR_HELP } from './content.js';
 
 /* ================================================================== state */
-const md = new MD(MAXN);
-const B = { el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30 };           // build recipe shown on the BUILD tab
+const lj = new MD(MAXN), mat = new Mat(1200);
+let md = lj;                                                                 // the active engine: noble-gas LJ or the materials engine
+const B = { sys: 'lj', el: 'Ar', cells: 4, start: 'fcc', rho: 1.0, T0: 30,   // build recipe shown on the BUILD tab
+  mat: 'graphene', size: 8, layers: 3, nmol: 7, rad: 7, Tm: 300 };
+const MAT_DEFAULTS = { benzene: { nmol: 7, Tm: 100 }, graphene: { size: 8, Tm: 300 }, graphite: { size: 7, layers: 3, Tm: 300 }, mos2: { size: 7, layers: 2, Tm: 300 }, nanodiamond: { rad: 7, Tm: 300 } };
+const MAT_INFO = {
+  benzene: 'OPLS-style force field: bonds, angles, planarity; LJ + charges between molecules.',
+  graphene: 'Tersoff carbon (Lindsay-Broido): covalent bonds that can break and re-form.',
+  graphite: 'Tersoff layers + Lennard-Jones van der Waals between layers (AB stacking).',
+  mos2: 'Stillinger-Weber (Jiang) layers + van der Waals between layers (2H stacking).',
+  nanodiamond: 'Tersoff carbon cluster cut from diamond. Bare surface: it can reconstruct.',
+};
 const S = {
   el: 'Ar', TsetK: 30, thermo: true, paused: false, dt: 0.004, speed: 10, periodic: true,
-  color: 'speed', tool: 'tweezers', trail: true, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
+  color: 'speed', tool: 'tweezers', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
 };
-let U = units(S.el);
+const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
+const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
+let U = ljUnits(S.el);
+const isMat = () => md === mat;
+const dims = () => isMat() ? [mat.Lx, mat.Ly, mat.Lz] : [md.L, md.L, md.L];
+const perAxis = () => isMat() ? mat.per : (md.periodic ? [true, true, true] : [false, false, false]);
 const now = () => performance.now();
 const toast = (m, ms = 4000) => { S.msg = m; S.msgUntil = now() + ms; };
 
@@ -66,7 +82,8 @@ const bench = new THREE.Group(); scene.add(bench);
 
 /* ---------- simulation objects ---------- */
 const simRoot = new THREE.Group(); scene.add(simRoot);           // placed in the world, scaled: world metres per sigma
-const inner = new THREE.Group(); simRoot.add(inner);             // box coordinates [0,L]^3 -> centred
+const tilt = new THREE.Group(); simRoot.add(tilt);                // lays 2D sheets flat on the bench (sim z -> up)
+const inner = new THREE.Group(); tilt.add(inner);             // box coordinates [0,L]^3 -> centred
 const SIM_HOME = new THREE.Vector3(0, 1.33, -1.0);               // in bench coordinates
 simRoot.position.copy(SIM_HOME);
 let userScale = 1, wps = 0.1;                                     // wps = metres per sigma at build time
@@ -103,7 +120,9 @@ const H = { t: [], T: [], ke: [], pe: [], e: [], P: [], mt: [], my: [], pt: [], 
 function resetHistory() { for (const k of ['t', 'T', 'ke', 'pe', 'e', 'P', 'mt', 'my', 'pt', 'py']) H[k].length = 0; H.lastStep = md.step; S.D = null; }
 
 function build(recipe, opts = {}) {
-  S.el = recipe.el; U = units(S.el);
+  S.lastBuild = Object.assign({}, recipe);
+  if (recipe.sys === 'mat') return buildMat(recipe, opts);
+  md = lj; S.el = recipe.el; U = ljUnits(S.el); if (S.dt > 0.02 || S.dt < 0.001) S.dt = 0.004;
   md.periodic = S.periodic; md.dt = S.dt;
   const Ts = U.Tstar(recipe.T0);
   try {
@@ -111,10 +130,33 @@ function build(recipe, opts = {}) {
   } catch (e) { toast(String(e.message || e)); return; }
   md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
   wps = clamp(0.5 / md.L, 0.03, 0.12);
-  S.paused = false; S.lastBuild = Object.assign({}, recipe);
+  S.paused = false; if (S.color === 'el' && !opts.keepColor) S.color = 'speed';
   resetHistory(); retag();
-  atoms.material.color.set(0xffffff);
   if (!opts.quiet) toast(`Built ${md.N} ${ELEMENTS[S.el].name.toLowerCase()} atoms in a ${U.nm(md.L).toFixed(2)} nm box`);
+}
+
+function buildMat(r, opts) {
+  const T0 = r.Tm, n = Math.round(r.size), ny = Math.max(2, Math.round(n / 1.73));
+  try {
+    if (r.mat === 'benzene') mat.buildBenzene(Math.round(r.nmol), T0);
+    else if (r.mat === 'graphene') mat.buildGraphene(n, ny, T0);
+    else if (r.mat === 'graphite') mat.buildGraphite(n, ny, Math.round(r.layers), T0);
+    else if (r.mat === 'mos2') mat.buildMoS2(n, ny, Math.round(r.layers), T0);
+    else mat.buildNanodiamond(r.rad, T0);
+  } catch (e) { toast(String(e.message || e)); return; }
+  md = mat; U = matUnits(); S.el = r.mat;
+  S.TsetK = T0; S.thermo = true; mat.thermostat = true; mat.Ttarget = T0; S.dtFs = mat.dt * TU_FS;
+  if (S.color === 'speed' && !opts.keepColor) S.color = 'el';
+  S.tool = S.tool === 'add' && r.mat === 'benzene' ? 'tweezers' : S.tool;
+  S.grab = (r.mat === 'graphite' || r.mat === 'mos2' || r.mat === 'benzene') ? 'group' : 'atom';
+  S.addSp = r.mat === 'mos2' ? 3 : 0;
+  // metres per angstrom so that the object is about half a metre across
+  let ext;
+  if (mat.periodicAny) ext = Math.max(mat.Lx, mat.Ly);
+  else { let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < mat.N; i++) { lo[0] = Math.min(lo[0], mat.x[i]); hi[0] = Math.max(hi[0], mat.x[i]); lo[1] = Math.min(lo[1], mat.y[i]); hi[1] = Math.max(hi[1], mat.y[i]); lo[2] = Math.min(lo[2], mat.z[i]); hi[2] = Math.max(hi[2], mat.z[i]); } ext = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) + 5; }
+  wps = clamp(0.45 / ext, 0.006, 0.14);
+  S.paused = false; resetHistory(); retag();
+  if (!opts.quiet) toast(`Built ${mat.name}: ${mat.N} atoms`);
 }
 
 function equilibrate(steps, TsetK) {
@@ -123,6 +165,7 @@ function equilibrate(steps, TsetK) {
 }
 
 function addRandom(k) {
+  if (isMat()) { toast('Use the Add tool to place atoms in a material'); return; }
   let ok = 0;
   for (let i = 0; i < k; i++) if (md.addAtom(Math.random() * md.L, Math.random() * md.L, Math.random() * md.L) >= 0) ok++;
   if (ok < k) toast(ok ? `Only room for ${ok} more atoms` : 'The box is full - expand it first');
@@ -136,10 +179,11 @@ function removeAtomAt(i) {
 function removeRandom(k) { for (let i = 0; i < k && md.N > 2; i++) removeAtomAt(Math.floor(Math.random() * md.N)); }
 
 function applyTask(t) {
-  Object.assign(B, t.setup.build);
+  Object.assign(B, { sys: 'lj' }, t.setup.build);
   S.TsetK = t.setup.TsetK; S.thermo = true; S.dt = t.setup.dt || 0.004; S.periodic = t.setup.periodic !== false;
-  S.color = t.setup.color || 'speed'; S.speed = t.setup.speed || 10;
-  build(B, { quiet: true });
+  S.color = t.setup.color || (B.sys === 'mat' ? 'el' : 'speed'); S.speed = t.setup.speed || 10;
+  build(B, { quiet: true, keepColor: true });
+  if (B.sys === 'mat') { S.TsetK = t.setup.TsetK; md.Ttarget = S.TsetK; if (t.setup.dtFs) S.dtFs = t.setup.dtFs; }
   if (t.setup.equil) for (const [steps, K] of t.setup.equil) equilibrate(steps, K);
   if (t.setup.thermo === false) S.thermo = false;
   S.paused = false; resetHistory(); md.mark(); md.resetRDF();
@@ -152,10 +196,10 @@ function sample() {
   const ke = U.eV(md.KE / N) * 1000, pe = U.eV(md.PE / N) * 1000;
   H.t.push(U.ps(md.time)); H.T.push(U.K(md.temperature())); H.ke.push(ke); H.pe.push(pe); H.e.push(ke + pe); H.P.push(U.bar(md.pressure()));
   const tm = md.time - md.markTime;
-  H.mt.push(U.ps(tm)); H.my.push(md.msd() * U.sigma * U.sigma * 1e18);
+  H.mt.push(U.ps(tm)); H.my.push(U.msdnm2(md.msd()));
   if (H.t.length > 320) for (const k of ['t', 'T', 'ke', 'pe', 'e', 'P']) H[k].shift();
   // MSD window: restart every ~6 reduced time units, keep the last window as a ghost and estimate D from it
-  if (tm >= 6) {
+  if (tm >= (isMat() ? 400 : 6)) {
     S.D = md.msd() / (6 * tm);
     H.pt = H.mt.slice(); H.py = H.my.slice(); H.mt.length = 0; H.my.length = 0; md.mark();
   }
@@ -163,6 +207,7 @@ function sample() {
 
 function phaseGuess() {
   if (!md.N) return ['empty box', COL.muted];
+  if (isMat()) return [md.name, COL.accent];
   const Z = md.meanCoord(), rho = md.density;
   if (rho < 0.12 || Z < 2.5) return ['GAS', COL.warn];
   if (S.D === null) return ['measuring…', COL.muted];
@@ -176,6 +221,7 @@ const fmtP = (bar) => Math.abs(bar) >= 9999 ? (bar / 1000).toFixed(1) + ' kbar' 
 
 /* ================================================================== visuals */
 const col = new THREE.Color();
+const KBT = 8.617333262e-5;                                      // eV/K: converts K to eV for the speed colour scale
 function ramp(t, out) {                 // blue -> cyan -> yellow -> red
   t = clamp(t, 0, 1);
   if (t < 0.35) { const f = t / 0.35; out[0] = 0.10 + 0.0 * f; out[1] = 0.25 + 0.55 * f; out[2] = 0.95 - 0.05 * f; }
@@ -183,34 +229,71 @@ function ramp(t, out) {                 // blue -> cyan -> yellow -> red
   else { const f = (t - 0.65) / 0.35; out[0] = 1; out[1] = 0.9 - 0.7 * f; out[2] = 0.2 - 0.1 * f; }
 }
 const rgb = [0, 0, 0];
+// coordination colouring for materials: blue = the ideal number of bonds, red = defect / surface
+const idealZ = (i) => { const q = mat.sp[i]; return q === 1 ? 1 : q === 2 ? 6 : q === 3 ? 3 : (mat.model === 'tersoff' && mat.tp === TERSOFF.diamond ? 4 : 3); };
+const spCol = SPECIES.map((s) => new THREE.Color(s.color));
+const BMAX = 7000;
+const bondsMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 30, specular: 0x333344 }), BMAX);
+bondsMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); bondsMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(BMAX * 3), 3); bondsMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+bondsMesh.frustumCulled = false; bondsMesh.count = 0; inner.add(bondsMesh);
+function updateBonds() {
+  if (!isMat() || !S.bonds) { bondsMesh.count = 0; return; }
+  const m = bondsMesh.instanceMatrix.array, c = bondsMesh.instanceColor.array, per = mat.per, Lx = mat.Lx, Ly = mat.Ly, Lz = mat.Lz; let n = 0;
+  const BR = 0.115;
+  for (let p = 0; p < mat.nb && n < BMAX - 1; p++) {
+    const i = mat.bi[p], j = mat.bj[p], lim = mat.bondLimit(i, j); if (lim === 0) continue;
+    let dx = mat.x[j] - mat.x[i], dy = mat.y[j] - mat.y[i], dz = mat.z[j] - mat.z[i];
+    if (per[0]) dx -= Lx * Math.round(dx / Lx); if (per[1]) dy -= Ly * Math.round(dy / Ly); if (per[2]) dz -= Lz * Math.round(dz / Lz);
+    const r2 = dx * dx + dy * dy + dz * dz; if (r2 >= lim * lim) continue;
+    const r = Math.sqrt(r2), ux = dx / r, uy = dy / r, uz = dz / r;
+    let hx = 0, hy = 1, hz = 0; if (Math.abs(uy) > 0.9) { hx = 1; hy = 0; }
+    let xx = uy * hz - uz * hy, xy = uz * hx - ux * hz, xz = ux * hy - uy * hx; const xl = Math.hypot(xx, xy, xz); xx /= xl; xy /= xl; xz /= xl;
+    const zx = xy * uz - xz * uy, zy = xz * ux - xx * uz, zz = xx * uy - xy * ux;     // Z = X x u
+    for (let h = 0; h < 2; h++) {
+      const a = h ? j : i, sg = h ? -1 : 1, k = 16 * n;
+      m[k] = xx * BR; m[k + 1] = xy * BR; m[k + 2] = xz * BR; m[k + 3] = 0;
+      m[k + 4] = sg * ux * r * 0.5; m[k + 5] = sg * uy * r * 0.5; m[k + 6] = sg * uz * r * 0.5; m[k + 7] = 0;
+      m[k + 8] = sg * zx * BR; m[k + 9] = sg * zy * BR; m[k + 10] = sg * zz * BR; m[k + 11] = 0;
+      m[k + 12] = mat.x[a] + sg * ux * r * 0.25; m[k + 13] = mat.y[a] + sg * uy * r * 0.25; m[k + 14] = mat.z[a] + sg * uz * r * 0.25; m[k + 15] = 1;
+      const q = S.color === 'el' ? spCol[mat.sp[a]] : null;
+      c[3 * n] = q ? q.r * 0.75 : 0.1; c[3 * n + 1] = q ? q.g * 0.75 : 0.1; c[3 * n + 2] = q ? q.b * 0.75 : 0.12; n++;
+    }
+  }
+  bondsMesh.count = n; bondsMesh.instanceMatrix.needsUpdate = true; bondsMesh.instanceColor.needsUpdate = true;
+}
+
 function updateAtoms() {
-  const N = md.N, m = atoms.instanceMatrix.array, c = atoms.instanceColor.array;
+  const N = md.N, m = atoms.instanceMatrix.array, c = atoms.instanceColor.array, mt = isMat();
   atoms.count = N;
-  const T = Math.max(md.temperature(), 0.03), R = 0.47;
-  const base = col.set(ELEMENTS[S.el].color);
+  const T = Math.max(mt ? md.temperature() * KBT : md.temperature(), 0.03);
+  const base = mt ? null : col.set(ELEMENTS[S.el].color);
   for (let i = 0; i < N; i++) {
-    const k = 16 * i, s = i === S.tag ? R * 1.35 : R;
+    const k = 16 * i, R0 = mt ? SPECIES[md.sp[i]].r : 0.47, s = i === S.tag ? R0 * 1.35 : R0;
     m[k] = m[k + 5] = m[k + 10] = s; m[k + 12] = md.x[i]; m[k + 13] = md.y[i]; m[k + 14] = md.z[i];
     if (i === S.tag) { rgb[0] = 1; rgb[1] = 0.95; rgb[2] = 0.55; }
-    else if (S.color === 'speed') { const ke = 0.5 * (md.vx[i] ** 2 + md.vy[i] ** 2 + md.vz[i] ** 2); ramp(ke / (T * 4), rgb); }
-    else if (S.color === 'coord') ramp(1 - clamp((md.z_[i] - 3) / 9, 0, 1), rgb);
+    else if (S.color === 'speed') { const ke = mt ? 0.5 * md.mass[i] * (md.vx[i] ** 2 + md.vy[i] ** 2 + md.vz[i] ** 2) : 0.5 * (md.vx[i] ** 2 + md.vy[i] ** 2 + md.vz[i] ** 2); ramp(ke / (T * 4), rgb); }
+    else if (S.color === 'coord') ramp(mt ? clamp(Math.abs(idealZ(i) - md.z_[i]) / 2, 0, 1) : 1 - clamp((md.z_[i] - 3) / 9, 0, 1), rgb);
+    else if (mt) { const q = spCol[md.sp[i]]; c[3 * i] = q.r; c[3 * i + 1] = q.g; c[3 * i + 2] = q.b; continue; }
     else { rgb[0] = Math.sqrt(base.r); rgb[1] = Math.sqrt(base.g); rgb[2] = Math.sqrt(base.b); }
     c[3 * i] = rgb[0] * rgb[0]; c[3 * i + 1] = rgb[1] * rgb[1]; c[3 * i + 2] = rgb[2] * rgb[2];
   }
   atoms.instanceMatrix.needsUpdate = true; atoms.instanceColor.needsUpdate = true;
+  updateBonds();
 
-  const L = md.L;
-  inner.position.setScalar(-L / 2);
-  boxEdges.scale.setScalar(L); boxEdges.position.setScalar(L / 2);
-  boxFaces.scale.setScalar(L); boxFaces.position.setScalar(L / 2);
-  boxFaces.visible = !md.periodic; boxEdges.material.opacity = md.periodic ? 0.5 : 0.95;
-  const sc = Math.min(wps, 0.85 / L) * userScale;
-  simRoot.scale.setScalar(sc);
+  const [Lx, Ly, Lz] = dims();
+  inner.position.set(-Lx / 2, -Ly / 2, -Lz / 2);
+  boxEdges.scale.set(Lx, Ly, Lz); boxEdges.position.set(Lx / 2, Ly / 2, Lz / 2);
+  boxFaces.scale.set(Lx, Ly, Lz); boxFaces.position.set(Lx / 2, Ly / 2, Lz / 2);
+  const showBox = !mt || mat.periodicAny;
+  boxEdges.visible = showBox; boxFaces.visible = showBox && !mt && !md.periodic;
+  boxEdges.material.opacity = (mt || md.periodic) ? 0.5 : 0.95;
+  simRoot.scale.setScalar((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale);
+  tilt.rotation.x = (mt && mat.per[0] && mat.per[1] && !mat.per[2]) ? -Math.PI / 2 : 0;
 
   // trail of the tagged atom (unwrapped)
   if (S.trail && S.tag >= 0 && S.tag < N) {
-    const i = S.tag; let dx = md.x[i] - trailLast.x, dy = md.y[i] - trailLast.y, dz = md.z[i] - trailLast.z;
-    if (md.periodic) { dx -= L * Math.round(dx / L); dy -= L * Math.round(dy / L); dz -= L * Math.round(dz / L); }
+    const i = S.tag, per = perAxis(); let dx = md.x[i] - trailLast.x, dy = md.y[i] - trailLast.y, dz = md.z[i] - trailLast.z;
+    if (per[0]) dx -= Lx * Math.round(dx / Lx); if (per[1]) dy -= Ly * Math.round(dy / Ly); if (per[2]) dz -= Lz * Math.round(dz / Lz);
     trailAcc.x += dx; trailAcc.y += dy; trailAcc.z += dz; trailLast.set(md.x[i], md.y[i], md.z[i]);
     if (!S.paused) {
       if (trailN >= TRAIL_MAX) { trailPos.copyWithin(0, 3 * 20, 3 * TRAIL_MAX); trailN -= 20; }
@@ -226,7 +309,7 @@ function updateAtoms() {
   if (e.i >= 0 && e.i < N) {
     const p = tweezLine.geometry.attributes.position;
     p.setXYZ(0, md.x[e.i], md.y[e.i], md.z[e.i]); p.setXYZ(1, e.x, e.y, e.z); p.needsUpdate = true;
-    tweezLine.visible = true; tweezDot.visible = true; tweezDot.position.set(e.x, e.y, e.z);
+    tweezLine.visible = true; tweezDot.visible = true; tweezDot.position.set(e.x, e.y, e.z); tweezDot.scale.setScalar(mt ? 3 : 1);
     tweezLine.material.color.setHSL(0.12 - 0.12 * md.extForce, 1, 0.65);
   } else { tweezLine.visible = false; tweezDot.visible = false; }
 }
@@ -250,16 +333,18 @@ bench.add(uiMesh); bench.add(plotMesh);
 uiMesh.userData.ui = true;
 
 function drawControls() {
-  const T = U.K(md.temperature());
+  const mt = isMat(), T = U.K(md.temperature());
   ui.begin();
-  ui.header('MD LAB', md.N ? `${S.el} · ${md.N} atoms · box ${U.nm(md.L).toFixed(2)} nm` : 'empty box');
+  ui.header('MD LAB', md.N ? (mt ? `${md.name} \u00B7 ${md.N} atoms` : `${S.el} \u00B7 ${md.N} atoms \u00B7 box ${U.nm(md.L).toFixed(2)} nm`) : 'empty box');
   const Pb = U.bar(md.pressure());
-  ui.row(2); ui.readout('Temperature', T.toFixed(1) + ' K', { color: COL.accent }); ui.readout('Target', S.thermo ? S.TsetK.toFixed(0) + ' K' : 'off (NVE)', { color: S.thermo ? COL.warn : COL.muted });
-  ui.row(2); ui.readout('Pressure', fmtP(Pb)); ui.readout('Density ρ*', md.density.toFixed(3));
-  ui.row(2); ui.readout('Energy / atom', (U.eV((md.KE + md.PE) / Math.max(1, md.N)) * 1000).toFixed(1) + ' meV'); ui.readout('Coordination Z', md.meanCoord().toFixed(1));
+  ui.row(2); ui.readout('Temperature', T.toFixed(mt ? 0 : 1) + ' K', { color: COL.accent }); ui.readout('Target', S.thermo ? S.TsetK.toFixed(0) + ' K' : 'off (NVE)', { color: S.thermo ? COL.warn : COL.muted });
+  if (mt) { ui.row(2); ui.readout('Pressure', 'n/a'); ui.readout('Atoms', String(md.N)); }
+  else { ui.row(2); ui.readout('Pressure', fmtP(Pb)); ui.readout('Density \u03C1*', md.density.toFixed(3)); }
+  const eAtom = U.eV((md.KE + md.PE) / Math.max(1, md.N));
+  ui.row(2); ui.readout('Energy / atom', mt ? eAtom.toFixed(3) + ' eV' : (eAtom * 1000).toFixed(1) + ' meV'); ui.readout(mt ? 'Mean bonds' : 'Coordination Z', md.meanCoord().toFixed(1));
   const [ph, pc] = phaseGuess();
-  ui.row(2); ui.readout('Looks like', ph, { color: pc }); ui.readout('Speed', `${(U.ps(md.dt) * S.sps).toFixed(1)} ps/s`, {});
-  if (md.exploded) { ui.label('⚠ The simulation blew up - the time step was too large. Press Rebuild.', { color: COL.bad, size: 20, bold: true }); }
+  ui.row(2); ui.readout(mt ? 'System' : 'Looks like', ph, { color: pc }); ui.readout('Speed', `${(U.ps(md.dt) * S.sps).toFixed(mt ? 2 : 1)} ps/s`, {});
+  if (md.exploded) { ui.label('\u26A0 The simulation blew up - the time step was too large. Press Rebuild.', { color: COL.bad, size: 20, bold: true }); }
   ui.space(2);
   S.tab = ui.tabs(['BUILD', 'RUN', 'DATA', 'LAB', 'VR'], S.tab);
   ui.space(2);
@@ -270,7 +355,8 @@ function drawControls() {
   c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
   const msgOn = now() < S.msgUntil;
   c.fillStyle = msgOn ? COL.warn : COL.muted;
-  c.fillText(msgOn ? S.msg : toolHint(), ui.pad + 12, CH - 38);
+  const fN = md.ext.i >= 0 ? (isMat() ? md.extForceEV * 1.602177 : md.extForce * 60 * (U.eps / U.sigma) * 1e9) : 0;
+  c.fillText(msgOn ? S.msg : fN > 0 ? `Tweezer force: ${fN.toFixed(fN < 10 ? 2 : 1)} nN` : toolHint(), ui.pad + 12, CH - 38);
   ui.end();
 }
 
@@ -280,50 +366,93 @@ function toolHint() {
   return t === 'tweezers' ? `Tool: TWEEZERS - hold ${trig} on an atom and drag` : t === 'add' ? `Tool: ADD ATOM - ${trig} inside the box` : `Tool: DELETE - ${trig} an atom to remove it`;
 }
 
-function tabBuild() {
-  ui.section('1  Atoms');
-  B.el = ui.choice(Object.keys(ELEMENTS).map((k) => [k, k]), B.el);
-  const e = ELEMENTS[B.el];
-  ui.label(`${e.name}: σ = ${e.sigma} nm,  ε/k = ${e.epsK} K,  m = ${e.mass} u`, { size: 19 });
-  ui.section('2  Size and structure');
-  B.cells = Math.round(ui.slider('cells', 'Lattice cells n', B.cells, 2, 7, (v) => `n = ${Math.round(v)}  →  ${4 * Math.round(v) ** 3} atoms`, { step: 1, h: 66 }));
-  B.start = ui.choice([['fcc', 'FCC crystal'], ['gas', 'Random gas']], B.start);
-  const gcc = (B.rho * ELEMENTS[B.el].mass * 1.66053907e-27 / ((ELEMENTS[B.el].sigma * 1e-9) ** 3)) / 1000;
-  B.rho = ui.slider('rho', 'Density ρ*', B.rho, 0.02, 1.3, (v) => `${v.toFixed(2)}  (${(v * gcc / B.rho).toFixed(2)} g/cm³)`, { log: true, h: 66 });
-  B.rho = Math.round(B.rho * 100) / 100;
-  B.T0 = ui.slider('T0', 'Start temperature', B.T0, 5, 500, (v) => `${v.toFixed(0)} K   (T* = ${(v / e.epsK).toFixed(2)})`, { step: 1, h: 66 });
-  ui.space(4);
-  ui.row(2);
-  if (ui.button('BUILD SYSTEM', { primary: true, h: 62, size: 25 })) { S.TsetK = B.T0; build(B); }
-  if (ui.button('Clear box', { h: 62 })) { md.clear(); md.L = 6; resetHistory(); trailN = 0; trailGeo.setDrawRange(0, 0); S.tag = -1; toast('Box emptied - use the Add tool to place atoms'); }
-  ui.section('3  Edit by hand');
-  S.tool = ui.choice([['tweezers', 'Tweezers'], ['add', 'Add atom'], ['delete', 'Delete']], S.tool);
-  ui.row(3);
-  if (ui.button('+10 atoms')) addRandom(10);
-  if (ui.button('−10 atoms')) removeRandom(10);
-  if (ui.button('Tag atom')) { retag(); toast('New atom tagged (shown large, with a trail)'); }
-  ui.space(6);
-  ui.paragraph('Pick the atoms, size, structure, density and start temperature, then press BUILD SYSTEM. Use RUN to heat, squeeze and step the system, DATA to measure, and LAB for guided experiments.', { size: 19, color: COL.muted });
+function matSel() {
+  const r1 = [['benzene', 'Benzene'], ['graphene', 'Graphene'], ['graphite', 'Graphite']], r2 = [['mos2', 'MoS\u2082'], ['nanodiamond', 'Nanodiamond']];
+  const a = ui.choice(r1, B.mat, { h: 52 }), b = ui.choice(r2, B.mat, { h: 52 });
+  const nv = a !== B.mat ? a : b !== B.mat ? b : B.mat;
+  if (nv !== B.mat) { B.mat = nv; Object.assign(B, MAT_DEFAULTS[nv]); }
 }
 
+function tabBuild() {
+  ui.section('System');
+  B.sys = ui.choice([['lj', 'Noble gas (LJ)'], ['mat', 'Materials']], B.sys, { h: 52 });
+  if (B.sys === 'lj') {
+    ui.section('1  Atoms');
+    B.el = ui.choice(Object.keys(ELEMENTS).map((k) => [k, k]), B.el);
+    const e = ELEMENTS[B.el];
+    ui.label(`${e.name}: \u03C3 = ${e.sigma} nm,  \u03B5/k = ${e.epsK} K,  m = ${e.mass} u`, { size: 19 });
+    ui.section('2  Size and structure');
+    B.cells = Math.round(ui.slider('cells', 'Lattice cells n', B.cells, 2, 7, (v) => `n = ${Math.round(v)}  \u2192  ${4 * Math.round(v) ** 3} atoms`, { step: 1, h: 64 }));
+    B.start = ui.choice([['fcc', 'FCC crystal'], ['gas', 'Random gas']], B.start);
+    const gcc = (B.rho * e.mass * 1.66053907e-27 / ((e.sigma * 1e-9) ** 3)) / 1000;
+    B.rho = ui.slider('rho', 'Density \u03C1*', B.rho, 0.02, 1.3, (v) => `${v.toFixed(2)}  (${(v * gcc / B.rho).toFixed(2)} g/cm\u00B3)`, { log: true, h: 64 });
+    B.rho = Math.round(B.rho * 100) / 100;
+    B.T0 = ui.slider('T0', 'Start temperature', B.T0, 5, 500, (v) => `${v.toFixed(0)} K   (T* = ${(v / e.epsK).toFixed(2)})`, { step: 1, h: 64 });
+    ui.space(4);
+    ui.row(2);
+    if (ui.button('BUILD SYSTEM', { primary: true, h: 62, size: 25 })) { S.TsetK = B.T0; build(B); }
+    if (ui.button('Clear box', { h: 62 })) { md = lj; U = ljUnits(S.el); md.clear(); md.L = 6; resetHistory(); trailN = 0; trailGeo.setDrawRange(0, 0); S.tag = -1; toast('Box emptied - use the Add tool to place atoms'); }
+    ui.section('3  Edit by hand');
+    S.tool = ui.choice([['tweezers', 'Tweezers'], ['add', 'Add atom'], ['delete', 'Delete']], S.tool);
+    ui.row(3);
+    if (ui.button('+10 atoms')) addRandom(10);
+    if (ui.button('\u221210 atoms')) removeRandom(10);
+    if (ui.button('Tag atom')) { retag(); toast('New atom tagged (shown large, with a trail)'); }
+  } else {
+    ui.section('Structure');
+    matSel();
+    ui.label(MAT_INFO[B.mat], { size: 17 });
+    if (B.mat === 'benzene') B.nmol = Math.round(ui.slider('nmol', 'Number of molecules', B.nmol, 1, 19, (v) => `${Math.round(v)}  (${12 * Math.round(v)} atoms)`, { step: 1, h: 64 }));
+    else if (B.mat === 'nanodiamond') B.rad = ui.slider('rad', 'Cluster radius', B.rad, 4, 9, (v) => `${v.toFixed(1)} \u00C5   (diameter ${(0.2 * v).toFixed(1)} nm)`, { step: 0.5, h: 64 });
+    else {
+      const lo = B.mat === 'graphene' ? 3 : 7, hi = B.mat === 'graphene' ? 16 : 10;
+      B.size = Math.round(ui.slider('size', 'Sheet size (unit cells along x)', clamp(B.size, lo, hi), lo, hi, (v) => `${Math.round(v)} cells  \u2248 ${(Math.round(v) * (B.mat === 'mos2' ? 0.312 : 0.249)).toFixed(1)} nm wide`, { step: 1, h: 64 }));
+      if (B.mat === 'graphite') B.layers = Math.round(ui.slider('layers', 'Layers', clamp(B.layers, 2, 4), 2, 4, (v) => `${Math.round(v)} layers`, { step: 1, h: 64 }));
+      if (B.mat === 'mos2') B.layers = Math.round(ui.slider('layers', 'Layers', clamp(B.layers, 1, 2), 1, 2, (v) => `${Math.round(v)} ${Math.round(v) === 1 ? 'layer' : 'layers (2H)'}`, { step: 1, h: 64 }));
+    }
+    B.Tm = ui.slider('Tm', 'Start temperature', B.Tm, 5, 2500, (v) => `${v.toFixed(0)} K`, { step: 5, h: 64 });
+    ui.space(4);
+    ui.row(2);
+    if (ui.button('BUILD', { primary: true, h: 62, size: 25 })) build(Object.assign({}, B, { sys: 'mat' }));
+    if (ui.button('Reset view', { h: 62 })) { recenterSim(); }
+    ui.section('Edit by hand');
+    S.tool = ui.choice([['tweezers', 'Tweezers'], ['add', 'Add atom'], ['delete', 'Delete']], S.tool);
+    if (isMat() && mat.model === 'sw') { ui.row(2); S.grab = ui.choice([['atom', 'Grab: atom'], ['group', 'Grab: layer']], S.grab, { h: 50 }); }
+    else if (isMat()) { S.grab = ui.choice([['atom', 'Grab: atom'], ['group', mat.model === 'ff' ? 'Grab: molecule' : 'Grab: layer']], S.grab, { h: 50 }); }
+    if (isMat() && mat.model === 'sw') S.addSp = ui.choice([[2, 'Add Mo'], [3, 'Add S']], S.addSp, { h: 50 });
+  }
+}
+
+function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); controls.target.copy(SIM_HOME); camera.position.set(0.85, 1.75, 0.55); controls.update(); } }
+
 function tabRun() {
+  const mt = isMat();
   ui.row(3);
-  if (ui.button(S.paused ? '▶  Run' : '❚❚  Pause', { primary: !S.paused, active: S.paused, h: 62, size: 25 })) S.paused = !S.paused;
-  if (ui.button('Step ×20', { h: 62 })) { S.paused = true; md.run(20); }
-  if (ui.button('Rebuild', { h: 62, danger: md.exploded })) { if (S.lastBuild) { build(S.lastBuild); } }
+  if (ui.button(S.paused ? '\u25B6  Run' : '\u275A\u275A  Pause', { primary: !S.paused, active: S.paused, h: 62, size: 25 })) S.paused = !S.paused;
+  if (ui.button('Step \u00D720', { h: 62 })) { S.paused = true; md.run(20); }
+  if (ui.button('Rebuild', { h: 62, danger: md.exploded })) { if (S.lastBuild) { build(S.lastBuild, { keepColor: true }); } }
   ui.space(2);
   S.thermo = ui.toggle(S.thermo ? 'Thermostat ON  (constant T)' : 'Thermostat OFF  (energy conserved)', S.thermo);
-  S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 3, 600, (v) => `${v.toFixed(0)} K  (T* ${(v / ELEMENTS[S.el].epsK).toFixed(2)})`, { step: 1, h: 66 });
-  const rho = md.density, nr = ui.slider('vol', 'Density ρ*  (squeeze / expand the box)', rho, 0.02, 1.4, (v) => `${v.toFixed(3)}   L = ${U.nm(Math.cbrt(md.N / v)).toFixed(2)} nm`, { log: true, h: 66 });
-  if (nr !== rho && md.N) md.setBox(Math.cbrt(md.N / nr));
-  S.periodic = ui.choice([[true, 'Periodic box'], [false, 'Hard walls']], S.periodic);
-  if (S.periodic !== md.periodic) md.switchBoundary(S.periodic);
-  S.dt = ui.slider('dt', 'Time step', S.dt, 0.001, 0.02, (v) => `${v.toFixed(3)}   (${U.fs(v).toFixed(1)} fs)`, { h: 66 });
-  if (S.dt > 0.01) ui.label('Large steps: watch the total energy drift (DATA).', { color: COL.warn, size: 18 });
+  if (mt) S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 10, 3000, (v) => `${v.toFixed(0)} K`, { step: 10, h: 66 });
+  else S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 3, 600, (v) => `${v.toFixed(0)} K  (T* ${(v / ELEMENTS[S.el].epsK).toFixed(2)})`, { step: 1, h: 66 });
+  if (!mt) {
+    const rho = md.density, nr = ui.slider('vol', 'Density \u03C1*  (squeeze / expand the box)', rho, 0.02, 1.4, (v) => `${v.toFixed(3)}   L = ${U.nm(Math.cbrt(md.N / v)).toFixed(2)} nm`, { log: true, h: 66 });
+    if (nr !== rho && md.N) md.setBox(Math.cbrt(md.N / nr));
+    S.periodic = ui.choice([[true, 'Periodic box'], [false, 'Hard walls']], S.periodic);
+    if (S.periodic !== md.periodic) md.switchBoundary(S.periodic);
+    S.dt = ui.slider('dt', 'Time step', S.dt, 0.001, 0.02, (v) => `${v.toFixed(3)}   (${U.fs(v).toFixed(1)} fs)`, { h: 66 });
+    if (S.dt > 0.01) ui.label('Large steps: watch the total energy drift (DATA).', { color: COL.warn, size: 18 });
+  } else {
+    ui.label(mat.periodicAny ? 'Periodic in x and y (sheet); free surfaces along z.' : 'Isolated cluster in vacuum.', { size: 19 });
+    S.dtFs = ui.slider('dtfs', 'Time step', S.dtFs, 0.1, 3, (v) => `${v.toFixed(2)} fs`, { h: 66 });
+    if (S.dtFs > (mat.model === 'ff' ? 1.0 : 2.0)) ui.label('Large steps: watch the total energy drift (DATA).', { color: COL.warn, size: 18 });
+    if (mat.model === 'sw' && S.TsetK > 700) ui.label('\u26A0 This MoS\u2082 potential is unreliable above ~700 K (unphysical collapse).', { color: COL.warn, size: 18 });
+  }
   S.speed = Math.round(ui.slider('speed', 'Simulation steps per frame (max)', S.speed, 1, 60, (v) => `${Math.round(v)}`, { step: 1, h: 66 }));
   ui.section('Look');
-  S.color = ui.choice([['speed', 'Speed'], ['coord', 'Coordination'], ['el', 'Plain']], S.color);
+  S.color = ui.choice(mt ? [['el', 'Element'], ['speed', 'Speed'], ['coord', 'Defects']] : [['speed', 'Speed'], ['coord', 'Coordination'], ['el', 'Plain']], S.color);
   S.trail = ui.toggle('Trail of the tagged atom', S.trail, { h: 48 });
+  if (mt) S.bonds = ui.toggle('Show bonds', S.bonds, { h: 48 });
 }
 
 function tabData() {
@@ -334,19 +463,19 @@ function tabData() {
   if (ui.button('●  Record row', { primary: true })) recordRow();
   if (ui.button('Export CSV', { disabled: S.vr })) exportCSV();
   ui.section('Averages (last ~60 samples)');
-  ui.row(2); ui.readout('⟨T⟩', mean(H.T, 60).toFixed(1) + ' K'); ui.readout('⟨P⟩', fmtP(mean(H.P, 60)));
+  ui.row(2); ui.readout('⟨T⟩', mean(H.T, 60).toFixed(1) + ' K'); ui.readout('⟨P⟩', isMat() ? 'n/a' : fmtP(mean(H.P, 60)));
   ui.row(2); ui.readout('⟨KE⟩ / atom', mean(H.ke, 60).toFixed(1) + ' meV'); ui.readout('⟨PE⟩ / atom', mean(H.pe, 60).toFixed(1) + ' meV');
   const D = S.D === null ? null : U.D_m2s(S.D) * 1e9;
   ui.row(2); ui.readout('D (diffusion)', D === null ? '…' : D.toFixed(D < 0.1 ? 3 : 2) + ' ×10⁻⁹ m²/s'); ui.readout('Total E drift', H.e.length > 5 ? (H.e[H.e.length - 1] - H.e[0]).toFixed(2) + ' meV' : '…');
   ui.section('Recorded measurements');
   const c = ui.ctx; c.font = '600 19px ui-monospace,Consolas,monospace'; c.textAlign = 'left';
   const colsX = [0, 88, 165, 285, 400, 500];
-  c.fillStyle = COL.accent; ['#', 'T/K', 'ρ*', 'P/bar', 'U/meV', 'D/1e-9'].forEach((h, i) => c.fillText(h, ui.pad + colsX[i], ui.y + 10));
+  c.fillStyle = COL.accent; ['#', 'T/K', isMat() ? 'N' : 'ρ*', 'P/bar', 'U/meV', 'D/1e-9'].forEach((h, i) => c.fillText(h, ui.pad + colsX[i], ui.y + 10));
   ui.y += 28;
   c.fillStyle = COL.text;
   const rows = S.rows.slice(-9);
   rows.forEach((r, k) => {
-    const vals = [String(S.rows.length - rows.length + k + 1), r.T.toFixed(1), r.rho.toFixed(3), r.P.toFixed(Math.abs(r.P) < 10 ? 2 : 0), r.U.toFixed(1), r.D === null ? '-' : r.D.toFixed(2)];
+    const vals = [String(S.rows.length - rows.length + k + 1), r.T.toFixed(1), (r.mat ? String(r.rho) : r.rho.toFixed(3)), r.mat ? '-' : r.P.toFixed(Math.abs(r.P) < 10 ? 2 : 0), r.U.toFixed(1), r.D === null ? '-' : r.D.toFixed(2)];
     vals.forEach((v, i) => c.fillText(v, ui.pad + colsX[i], ui.y + 10)); ui.y += 27;
   });
   if (!rows.length) ui.label('Press "Record row" to log T, ρ*, P, U and D.', { size: 19 });
@@ -354,7 +483,7 @@ function tabData() {
 
 function recordRow() {
   const T = mean(H.T, 20), P = mean(H.P, 20), Uu = mean(H.pe, 20);
-  S.rows.push({ T, rho: md.density, P, U: Uu, D: S.D === null ? null : U.D_m2s(S.D) * 1e9 });
+  S.rows.push({ T, rho: isMat() ? md.N : md.density, mat: isMat(), P, U: Uu, D: S.D === null ? null : U.D_m2s(S.D) * 1e9 });
   toast('Row ' + S.rows.length + ' recorded');
 }
 function exportCSV() {
@@ -395,13 +524,14 @@ function tabVR() {
 }
 
 function plotData() {
-  const e = ELEMENTS[S.el], rr = [], gg = [];
-  const g = md.rdf(), dr = md.rdfMax / md.rdfBins;
-  for (let b = 0; b < g.length; b++) { const r = (b + 0.5) * dr; if (r > md.rcUsed) break; rr.push(r * e.sigma); gg.push(g[b]); }
+  const rr = [], gg = [], g = md.rdf(), dr = md.rdfMax / md.rdfBins, mt = isMat();
+  if (mt) { for (let b = 0; b < g.length; b++) { rr.push((b + 0.5) * dr); gg.push(g[b]); } }
+  else { const e = ELEMENTS[S.el]; for (let b = 0; b < g.length; b++) { const r = (b + 0.5) * dr; if (r > md.rcUsed) break; rr.push(r * e.sigma); gg.push(g[b]); } }
   return {
     t: H.t, T: H.T, ke: H.ke, pe: H.pe, e: H.e, Ttarget: S.thermo ? S.TsetK : (H.T.length ? H.T[H.T.length - 1] : S.TsetK),
     rdf: { r: rr, g: gg }, msd: { t: H.mt, y: H.my, tPrev: H.pt, yPrev: H.py },
-    Dtext: S.D === null ? '' : 'D ≈ ' + (U.D_m2s(S.D) * 1e9).toFixed(3) + ' ×10⁻⁹ m²/s',
+    rdfTitle: mt ? 'Pair distances' : 'Radial distribution g(r)', rdfX: mt ? 'r (\u00C5)' : 'r (nm)', rdfY: mt ? 'pairs / atom / \u00C5' : 'g(r)', rdfRef: !mt, rdfMin: mt ? 0.4 : 3,
+    Dtext: S.D === null ? '' : 'D \u2248 ' + (U.D_m2s(S.D) * 1e9).toFixed(3) + ' \u00D710\u207B\u2079 m\u00B2/s',
   };
 }
 
@@ -431,7 +561,7 @@ function toLocal(o, d) {
   return { o: lo, d: ld, s: simRoot.scale.x };
 }
 function pickAtom(o, d) {
-  const r = toLocal(o, d), R2 = 0.7 * 0.7; let best = -1, bt = 1e9;
+  const r = toLocal(o, d), R2 = isMat() ? 0.55 * 0.55 : 0.7 * 0.7; let best = -1, bt = 1e9;
   for (let i = 0; i < md.N; i++) {
     const px = md.x[i] - r.o.x, py = md.y[i] - r.o.y, pz = md.z[i] - r.o.z;
     const t = px * r.d.x + py * r.d.y + pz * r.d.z; if (t < 0) continue;
@@ -441,9 +571,9 @@ function pickAtom(o, d) {
   return best < 0 ? null : { i: best, t: bt, s: r.s };
 }
 function rayBox(o, d) {
-  const r = toLocal(o, d), L = md.L; let t0 = 0, t1 = 1e9;
+  const r = toLocal(o, d), DM = dims(); let t0 = 0, t1 = 1e9;
   for (const ax of ['x', 'y', 'z']) {
-    const oo = r.o[ax], dd = r.d[ax];
+    const L = DM[ax === 'x' ? 0 : ax === 'y' ? 1 : 2], oo = r.o[ax], dd = r.d[ax];
     if (Math.abs(dd) < 1e-9) { if (oo < 0 || oo > L) return null; continue; }
     let a = (0 - oo) / dd, b = (L - oo) / dd; if (a > b) [a, b] = [b, a];
     t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return null;
@@ -463,7 +593,11 @@ function toolDown(src) {
   const { o, d } = rayOf(src);
   if (S.tool === 'tweezers') {
     const p = pickAtom(o, d); if (!p) return false;
-    hold.src = src; hold.kind = 'tw'; hold.grab = { i: p.i, dist: p.t * p.s }; md.ext.i = p.i; pulse(src, 0.5, 40); return true;
+    // the spring pulls a reference point (the atom, or the centre of mass of its layer / molecule) so nothing jumps on grab
+    const w0 = o.clone().addScaledVector(d, p.t * p.s), r0 = toLocal(w0, d).o;
+    const grp = isMat() && S.grab === 'group', ref = grp ? mat.groupCOM(p.i) : [md.x[p.i], md.y[p.i], md.z[p.i]];
+    hold.src = src; hold.kind = 'tw'; hold.grab = { i: p.i, dist: p.t * p.s, off: [ref[0] - r0.x, ref[1] - r0.y, ref[2] - r0.z] };
+    md.ext.i = p.i; md.ext.mode = grp ? 'group' : 'atom'; pulse(src, 0.5, 40); return true;
   }
   if (S.tool === 'add' || S.tool === 'delete') {
     hold.src = src; hold.kind = S.tool === 'add' ? 'add' : 'del'; hold.next = now() + 380;
@@ -473,9 +607,19 @@ function toolDown(src) {
   return false;
 }
 function doAdd(src, o, d) {
-  const p = rayBox(o, d);
+  let p = rayBox(o, d);
   if (!p) return false;
-  const i = md.addAtom(p.x, p.y, p.z);
+  if (isMat()) {                                    // put the new atom where it will bond: first point on the ray 1.5-2 A from an existing atom
+    if (md.model === 'ff') { toast('Molecules are fixed - use the other materials to add atoms'); return true; }
+    const r = toLocal(o, d); let found = null;
+    for (let t = 0; t < 60 && !found; t += 0.3) {
+      const X = r.o.x + r.d.x * t, Y = r.o.y + r.d.y * t, Z = r.o.z + r.d.z * t; let best = 1e9;
+      for (let k = 0; k < md.N; k++) { const q = Math.hypot(md.x[k] - X, md.y[k] - Y, md.z[k] - Z); if (q < best) best = q; }
+      if (best > 1.5 && best < 2.1) found = { x: X, y: Y, z: Z };
+    }
+    if (found) p = found;
+  }
+  const i = isMat() ? md.addAtom(p.x, p.y, p.z, S.addSp) : md.addAtom(p.x, p.y, p.z);
   if (i < 0) { toast('No room for another atom there'); return true; }
   if (S.tag < 0) retag();
   pulse(src, 0.25, 20); return true;
@@ -494,8 +638,9 @@ function toolUpdate() {
   const { o, d } = rayOf(hold.src);
   if (hold.kind === 'tw' && hold.grab) {
     const w = o.clone().addScaledVector(d, hold.grab.dist);
-    const r = toLocal(w, d); const L = md.L;
-    md.ext.x = clamp(r.o.x, 0, L); md.ext.y = clamp(r.o.y, 0, L); md.ext.z = clamp(r.o.z, 0, L); md.ext.i = hold.grab.i;
+    const r = toLocal(w, d), DM = dims(), per = perAxis(), off = hold.grab.off || [0, 0, 0];
+    const cl = (v, k) => per[k] || !isMat() ? clamp(v, 0, DM[k]) : clamp(v, -DM[k], 2 * DM[k]);
+    md.ext.x = cl(r.o.x + off[0], 0); md.ext.y = cl(r.o.y + off[1], 1); md.ext.z = cl(r.o.z + off[2], 2); md.ext.i = hold.grab.i;
     if (hold.src !== 'mouse') pulse(hold.src, 0.08 + 0.5 * md.extForce, 30);
   } else if (hold.kind === 'add' || hold.kind === 'del') {
     if (now() > hold.next) { hold.next = now() + (hold.kind === 'add' ? 140 : 220); if (hold.kind === 'add') doAdd(hold.src, o, d); else doDel(hold.src, o, d); }
@@ -647,8 +792,8 @@ function vrInput(dt) {
       vc.prev = btn;
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * 0.9, 0.12, 3.5);
-        else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * 45, 3, 600); }
-        else if (md.N) {
+        else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
+        else if (md.N && !isMat()) {
           const Lmin = Math.cbrt(md.N / 1.4), Lmax = Math.cbrt(md.N / 0.02);
           const Ln = clamp(md.L * (1 - ay * dt * 0.3), Lmin, Lmax); if (Ln !== md.L) md.setBox(Ln);
         }
@@ -665,12 +810,12 @@ function frame() {
   if (S.vr) vrInput(dt); else controls.update();
   toolUpdate();
 
-  md.dt = S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
+  md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
   if (!S.paused && md.N && !md.exploded) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
     while (n < S.speed && now() - t0 < budget) { md.run(1); n++; }
     S.sps = S.sps * 0.9 + 0.1 * (n / Math.max(dt, 1e-3));
-    while (md.step - H.lastStep >= 25) { H.lastStep += 25; sample(); }
+    const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('Simulation unstable: lower the time step and Rebuild', 8000); }
 
@@ -683,4 +828,4 @@ function frame() {
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { TASKS, md, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR };
+window.__mdlab = { TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR };
