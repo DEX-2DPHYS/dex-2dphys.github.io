@@ -121,6 +121,7 @@ starts from nothing.
   loose fragment moves as one unit and the rest stays put. A piece larger than half the structure, or a lone atom, falls back to pulling
   the single atom. `test/grab.test.mjs`: a C2 dimer next to C60 moves 5.6 A, stays bonded, the cage moves 0.00 A.
 - The **grip** buttons are different on purpose: one grip moves the whole structure (or a panel), both grips scale and turn it.
+- **Posters**: the three 2DPHYS posters (src/poster-*.jpg, 1240 px wide, ~0.4 MB each, inlined) hang at A0 size, two on the wall behind the seat and one on a free-standing board to the left, turned towards the seat.
 - **Tool shapes**: the tool at the end of the VR ray (and the desktop cursor) changes with the tool: tweezers, plus, chain link,
   bond pair, cross, and a cone for the annihilator.
 
