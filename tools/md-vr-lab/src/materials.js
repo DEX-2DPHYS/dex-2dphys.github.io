@@ -307,7 +307,8 @@ export class Mat {
     if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF(); else if (this.model === 'uff') pe += this.chem.forces();
     if (this.vdw) pe += this.fVdw();
     pe += this.fExt();
-    if (this.sub) pe += substrateForces(this, this.sub);               // a fixed substrate: van der Waals only (src/substrate.js)
+    if (this.sub) pe += substrateForces(this, this.sub);
+    if (this.carry) this.holdAnchor(this.carry);                     // a piece held in the hand (grip): every atom springs to its place in the hand               // a fixed substrate: van der Waals only (src/substrate.js)
     this.PE = pe; this.updateCoord();
   }
 
@@ -535,7 +536,7 @@ export class Mat {
     }
     this.KE = KE; this.time += dt; this.step++;
     // drift removal; not with atoms held fixed (they push the rest, so its momentum is real)
-    if (this.ext.i < 0 && this.step % 100 === 0 && !this.fixed.subarray(0, N).some((v) => v)) this.removeCOM();
+    if (this.ext.i < 0 && !this.carry && !this.sub && this.step % 100 === 0 && !this.fixed.subarray(0, N).some((v) => v)) this.removeCOM();
     if (this.step % 40 === 0) this.sampleRDF();
     if (!isFinite(KE) || !isFinite(this.PE) || KE / N > 50) this.exploded = true;
   }
@@ -556,6 +557,7 @@ export class Mat {
     const l = --this.N; this.listDirty = true;
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_', 'fixed']) this[k][i] = this[k][l]; }
     if (this.ext.mask) { this.ext.mask[i] = this.ext.mask[l]; this.ext.mask[l] = 0; }
+    if (this.carry) this.carry = null;                               // indices move: let go of a carried piece
     if (this.ext.anchor) { const A = this.ext.anchor, am = A.mask; am[i] = am[l]; am[l] = 0; if (A.p) for (let c = 0; c < 3; c++) A.p[3 * i + c] = A.p[3 * l + c]; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
     if (this.model === 'uff') this.chem.removeAtom(i, l);
