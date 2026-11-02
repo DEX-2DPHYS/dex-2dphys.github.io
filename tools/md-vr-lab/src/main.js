@@ -59,7 +59,7 @@ const S = {
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  substrate: 'graphene', lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'none', lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -891,7 +891,7 @@ function startTutorial() {
   ui.dirty = true; tbar.dirty = true;
 }
 function stopTutorial() { S.tut = -1; S.tutOk = false; ui.dirty = true; tbar.dirty = true; }
-const structureDirty = () => !!md.N && (md.N !== S.buildN || S.cm.size > 0 || S.cp.size > 0 || S.substrate !== 'graphene' || !S.lastBuild || S.lastBuild.mat !== 'graphene' || S.lastBuild.sys !== 'mat');
+const structureDirty = () => !!md.N && (md.N !== S.buildN || S.cm.size > 0 || S.cp.size > 0 || S.substrate !== 'none' || !S.lastBuild || S.lastBuild.mat !== 'graphene' || S.lastBuild.sys !== 'mat');
 function toggleTutorial() { if (S.tut >= 0) stopTutorial(); else if (S.tutAsk) { S.tutAsk = false; ui.dirty = true; } else if (structureDirty()) { S.tutAsk = true; ui.dirty = true; } else startTutorial(); }
 function drawTutAsk() {
   ui.begin(); ui.hdrR = 52; ui.header('TUTORIAL', ''); helpBtn(); ui.space(10);
