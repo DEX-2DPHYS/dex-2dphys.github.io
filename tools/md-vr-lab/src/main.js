@@ -776,14 +776,15 @@ const TOOLDEF = {
   run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { S.paused = !S.paused; tutEvent(S.paused ? 'pause' : 'run'); } },
   cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
+  wand: { l: 'Bring', icon: ICONS.wand, tint: '#ffd166', on: () => S.tool === 'wand', act: () => selectTool('wand') },
   walk: { l: 'Walk', icon: ICONS.walk, tint: '#7be0ff', on: () => S.walk || !!S.wa, act: () => toggleWalk() },
   help: { l: 'Guide', icon: ICONS.help, tint: '#b48cff', on: () => S.tut >= 0, act: () => toggleTutorial() },
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
 };
 const TB_LEVEL = {
-  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'camera', 'rebuild', 'walk', 'help'],
-  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run', 'camera', 'walk', 'help'],
-  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'walk', 'help'],
+  kid: ['hand', 'add', 'zap', 'wand', 'cool', 'warm', 'run', 'camera', 'rebuild', 'walk', 'help'],
+  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'cool', 'warm', 'run', 'camera', 'walk', 'help'],
+  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'walk', 'help'],
 };
 const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
@@ -792,7 +793,7 @@ function drawToolbar() {
   tbar.begin(); tbar.y = 13; tbar.row(list.length);
   for (const k of list) {
     const d = TOOLDEF[k], r = tbar._rect(66);
-    if (tbar.button(kid ? '' : val(d.l), { icon: iconOf(d), iconArg: d.arg ? d.arg() : undefined, tint: val(d.tint), active: d.on(), h: 66, size: list.length > 10 ? 15 : 17 })) { d.act(); tbar.dirty = true; ui.dirty = true; }
+    if (tbar.button(kid ? '' : val(d.l), { icon: iconOf(d), iconArg: d.arg ? d.arg() : undefined, tint: val(d.tint), active: d.on(), h: 66, size: list.length > 14 ? 13 : list.length > 10 ? 15 : 17 })) { d.act(); tbar.dirty = true; ui.dirty = true; }
     if (k === hl) { const c = tbar.ctx; c.save(); c.strokeStyle = '#ffd166'; c.lineWidth = 3 + 2 * Math.sin(now() / 220); roundRect(c, r.x - 3, r.y - 3, r.w + 6, r.h + 6, 16); c.stroke(); c.restore(); }
   }
   tbar.end(); if (tut) tbar.dirty = true;                                          // keeps the highlight pulsing
@@ -999,6 +1000,7 @@ function toolHint() {
   const t = S.tool;
   const trig = S.vr ? 'trigger' : 'click';
   if (t === 'zap') return `Tool: ANNIHILATOR - hold ${trig}: every atom in the ${S.zapDeg.toFixed(0)}\u00B0 cone is removed`;
+  if (t === 'wand') return `Tool: BRING - hold ${trig} on a piece out of reach: the wand pulls it to you and holds it at the tip; let go to drop it`;
   if (t === 'attach') return `Tool: ATTACH ${S.cel}${S.fillH ? ' (+H)' : ''} - ${trig} an atom; the new atom goes on the side you point from`;
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
@@ -1366,7 +1368,7 @@ function toLocal(o, d) {
 // the atom the ray points at: of the atoms within Rpick of the ray (A; 1.6 for materials, so a laser between the atoms of a
 // sheet still finds it), take the front layer (within 1.5 A of the nearest one) and in it the atom closest to the ray
 function pickAtom(o, d, Rpick = 0) {
-  const r = toLocal(o, d), R = S.walk ? (Rpick ? 0.7 : 0.55) : (Rpick || (isMat() ? 1.6 : 0.7)), R2 = R * R; let tmin = 1e9;
+  const r = toLocal(o, d), R = S.walk ? (Rpick >= 5 ? Rpick * 0.35 : Rpick ? 0.7 : 0.55) : (Rpick || (isMat() ? 1.6 : 0.7)), R2 = R * R; let tmin = 1e9;
   const T = new Float64Array(md.N), D2 = new Float64Array(md.N);
   for (let i = 0; i < md.N; i++) {
     const px = md.x[i] - r.o.x, py = md.y[i] - r.o.y, pz = md.z[i] - r.o.z;
@@ -1400,6 +1402,11 @@ function toolDown(src) {
   const { o, d } = rayOf(src);
   if (thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
   if (S.tool === 'camera') { shoot(src); return true; }
+  if (S.tool === 'wand') {
+    if (!isMat() || !md.N || carry) return false;
+    const p = pickAtom(o, d, 6); if (!p) { toast('Point the wand at the structure'); return true; }
+    startWand(src, p.i); pulse(src, 0.6, 50); return true;
+  }
   if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; doZap(src, o, d); return true; }
   if (S.tool === 'attach' || S.tool === 'bond') {
     if (!ensureChem()) return false;
@@ -1498,6 +1505,7 @@ function grabAt(src, o, d, p, mode) {
   md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom'; tutEvent('grab');
 }
 function toolUp(src) {
+  if (carry && carry.wand && carry.src === src) stopCarry();
   if (hold.src !== src) return;
   if (hold.kind === 'tw') { md.ext.i = -1; md.ext.kk = 0; md.ext.cap = 0; md.ext.anchor = null; }
   hold.byGrip = false;
@@ -1558,7 +1566,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { S.paused = !S.paused; e.preventDefault(); }
   else if (e.key === '1') S.tool = 'tweezers'; else if (e.key === '2') S.tool = 'add'; else if (e.key === '3') S.tool = 'delete';
   else if (e.key === '4') S.tool = 'cminus'; else if (e.key === '5') S.tool = 'cplus';
-  else if (e.key === '8') S.tool = 'zap';
+  else if (e.key === '8') S.tool = 'zap'; else if (e.key === '9') S.tool = 'wand';
   else if (e.key === '6') S.tool = 'attach'; else if (e.key === '7') { S.tool = 'bond'; S.bondA = -1; }
   else if (e.key === 'Escape') { S.bondA = -1; if (S.walk) exitWalk(); }
   else if (e.key === 't' || e.key === 'T') applyTheme(S.theme === 'dark' ? 'light' : 'dark');
@@ -1782,6 +1790,7 @@ function makeToolHeads() {
   { const g = add('add'); g.userData.atom = ball(g, P(0x888888), 0.012, 0, 0.004, -0.02); const m = P(0x7be495, 0x1d5a2b); box(g, m, 0.018, 0.004, 0.004, 0, 0.022, -0.02); box(g, m, 0.004, 0.018, 0.004, 0, 0.022, -0.02); }
   { const g = add('attach'); g.userData.atom = ball(g, P(0x888888), 0.011, 0, 0, -0.035); cyl(g, P(0xcfd6e0), 0.003, 0.03, 0, 0, -0.012); }
   { const g = add('bond'), m = P(0xcfd6e0); cyl(g, m, 0.0035, 0.045, 0, 0, -0.02); ball(g, P(0x4d5360), 0.007, 0, 0, 0.003); ball(g, P(0x4d5360), 0.007, 0, 0, -0.043); }
+  { const g = add('wand'), m = P(0xffd166, 0x5a3f00); cyl(g, P(0x30384a), 0.0035, 0.07, 0, 0, -0.02); const star = new THREE.Group(); star.position.set(0, 0, -0.062); for (const a of [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4]) { const b = new THREE.Mesh(new THREE.BoxGeometry(a % (Math.PI / 2) === 0 ? 0.026 : 0.017, 0.0035, 0.0035), m); b.rotation.z = a; star.add(b); } ball(star, m, 0.006, 0, 0, 0); g.add(star); }
   { const g = add('delete'); box(g, P(0xff8fa3), 0.022, 0.012, 0.03, 0, 0, -0.018); box(g, P(0x6aa8ff), 0.022, 0.0125, 0.012, 0, 0, 0.003); }
   { const g = add('zap'); cyl(g, P(0x8e9aaf), 0.008, 0.055, 0, 0, -0.01); for (const z of [-0.02, -0.03]) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.0095, 0.0022, 8, 20), P(0xff6a3d, 0x5a1a00)); t.position.set(0, 0, z); g.add(t); } ball(g, P(0xff4422, 0xaa2200), 0.006, 0, 0, -0.04); }
   for (const [k, col] of [['cminus', 0x3a6cf0], ['cplus', 0xe8473a]]) { const g = add(k), m = P(col, col === 0x3a6cf0 ? 0x0a1a50 : 0x500a0a); box(g, m, 0.018, 0.016, 0.022, 0, 0, -0.005); const pm = P(0xd9c27a); box(g, pm, 0.003, 0.003, 0.016, -0.004, 0, -0.024); box(g, pm, 0.003, 0.003, 0.016, 0.004, 0, -0.024); }
@@ -1792,7 +1801,7 @@ function makeToolHeads() {
   return { root, H };
 }
 for (const vc of vrc) { vc.tools = makeToolHeads(); vc.obj.add(vc.tools.root); }
-const CURSORS = { camera: 'zoom-in', hand: 'grab', tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', cminus: 'pointer', cplus: 'pointer' };
+const CURSORS = { camera: 'zoom-in', hand: 'grab', tweezers: 'grab', add: 'copy', attach: 'cell', bond: 'alias', delete: 'not-allowed', zap: 'crosshair', wand: 'grab', cminus: 'pointer', cplus: 'pointer' };
 let lastCursor = '';
 function updateToolShapes() {
   const elCol = (isMat() && SPECIES[SP[S.cel]]) ? SPECIES[SP[S.cel]].color : 0x88a0c0;
@@ -1842,11 +1851,39 @@ function startCarry(src, atom) {
   mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 };
   toast(src === 'mouse' ? `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move the mouse (wheel: nearer / farther), release to put it down` : `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move and turn your hand, let go of the grip to put it down`, 3000);
 }
-function stopCarry() { carry = null; if (isMat()) mat.carry = null; }
+/* ---------- the "bring to me" wand: a piece out of reach (high above you when you are tiny) is pulled to the tip of the wand and held there,
+   a reach away along the pointing direction, but nearer eye height than where you aim; let go and it is dropped. ---------- */
+const wandBeam = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.8, fog: false }));
+wandBeam.frustumCulled = false; wandBeam.visible = false; scene.add(wandBeam);
+function startWand(src, atom) {
+  const fm = mat.fragmentMask(atom), N = mat.N, p0 = new Float64Array(3 * N), c = new THREE.Vector3();
+  for (let i = 0; i < N; i++) if (fm.mask[i]) { p0[3 * i] = mat.x[i]; p0[3 * i + 1] = mat.y[i]; p0[3 * i + 2] = mat.z[i]; c.x += mat.x[i]; c.y += mat.y[i]; c.z += mat.z[i]; }
+  c.divideScalar(Math.max(1, fm.n)); let rad = 0;
+  for (let i = 0; i < N; i++) if (fm.mask[i]) rad = Math.max(rad, Math.hypot(mat.x[i] - c.x, mat.y[i] - c.y, mat.z[i] - c.z));
+  carry = { src, N, mask: fm.mask, p0, M0: null, n: fm.n, wand: { cb: c, off: new THREE.Vector3(), rad, t: now() } };
+  mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 };
+  toast(`Pulling ${fm.n} atom${fm.n === 1 ? '' : 's'} to you - swing the wand to place them, let go to drop them`, 3500);
+}
+const wV = new THREE.Vector3(), wT = new THREE.Vector3(), wI = new THREE.Matrix4();
+function updateWand() {
+  const w = carry.wand, t = now(), dt = Math.min(0.1, (t - w.t) / 1000); w.t = t;
+  const { o, d } = rayOf(carry.src); inner.updateMatrixWorld();
+  d.y *= 0.3; d.normalize();                                                     // aim high, it comes to about eye level
+  wT.copy(o).addScaledVector(d, w.rad * simRoot.scale.x + (S.walk ? 1.5 : 0.3));
+  wV.copy(w.cb).add(w.off).applyMatrix4(inner.matrixWorld);                      // the piece's centre in the world now
+  wV.lerp(wT, 1 - Math.exp(-dt * 2.2));
+  wI.copy(inner.matrixWorld).invert(); wV.applyMatrix4(wI); w.off.copy(wV).sub(w.cb);
+  const p = mat.carry.p, p0 = carry.p0, m = carry.mask;
+  for (let i = 0; i < carry.N; i++) if (m[i]) { p[3 * i] = p0[3 * i] + w.off.x; p[3 * i + 1] = p0[3 * i + 1] + w.off.y; p[3 * i + 2] = p0[3 * i + 2] + w.off.z; }
+  const bp = wandBeam.geometry.attributes.position, c = wV.copy(w.cb).add(w.off).applyMatrix4(inner.matrixWorld);
+  bp.setXYZ(0, o.x, o.y - 0.03, o.z); bp.setXYZ(1, c.x, c.y, c.z); bp.needsUpdate = true; wandBeam.visible = true;
+}
+function stopCarry() { carry = null; wandBeam.visible = false; if (isMat()) mat.carry = null; }
 const cM = new THREE.Matrix4(), cV = new THREE.Vector3();
 function updateCarry() {
   if (!carry) return;
   if (!isMat() || mat.N !== carry.N || !mat.carry) { stopCarry(); return; }
+  if (carry.wand) { updateWand(); return; }
   if (carry.src === 'mouse') mouseHand.position.copy(mouseRay.origin).addScaledVector(mouseRay.direction, mouseHand.userData.dist);
   carryObj(carry.src).updateMatrixWorld(); inner.updateMatrixWorld();
   cM.copy(inner.matrixWorld).invert().multiply(carryObj(carry.src).matrixWorld).multiply(carry.M0);         // box -> hand(now) -> box
@@ -1984,18 +2021,20 @@ function walkScale(base) {                                       // the model's 
   const w = S.wa; if (w && w.kind === 'in') return base * Math.pow(WALK_SCALE / base, Math.pow(clamp(w.t / w.d, 0, 1), 2.2));
   return base;
 }
-function walkPlace() {                                            // every frame: put the walking surface at y = 0 and the structure's centre on the vertical axis
+function walkPlace() {                                            // every frame: the walking surface at y = 0, the reference point on the vertical axis
   const sc = WALK_SCALE, [Lx, Ly, Lz] = dims(), sh = !!mat.sheet, up = sh ? md.z : md.y, pl = sh ? md.y : md.z, N = md.N, sb = mat.sub;
   if (!N) return;
-  let cx = 0, cp = 0, hi = -1e9, lo = 1e9;
-  for (let i = 0; i < N; i++) { cx += md.x[i]; cp += pl[i]; const u = up[i]; if (u > hi) hi = u; if (u < lo) lo = u; }
-  cx /= N; cp /= N;
-  let ext = 0; for (let i = 0; i < N; i++) ext = Math.max(ext, Math.hypot(md.x[i] - cx, pl[i] - cp));
-  let g;
-  if (sb) g = sb.wTop; else if (sh) { let a = 0, n = 0; for (let i = 0; i < N; i++) if (up[i] > hi - 1.2) { a += up[i]; n++; } g = a / n; } else g = lo - 3.4;
-  simRoot.position.set(-(cx - Lx / 2) * sc, -(g - (sh ? Lz : Ly) / 2) * sc, (sh ? (cp - Ly / 2) : -(cp - Lz / 2)) * sc);
+  const topMean = () => { let hi = -1e9, a = 0, n = 0; for (let i = 0; i < N; i++) if (up[i] > hi) hi = up[i]; for (let i = 0; i < N; i++) if (up[i] > hi - 1.2) { a += up[i]; n++; } return a / n; };
+  let L = WI.lock;
+  if (!L) {                                                       // fixed when you arrive, so pulling a piece with the wand does not drag the floor along
+    let cx = 0, cp = 0, lo = 1e9; for (let i = 0; i < N; i++) { cx += md.x[i]; cp += pl[i]; if (up[i] < lo) lo = up[i]; } cx /= N; cp /= N;
+    let ext = 0; for (let i = 0; i < N; i++) ext = Math.max(ext, Math.hypot(md.x[i] - cx, pl[i] - cp));
+    L = WI.lock = { cx, cp, ext, g: sb ? sb.wTop : sh ? topMean() : lo - 3.4 };
+  }
+  if (sh && !sb && !carry) L.g = topMean();                       // a sheet is the floor: follow its (slowly bobbing) top layer
+  simRoot.position.set(-(L.cx - Lx / 2) * sc, -(L.g - (sh ? Lz : Ly) / 2) * sc, (sh ? (L.cp - Ly / 2) : -(L.cp - Lz / 2)) * sc);
   simRoot.quaternion.identity();
-  WI.R = Math.max(10, (sb ? sb.R : ext + 9) * sc); WI.ext = ext * sc;
+  WI.R = Math.max(10, (sb ? sb.R : L.ext + 9) * sc); WI.ext = L.ext * sc;
   if (Math.abs(WI.R - WI.last) > 0.05) { WI.last = WI.R; nano.setGround(WI.R, 0, 0); }
 }
 function benchToHead() {                                          // panels: back to the user's side, sized to this person
@@ -2032,7 +2071,7 @@ function finishEnter() {
   sun.color.setHex(0xbcd0ff); sun.intensity = 1.1; sun.position.set(-6, 10, 4);
   rim.color.setHex(0x4ae3e1); rim.intensity = 900; rim.distance = 70; rim.visible = true; headlamp.intensity = S.quality === 'low' ? 0 : 150;
   camera.near = 0.05; camera.far = 4500; camera.updateProjectionMatrix();
-  userScale = 1; applyQuality(); walkPlace();
+  userScale = 1; WI.lock = null; applyQuality(); walkPlace();
   const sz = clamp(WI.ext * 0.75 + 3, 6, WI.R - 2);
   if (S.vr) {
     dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); dolly.updateMatrixWorld(true);
