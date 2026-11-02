@@ -1,7 +1,8 @@
 // Together: one more person in the lab. Transport = Supabase Realtime *broadcast* (no database, no presence API: this file does its own
 // "hi" heartbeats), or a BroadcastChannel between two tabs of the same browser for testing without any server.
 // Roles: the first person in a room is the HOST (runs the simulation); the second is the GUEST (sees it). A third is turned away.
-const SB_LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+// newer versions first (the new sb_publishable_ keys need a recent client), older ones as a fallback if a file cannot be loaded
+const SB_LIBS = ['2.58.0', '2.50.0', '2.45.4'].map((v) => `https://cdn.jsdelivr.net/npm/@supabase/supabase-js@${v}/dist/umd/supabase.min.js`);
 const uid = () => Math.random().toString(36).slice(2, 8);
 const NAMES = ['Atom', 'Quark', 'Boson', 'Photon', 'Lattice', 'Orbital', 'Phonon', 'Graphene', 'Fermion', 'Muon'];
 
@@ -30,7 +31,11 @@ class LocalTransport {
 class SupabaseTransport {
   async open(room, onmsg) {
     const cfg = sbConfig(); if (!cfg) throw new Error('no Supabase project set');
-    if (!window.supabase) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = SB_LIB; s.onload = res; s.onerror = () => rej(new Error('could not load the Supabase library')); document.head.appendChild(s); });
+    for (const src of SB_LIBS) {
+      if (window.supabase) break;
+      await new Promise((res) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); res(); }; document.head.appendChild(s); });
+    }
+    if (!window.supabase) throw new Error('could not load the Supabase library (is the network blocking cdn.jsdelivr.net?)');
     this.client = window.supabase.createClient(cfg.url, cfg.key, { realtime: { params: { eventsPerSecond: 60 } } });
     this.ch = this.client.channel('mdlab:' + room, { config: { broadcast: { self: false, ack: false } } });
     this.ch.on('broadcast', { event: '*' }, (m) => onmsg(m.event, m.payload));
