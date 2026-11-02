@@ -6,16 +6,24 @@ const SB_LIBS = ['2.58.0', '2.50.0', '2.45.4'].map((v) => `https://cdn.jsdelivr.
 const uid = () => Math.random().toString(36).slice(2, 8);
 const NAMES = ['Atom', 'Quark', 'Boson', 'Photon', 'Lattice', 'Orbital', 'Phonon', 'Graphene', 'Fermion', 'Muon'];
 
-export function sbConfig() {
+// The online link has a sundown date: after `expires` (YYYY-MM-DD, valid through the end of that day, UTC) the page no longer opens online rooms.
+// (This is a courtesy check in the page. To really revoke access, rotate or pause the key in the Supabase dashboard.)
+function read() {
   let c = (typeof window !== 'undefined' && window.MDLAB_SB) || {};
   try {
     const q = new URLSearchParams(location.search);
-    if (q.get('sburl') && q.get('sbkey')) { localStorage.setItem('mdlab.sb', JSON.stringify({ url: q.get('sburl'), key: q.get('sbkey') })); }
+    if (q.get('sburl') && q.get('sbkey')) localStorage.setItem('mdlab.sb', JSON.stringify({ url: q.get('sburl'), key: q.get('sbkey'), expires: q.get('sbexp') || '' }));
     const st = JSON.parse(localStorage.getItem('mdlab.sb') || '{}'); if (st.url && st.key) c = st;
   } catch (e) { /* no storage */ }
   return c.url && c.key ? c : null;
 }
-export function saveSbConfig(url, key) { try { localStorage.setItem('mdlab.sb', JSON.stringify({ url, key })); } catch (e) { /* no storage */ } }
+export function sbExpired() {                                              // the sundown date if it has passed, else ''
+  const c = read(); if (!c || !c.expires) return '';
+  const end = Date.parse(c.expires + 'T23:59:59Z'); return Number.isFinite(end) && Date.now() > end ? c.expires : '';
+}
+export function sbConfig() { const c = read(); return c && !sbExpired() ? c : null; }
+export function sbExpires() { const c = read(); return c && c.expires && !sbExpired() ? c.expires : ''; }
+export function saveSbConfig(url, key) { try { localStorage.setItem('mdlab.sb', JSON.stringify({ url, key, expires: '' })); } catch (e) { /* no storage */ } }
 export function defaultName() {
   try { const n = localStorage.getItem('mdlab.name'); if (n) return n; } catch (e) { /* no storage */ }
   return NAMES[Math.floor(Math.random() * NAMES.length)] + '-' + Math.floor(Math.random() * 90 + 10);
@@ -30,7 +38,7 @@ class LocalTransport {
 }
 class SupabaseTransport {
   async open(room, onmsg) {
-    const cfg = sbConfig(); if (!cfg) throw new Error('no Supabase project set');
+    const cfg = sbConfig(); if (!cfg) throw new Error(sbExpired() ? 'The online link expired on ' + sbExpired() : 'no Supabase project set');
     for (const src of SB_LIBS) {
       if (window.supabase) break;
       await new Promise((res) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); res(); }; document.head.appendChild(s); });

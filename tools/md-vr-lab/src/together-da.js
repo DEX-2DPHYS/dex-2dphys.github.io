@@ -1,4 +1,6 @@
 export const TOGETHER_DA = {
+  'The online link expired on {1}. "Two tabs" still works.': 'Online-linket udløb den {1}. "To faner" virker stadig.',
+  'Online rooms use your Supabase project until {1}. Share the link with one other person.': 'Online-rum bruger dit Supabase-projekt til og med {1}. Del linket med én anden person.',
   'Together': 'Sammen', 'Your name': 'Dit navn', 'Change name': 'Skift navn', 'Random name': 'Tilfældigt navn',
   'Online rooms use your Supabase project. Share the link with one other person.': 'Online-rum bruger dit Supabase-projekt. Del linket med én anden person.',
   'No Supabase project is set. "Two tabs" works without one: open this page twice in the same browser.': 'Intet Supabase-projekt er sat. "To faner" virker uden: åbn siden to gange i samme browser.',
