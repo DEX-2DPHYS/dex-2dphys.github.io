@@ -45,7 +45,7 @@ page once with `?sburl=https://xxxx.supabase.co&sbkey=ANON_KEY`. "Two tabs" mode
 
 ## The table
 
-The default substrate is graphene. A substrate always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
+The default is an empty table (no substrate). A substrate, when you choose one, always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
 replacing the structure or moving the experiment keeps it level), with the structure on it. The table is solid: atoms that reach the worktop
 bounce off it (specular reflection, the normal velocity flips), so an unsupported structure pushed down onto the table does not pass through.
 
