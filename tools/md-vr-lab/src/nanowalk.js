@@ -146,6 +146,11 @@ export function createNanoWorld() {
 }
 
 export const WALK_DA = {
+  'Bring': 'Hent', 'Point the wand at the structure': 'Peg tryllestaven mod strukturen',
+  'Tool: BRING - hold click on a piece out of reach: the wand pulls it to you and holds it at the tip; let go to drop it': 'Værktøj: HENT - hold museknappen nede på et stykke uden for rækkevidde: tryllestaven trækker det hen til dig og holder det i spidsen; slip for at tabe det',
+  'Tool: BRING - hold trigger on a piece out of reach: the wand pulls it to you and holds it at the tip; let go to drop it': 'Værktøj: HENT - hold aftrækkeren inde på et stykke uden for rækkevidde: tryllestaven trækker det hen til dig og holder det i spidsen; slip for at tabe det',
+  'Pulling {1} atoms to you - swing the wand to place them, let go to drop them': 'Trækker {1} atomer hen til dig - sving staven for at placere dem, slip for at tabe dem',
+  'Pulling {1} atom to you - swing the wand to place them, let go to drop them': 'Trækker {1} atom hen til dig - sving staven for at placere det, slip for at tabe det',
   'Walk': 'Gå', 'Back to the lab': 'Tilbage til laboratoriet', 'Made small': 'Gjort lille', 'Walk inside the structure': 'Gå rundt inde i strukturen',
   'You are tiny now - an atom is 30 cm and a bond 1.5 m. Left stick: walk. Right stick: turn. Press Walk to go back to the lab.': 'Du er blevet bittesmå - et atom er 30 cm og en binding 1,5 m. Venstre pind: gå. Højre pind: drej. Tryk på Gå for at vende tilbage til laboratoriet.',
   'You are tiny now - an atom is 30 cm and a bond 1.5 m. W A S D or arrows: walk (Shift: run). Drag: look. Esc or Walk: back to the lab.': 'Du er blevet bittesmå - et atom er 30 cm og en binding 1,5 m. W A S D eller piletaster: gå (Shift: løb). Træk: kig. Esc eller Gå: tilbage til laboratoriet.',

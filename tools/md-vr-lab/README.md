@@ -40,7 +40,7 @@ layer), else a glowing pad under the structure. Around you is a starry night (`s
 texture on one sphere, 2800 twinkling stars, horizon haze, cloud banks, drifting motes, a shooting star now and then); the lab is still
 there, 75 times larger and 1.2 km away, a translucent ghost in the fog. Materials only (not the noble-gas box).
 Desktop: W A S D / arrows (Shift runs), drag to look. VR: left stick walks, right stick turns, the panels glide to your side as you walk,
-and the walking surface has an edge you cannot pass. Tools work as usual (the pick radius shrinks to atom size). Cost control: no
+and the walking surface has an edge you cannot pass. Tools work as usual (the pick radius shrinks to atom size). **Bring** (the wand, key 9) is for things out of reach: hold the trigger / button on a piece and it is pulled to the tip of the wand, about eye height and a reach away, and held there while you swing the wand; let go to drop it. Cost control: no
 post-processing, one draw call each for the sky, stars, motes and floor, fewer stars/clouds/motes and no headlamp on Low quality.
 
 ## Electron transport (ELEC tab)
