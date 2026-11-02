@@ -63,6 +63,13 @@ export const ICONS = {
   adult(c, x, y, s, col) { atom(c, x, y - s * 0.55, s * 0.3, col); c.save(); c.lineWidth = s * 0.16; c.strokeStyle = col; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s * 0.2); c.lineTo(x, y + s * 0.4); c.moveTo(x - s * 0.45, y - s * 0.05); c.lineTo(x + s * 0.45, y - s * 0.05); c.moveTo(x, y + s * 0.4); c.lineTo(x - s * 0.3, y + s * 0.95); c.moveTo(x, y + s * 0.4); c.lineTo(x + s * 0.3, y + s * 0.95); c.stroke(); c.restore(); },
   researcher(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.1; c.strokeStyle = col; c.lineJoin = 'round'; poly(c, [[x - s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.2], [x + s * 0.7, y + s * 0.75], [x - s * 0.7, y + s * 0.75], [x - s * 0.22, y - s * 0.2]]); c.stroke(); c.beginPath(); c.moveTo(x - s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.7, y + s * 0.75); c.lineTo(x - s * 0.7, y + s * 0.75); c.closePath(); c.fillStyle = col; c.fill(); c.restore(); },
   // ---- help and flags ----
+  walk(c, x, y, s, col) {             // a small figure standing on honeycomb
+    c.save(); c.lineWidth = s * 0.1; c.strokeStyle = col; c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const [dx, dy] of [[-0.5, 0.78], [0.35, 0.78], [-0.07, 0.95 + 0.0]]) { if (dy > 0.9) continue; poly(c, hexPts(x + dx * s, y + dy * s, s * 0.3, Math.PI / 6)); c.stroke(); }
+    atom(c, x, y - s * 0.7, s * 0.22, col);
+    stick(c, x, y - s * 0.42, x, y + s * 0.18, s * 0.17, col); stick(c, x, y - s * 0.3, x - s * 0.4, y + s * 0.02, s * 0.12, col); stick(c, x, y - s * 0.3, x + s * 0.4, y - s * 0.05, s * 0.12, col);
+    stick(c, x, y + s * 0.15, x - s * 0.28, y + s * 0.58, s * 0.14, col); stick(c, x, y + s * 0.15, x + s * 0.3, y + s * 0.55, s * 0.14, col); c.restore();
+  },
   help(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.14; c.strokeStyle = col; c.beginPath(); c.arc(x, y, s * 0.85, 0, TAU); c.stroke(); c.fillStyle = col; c.font = `700 ${Math.round(s * 1.25)}px system-ui,sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', x, y + s * 0.08); c.restore(); },
   flagGB(c, x, y, s) {                // the Union Jack, 5:3
     const W = s * 2, H = W * 0.6, x0 = x - W / 2, y0 = y - H / 2;

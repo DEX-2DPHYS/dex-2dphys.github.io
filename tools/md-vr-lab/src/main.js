@@ -14,7 +14,8 @@ import { analyse as analyseNow } from './tb.js';
 import { tr, setLang, addLanguage } from './i18n.js';
 import { DA } from './i18n-da.js';
 import { TUT_STEPS, TUT_DA } from './tutorial.js';
-addLanguage('da', Object.assign({}, DA, TUT_DA));
+import { createNanoWorld, WALK_DA } from './nanowalk.js';
+addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA));
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
 // the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
@@ -55,7 +56,7 @@ const S = {
   cel: 'F', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  substrate: 'none', lang: 'en', level: 'researcher', tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'none', lang: 'en', level: 'researcher', walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -278,12 +279,15 @@ inner.add(atoms);
    VR resolution 70 % (applied when VR starts), matte atoms and bonds lit by one light, coarser spheres, desktop pixel ratio 1. ---------- */
 const sphereCoarse = new THREE.SphereGeometry(1, 8, 6), atomMatLow = new THREE.MeshLambertMaterial({ color: 0xffffff });
 const XR_SCALE = { high: 1, low: 0.7 };
-let bondGeoHigh = null, bondMatHigh = null; const bondGeoLow = new THREE.CylinderGeometry(1, 1, 1, 5, 1, true), bondMatLow = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const bondGeoWalk = new THREE.CylinderGeometry(1, 1, 1, 14, 1, true), sphereWalkCache = {};
+function sphereWalk(N, lo) { const k = (lo ? 8 : N <= 400 ? 26 : N <= 1500 ? 16 : 12), key = k + ''; return sphereWalkCache[key] || (sphereWalkCache[key] = new THREE.SphereGeometry(1, k, Math.max(6, Math.round(k * 0.7)))); }
+let subGeoLow = null, bondGeoHigh = null, bondMatHigh = null; const bondGeoLow = new THREE.CylinderGeometry(1, 1, 1, 5, 1, true), bondMatLow = new THREE.MeshLambertMaterial({ color: 0xffffff });
 function applyQuality() {
   const lo = S.quality === 'low';
-  atoms.geometry = lo ? sphereCoarse : sphereLo; atoms.material = lo ? atomMatLow : atomMat;
-  if (typeof bondsMesh !== 'undefined') { if (!bondGeoHigh) { bondGeoHigh = bondsMesh.geometry; bondMatHigh = bondsMesh.material; } bondsMesh.geometry = lo ? bondGeoLow : bondGeoHigh; bondsMesh.material = lo ? bondMatLow : bondMatHigh; }
-  rim.visible = !lo;
+  atoms.geometry = lo ? (S.walk ? sphereWalk(md.N, true) : sphereCoarse) : (S.walk ? sphereWalk(md.N, false) : sphereLo); atoms.material = lo ? atomMatLow : atomMat;
+  if (typeof bondsMesh !== 'undefined') { if (!bondGeoHigh) { bondGeoHigh = bondsMesh.geometry; bondMatHigh = bondsMesh.material; } bondsMesh.geometry = lo ? bondGeoLow : (S.walk ? bondGeoWalk : bondGeoHigh); bondsMesh.material = lo ? bondMatLow : bondMatHigh; }
+  rim.visible = !lo || S.walk;
+  if (typeof subAtoms !== 'undefined') { if (!subGeoLow) subGeoLow = subAtoms.geometry; subAtoms.geometry = S.walk && !lo && subAtoms.count < 2500 ? sphereWalk(1000, false) : subGeoLow; }
   if (!renderer.xr.isPresenting) { renderer.setPixelRatio(lo ? 1 : Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(window.innerWidth, window.innerHeight); }
 }
 function setQuality(q) {
@@ -692,10 +696,11 @@ function updateAtoms() {
   inner.position.set(-Lx / 2, -Ly / 2, -Lz / 2);
   boxEdges.scale.set(Lx, Ly, Lz); boxEdges.position.set(Lx / 2, Ly / 2, Lz / 2);
   boxFaces.scale.set(Lx, Ly, Lz); boxFaces.position.set(Lx / 2, Ly / 2, Lz / 2);
-  const showBox = !mt || mat.periodicAny;
+  const showBox = (!mt || mat.periodicAny) && !S.walk;
   boxEdges.visible = showBox; boxFaces.visible = showBox && !mt && !md.periodic;
   boxEdges.material.opacity = (mt || md.periodic) ? 0.5 : 0.95;
-  simRoot.scale.setScalar((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale);
+  simRoot.scale.setScalar(walkScale((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale));
+  if (S.walk && mt) walkPlace();
   tilt.rotation.x = (mt && mat.sheet) ? -Math.PI / 2 : 0;
 
   // trail of the tagged atom (unwrapped)
@@ -771,13 +776,14 @@ const TOOLDEF = {
   run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { S.paused = !S.paused; tutEvent(S.paused ? 'pause' : 'run'); } },
   cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
+  walk: { l: 'Walk', icon: ICONS.walk, tint: '#7be0ff', on: () => S.walk || !!S.wa, act: () => toggleWalk() },
   help: { l: 'Guide', icon: ICONS.help, tint: '#b48cff', on: () => S.tut >= 0, act: () => toggleTutorial() },
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
 };
 const TB_LEVEL = {
-  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'camera', 'rebuild', 'help'],
-  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run', 'camera', 'help'],
-  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'help'],
+  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'camera', 'rebuild', 'walk', 'help'],
+  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run', 'camera', 'walk', 'help'],
+  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'walk', 'help'],
 };
 const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
@@ -1222,6 +1228,9 @@ function tabSystems() {
 }
 
 function tabSettings() {
+  ui.section('Walking');
+  if (ui.button(S.walk ? 'Back to the lab' : 'Make me small and let me walk on the structure', { icon: ICONS.walk, tint: '#7be0ff', active: S.walk, h: 84, size: 19 })) toggleWalk();
+  ui.paragraph('Tip: add a substrate (graphene, MoS\u2082, SiO\u2082) under a molecule to walk on it.', { size: 18, color: COL.muted });
   ui.section('Level');
   levelRow(62);
   ui.section('Language / Sprog  \u00B7  Graphics');
@@ -1357,7 +1366,7 @@ function toLocal(o, d) {
 // the atom the ray points at: of the atoms within Rpick of the ray (A; 1.6 for materials, so a laser between the atoms of a
 // sheet still finds it), take the front layer (within 1.5 A of the nearest one) and in it the atom closest to the ray
 function pickAtom(o, d, Rpick = 0) {
-  const r = toLocal(o, d), R = Rpick || (isMat() ? 1.6 : 0.7), R2 = R * R; let tmin = 1e9;
+  const r = toLocal(o, d), R = S.walk ? (Rpick ? 0.7 : 0.55) : (Rpick || (isMat() ? 1.6 : 0.7)), R2 = R * R; let tmin = 1e9;
   const T = new Float64Array(md.N), D2 = new Float64Array(md.N);
   for (let i = 0; i < md.N; i++) {
     const px = md.x[i] - r.o.x, py = md.y[i] - r.o.y, pz = md.z[i] - r.o.z;
@@ -1551,7 +1560,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === '4') S.tool = 'cminus'; else if (e.key === '5') S.tool = 'cplus';
   else if (e.key === '8') S.tool = 'zap';
   else if (e.key === '6') S.tool = 'attach'; else if (e.key === '7') { S.tool = 'bond'; S.bondA = -1; }
-  else if (e.key === 'Escape') S.bondA = -1;
+  else if (e.key === 'Escape') { S.bondA = -1; if (S.walk) exitWalk(); }
   else if (e.key === 't' || e.key === 'T') applyTheme(S.theme === 'dark' ? 'light' : 'dark');
   else if (e.key === 'r' || e.key === 'R') { if (S.lastBuild) build(S.lastBuild); }
   else if (e.key === 'p' || e.key === 'P') dom.plotBtn.click();
@@ -1607,7 +1616,7 @@ function locomotion(vc, gp, dt) {
   if (vc.hand === 'left' && !(hold.src === vc.i && hold.grab) && (x || y)) {
     const cam = camera, f = new THREE.Vector3(); cam.getWorldDirection(f); f.y = 0;
     if (f.lengthSq() < 1e-6) f.set(0, 0, -1); f.normalize();
-    const r = new THREE.Vector3(-f.z, 0, f.x), s = S.moveSpeed * dt;          // r = f x up
+    const r = new THREE.Vector3(-f.z, 0, f.x), s = S.moveSpeed * dt * (S.walk ? 1.8 : 1);          // r = f x up
     locoMove((f.x * -y + r.x * x) * s, (f.z * -y + r.z * x) * s); LOCO.active = 0.25;
   }
   if (vc.hand === 'right') {
@@ -1621,6 +1630,7 @@ function locomotion(vc, gp, dt) {
 
 let needRecenter = 0;          // frames to wait: the camera only carries the headset pose after the first rendered VR frames
 renderer.xr.addEventListener('sessionstart', () => {
+  if (S.walk || S.wa) exitWalk(true);
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
   S.vr = true; needRecenter = 4; document.body.classList.add('vr');
   // the headset's own recentre (e.g. holding the Meta button) moves the tracking origin: put the table back in front of the user
@@ -1629,6 +1639,7 @@ renderer.xr.addEventListener('sessionstart', () => {
   S.xr = renderer.xr.getSession();
 });
 renderer.xr.addEventListener('sessionend', () => {
+  if (S.walk || S.wa) exitWalk(true);
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); vign.visible = false;
   S.vr = false; document.body.classList.remove('vr'); uiMesh.visible = plotMesh.visible = tbMesh.visible = ptMesh.visible = false;
   bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); userScale = 1;
@@ -1639,6 +1650,7 @@ renderer.xr.addEventListener('sessionend', () => {
 });
 
 function recenter() {
+  if (S.walk) { benchToHead(); return; }
   const cam = camera;                                   // the user camera rides on the dolly, so its world pose includes seated movement
   const p = new THREE.Vector3(), f = new THREE.Vector3();
   cam.getWorldPosition(p); cam.getWorldDirection(f); f.y = 0;
@@ -1670,6 +1682,7 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('squeezestart', () => {
     if (vc.hitObj === uiMesh || vc.hitObj === plotMesh || vc.hitObj === tbMesh || vc.hitObj === ptMesh) { vc.obj.updateWorldMatrix(true, false); vc.hitObj.updateWorldMatrix(true, false); vc.pg = { mesh: vc.hitObj, rel: vc.obj.matrixWorld.clone().invert().multiply(vc.hitObj.matrixWorld) }; pulse(i, 0.3, 30); return; }
     if (isMat() && md.N && !carry) { const r = rayOf(i), p = pickAtom(r.o, r.d, 2.0); if (p) { startCarry(i, p.i); vc.sheet = true; pulse(i, 0.5, 40); return; } }
+    if (S.walk) return;
     vc.sq = true; regrab();
   });
   obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; stopCarry(); return; } vc.sq = null; regrab(); });
@@ -1873,7 +1886,7 @@ function vrInput(dt) {
     const o = new THREE.Vector3().setFromMatrixPosition(vc.obj.matrixWorld), d = new THREE.Vector3(0, 0, -1).transformDirection(vc.obj.matrixWorld);
     rc.set(o, d); rc.far = 3;
     const hits = rc.intersectObjects(ptMesh.visible ? [uiMesh, plotMesh, tbMesh, ptMesh] : [uiMesh, plotMesh, tbMesh], false);
-    let len = 1.5;
+    let len = S.walk ? 14 : 1.5;
     if (hits.length) {
       const h = hits[0]; len = h.distance; if (!vc.pg) vc.hitObj = h.object;
       const U_ = h.object === uiMesh ? ui : h.object === tbMesh ? tbar : h.object === ptMesh ? ptab : null;
@@ -1882,7 +1895,7 @@ function vrInput(dt) {
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
     HOVER.delete(vc.i);
-    if (!hits.length && md.N && S.tool !== 'camera') { const p = pickAtom(o, d); if (p) HOVER.set(vc.i, p.i); }
+    if (!hits.length && md.N && S.tool !== 'camera') { const p = pickAtom(o, d); if (p) { HOVER.set(vc.i, p.i); if (S.walk) len = Math.max(0.3, p.t * p.s); } }
     vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt);
     vc.cone.visible = S.tool === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
     vc.laser.material.color.set(vc.hit ? 0xffffff : 0x4ae3e1);
@@ -1897,7 +1910,7 @@ function vrInput(dt) {
       if (btn[2] && !vc.prev[2]) recenter();
       vc.prev = btn;
       if (ay) {
-        if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * 0.9, 0.12, 3.5);
+        if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * (S.walk ? 9 : 0.9), 0.12, S.walk ? 40 : 3.5);
         else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
       }
     }
@@ -1911,7 +1924,8 @@ function vrInput(dt) {
 let last = now(), lastUI = 0, lastPlot = 0, lastTB = 0, lastPT = 0;
 function frame() {
   const t = now(), dt = Math.min(0.1, (t - last) / 1000); last = t;
-  if (S.vr) vrInput(dt); else controls.update();
+  walkTick(dt);
+  if (S.vr) { vrInput(dt); if (S.walk) { walkClamp(); walkPanels(dt); } } else { controls.update(); if (S.walk) walkEye(); }
   toolUpdate();
 
   md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
@@ -1946,16 +1960,150 @@ function frame() {
     lastPlot = t; if (S.vr) plotTex.needsUpdate = true;
   }
   updateCamPreview(t); updateMouseHover(); updateCarry();
+  walkSky(t / 1000, dt);
   renderer.render(scene, camera);
+}
+/* ================================================================== nano walk
+   "Made small": the structure is shown at 1.056 m per Angstrom (C-C bond 1.5 m, atom radius about 0.3 m) and the user stands on
+   its fixed surface - the substrate if there is one, else the sheet itself (its top layer), else a glowing pad - in a starry
+   night. The lab is still there, but a hundred times larger and kilometres away, a ghost in the fog (src/nanowalk.js). */
+const WALK_SCALE = 1.056, EYE = 1.7;
+const nano = createNanoWorld(); scene.add(nano.root);
+const labFar = new THREE.Group(); scene.add(labFar);
+const headlamp = new THREE.PointLight(0xcfe6ff, 0, 45, 1.5); scene.add(headlamp);
+const fadeMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: 0x03060f, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false }));
+fadeMesh.position.z = -0.2; fadeMesh.renderOrder = 10000; fadeMesh.visible = false; camera.add(fadeMesh);
+const WI = { R: 20, ext: 10, last: 0 }, walkSaved = {}, wKeys = new Set(), wp = new THREE.Vector3();
+const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+window.addEventListener('keydown', (e) => { if (S.walk && !(e.target && /input|textarea/i.test(e.target.tagName))) { wKeys.add(e.code); if (/^Arrow/.test(e.code)) e.preventDefault(); } });
+window.addEventListener('keyup', (e) => wKeys.delete(e.code));
+window.addEventListener('blur', () => wKeys.clear());
+
+function walkScale(base) {                                       // the model's scale in metres per Angstrom; grows towards the viewer while "shrinking"
+  if (S.walk) return WALK_SCALE;
+  const w = S.wa; if (w && w.kind === 'in') return base * Math.pow(WALK_SCALE / base, Math.pow(clamp(w.t / w.d, 0, 1), 2.2));
+  return base;
+}
+function walkPlace() {                                            // every frame: put the walking surface at y = 0 and the structure's centre on the vertical axis
+  const sc = WALK_SCALE, [Lx, Ly, Lz] = dims(), sh = !!mat.sheet, up = sh ? md.z : md.y, pl = sh ? md.y : md.z, N = md.N, sb = mat.sub;
+  if (!N) return;
+  let cx = 0, cp = 0, hi = -1e9, lo = 1e9;
+  for (let i = 0; i < N; i++) { cx += md.x[i]; cp += pl[i]; const u = up[i]; if (u > hi) hi = u; if (u < lo) lo = u; }
+  cx /= N; cp /= N;
+  let ext = 0; for (let i = 0; i < N; i++) ext = Math.max(ext, Math.hypot(md.x[i] - cx, pl[i] - cp));
+  let g;
+  if (sb) g = sb.wTop; else if (sh) { let a = 0, n = 0; for (let i = 0; i < N; i++) if (up[i] > hi - 1.2) { a += up[i]; n++; } g = a / n; } else g = lo - 3.4;
+  simRoot.position.set(-(cx - Lx / 2) * sc, -(g - (sh ? Lz : Ly) / 2) * sc, (sh ? (cp - Ly / 2) : -(cp - Lz / 2)) * sc);
+  simRoot.quaternion.identity();
+  WI.R = Math.max(10, (sb ? sb.R : ext + 9) * sc); WI.ext = ext * sc;
+  if (Math.abs(WI.R - WI.last) > 0.05) { WI.last = WI.R; nano.setGround(WI.R, 0, 0); }
+}
+function benchToHead() {                                          // panels: back to the user's side, sized to this person
+  const p = new THREE.Vector3(), f = new THREE.Vector3(); camera.getWorldPosition(p); camera.getWorldDirection(f); f.y = 0;
+  if (f.lengthSq() < 1e-4) f.set(0, 0, -1); f.normalize();
+  bench.rotation.set(0, Math.atan2(-f.x, -f.z), 0); bench.position.set(p.x, 0, p.z);
+  setTableHeight(clamp(p.y - 0.52, 0.55, 1.05), false); placePanels(clamp(p.y - 0.12, 0.85, 1.75)); bench.updateMatrixWorld(true);
+}
+function ghostify(g, on) {                                      // the far lab as a see-through ghost: its materials turn translucent (and back)
+  g.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) {
+    if (on) { if (!m.userData.g) m.userData.g = { t: m.transparent, o: m.opacity, w: m.depthWrite, s: m.side }; m.transparent = true; m.opacity = Math.min(m.opacity, 0.42); m.depthWrite = false; m.side = THREE.DoubleSide; }
+    else if (m.userData.g) { const q = m.userData.g; m.transparent = q.t; m.opacity = q.o; m.depthWrite = q.w; m.side = q.s; delete m.userData.g; }
+    m.needsUpdate = true; } });
+}
+function toggleWalk() { if (S.wa) return; if (S.walk) exitWalk(); else enterWalk(); }
+function enterWalk() {
+  if (S.walk || S.wa) return;
+  if (!md.N) { toast('Build something first'); return; }
+  if (!isMat()) { toast('Walking needs a material (not the noble-gas box): pick graphene, a nanotube, C60 ...', 6000); return; }
+  S.wa = { kind: 'in', t: 0, d: 1.1 };
+}
+function exitWalk(instant) {
+  if (!S.walk && !S.wa) return;
+  if (instant) { const was = S.walk; S.wa = null; fadeMesh.visible = false; if (was) finishExit(); return; }
+  if (S.walk) S.wa = { kind: 'out', t: 0, d: 0.55 };
+}
+function finishEnter() {
+  S.walk = true;
+  Object.assign(walkSaved, { near: camera.near, far: camera.far, fog: scene.fog, bg: scene.background, sunPos: sun.position.clone(), sunCol: sun.color.getHex(), rimD: rim.distance });
+  nano.build(); nano.setQuality(S.quality === 'low'); nano.root.visible = true;
+  labFar.add(room); labFar.add(desk); labFar.position.set(-200, -40, -1250); labFar.rotation.set(0, 0.35, 0); labFar.scale.setScalar(75); ghostify(labFar, true);
+  scene.background = nano.bg; scene.fog = nano.fog;
+  hemi.color.setHex(0x8fa6ff); hemi.groundColor.setHex(0x3a2060); hemi.intensity = 1.05;
+  sun.color.setHex(0xbcd0ff); sun.intensity = 1.1; sun.position.set(-6, 10, 4);
+  rim.color.setHex(0x4ae3e1); rim.intensity = 900; rim.distance = 70; rim.visible = true; headlamp.intensity = S.quality === 'low' ? 0 : 150;
+  camera.near = 0.05; camera.far = 4500; camera.updateProjectionMatrix();
+  userScale = 1; applyQuality(); walkPlace();
+  const sz = clamp(WI.ext * 0.75 + 3, 6, WI.R - 2);
+  if (S.vr) {
+    dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); dolly.updateMatrixWorld(true);
+    const f = new THREE.Vector3(); camera.getWorldDirection(f); dolly.rotation.y = -Math.atan2(-f.x, -f.z); dolly.updateMatrixWorld(true);
+    camera.getWorldPosition(wp); dolly.position.x += -wp.x; dolly.position.z += sz - wp.z; dolly.position.y = 0; benchToHead();
+  } else {
+    controls.rotateSpeed = 0.6; controls.minDistance = 0.001; controls.maxDistance = 0.5; controls.enableZoom = false; controls.enablePan = false; controls.minPolarAngle = 0.3; controls.maxPolarAngle = Math.PI - 0.3;
+    camera.position.set(0, EYE, sz); controls.target.set(0, EYE - 0.004, sz - 0.02); controls.update();
+  }
+  toast(S.vr ? 'You are tiny now - an atom is 30 cm and a bond 1.5 m. Left stick: walk. Right stick: turn. Press Walk to go back to the lab.' : 'You are tiny now - an atom is 30 cm and a bond 1.5 m. W A S D or arrows: walk (Shift: run). Drag: look. Esc or Walk: back to the lab.', 9000);
+  ui.dirty = tbar.dirty = true;
+}
+function finishExit() {
+  S.walk = false; nano.root.visible = false; ghostify(labFar, false); bench.add(room); bench.add(desk); headlamp.intensity = 0; rim.distance = walkSaved.rimD || 4;
+  scene.fog = walkSaved.fog; scene.background = walkSaved.bg; sun.position.copy(walkSaved.sunPos); sun.color.setHex(walkSaved.sunCol);
+  camera.near = walkSaved.near; camera.far = walkSaved.far; camera.updateProjectionMatrix();
+  applyTheme(S.theme); applyQuality(); userScale = 1;
+  controls.rotateSpeed = 1; controls.minDistance = 0.3; controls.maxDistance = 6; controls.enableZoom = true; controls.enablePan = true; controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
+  if (S.vr) { dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); recenter(); }
+  else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); controls.target.copy(SIM_HOME); camera.position.set(0.85, 1.75, 0.55); controls.update(); }
+  ui.dirty = tbar.dirty = true;
+}
+function walkTick(dt) {                                           // the shrinking / growing animation, the fade, desktop walking
+  const w = S.wa;
+  if (S.walk && !w && !isMat()) exitWalk();
+  if (w) {
+    w.t += dt; const f = Math.min(1, w.t / w.d); let op = 0;
+    if (w.kind === 'in') { op = ss(0.6, 1, f); if (f >= 1) { finishEnter(); S.wa = { kind: 'fadein', t: 0, d: 1.6 }; op = 1; } }
+    else if (w.kind === 'out') { op = f; if (f >= 1) { finishExit(); S.wa = { kind: 'fadein', t: 0, d: 0.9 }; op = 1; } }
+    else { op = 1 - ss(0, 1, f); if (f >= 1) { S.wa = null; op = 0; } }
+    fadeMesh.material.opacity = op; fadeMesh.visible = op > 0.003;
+  }
+  if (S.walk && !S.vr) {
+    const K = (c) => (wKeys.has(c) ? 1 : 0), fw = K('KeyW') + K('ArrowUp') - K('KeyS') - K('ArrowDown'), st = K('KeyD') + K('ArrowRight') - K('KeyA') - K('ArrowLeft');
+    if (fw || st) {
+      const f = new THREE.Vector3(); camera.getWorldDirection(f); f.y = 0; if (f.lengthSq() < 1e-6) f.set(0, 0, -1); f.normalize();
+      const v = (wKeys.has('ShiftLeft') || wKeys.has('ShiftRight') ? 5.5 : 2.4) * dt, l = Math.hypot(fw, st), dx = (f.x * fw - f.z * st) * v / l, dz = (f.z * fw + f.x * st) * v / l;
+      camera.position.x += dx; camera.position.z += dz; controls.target.x += dx; controls.target.z += dz;
+      const d = Math.hypot(camera.position.x, camera.position.z), R = WI.R - 1.2;
+      if (d > R) { const k = (R - d) / d, ex = camera.position.x * k, ez = camera.position.z * k; camera.position.x += ex; camera.position.z += ez; controls.target.x += ex; controls.target.z += ez; }
+    }
+  }
+}
+function walkEye() { const dy = EYE - camera.position.y; camera.position.y += dy; controls.target.y += dy; }
+function walkClamp() {                                            // the edge of the walking surface stops you (VR: slides the rig back)
+  camera.getWorldPosition(wp); const d = Math.hypot(wp.x, wp.z), R = WI.R - 1.2;
+  if (d > R) { const k = (R - d) / d; dolly.position.x += wp.x * k; dolly.position.z += wp.z * k; }
+}
+let benchFollow = false;
+function walkPanels(dt) {                                         // panels follow lazily: when you walk away or turn round they glide to your side
+  const f = new THREE.Vector3(); camera.getWorldPosition(wp); camera.getWorldDirection(f); f.y = 0; if (f.lengthSq() < 1e-4) return; f.normalize();
+  const yaw = Math.atan2(-f.x, -f.z); let dy = yaw - bench.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+  const dist = Math.hypot(wp.x - bench.position.x, wp.z - bench.position.z);
+  if (dist > 1.5 || Math.abs(dy) > 1.3) benchFollow = true;
+  if (benchFollow) {
+    const k = 1 - Math.exp(-dt * 3); bench.position.x += (wp.x - bench.position.x) * k; bench.position.z += (wp.z - bench.position.z) * k; bench.rotation.y += dy * k;
+    if (dist < 0.15 && Math.abs(dy) < 0.12) benchFollow = false;
+  }
+}
+function walkSky(t, dt) {
+  if (!S.walk) return;
+  camera.getWorldPosition(wp); nano.update(wp, t, dt, S.vr ? 1.5 : renderer.getPixelRatio());
+  headlamp.position.set(wp.x, wp.y + 0.3, wp.z); rim.position.set(0, 12, 0);
 }
 /* ================================================================== themes */
 function applyTheme(name) {
   S.theme = name === 'light' ? 'light' : 'dark'; const th = THEMES[S.theme];
   setPalette(S.theme);
-  scene.background.set(th.bg); scene.fog.color.set(th.bg); scene.fog.near = th.fog[0]; scene.fog.far = th.fog[1];
-  hemi.color.set(th.hemi[0]); hemi.groundColor.set(th.hemi[1]); hemi.intensity = th.hemi[2]; sun.intensity = th.sun;
-  rim.color.set(th.accent); rim.intensity = th.rim;
-  if (room) { bench.remove(room); disposeTree(room); } room = makeRoom(th); bench.add(room);
+  if (!S.walk) { scene.background.set(th.bg); scene.fog.color.set(th.bg); scene.fog.near = th.fog[0]; scene.fog.far = th.fog[1]; }
+  if (!S.walk) { hemi.color.set(th.hemi[0]); hemi.groundColor.set(th.hemi[1]); hemi.intensity = th.hemi[2]; sun.intensity = th.sun; rim.color.set(th.accent); rim.intensity = th.rim; }
+  if (room) { const par = room.parent || bench; par.remove(room); disposeTree(room); room = makeRoom(th); par.add(room); } else { room = makeRoom(th); bench.add(room); }
   deskTop.material.color.set(th.top); legM.color.set(th.cab); ring.material.color.set(th.accent); disc.material.color.set(th.accent);
   boxEdges.material.color.set(th.accent); boxFaces.material.color.set(th.accent);
   cMinus.set(COL.minus); cPlus.set(COL.plus);
@@ -1994,5 +2142,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };

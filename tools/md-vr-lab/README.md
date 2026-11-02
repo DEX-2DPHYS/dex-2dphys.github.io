@@ -32,6 +32,17 @@ VR controls: trigger = press UI / use tool, grip = move the experiment (both gri
 left stick = box size, while holding an atom the stick reels it in/out, A/X = next tool, B/Y = run/pause,
 stick click = recentre.
 
+## Nano walk (the **Walk** button, SETTINGS → Walking, Esc to leave)
+
+The user is "made small": the structure is shown at 1.056 m per Å (C–C bond 1.5 m, atom radius about 0.3 m) and you stand on its
+**fixed surface**: the substrate if one is set (graphene, MoS₂, SiO₂ - its atoms become the floor), else the sheet itself (its top
+layer), else a glowing pad under the structure. Around you is a starry night (`src/nanowalk.js`: procedural Milky Way and nebulae
+texture on one sphere, 2800 twinkling stars, horizon haze, cloud banks, drifting motes, a shooting star now and then); the lab is still
+there, 75 times larger and 1.2 km away, a translucent ghost in the fog. Materials only (not the noble-gas box).
+Desktop: W A S D / arrows (Shift runs), drag to look. VR: left stick walks, right stick turns, the panels glide to your side as you walk,
+and the walking surface has an edge you cannot pass. Tools work as usual (the pick radius shrinks to atom size). Cost control: no
+post-processing, one draw call each for the sky, stars, motes and floor, fewer stars/clouds/motes and no headlamp on Low quality.
+
 ## Electron transport (ELEC tab)
 
 Mark atoms as the **−** electrode (electrons enter) and the **+** electrode with the contact tools (keys 4 / 5, or the ELEC tab),
