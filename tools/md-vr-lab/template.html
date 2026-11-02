@@ -35,6 +35,21 @@
   body.light button.b{color:#15202f;background:#dfe6f0;border-color:#b9c5d6}
   body.light button.b.on{background:#a8dedb;border-color:#0b827f}
   body.light #uiWrap canvas,body.light #plotWrap canvas{box-shadow:0 8px 30px rgba(40,60,90,.25)}
+  #start{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(7,11,19,.93);padding:16px;overflow:auto}
+  #start.hide{display:none}
+  #start .card{max-width:640px;width:100%;text-align:center}
+  #start h1{font-size:26px;letter-spacing:.04em;color:#4ae3e1;margin:0 0 4px}
+  #start p{color:#9fb2cf;margin:0 0 18px;font-size:15px}
+  #start h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#8798b6;margin:20px 0 8px}
+  #start .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  #start button{font:600 17px system-ui,sans-serif;color:#e8eef8;background:#1d2a45;border:2px solid #2a3a5c;border-radius:14px;padding:14px 18px;cursor:pointer;flex:1 1 150px}
+  #start button small{display:block;font:400 12px system-ui,sans-serif;color:#9fb2cf;margin-top:4px}
+  #start button:hover{border-color:#4ae3e1}
+  #start button.sel{background:#17696a;border-color:#4ae3e1}
+  #start button.go{margin-top:26px;flex:none;width:100%;background:#4ae3e1;color:#06141a;border-color:#4ae3e1;font-size:20px}
+  body.light #start{background:rgba(232,237,243,.95)}
+  body.light #start h1{color:#0b827f} body.light #start p,body.light #start h2,body.light #start button small{color:#4f5f79}
+  body.light #start button{color:#15202f;background:#dfe6f0;border-color:#b9c5d6} body.light #start button.sel{background:#a8dedb;border-color:#0b827f}
 </style>
 </head>
 <body>
@@ -51,6 +66,19 @@
 <div id="tools"><div id="tbWrap"></div><div id="ptWrap" style="display:none"></div></div>
 <div id="uiWrap"></div>
 <div id="plotWrap"></div>
+<div id="start"><div class="card">
+  <h1>2DPHYS ATOMIC&nbsp;WORKBENCH</h1>
+  <p data-t="sub"></p>
+  <h2 data-t="hl"></h2>
+  <div class="row" id="stLang"><button data-v="en">English</button><button data-v="da">Dansk</button></div>
+  <h2 data-t="hv"></h2>
+  <div class="row" id="stLevel">
+    <button data-v="kid"><span data-t="kid"></span><small data-t="kidd"></small></button>
+    <button data-v="adult"><span data-t="adult"></span><small data-t="adultd"></small></button>
+    <button data-v="researcher"><span data-t="res"></span><small data-t="resd"></small></button>
+  </div>
+  <button class="go" id="stGo" data-t="go"></button>
+</div></div>
 <!--BUNDLE-->
 </body>
 </html>

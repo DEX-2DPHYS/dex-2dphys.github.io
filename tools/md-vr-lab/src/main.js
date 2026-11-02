@@ -788,8 +788,8 @@ function drawToolbar() {
   tbar.end();
 }
 const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['researcher', 'Researcher', ICONS.researcher]];
-function setLevel(l) {
-  if (!TB_LEVEL[l] || l === S.level) return;
+function setLevel(l, force) {
+  if (!TB_LEVEL[l] || (l === S.level && !force)) return;
   S.level = l; S.ptOpen = false;
   if (!TB_LEVEL[l].includes(S.tool)) selectTool(TB_LEVEL[l][0]);
   if (l === 'kid') { S.cel = 'C'; S.addSp = SP.C; S.fillH = false; }
@@ -1917,6 +1917,28 @@ function applyTheme(name) {
   try { localStorage.setItem('mdlab.theme', S.theme); } catch (e) { /* no storage */ }
 }
 setLang(S.lang); applyTheme(S.theme); applyLangDom(); applyQuality();
+/* ---------- start screen: pick the level (kid / adult / researcher) and the language before the lab opens ---------- */
+const START_TXT = {
+  en: { sub: 'Build, heat and measure atoms \u2013 in VR or on the screen', hl: 'Language', hv: 'Who is using the lab?', kid: 'Kid', kidd: 'Pictures and simple tools', adult: 'Adult', adultd: 'The essentials, with short explanations', res: 'Researcher', resd: 'Everything: plots, transport, chemistry', go: 'Start' },
+  da: { sub: 'Byg, varm op og m\u00E5l p\u00E5 atomer \u2013 i VR eller p\u00E5 sk\u00E6rmen', hl: 'Sprog', hv: 'Hvem bruger laboratoriet?', kid: 'Barn', kidd: 'Billeder og enkle v\u00E6rkt\u00F8jer', adult: 'Voksen', adultd: 'Det vigtigste, med korte forklaringer', res: 'Forsker', resd: 'Alt: grafer, transport, kemi', go: 'Start' },
+};
+(function startScreen() {
+  const root = document.getElementById('start'); if (!root) return;
+  let lg = S.lang === 'da' ? 'da' : 'en', lv = TB_LEVEL[S.level] ? S.level : 'researcher';
+  const paint = () => {
+    root.querySelectorAll('[data-t]').forEach((el) => { el.textContent = START_TXT[lg][el.dataset.t]; });
+    root.querySelectorAll('#stLang button').forEach((b) => b.classList.toggle('sel', b.dataset.v === lg));
+    root.querySelectorAll('#stLevel button').forEach((b) => b.classList.toggle('sel', b.dataset.v === lv));
+  };
+  root.querySelector('#stLang').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { lg = b.dataset.v; paint(); } });
+  root.querySelector('#stLevel').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { lv = b.dataset.v; paint(); } });
+  root.querySelector('#stGo').addEventListener('click', () => {
+    setLangUI(lg); setLevel(lv, true); root.classList.add('hide');
+    try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); v.lang = lg; v.level = lv; localStorage.setItem('mdlab.view', JSON.stringify(v)); } catch (e) { /* no storage */ }
+  });
+  paint();
+})();
+
 setTableHeight(0.9, false);
 
 build(B, { quiet: true });
