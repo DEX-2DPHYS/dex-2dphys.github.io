@@ -15,7 +15,7 @@ import { tr, setLang, addLanguage } from './i18n.js';
 import { DA } from './i18n-da.js';
 import { TUT_STEPS, TUT_DA } from './tutorial.js';
 import { createNanoWorld, WALK_DA } from './nanowalk.js';
-import { Collab, sbConfig, saveSbConfig, saveName, roomCode } from './collab.js';
+import { Collab, sbConfig, sbExpired, sbExpires, saveSbConfig, saveName, roomCode } from './collab.js';
 import { AvatarSet } from './avatars.js';
 import { TOGETHER_DA } from './together-da.js';
 addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA));
@@ -2278,7 +2278,8 @@ function togetherPage() {
     ui.readout('Your name', collab.name, { h: 40 });
     ui.row(2); if (ui.button('Change name', { h: 52, size: 19, disabled: S.vr })) { const n = window.prompt('Your name', collab.name); if (n) { collab.name = n.trim().slice(0, 14); saveName(collab.name); } }
     if (ui.button('Random name', { h: 52, size: 19 })) { collab.name = collab.name.replace(/-\d+$/, '') + '-' + Math.floor(Math.random() * 90 + 10); saveName(collab.name); }
-    ui.space(6); ui.paragraph(cfg ? 'Online rooms use your Supabase project. Share the link with one other person.' : 'No Supabase project is set. "Two tabs" works without one: open this page twice in the same browser.', { size: 18, color: COL.muted });
+    ui.space(6); const gone = sbExpired(), until = sbExpires();
+    ui.paragraph(gone ? `The online link expired on ${gone}. "Two tabs" still works.` : cfg ? (until ? `Online rooms use your Supabase project until ${until}. Share the link with one other person.` : 'Online rooms use your Supabase project. Share the link with one other person.') : 'No Supabase project is set. "Two tabs" works without one: open this page twice in the same browser.', { size: 18, color: COL.muted });
     ui.row(2); if (ui.button('Start a room (online)', { h: 66, size: 19, primary: true, disabled: !cfg })) startRoom('supabase');
     if (ui.button('Start a room (two tabs)', { h: 66, size: 19 })) startRoom('local');
     ui.row(2); if (ui.button('Join a room…', { h: 52, size: 19, disabled: S.vr })) { const c = window.prompt('Room code (4 letters)'); if (c) collabJoin(c, cfg ? 'supabase' : 'local'); }
