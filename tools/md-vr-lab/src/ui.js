@@ -75,7 +75,7 @@ export class UI {
     text = tr(text); sub = tr(sub); const c = this.ctx;
     c.fillStyle = COL.accent; c.font = '700 30px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left';
     c.fillText(text, this.pad, this.y + 18);
-    if (sub) { c.fillStyle = COL.muted; c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillText(sub, this.w - this.pad, this.y + 18); }
+    if (sub) { c.fillStyle = COL.muted; c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillText(sub, this.w - this.pad - (this.hdrR || 0), this.y + 18); }
     this.y += 42;
   }
 

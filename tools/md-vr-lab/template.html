@@ -43,9 +43,12 @@
   #start h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#8798b6;margin:20px 0 8px}
   #start .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
   #start button{font:600 17px system-ui,sans-serif;color:#e8eef8;background:#1d2a45;border:2px solid #2a3a5c;border-radius:14px;padding:14px 18px;cursor:pointer;flex:1 1 150px}
-  #start button small{display:block;font:400 12px system-ui,sans-serif;color:#9fb2cf;margin-top:4px}
+  #start button small{display:block;text-align:center;font:400 12px system-ui,sans-serif;color:#9fb2cf;margin-top:4px}
   #start button:hover{border-color:#4ae3e1}
   #start button.sel{background:#17696a;border-color:#4ae3e1}
+  #start .row button{display:flex;flex-direction:column;align-items:center;gap:8px}
+  #start canvas{width:48px;height:48px}
+  #start button.tut{margin-top:10px;flex:none;width:100%;background:transparent;font-size:16px}
   #start button.go{margin-top:26px;flex:none;width:100%;background:#4ae3e1;color:#06141a;border-color:#4ae3e1;font-size:20px}
   body.light #start{background:rgba(232,237,243,.95)}
   body.light #start h1{color:#0b827f} body.light #start p,body.light #start h2,body.light #start button small{color:#4f5f79}
@@ -70,14 +73,15 @@
   <h1>2DPHYS ATOMIC&nbsp;WORKBENCH</h1>
   <p data-t="sub"></p>
   <h2 data-t="hl"></h2>
-  <div class="row" id="stLang"><button data-v="en">English</button><button data-v="da">Dansk</button></div>
+  <div class="row" id="stLang"><button data-v="en"><svg viewBox="0 0 50 30" width="50" height="30" aria-hidden="true"><rect width="50" height="30" fill="#012169"/><path d="M0 0L50 30M50 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L50 30M50 0L0 30" stroke="#c8102e" stroke-width="2"/><path d="M25 0V30M0 15H50" stroke="#fff" stroke-width="10"/><path d="M25 0V30M0 15H50" stroke="#c8102e" stroke-width="6"/></svg><span>English</span></button><button data-v="da"><svg viewBox="0 0 40 30" width="40" height="30" aria-hidden="true"><rect width="40" height="30" fill="#c8102e"/><path d="M12 0V30M0 15H40" stroke="#fff" stroke-width="5"/></svg><span>Dansk</span></button></div>
   <h2 data-t="hv"></h2>
   <div class="row" id="stLevel">
-    <button data-v="kid"><span data-t="kid"></span><small data-t="kidd"></small></button>
-    <button data-v="adult"><span data-t="adult"></span><small data-t="adultd"></small></button>
-    <button data-v="researcher"><span data-t="res"></span><small data-t="resd"></small></button>
+    <button data-v="kid"><canvas width="96" height="96" data-ic="kid"></canvas><span data-t="kid"></span><small data-t="kidd"></small></button>
+    <button data-v="adult"><canvas width="96" height="96" data-ic="adult"></canvas><span data-t="adult"></span><small data-t="adultd"></small></button>
+    <button data-v="researcher"><canvas width="96" height="96" data-ic="researcher"></canvas><span data-t="res"></span><small data-t="resd"></small></button>
   </div>
   <button class="go" id="stGo" data-t="go"></button>
+  <button class="tut" id="stTut"><span data-t="tut"></span></button>
 </div></div>
 <!--BUNDLE-->
 </body>

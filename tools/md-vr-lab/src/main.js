@@ -13,7 +13,8 @@ import { drawPlots, drawElec, PW, PH } from './plots.js';
 import { analyse as analyseNow } from './tb.js';
 import { tr, setLang, addLanguage } from './i18n.js';
 import { DA } from './i18n-da.js';
-addLanguage('da', DA);
+import { TUT_STEPS, TUT_DA } from './tutorial.js';
+addLanguage('da', Object.assign({}, DA, TUT_DA));
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
 // the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
@@ -54,7 +55,7 @@ const S = {
   cel: 'F', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  substrate: 'none', lang: 'en', level: 'researcher', quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'none', lang: 'en', level: 'researcher', tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -572,7 +573,7 @@ function doZap(src, o, d) {
   }
   if (!hit.length) return false;
   for (const i of hit) flashAt(md.x[i], md.y[i], md.z[i], 0xff5533);
-  removeAtomsBatch(hit); pulse(src, 0.7, 40); return true;
+  removeAtomsBatch(hit); pulse(src, 0.7, 40); tutEvent('zap'); return true;
 }
 const FLASH = [], flashGeo = new THREE.SphereGeometry(1, 12, 8); let flashI = 0;
 for (let k = 0; k < 40; k++) { const m = new THREE.Mesh(flashGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); m.visible = false; inner.add(m); FLASH.push({ m, age: 9 }); }
@@ -753,7 +754,7 @@ function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty =
 /* ---------- levels: Kid, Adult (non-expert), Researcher. Same simulation; the level only decides what is shown and how.
    Tools are pictograms with a colour per kind: teal = grab, green = build, red/orange = remove, blue/red = electrodes. ---------- */
 const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
-const nudgeT = (f) => { const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; };
+const nudgeT = (f) => { const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; tutEvent(f > 1 ? 'warm' : 'cool'); };
 const TOOLDEF = {
   camera: { l: 'Camera', icon: ICONS.camera, tint: '#b48cff', on: () => S.tool === 'camera', act: () => selectTool('camera') },
   hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => S.tool === 'hand', act: () => selectTool('hand') },
@@ -767,25 +768,28 @@ const TOOLDEF = {
   hfill: { l: 'H fill', icon: ICONS.hfill, tint: '#d8dde6', on: () => S.fillH, act: () => { S.fillH = !S.fillH; } },
   cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => S.tool === 'cminus', act: () => selectTool('cminus') },
   cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => S.tool === 'cplus', act: () => selectTool('cplus') },
-  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { S.paused = !S.paused; } },
+  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { S.paused = !S.paused; tutEvent(S.paused ? 'pause' : 'run'); } },
   cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
+  help: { l: 'Guide', icon: ICONS.help, tint: '#b48cff', on: () => S.tut >= 0, act: () => toggleTutorial() },
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
 };
 const TB_LEVEL = {
-  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'camera', 'rebuild'],
-  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run', 'camera'],
-  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera'],
+  kid: ['hand', 'add', 'zap', 'cool', 'warm', 'run', 'camera', 'rebuild', 'help'],
+  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'cool', 'warm', 'run', 'camera', 'help'],
+  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'help'],
 };
+const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
 function drawToolbar() {
-  const list = TB_LEVEL[S.level] || TB_LEVEL.researcher, kid = S.level === 'kid';
+  const tut = S.tut >= 0, list = tut ? TB_TUT : (TB_LEVEL[S.level] || TB_LEVEL.researcher), kid = S.level === 'kid' && !tut, hl = tut ? TUT_STEPS[S.tut].tool : null;
   tbar.begin(); tbar.y = 13; tbar.row(list.length);
   for (const k of list) {
-    const d = TOOLDEF[k];
+    const d = TOOLDEF[k], r = tbar._rect(66);
     if (tbar.button(kid ? '' : val(d.l), { icon: iconOf(d), iconArg: d.arg ? d.arg() : undefined, tint: val(d.tint), active: d.on(), h: 66, size: list.length > 10 ? 15 : 17 })) { d.act(); tbar.dirty = true; ui.dirty = true; }
+    if (k === hl) { const c = tbar.ctx; c.save(); c.strokeStyle = '#ffd166'; c.lineWidth = 3 + 2 * Math.sin(now() / 220); roundRect(c, r.x - 3, r.y - 3, r.w + 6, r.h + 6, 16); c.stroke(); c.restore(); }
   }
-  tbar.end();
+  tbar.end(); if (tut) tbar.dirty = true;                                          // keeps the highlight pulsing
 }
 const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['researcher', 'Researcher', ICONS.researcher]];
 function setLevel(l, force) {
@@ -827,8 +831,49 @@ function tempBar(h = 64) {
   c.textAlign = 'right'; c.fillStyle = COL.muted; c.font = '18px system-ui,sans-serif'; c.fillText(`${lo} \u2013 ${hi} K`, r.x + r.w - 10, r.y + h * 0.14);
   ui._advance(h);
 }
+/* ---------- tutorial: a guided tour of the basic tools on a graphene sheet (src/tutorial.js). The toolbar switches to the tools
+   in play, the next one pulses, and the panel shows the step. Tool code reports what the user did through tutEvent(). ---------- */
+function startTutorial() {
+  S.sys.sel = 'graphene'; S.sys.open = true; loadSystem();
+  S.paused = false; S.ptOpen = false; S.tab = 0; selectTool('hand'); S.tut = 0; S.tutOk = false;
+  ui.dirty = true; tbar.dirty = true;
+}
+function stopTutorial() { S.tut = -1; S.tutOk = false; ui.dirty = true; tbar.dirty = true; }
+function toggleTutorial() { if (S.tut >= 0) stopTutorial(); else startTutorial(); }
+function tutGo(k) { S.tut = clamp(k, 0, TUT_STEPS.length - 1); S.tutOk = false; ui.dirty = true; tbar.dirty = true; }
+function tutEvent(ev) { const st = S.tut >= 0 && TUT_STEPS[S.tut]; if (st && st.ev === ev && !S.tutOk) { S.tutOk = true; S.tutAt = now(); } }
+// the round "?" in the panel header (all levels)
+function helpBtn() {
+  const r = { x: CW - ui.pad - 44, y: ui.pad - 4, w: 44, h: 44 }, hov = ui._hover(r), c = ui.ctx; if (hov) ui.cursorOver = true;
+  c.fillStyle = hov ? COL.hover : COL.card2; c.beginPath(); c.arc(r.x + 22, r.y + 22, 22, 0, Math.PI * 2); c.fill();
+  c.save(); ICONS.help(c, r.x + 22, r.y + 22, 14, S.tut >= 0 ? COL.accent : COL.text); c.restore();
+  if (hov && ui.pressed && ui.owner !== null) toggleTutorial();
+}
+function drawTutorial() {
+  const st = TUT_STEPS[S.tut], N = TUT_STEPS.length;
+  if (st.ev === 'pause' && S.paused) tutEvent('pause'); else if (st.ev === 'run' && !S.paused) tutEvent('run');
+  if (S.tutOk && !st.last && now() - S.tutAt > 2200) tutGo(S.tut + 1);
+  ui.begin(); ui.hdrR = 52; ui.header('TUTORIAL', `Step ${S.tut + 1} of ${N}`); helpBtn();
+  ui.bar((S.tut + (S.tutOk || st.last ? 1 : 0)) / N); ui.space(6);
+  tempBar(64); ui.space(2);
+  ui.section(st.title);
+  if (st.tool) { const d = TOOLDEF[st.tool]; if (ui.button(`Use the tool: ${val(d.l)}`, { icon: iconOf(d), tint: d.tint, active: d.on(), h: 150, size: 21 })) { d.act(); tbar.dirty = true; } }
+  ui.paragraph(S.vr && st.vr ? st.vr : st.text, { size: 25 });
+  if (S.tutOk) ui.label('\u2713 ' + tr('Well done!'), { size: 28, bold: true, color: COL.good });
+  ui.y = CH - 214;
+  ui.row(2);
+  if (ui.button('\u25C0 ' + tr('Back'), { h: 64, disabled: S.tut === 0, size: 24 })) tutGo(S.tut - 1);
+  if (ui.button(st.last ? tr('Finish') : tr('Next') + ' \u25B6', { h: 64, primary: true, active: S.tutOk || st.last, size: 24 })) { if (st.last) stopTutorial(); else tutGo(S.tut + 1); }
+  ui.row(2);
+  if (ui.button('Rebuild sheet', { h: 56, size: 21 })) { S.sys.sel = 'graphene'; loadSystem(); S.paused = false; toast('Rebuilt the graphene sheet', 2500); }
+  if (ui.button('Exit', { h: 56, size: 21 })) stopTutorial();
+  ui.ctx.fillStyle = COL.card; ui.ctx.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
+  ui.ctx.font = '20px system-ui,Segoe UI,sans-serif'; ui.ctx.textAlign = 'left'; ui.ctx.textBaseline = 'middle'; ui.ctx.fillStyle = now() < S.msgUntil ? COL.warn : COL.muted;
+  ui.ctx.fillText(tr(now() < S.msgUntil ? S.msg : toolHint()), ui.pad + 12, CH - 38);
+  ui.end();
+}
 function drawKid() {
-  ui.begin(); ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty');
+  ui.begin(); ui.hdrR = 52; ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty'); helpBtn();
   tempBar(70); ui.space(2);
   systemCards(KID_SYS, 170); ui.space(6);
   ui.row(3);
@@ -902,11 +947,12 @@ bench.add(uiMesh); bench.add(plotMesh);
 uiMesh.userData.ui = true;
 
 function drawControls() {
+  if (S.tut >= 0) return drawTutorial();
   if (S.level === 'kid') return drawKid();
   const mt = isMat(), T = U.K(md.temperature());
   ui.begin();
   if (S.level === 'adult') {
-    ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty box');
+    ui.hdrR = 52; ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty box'); helpBtn();
     tempBar(64); ui.space(2);
     let ai = ADULT_TABS.findIndex(([t]) => t === S.tab); if (ai < 0) { ai = 0; S.tab = 0; }
     ai = ui.tabs(ADULT_TABS.map(([, l]) => l), ai, 17); S.tab = ADULT_TABS[ai][0];
@@ -917,7 +963,8 @@ function drawControls() {
     c.fillText(tr(now() < S.msgUntil ? S.msg : toolHint()), ui.pad + 12, CH - 38);
     ui.end(); return;
   }
-  ui.header('ATOMIC WORKBENCH', md.N ? (mt ? `${md.name} \u00B7 ${md.N} atoms` : `${S.el} \u00B7 ${md.N} atoms \u00B7 box ${U.nm(md.L).toFixed(2)} nm`) : 'empty box');
+  ui.hdrR = 52;
+  ui.header('ATOMIC WORKBENCH', md.N ? (mt ? `${md.name} \u00B7 ${md.N} atoms` : `${S.el} \u00B7 ${md.N} atoms \u00B7 box ${U.nm(md.L).toFixed(2)} nm`) : 'empty box'); helpBtn();
   const Pb = U.bar(md.pressure());
   ui.row(2); ui.readout('Temperature', T.toFixed(mt ? 0 : 1) + ' K', { color: COL.accent }); ui.readout('Target', S.thermo ? S.TsetK.toFixed(0) + ' K' : 'off (NVE)', { color: S.thermo ? COL.warn : COL.muted });
   if (mt) { ui.row(2); ui.readout('Pressure', 'n/a'); ui.readout('Atoms', String(md.N)); }
@@ -1179,8 +1226,8 @@ function tabSettings() {
   levelRow(62);
   ui.section('Language / Sprog  \u00B7  Graphics');
   ui.row(4);
-  for (const [v, l] of [['en', 'English'], ['da', 'Dansk']]) if (ui.button(l, { active: S.lang === v, h: 48, size: 21 }) && S.lang !== v) setLangUI(v);
-  for (const [v, l] of [['high', 'High quality'], ['low', 'Low quality']]) if (ui.button(l, { active: S.quality === v, h: 48, size: 19 }) && S.quality !== v) setQuality(v);
+  for (const [v, l, f] of [['en', 'English', ICONS.flagGB], ['da', 'Dansk', ICONS.flagDK]]) if (ui.button(l, { icon: f, tint: COL.accent, active: S.lang === v, h: 76, size: 20 }) && S.lang !== v) setLangUI(v);
+  for (const [v, l] of [['high', 'High quality'], ['low', 'Low quality']]) if (ui.button(l, { active: S.quality === v, h: 76, size: 19 }) && S.quality !== v) setQuality(v);
   ui.section('Atoms and bonds');
   S.atomR = ui.slider('atomR', 'Atom size', S.atomR, 0.12, 0.6, (v) => `${v.toFixed(2)} \u00C5 radius`, { step: 0.01, h: 58 });
   S.sameSize = ui.toggle('Same size for every element', S.sameSize, { h: 50 });
@@ -1413,11 +1460,11 @@ function doAdd(src, o, d) {
   const i = isMat() ? md.addAtom(p.x, p.y, p.z, S.addSp) : md.addAtom(p.x, p.y, p.z);
   if (i < 0) { toast('No room for another atom there'); return true; }
   if (S.tag < 0) retag();
-  pulse(src, 0.25, 20); return true;
+  pulse(src, 0.25, 20); tutEvent('add'); return true;
 }
 function doDel(src, o, d) {
   const p = pickAtom(o, d); if (!p) return false;
-  removeAtomAt(p.i); pulse(src, 0.4, 30); return true;
+  removeAtomAt(p.i); pulse(src, 0.4, 30); tutEvent('del'); return true;
 }
 // Hand grabs. mode 'hand': a loose piece (at most half the atoms) moves whole, otherwise the atom itself is pulled hard
 // (it breaks out); mode 'sheet': the whole layer the atom belongs to (grip button)
@@ -1439,7 +1486,7 @@ function grabAt(src, o, d, p, mode) {
       if (any) md.ext.anchor = mat.anchorFor(rest);
     }
   }
-  md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom';
+  md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom'; tutEvent('grab');
 }
 function toolUp(src) {
   if (hold.src !== src) return;
@@ -1919,23 +1966,26 @@ function applyTheme(name) {
 setLang(S.lang); applyTheme(S.theme); applyLangDom(); applyQuality();
 /* ---------- start screen: pick the level (kid / adult / researcher) and the language before the lab opens ---------- */
 const START_TXT = {
-  en: { sub: 'Build, heat and measure atoms \u2013 in VR or on the screen', hl: 'Language', hv: 'Who is using the lab?', kid: 'Kid', kidd: 'Pictures and simple tools', adult: 'Adult', adultd: 'The essentials, with short explanations', res: 'Researcher', resd: 'Everything: plots, transport, chemistry', go: 'Start' },
-  da: { sub: 'Byg, varm op og m\u00E5l p\u00E5 atomer \u2013 i VR eller p\u00E5 sk\u00E6rmen', hl: 'Sprog', hv: 'Hvem bruger laboratoriet?', kid: 'Barn', kidd: 'Billeder og enkle v\u00E6rkt\u00F8jer', adult: 'Voksen', adultd: 'Det vigtigste, med korte forklaringer', res: 'Forsker', resd: 'Alt: grafer, transport, kemi', go: 'Start' },
+  en: { sub: 'Build, heat and measure atoms \u2013 in VR or on the screen', hl: 'Language', hv: 'Who is using the lab?', kid: 'Kid', kidd: 'Pictures and simple tools', adult: 'Adult', adultd: 'The essentials, with short explanations', res: 'Researcher', resd: 'Everything: plots, transport, chemistry', go: 'Start', tut: '? Take the graphene tutorial' },
+  da: { sub: 'Byg, varm op og m\u00E5l p\u00E5 atomer \u2013 i VR eller p\u00E5 sk\u00E6rmen', hl: 'Sprog', hv: 'Hvem bruger laboratoriet?', kid: 'Barn', kidd: 'Billeder og enkle v\u00E6rkt\u00F8jer', adult: 'Voksen', adultd: 'Det vigtigste, med korte forklaringer', res: 'Forsker', resd: 'Alt: grafer, transport, kemi', go: 'Start', tut: '? Tag guiden om grafen' },
 };
 (function startScreen() {
   const root = document.getElementById('start'); if (!root) return;
   let lg = S.lang === 'da' ? 'da' : 'en', lv = TB_LEVEL[S.level] ? S.level : 'researcher';
   const paint = () => {
     root.querySelectorAll('[data-t]').forEach((el) => { el.textContent = START_TXT[lg][el.dataset.t]; });
+    root.querySelectorAll('canvas[data-ic]').forEach((cv) => { const c = cv.getContext('2d'); c.clearRect(0, 0, 96, 96); ICONS[cv.dataset.ic](c, 48, 48, 38, COL.accent); });
     root.querySelectorAll('#stLang button').forEach((b) => b.classList.toggle('sel', b.dataset.v === lg));
     root.querySelectorAll('#stLevel button').forEach((b) => b.classList.toggle('sel', b.dataset.v === lv));
   };
   root.querySelector('#stLang').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { lg = b.dataset.v; paint(); } });
   root.querySelector('#stLevel').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { lv = b.dataset.v; paint(); } });
-  root.querySelector('#stGo').addEventListener('click', () => {
-    setLangUI(lg); setLevel(lv, true); root.classList.add('hide');
+  const go = (tutorial) => {
+    setLangUI(lg); setLevel(lv, true); root.classList.add('hide'); if (tutorial) startTutorial();
     try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); v.lang = lg; v.level = lv; localStorage.setItem('mdlab.view', JSON.stringify(v)); } catch (e) { /* no storage */ }
-  });
+  };
+  root.querySelector('#stGo').addEventListener('click', () => go(false));
+  root.querySelector('#stTut').addEventListener('click', () => go(true));
   paint();
 })();
 
