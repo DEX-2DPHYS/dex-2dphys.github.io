@@ -263,11 +263,24 @@ function setTableHeight(h, moveSim = true) {
   h = clamp(h, 0.5, 1.2); const dh = h - S.tableH; S.tableH = h;
   deskTop.position.set(0, h, -1.0); for (const l of legs) { l.scale.y = h - 0.025; l.position.y = (h - 0.025) / 2; }
   ring.position.set(0, h + 0.03, -1.0); disc.position.set(0, h + 0.029, -1.0); rim.position.set(0, h + 1.0, -1.0); THERMO.g.position.y = h + 0.025;
-  SIM_HOME.y = h + 0.43;
+  SIM_HOME.y = homeY();
   if (dh && typeof tbMesh !== "undefined") { tbMesh.position.y += dh; ptMesh.position.y += dh; }
   if (moveSim && dh) { simRoot.position.y += dh; if (!S.vr) { controls.target.y += dh; camera.position.y += dh; } }
 }
-let userScale = 1, wps = 0.1;                                     // wps = metres per sigma at build time
+let userScale = 1, wps = 0.1;
+/* The experiment hovers above the table - unless it has a substrate: then the substrate lies on the table (its lowest atoms just touch the
+   worktop) and the structure sits on it. Walking uses the same surface (see walkPlace). */
+function homeY() {
+  const sb = isMat() && md.N ? mat.sub : null; if (!sb) return S.tableH + 0.43;
+  const [, Ly, Lz] = dims(), Lup = mat.sheet ? Lz : Ly;
+  return S.tableH + 0.025 + (Lup / 2 - sb.wMin + 0.85 * S.atomR) * wps;
+}
+function tableFit() {                                            // called when the fit key (substrate, size, table height) changes
+  const y0 = SIM_HOME.y; SIM_HOME.y = homeY(); const dh = SIM_HOME.y - y0; if (S.walk || S.wa || Math.abs(dh) < 1e-6) return;
+  if (S.vr) { bench.updateMatrixWorld(true); simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); simRoot.quaternion.copy(bench.quaternion); }
+  else { simRoot.position.y = SIM_HOME.y; controls.target.y += dh; camera.position.y += dh; }
+}
+let fitKey = '';                                     // wps = metres per sigma at build time
 
 const sphereLo = new THREE.SphereGeometry(1, 12, 9);
 const atomMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: 0x556677 });
@@ -701,6 +714,7 @@ function updateAtoms() {
   const showBox = (!mt || mat.periodicAny) && !S.walk;
   boxEdges.visible = showBox; boxFaces.visible = showBox && !mt && !md.periodic;
   boxEdges.material.opacity = (mt || md.periodic) ? 0.5 : 0.95;
+  if (!S.walk && !S.wa) { const sb = mt ? mat.sub : null, key = `${sb ? sb.kind + sb.wMin.toFixed(2) : '-'}|${wps}|${S.atomR}|${S.tableH}|${Lx.toFixed(0)}${Ly.toFixed(0)}${Lz.toFixed(0)}`; if (key !== fitKey) { fitKey = key; tableFit(); } }
   simRoot.scale.setScalar(walkScale((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale));
   if (S.walk && mt) walkPlace();
   tilt.rotation.x = (mt && mat.sheet) ? -Math.PI / 2 : 0;
