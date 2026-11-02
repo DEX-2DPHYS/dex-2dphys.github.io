@@ -59,7 +59,7 @@ const S = {
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  substrate: 'none', lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'graphene', lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -273,6 +273,21 @@ function setTableHeight(h, moveSim = true) {
 let userScale = 1, wps = 0.1;
 /* The experiment hovers above the table - unless it has a substrate: then the substrate lies on the table (its lowest atoms just touch the
    worktop) and the structure sits on it. Walking uses the same surface (see walkPlace). */
+/* The table is solid: atoms that reach the worktop (over its 1.4 x 0.8 m top) bounce off it - specular reflection, the normal velocity flips. */
+const _wn = new THREE.Vector3(), _wp = new THREE.Vector3(), _wi = new THREE.Matrix4(), _wb = new THREE.Matrix4(), _wr = new THREE.Vector3();
+function tableWall() {
+  if (!isMat() || S.walk || S.wa || !md.N || collab.guest || S.paused || md.exploded) return;
+  inner.updateWorldMatrix(true, false); bench.updateWorldMatrix(true, false); _wi.copy(inner.matrixWorld).invert(); _wb.copy(bench.matrixWorld).invert();
+  _wn.set(0, 1, 0).transformDirection(_wi); _wp.set(0, S.tableH + 0.025, 0).applyMatrix4(_wi);
+  const nx = _wn.x, ny = _wn.y, nz = _wn.z, nd = nx * _wp.x + ny * _wp.y + nz * _wp.z, rad = S.atomR, X = md.x, Y = md.y, Z = md.z, fixed = md.fixed;
+  for (let i = 0; i < md.N; i++) {
+    const d = nx * X[i] + ny * Y[i] + nz * Z[i] - nd; if (d >= rad) continue;
+    if (fixed && fixed[i]) continue;
+    _wr.set(X[i], Y[i], Z[i]).applyMatrix4(inner.matrixWorld).applyMatrix4(_wb); if (Math.abs(_wr.x) > 0.7 || _wr.z < -1.4 || _wr.z > -0.6) continue;     // over the table top
+    const k = 2 * (rad - d); X[i] += nx * k; Y[i] += ny * k; Z[i] += nz * k;
+    const vn = nx * md.vx[i] + ny * md.vy[i] + nz * md.vz[i]; if (vn < 0) { md.vx[i] -= 2 * vn * nx; md.vy[i] -= 2 * vn * ny; md.vz[i] -= 2 * vn * nz; }
+  }
+}
 function homeY() {
   const sb = isMat() && md.N ? mat.sub : null; if (!sb) return S.tableH + 0.43;
   const [, Ly, Lz] = dims(), Lup = mat.sheet ? Lz : Ly;
@@ -283,7 +298,7 @@ function tableFit() {                                            // called when 
   if (S.vr) { bench.updateMatrixWorld(true); simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); labQuat(); }
   else { simRoot.position.y = SIM_HOME.y; controls.target.y += dh; camera.position.y += dh; }
 }
-let fitKey = '';                                     // wps = metres per sigma at build time
+let fitKey = ''; const _upv = new THREE.Vector3();                                     // wps = metres per sigma at build time
 
 const sphereLo = new THREE.SphereGeometry(1, 12, 9);
 const atomMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 70, specular: 0x556677 });
@@ -720,6 +735,13 @@ function updateAtoms() {
   boxEdges.material.opacity = (mt || md.periodic) ? 0.5 : 0.95;
   if (!S.walk && !S.wa) { const sb = mt ? mat.sub : null, key = `${sb ? sb.kind + sb.wMin.toFixed(2) : '-'}|${wps}|${S.atomR}|${S.tableH}|${Lx.toFixed(0)}${Ly.toFixed(0)}${Lz.toFixed(0)}`; if (key !== fitKey) { fitKey = key; tableFit(); } }
   simRoot.scale.setScalar(walkScale((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale));
+  if (!S.walk && !S.wa && mt && mat.sub && md.N) {                    // the substrate always lies on the table, whatever replaced or moved the experiment
+    const sc = simRoot.scale.x, up = _upv.set(0, 1, 0).applyQuaternion(simRoot.quaternion);
+    if (up.y > 0.98) {
+      const want = S.tableH + 0.025 + ((mat.sheet ? Lz : Ly) / 2 - mat.sub.wMin + 0.85 * S.atomR) * sc, dy = want - simRoot.position.y;
+      if (Math.abs(dy) > 1e-4) { simRoot.position.y = want; if (!S.vr && Math.abs(dy) > 0.02) { controls.target.y += dy; camera.position.y += dy; } }
+    }
+  }
   if (S.walk && mt) walkPlace();
   tilt.rotation.x = (mt && mat.sheet) ? -Math.PI / 2 : 0;
 
@@ -869,7 +891,7 @@ function startTutorial() {
   ui.dirty = true; tbar.dirty = true;
 }
 function stopTutorial() { S.tut = -1; S.tutOk = false; ui.dirty = true; tbar.dirty = true; }
-const structureDirty = () => !!md.N && (md.N !== S.buildN || S.cm.size > 0 || S.cp.size > 0 || S.substrate !== 'none' || !S.lastBuild || S.lastBuild.mat !== 'graphene' || S.lastBuild.sys !== 'mat');
+const structureDirty = () => !!md.N && (md.N !== S.buildN || S.cm.size > 0 || S.cp.size > 0 || S.substrate !== 'graphene' || !S.lastBuild || S.lastBuild.mat !== 'graphene' || S.lastBuild.sys !== 'mat');
 function toggleTutorial() { if (S.tut >= 0) stopTutorial(); else if (S.tutAsk) { S.tutAsk = false; ui.dirty = true; } else if (structureDirty()) { S.tutAsk = true; ui.dirty = true; } else startTutorial(); }
 function drawTutAsk() {
   ui.begin(); ui.hdrR = 52; ui.header('TUTORIAL', ''); helpBtn(); ui.space(10);
@@ -2021,6 +2043,7 @@ function frame() {
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('Simulation unstable: lower the time step and Rebuild', 8000); }
   if (S.escape && isMat() && md.N && !S.paused && !collab.guest) escapeCheck();
+  tableWall();
   updateFlashes(dt); updateToolShapes(); updateThermo(t);
 
   // transport: the live part (bond currents, current at the bias) a few times a second while atoms move; the curves on demand
