@@ -6,7 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { MD, ELEMENTS, units, MAXN, clamp } from './physics.js';
 import { Mat, TU_FS, SPECIES, TERSOFF, SP } from './materials.js';
 import { CHEM_ELEMENTS, VALENCE } from './chem.js';
-import { UI, COL, setPalette, roundRect } from './ui.js';
+import { UI, COL, setPalette, roundRect, fitText } from './ui.js';
 import { ICONS } from './icons.js';
 import { buildSubstrate, SUB_KINDS } from './substrate.js';
 import { drawPlots, drawElec, PW, PH } from './plots.js';
@@ -53,10 +53,10 @@ const S = {
   el: 'Ar', TsetK: 30, thermo: true, paused: false, dt: 0.004, speed: 10, periodic: true,
   color: 'speed', tool: 'hand', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
-  cel: 'F', fillH: false, bondA: -1,                                                       // chemistry tools
+  cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  substrate: 'none', lang: 'en', level: 'researcher', walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'none', lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -69,7 +69,9 @@ const isMat = () => md === mat;
 const dims = () => isMat() ? [mat.Lx, mat.Ly, mat.Lz] : [md.L, md.L, md.L];
 const perAxis = () => isMat() ? mat.per : (md.periodic ? [true, true, true] : [false, false, false]);
 const now = () => performance.now();
-const toast = (m, ms = 4000) => { S.msg = m; S.msgUntil = now() + ms; };
+const toast = (m, ms = 4000) => { S.msg = m; S.msgUntil = now() + ms; showDomToast(m, ms); };
+let domToastT = 0;
+function showDomToast(m, ms) { const el = document.getElementById('toast'); if (!el || S.vr) return; el.textContent = tr(m); el.classList.add('on'); clearTimeout(domToastT); domToastT = setTimeout(() => el.classList.remove('on'), Math.min(ms, 9000)); }
 
 /* ================================================================== renderer / scene */
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -318,7 +320,7 @@ const H = { t: [], T: [], ke: [], pe: [], e: [], P: [], mt: [], my: [], pt: [], 
 function resetHistory() { for (const k of ['t', 'T', 'ke', 'pe', 'e', 'P', 'mt', 'my', 'pt', 'py']) H[k].length = 0; H.lastStep = md.step; S.D = null; }
 
 function build(recipe, opts = {}) {
-  S.lastBuild = Object.assign({}, recipe); clearContacts();
+  S.lastBuild = Object.assign({}, recipe); S.buildN = null; clearContacts();
   if (recipe.sys === 'mat') return buildMat(recipe, opts);
   md = lj; S.el = recipe.el; U = ljUnits(S.el); if (S.dt > 0.02 || S.dt < 0.001) S.dt = 0.004;
   md.periodic = S.periodic; md.dt = S.dt;
@@ -790,12 +792,13 @@ const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help']; 
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
 function drawToolbar() {
   const tut = S.tut >= 0, list = tut ? TB_TUT : (TB_LEVEL[S.level] || TB_LEVEL.researcher), kid = S.level === 'kid' && !tut, hl = tut ? TUT_STEPS[S.tut].tool : null;
-  tbar.begin(); tbar.y = 13; tbar.row(list.length);
+  tbar.begin(); tbar.y = 13; tbar.row(list.length); let hov = null;
   for (const k of list) {
-    const d = TOOLDEF[k], r = tbar._rect(66);
+    const d = TOOLDEF[k], r = tbar._rect(66); if (tbar._hover(r)) hov = k;
     if (tbar.button(kid ? '' : val(d.l), { icon: iconOf(d), iconArg: d.arg ? d.arg() : undefined, tint: val(d.tint), active: d.on(), h: 66, size: list.length > 14 ? 13 : list.length > 10 ? 15 : 17 })) { d.act(); tbar.dirty = true; ui.dirty = true; }
     if (k === hl) { const c = tbar.ctx; c.save(); c.strokeStyle = '#ffd166'; c.lineWidth = 3 + 2 * Math.sin(now() / 220); roundRect(c, r.x - 3, r.y - 3, r.w + 6, r.h + 6, 16); c.stroke(); c.restore(); }
   }
+  if (hov !== S.hoverTool) { S.hoverTool = hov; ui.dirty = true; }
   tbar.end(); if (tut) tbar.dirty = true;                                          // keeps the highlight pulsing
 }
 const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['researcher', 'Researcher', ICONS.researcher]];
@@ -841,12 +844,22 @@ function tempBar(h = 64) {
 /* ---------- tutorial: a guided tour of the basic tools on a graphene sheet (src/tutorial.js). The toolbar switches to the tools
    in play, the next one pulses, and the panel shows the step. Tool code reports what the user did through tutEvent(). ---------- */
 function startTutorial() {
+  S.tutAsk = false;
   S.sys.sel = 'graphene'; S.sys.open = true; loadSystem();
   S.paused = false; S.ptOpen = false; S.tab = 0; selectTool('hand'); S.tut = 0; S.tutOk = false;
   ui.dirty = true; tbar.dirty = true;
 }
 function stopTutorial() { S.tut = -1; S.tutOk = false; ui.dirty = true; tbar.dirty = true; }
-function toggleTutorial() { if (S.tut >= 0) stopTutorial(); else startTutorial(); }
+const structureDirty = () => !!md.N && (md.N !== S.buildN || S.cm.size > 0 || S.cp.size > 0 || S.substrate !== 'none' || !S.lastBuild || S.lastBuild.mat !== 'graphene' || S.lastBuild.sys !== 'mat');
+function toggleTutorial() { if (S.tut >= 0) stopTutorial(); else if (S.tutAsk) { S.tutAsk = false; ui.dirty = true; } else if (structureDirty()) { S.tutAsk = true; ui.dirty = true; } else startTutorial(); }
+function drawTutAsk() {
+  ui.begin(); ui.hdrR = 52; ui.header('TUTORIAL', ''); helpBtn(); ui.space(10);
+  ui.paragraph('The tutorial starts with a fresh graphene sheet, so your current structure would be replaced.', { size: 26 }); ui.space(14);
+  if (ui.button('Save my structure, then start', { h: 76, primary: true, size: 24 })) { saveCurrent(); S.tutAsk = false; startTutorial(); }
+  if (ui.button('Start (replace my structure)', { h: 76, size: 24 })) { S.tutAsk = false; startTutorial(); }
+  if (ui.button('Cancel', { h: 76, size: 24 })) { S.tutAsk = false; ui.dirty = true; }
+  ui.end();
+}
 function tutGo(k) { S.tut = clamp(k, 0, TUT_STEPS.length - 1); S.tutOk = false; ui.dirty = true; tbar.dirty = true; }
 function tutEvent(ev) { const st = S.tut >= 0 && TUT_STEPS[S.tut]; if (st && st.ev === ev && !S.tutOk) { S.tutOk = true; S.tutAt = now(); } }
 // the round "?" in the panel header (all levels)
@@ -855,6 +868,12 @@ function helpBtn() {
   c.fillStyle = hov ? COL.hover : COL.card2; c.beginPath(); c.arc(r.x + 22, r.y + 22, 22, 0, Math.PI * 2); c.fill();
   c.save(); ICONS.help(c, r.x + 22, r.y + 22, 14, S.tut >= 0 ? COL.accent : COL.text); c.restore();
   if (hov && ui.pressed && ui.owner !== null) toggleTutorial();
+}
+function drawFooter(text, warn) {                                   // one line at the bottom of the panel; long text shrinks, then gets an ellipsis (desktop also shows the full text as a toast)
+  const c = ui.ctx; c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
+  c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = warn ? COL.warn : COL.muted; text = tr(text); const maxW = CW - 2 * ui.pad - 24;
+  let size = 20; c.font = size + 'px system-ui,Segoe UI,sans-serif'; while (size > 15 && c.measureText(text).width > maxW) { size--; c.font = size + 'px system-ui,Segoe UI,sans-serif'; }
+  c.fillText(fitText(c, text, maxW), ui.pad + 12, CH - 38);
 }
 function drawTutorial() {
   const st = TUT_STEPS[S.tut], N = TUT_STEPS.length;
@@ -874,9 +893,7 @@ function drawTutorial() {
   ui.row(2);
   if (ui.button('Rebuild sheet', { h: 56, size: 21 })) { S.sys.sel = 'graphene'; loadSystem(); S.paused = false; toast('Rebuilt the graphene sheet', 2500); }
   if (ui.button('Exit', { h: 56, size: 21 })) stopTutorial();
-  ui.ctx.fillStyle = COL.card; ui.ctx.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
-  ui.ctx.font = '20px system-ui,Segoe UI,sans-serif'; ui.ctx.textAlign = 'left'; ui.ctx.textBaseline = 'middle'; ui.ctx.fillStyle = now() < S.msgUntil ? COL.warn : COL.muted;
-  ui.ctx.fillText(tr(now() < S.msgUntil ? S.msg : toolHint()), ui.pad + 12, CH - 38);
+  drawFooter(now() < S.msgUntil ? S.msg : toolHint(S.hoverTool || S.tool), now() < S.msgUntil);
   ui.end();
 }
 function drawKid() {
@@ -916,7 +933,7 @@ function adultElec() {
   if (ui.button('Contacts at the ends', { h: 52, size: 20 })) contactsAtEnds();
   if (ui.button('Clear contacts', { h: 52, size: 20 })) { clearContacts(); ui.dirty = true; }
   S.curBonds = ui.toggle('Colour the bonds by current', S.curBonds, { h: 50 });
-  if (TR.res && TR.res.TEF !== undefined) ui.readout('How easily electrons pass', `${(100 * Math.min(1, TR.res.TEF)).toFixed(0)} %`, { color: COL.accent });
+  if (TR.res && TR.res.TEF !== undefined) { ui.readout('How easily electrons pass', `${(100 * Math.min(1, TR.res.TEF)).toFixed(0)} %`, { color: COL.accent }); if (TR.res.TEF < 0.005) ui.paragraph('Nothing gets through: are both contacts on the same connected piece?', { size: 18, color: COL.warn }); }
   else if (TR.err) ui.label(TR.err, { size: 18, color: COL.muted });
 }
 const ADULT_TABS = [[0, 'BUILD'], [1, 'RUN'], [TAB_ELEC, 'ELEC'], [6, 'SETTINGS']];
@@ -954,6 +971,7 @@ bench.add(uiMesh); bench.add(plotMesh);
 uiMesh.userData.ui = true;
 
 function drawControls() {
+  if (S.tutAsk) return drawTutAsk();
   if (S.tut >= 0) return drawTutorial();
   if (S.level === 'kid') return drawKid();
   const mt = isMat(), T = U.K(md.temperature());
@@ -965,9 +983,7 @@ function drawControls() {
     ai = ui.tabs(ADULT_TABS.map(([, l]) => l), ai, 17); S.tab = ADULT_TABS[ai][0];
     ui.space(2);
     [adultBuild, adultRun, adultElec, tabSettings][ai]();
-    const c = ui.ctx; c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
-    c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = now() < S.msgUntil ? COL.warn : COL.muted;
-    c.fillText(tr(now() < S.msgUntil ? S.msg : toolHint()), ui.pad + 12, CH - 38);
+    drawFooter(now() < S.msgUntil ? S.msg : toolHint(S.hoverTool || S.tool), now() < S.msgUntil);
     ui.end(); return;
   }
   ui.hdrR = 52;
@@ -986,27 +1002,30 @@ function drawControls() {
   ui.space(2);
   [tabBuild, tabRun, tabData, tabLab, tabElec, tabVR, tabSettings, tabSystems][S.tab]();
   // footer
-  const c = ui.ctx;
-  c.fillStyle = COL.card; c.fillRect(ui.pad, CH - 56, CW - 2 * ui.pad, 36);
-  c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
   const msgOn = now() < S.msgUntil;
-  c.fillStyle = msgOn ? COL.warn : COL.muted;
   const fN = md.ext.i >= 0 ? (isMat() ? md.extForceEV * 1.602177 : md.extForce * 60 * (U.eps / U.sigma) * 1e9) : 0;
-  c.fillText(tr(msgOn ? S.msg : fN > 0 ? `Tweezer force: ${fN.toFixed(fN < 10 ? 2 : 1)} nN` : toolHint()), ui.pad + 12, CH - 38);
+  drawFooter(msgOn ? S.msg : fN > 0 ? `Tweezer force: ${fN.toFixed(fN < 10 ? 2 : 1)} nN` : toolHint(S.hoverTool || S.tool), msgOn);
   ui.end();
 }
 
-function toolHint() {
-  const t = S.tool;
+function toolHint(t = S.tool) {
   const trig = S.vr ? 'trigger' : 'click';
   if (t === 'zap') return `Tool: ANNIHILATOR - hold ${trig}: every atom in the ${S.zapDeg.toFixed(0)}\u00B0 cone is removed`;
-  if (t === 'wand') return `Tool: BRING - hold ${trig} on a piece out of reach: the wand pulls it to you and holds it at the tip; let go to drop it`;
+  if (t === 'wand') return `Tool: BRING - hold ${trig} on a piece out of reach: the wand pulls it to you; let go to drop it`;
   if (t === 'attach') return `Tool: ATTACH ${S.cel}${S.fillH ? ' (+H)' : ''} - ${trig} an atom; the new atom goes on the side you point from`;
   if (t === 'bond') return `Tool: BOND - ${trig} two atoms to connect them (valence permitting)`;
   if (t === 'cminus' || t === 'cplus') return `Tool: ${t === 'cminus' ? '\u2212' : '+'} CONTACT - ${trig} (or drag over) atoms; again to remove`;
   if (t === 'camera') return S.vr ? 'Tool: CAMERA - aim and press the trigger; the photo goes to the Downloads folder on the PC' : 'Tool: CAMERA - click in the view to take a photo (1920 x 1080 PNG, saved to Downloads)';
-  if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece (pull hard to break it off); grip carries the piece you point at' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off, bring it close to bond';
-  return t === 'tweezers' ? `Tool: TWEEZERS - hold ${trig} on an atom and drag` : t === 'add' ? `Tool: ADD ATOM - ${trig} inside the box` : `Tool: DELETE - ${trig} an atom to remove it`;
+  if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece (pull hard to break it off); grip carries a piece' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off';
+  if (t === 'walk') return 'WALK - be made small and walk on the structure (atom 30 cm, bond 1.5 m). Esc or this button: back to the lab';
+  if (t === 'help') return 'GUIDE - a short tour of the basic tools on a graphene sheet';
+  if (t === 'cool' || t === 'warm') return t === 'warm' ? 'WARMER - raise the target temperature: the atoms shake harder' : 'COLDER - lower the target temperature: the atoms calm down';
+  if (t === 'run') return 'RUN / PAUSE - let time flow or freeze the atoms (space bar)';
+  if (t === 'rebuild') return 'START AGAIN - rebuild the current structure from scratch';
+  if (t === 'element') return 'ELEMENT - choose which element Attach and Add use';
+  if (t === 'hfill') return 'H FILL - fill free valences with hydrogen when attaching';
+  if (t === 'tweezers') return `Tool: TWEEZERS - hold ${trig} on an atom and drag`;
+  return t === 'add' ? `Tool: ADD ATOM - ${trig} on or next to the structure` : `Tool: DELETE - ${trig} an atom to remove it`;
 }
 
 function matSel() {
@@ -1081,7 +1100,8 @@ function chemTools() {
   if (S.tool === 'tweezers') { const g = ui.choice([['atom', 'Grab: atom'], ['frag', 'Grab: piece']], S.grab === 'group' ? 'frag' : S.grab, { h: 44, size: 19 }); S.grab = g; }
 }
 
-function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); controls.target.copy(SIM_HOME); camera.position.set(0.85, 1.75, 0.55); controls.update(); } }
+function homeView() { const dx = window.innerWidth < 760 ? 0 : 0.14; controls.target.set(SIM_HOME.x + dx, SIM_HOME.y, SIM_HOME.z); camera.position.set(SIM_HOME.x + 0.44 + dx, SIM_HOME.y + 0.27, SIM_HOME.z + 0.92); controls.update(); }   // close enough to see the atoms, structure left of the panel
+function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); homeView(); } }
 
 function tabRun() {
   const mt = isMat();
@@ -1230,15 +1250,17 @@ function tabSystems() {
 }
 
 function tabSettings() {
+  S.setPage = ui.choice([['a', 'General'], ['b', 'Display']], S.setPage || 'a', { h: 46, size: 19 });
+  if (S.setPage !== 'b') {
   ui.section('Walking');
-  if (ui.button(S.walk ? 'Back to the lab' : 'Make me small and let me walk on the structure', { icon: ICONS.walk, tint: '#7be0ff', active: S.walk, h: 84, size: 19 })) toggleWalk();
-  ui.paragraph('Tip: add a substrate (graphene, MoS\u2082, SiO\u2082) under a molecule to walk on it.', { size: 18, color: COL.muted });
+  if (ui.button(S.walk ? 'Back to the lab' : 'Make me small and let me walk on the structure', { icon: ICONS.walk, tint: '#7be0ff', active: S.walk, h: 72, size: 18 })) toggleWalk();
   ui.section('Level');
   levelRow(62);
   ui.section('Language / Sprog  \u00B7  Graphics');
   ui.row(4);
   for (const [v, l, f] of [['en', 'English', ICONS.flagGB], ['da', 'Dansk', ICONS.flagDK]]) if (ui.button(l, { icon: f, tint: COL.accent, active: S.lang === v, h: 76, size: 20 }) && S.lang !== v) setLangUI(v);
   for (const [v, l] of [['high', 'High quality'], ['low', 'Low quality']]) if (ui.button(l, { active: S.quality === v, h: 76, size: 19 }) && S.quality !== v) setQuality(v);
+  } else {
   ui.section('Atoms and bonds');
   S.atomR = ui.slider('atomR', 'Atom size', S.atomR, 0.12, 0.6, (v) => `${v.toFixed(2)} \u00C5 radius`, { step: 0.01, h: 58 });
   S.sameSize = ui.toggle('Same size for every element', S.sameSize, { h: 50 });
@@ -1251,6 +1273,7 @@ function tabSettings() {
   S.zapDeg = ui.slider('zap', 'Annihilator cone (half angle)', S.zapDeg, 1, 25, (v) => `${v.toFixed(0)}\u00B0`, { step: 1, h: 60 });
   S.escape = ui.toggle('Remove atoms that fly out of reach', S.escape, { h: 48 });
   S.thermoOn = ui.toggle('Thermometer on the table', S.thermoOn, { h: 48 });
+  }
   try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, level: S.level, quality: S.quality, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape })); } catch (e) { /* no storage */ }
 }
 
@@ -1327,8 +1350,8 @@ dom.ui.appendChild(ui.canvas); dom.plots.appendChild(plotCanvas);
 // DOM buttons keep their English text in data-en and show the translation; the hint line has one version per language
 function setBtn(el, en) { el.dataset.en = en; el.textContent = tr(en); }
 const HINT = {
-  en: '<b>Mouse:</b> drag atoms with the tweezers \u00B7 drag empty space to orbit \u00B7 right-drag to pan \u00B7 wheel to zoom<br><b>Keys:</b> space run/pause \u00B7 1 2 3 tools \u00B7 4 5 \u2212/+ contacts \u00B7 6 attach \u00B7 7 bond \u00B7 8 zap \u00B7 R rebuild \u00B7 P plots \u00B7 T dark/white lab',
-  da: '<b>Mus:</b> tr\u00E6k atomer med pincetten \u00B7 tr\u00E6k i tomt rum for at dreje \u00B7 h\u00F8jre-tr\u00E6k for at flytte \u00B7 hjul for at zoome<br><b>Taster:</b> mellemrum k\u00F8r/pause \u00B7 1 2 3 v\u00E6rkt\u00F8jer \u00B7 4 5 \u2212/+ kontakter \u00B7 6 p\u00E5s\u00E6t \u00B7 7 bind \u00B7 8 zap \u00B7 R byg igen \u00B7 P grafer \u00B7 T m\u00F8rkt/lyst laboratorium',
+  en: '<b>Mouse:</b> drag an atom with the Hand \u00B7 drag empty space to orbit \u00B7 right-drag to pan \u00B7 wheel to zoom<br><b>Keys:</b> space run/pause \u00B7 1\u20139 tools \u00B7 F fit view \u00B7 R rebuild \u00B7 P plots \u00B7 T dark/white lab \u00B7 Walk mode: W A S D, Esc',
+  da: '<b>Mus:</b> tr\u00E6k et atom med H\u00E5nden \u00B7 tr\u00E6k i tomt rum for at dreje \u00B7 h\u00F8jre-tr\u00E6k for at flytte \u00B7 hjul for at zoome<br><b>Taster:</b> mellemrum k\u00F8r/pause \u00B7 1\u20139 v\u00E6rkt\u00F8jer \u00B7 F tilpas visning \u00B7 R byg igen \u00B7 P grafer \u00B7 T m\u00F8rkt/lyst laboratorium \u00B7 G\u00E5-tilstand: W A S D, Esc',
 };
 function setLangUI(lg) { S.lang = lg; setLang(lg); applyLangDom(); ui.dirty = true; }
 function applyLangDom() {
@@ -1355,7 +1378,7 @@ ui.canvas.addEventListener('pointercancel', () => ui.release('mouse'));
 ui.canvas.style.touchAction = 'none';
 dom.plotBtn.onclick = () => { S.plots = !S.plots; dom.plots.style.display = S.plots ? '' : 'none'; };
 dom.panelBtn.onclick = () => { S.panel = !S.panel; dom.ui.style.display = S.panel ? '' : 'none'; };
-if (window.innerWidth < 760) { S.plots = false; dom.plots.style.display = 'none'; }
+if (window.innerWidth < 760) { S.plots = false; dom.plots.style.display = 'none'; S.panel = false; dom.ui.style.display = 'none'; }
 
 /* ================================================================== picking / tools (shared by mouse and VR) */
 const tmpM = new THREE.Matrix4(), tmpV = new THREE.Vector3();
@@ -1407,7 +1430,7 @@ function toolDown(src) {
     const p = pickAtom(o, d, 6); if (!p) { toast('Point the wand at the structure'); return true; }
     startWand(src, p.i); pulse(src, 0.6, 50); return true;
   }
-  if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; doZap(src, o, d); return true; }
+  if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; if (!doZap(src, o, d)) toast('Nothing in the cone - aim at the structure'); return true; }
   if (S.tool === 'attach' || S.tool === 'bond') {
     if (!ensureChem()) return false;
     const p = pickAtom(o, d); if (!p) return false;
@@ -1446,7 +1469,7 @@ function toolDown(src) {
   if (S.tool === 'add' || S.tool === 'delete') {
     hold.src = src; hold.kind = S.tool === 'add' ? 'add' : 'del'; hold.next = now() + 380;
     if (S.tool === 'add' ? doAdd(src, o, d) : doDel(src, o, d)) return true;
-    hold.src = null; hold.kind = null; return false;
+    hold.src = null; hold.kind = null; toast(S.tool === 'add' ? 'Click on or just next to the structure to add an atom' : 'Click directly on an atom to delete it'); return false;
   }
   return false;
 }
@@ -1560,7 +1583,7 @@ window.addEventListener('pointerup', () => { toolUp('mouse'); if (carry && carry
 renderer.domElement.addEventListener('wheel', (e) => { if (carry && carry.src === 'mouse') { mouseHand.userData.dist = Math.max(0.05, mouseHand.userData.dist * (1 + Math.sign(e.deltaY) * 0.08)); e.preventDefault(); e.stopImmediatePropagation(); } }, { capture: true, passive: false });
 controls.target.copy(SIM_HOME); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 0.3; controls.maxDistance = 6;
 controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-camera.position.set(0.85, 1.75, 0.55); controls.update();
+homeView();
 window.addEventListener('keydown', (e) => {
   if (e.target && /input|textarea/i.test(e.target.tagName)) return;
   if (e.code === 'Space') { S.paused = !S.paused; e.preventDefault(); }
@@ -1570,6 +1593,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === '6') S.tool = 'attach'; else if (e.key === '7') { S.tool = 'bond'; S.bondA = -1; }
   else if (e.key === 'Escape') { S.bondA = -1; if (S.walk) exitWalk(); }
   else if (e.key === 't' || e.key === 'T') applyTheme(S.theme === 'dark' ? 'light' : 'dark');
+  else if (e.key === 'f' || e.key === 'F') { if (!S.vr && !S.walk) homeView(); }
   else if (e.key === 'r' || e.key === 'R') { if (S.lastBuild) build(S.lastBuild); }
   else if (e.key === 'p' || e.key === 'P') dom.plotBtn.click();
 });
@@ -1578,7 +1602,7 @@ window.addEventListener('resize', () => { camera.aspect = window.innerWidth / wi
 /* ================================================================== WebXR */
 const xrState = { supported: false };
 if (navigator.xr && navigator.xr.isSessionSupported) {
-  navigator.xr.isSessionSupported('immersive-vr').then((ok) => { xrState.supported = ok; setBtn(dom.vrBtn, ok ? 'Enter VR' : 'VR not detected'); dom.vrBtn.classList.toggle('on', ok); }).catch(() => { dom.vrBtn.textContent = 'VR not detected'; });
+  navigator.xr.isSessionSupported('immersive-vr').then((ok) => { xrState.supported = ok; setBtn(dom.vrBtn, ok ? 'Enter VR' : 'VR not detected'); dom.vrBtn.classList.toggle('on', ok); dom.vrBtn.classList.toggle('off', !ok); dom.vrBtn.title = ok ? '' : 'No VR headset found - press for setup help'; }).catch(() => { dom.vrBtn.textContent = 'VR not detected'; });
 } else setBtn(dom.vrBtn, 'WebXR unavailable');
 let vrStarting = false;
 // Chrome exposes the WebXR Layers API, and three.js then renders through a projection layer. With the Quest via
@@ -1654,7 +1678,7 @@ renderer.xr.addEventListener('sessionend', () => {
   for (const vc of vrc) { vc.src = null; vc.obj.visible = false; vc.sq = null; vc.hit = null; toolUp(vc.i); }
   S.xr = null; renderer.setSize(window.innerWidth, window.innerHeight);
   setTableHeight(0.9, false); placePanels(1.32); simRoot.position.copy(SIM_HOME);
-  camera.position.set(0.85, 1.75, 0.55); controls.target.copy(SIM_HOME); controls.update();
+  homeView();
 });
 
 function recenter() {
@@ -1985,7 +2009,7 @@ function frame() {
     else if (TR.res && TR.res.N !== mat.N && t - TR.last > 250) requestTransport(false);          // atoms were added: refresh
     else if (S.tab === TAB_ELEC && !TR.curve && !TR.err && t - TR.last > 400) requestTransport(true);
   }
-  updateAtoms();
+  updateAtoms(); if (S.buildN === null && md.N) S.buildN = md.N;
 
   if (ui.pressed || ui.released || (ui.dirty && t - lastUI >= (S.vr ? 33 : 0)) || t - lastUI > (S.vr ? 130 : 90)) { drawControls(); lastUI = t; if (S.vr) uiTex.needsUpdate = true; }
   if (tbar.pressed || tbar.released || tbar.dirty || t - lastTB > 150) { drawToolbar(); lastTB = t; if (S.vr) tbTex.needsUpdate = true; }
@@ -2018,7 +2042,7 @@ window.addEventListener('blur', () => wKeys.clear());
 
 function walkScale(base) {                                       // the model's scale in metres per Angstrom; grows towards the viewer while "shrinking"
   if (S.walk) return WALK_SCALE;
-  const w = S.wa; if (w && w.kind === 'in') return base * Math.pow(WALK_SCALE / base, Math.pow(clamp(w.t / w.d, 0, 1), 2.2));
+  const w = S.wa; if (w && w.kind === 'in' && !S.vr) return base * Math.pow(WALK_SCALE / base, Math.pow(clamp(w.t / w.d, 0, 1), 2.2));
   return base;
 }
 function walkPlace() {                                            // every frame: the walking surface at y = 0, the reference point on the vertical axis
@@ -2081,7 +2105,7 @@ function finishEnter() {
     controls.rotateSpeed = 0.6; controls.minDistance = 0.001; controls.maxDistance = 0.5; controls.enableZoom = false; controls.enablePan = false; controls.minPolarAngle = 0.3; controls.maxPolarAngle = Math.PI - 0.3;
     camera.position.set(0, EYE, sz); controls.target.set(0, EYE - 0.004, sz - 0.02); controls.update();
   }
-  toast(S.vr ? 'You are tiny now - an atom is 30 cm and a bond 1.5 m. Left stick: walk. Right stick: turn. Press Walk to go back to the lab.' : 'You are tiny now - an atom is 30 cm and a bond 1.5 m. W A S D or arrows: walk (Shift: run). Drag: look. Esc or Walk: back to the lab.', 9000);
+  toast(S.vr ? 'Tiny now: left stick walks, right stick turns. Walk button: back to the lab' : 'Tiny now: W A S D or arrows walk (Shift runs), drag to look, Esc: back to the lab', 9000);
   ui.dirty = tbar.dirty = true;
 }
 function finishExit() {
@@ -2091,7 +2115,7 @@ function finishExit() {
   applyTheme(S.theme); applyQuality(); userScale = 1;
   controls.rotateSpeed = 1; controls.minDistance = 0.3; controls.maxDistance = 6; controls.enableZoom = true; controls.enablePan = true; controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
   if (S.vr) { dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); recenter(); }
-  else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); controls.target.copy(SIM_HOME); camera.position.set(0.85, 1.75, 0.55); controls.update(); }
+  else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); homeView(); }
   ui.dirty = tbar.dirty = true;
 }
 function walkTick(dt) {                                           // the shrinking / growing animation, the fade, desktop walking
