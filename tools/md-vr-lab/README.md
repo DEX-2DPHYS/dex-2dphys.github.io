@@ -43,6 +43,12 @@ person is a giant in the starry sky for the walker. The guest only watches for n
 own experiment back. Transport: Supabase Realtime *broadcast* only (no tables, no presence); put the project in `supabase-config.js` or open the
 page once with `?sburl=https://xxxx.supabase.co&sbkey=ANON_KEY`. "Two tabs" mode (BroadcastChannel) needs no server. Invite link: `?room=ABCD&via=sb`.
 
+## The table
+
+The default substrate is graphene. A substrate always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
+replacing the structure or moving the experiment keeps it level), with the structure on it. The table is solid: atoms that reach the worktop
+bounce off it (specular reflection, the normal velocity flips), so an unsupported structure pushed down onto the table does not pass through.
+
 ## Interface notes (from the synthetic first-time-user test)
 
 Panel text is fitted (long text shrinks, then gets an ellipsis; desktop also shows every message as a toast). Hovering a toolbar button
