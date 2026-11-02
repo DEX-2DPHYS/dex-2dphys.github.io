@@ -53,6 +53,22 @@
   body.light #start{background:rgba(232,237,243,.95)}
   body.light #start h1{color:#0b827f} body.light #start p,body.light #start h2,body.light #start button small{color:#4f5f79}
   body.light #start button{color:#15202f;background:#dfe6f0;border-color:#b9c5d6} body.light #start button.sel{background:#a8dedb;border-color:#0b827f}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,12px);max-width:min(640px,92vw);background:rgba(13,20,34,.94);color:#e8eef8;border:1px solid #2a3a5c;border-radius:12px;padding:10px 16px;font:500 14px/1.4 system-ui,sans-serif;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  body.light #toast{background:rgba(246,248,251,.96);color:#15202f;border-color:#b9c5d6}
+  button.b.off{opacity:.55}
+  @media (max-width:760px){
+    #top{flex-wrap:wrap;gap:6px;padding:6px 8px}
+    #top .brand{flex:1 1 100%;font-size:12px}
+    #top .sub{display:none}
+    button.b{font-size:12px;padding:6px 9px}
+    #tools{left:8px;right:8px;top:auto;bottom:8px;max-width:calc(100vw - 16px);overflow-x:auto;overflow-y:hidden;flex-direction:column-reverse}
+    #tools canvas{width:780px;max-width:none}
+    #tbWrap canvas{touch-action:pan-x !important}
+    #uiWrap{top:auto;bottom:90px;left:8px;right:8px;max-height:calc(100vh - 170px);overflow-y:auto;border-radius:16px}
+    #uiWrap canvas{width:100%;max-width:none;aspect-ratio:800/1160;touch-action:pan-y !important}
+    #toast{bottom:92px}
+  }
 </style>
 </head>
 <body>
@@ -60,15 +76,16 @@
   <span class="brand">2DPHYS ATOMIC&nbsp;WORKBENCH</span>
   <span class="sub">molecular dynamics · chemistry · electron transport · VR</span>
   <button class="b" id="themeBtn">White lab</button>
-  <button class="b" id="panelBtn">Panel</button>
+  <button class="b" id="panelBtn">Menu</button>
   <button class="b" id="plotBtn">Plots</button>
   <button class="b" id="vrBtn">Checking VR…</button>
   <a href="../../index.html">← DEX tools</a>
 </div>
-<div id="hint"><b>Mouse:</b> drag atoms with the tweezers · drag empty space to orbit · right-drag to pan · wheel to zoom<br><b>Keys:</b> space run/pause · 1 2 3 tools · 4 5 −/+ contacts · R rebuild · P plots · T dark/white lab</div>
+<div id="hint"></div>
 <div id="tools"><div id="tbWrap"></div><div id="ptWrap" style="display:none"></div></div>
 <div id="uiWrap"></div>
 <div id="plotWrap"></div>
+<div id="toast"></div>
 <div id="start"><div class="card">
   <h1>2DPHYS ATOMIC&nbsp;WORKBENCH</h1>
   <p data-t="sub"></p>

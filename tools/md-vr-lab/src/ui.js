@@ -20,6 +20,13 @@ export const PALETTES = {
 export const COL = Object.assign({}, PALETTES.dark);
 export function setPalette(name) { Object.assign(COL, PALETTES[name] || PALETTES.dark); }
 
+// shrink a text to fit maxW (ellipsis as the last resort); returns the text to draw, the font is left as the caller set it
+export function fitText(c, text, maxW) {
+  if (c.measureText(text).width <= maxW) return text;
+  let lo = 0, hi = text.length; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (c.measureText(text.slice(0, m) + '\u2026').width <= maxW) lo = m; else hi = m - 1; }
+  return text.slice(0, lo) + '\u2026';
+}
+
 export class UI {
   constructor(w, h) {
     this.w = w; this.h = h;
@@ -74,8 +81,8 @@ export class UI {
   header(text, sub) {
     text = tr(text); sub = tr(sub); const c = this.ctx;
     c.fillStyle = COL.accent; c.font = '700 30px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left';
-    c.fillText(text, this.pad, this.y + 18);
-    if (sub) { c.fillStyle = COL.muted; c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillText(sub, this.w - this.pad - (this.hdrR || 0), this.y + 18); }
+    c.fillText(text, this.pad, this.y + 18); const tw = c.measureText(text).width;
+    if (sub) { c.fillStyle = COL.muted; c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillText(fitText(c, sub, this.w - 2 * this.pad - (this.hdrR || 0) - tw - 24), this.w - this.pad - (this.hdrR || 0), this.y + 18); }
     this.y += 42;
   }
 
@@ -112,8 +119,9 @@ export class UI {
 
   readout(label, value, o = {}) {
     label = tr(label); value = tr(value); const r = this._rect(o.h || 34), c = this.ctx;
-    c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.muted; c.fillText(label, r.x, r.y + r.h / 2);
-    c.font = '700 24px system-ui,Segoe UI,sans-serif'; c.textAlign = 'right'; c.fillStyle = o.color || COL.text; c.fillText(value, r.x + r.w, r.y + r.h / 2);
+    c.font = '20px system-ui,Segoe UI,sans-serif'; c.textAlign = 'left'; c.fillStyle = COL.muted; c.fillText(label, r.x, r.y + r.h / 2); const lw = c.measureText(label).width;
+    c.font = '700 24px system-ui,Segoe UI,sans-serif'; if (c.measureText(value).width > r.w - lw - 14) c.font = '700 19px system-ui,Segoe UI,sans-serif';
+    c.textAlign = 'right'; c.fillStyle = o.color || COL.text; c.fillText(fitText(c, value, r.w - lw - 14), r.x + r.w, r.y + r.h / 2);
     this._advance(r.h);
   }
 

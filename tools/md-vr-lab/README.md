@@ -32,6 +32,14 @@ VR controls: trigger = press UI / use tool, grip = move the experiment (both gri
 left stick = box size, while holding an atom the stick reels it in/out, A/X = next tool, B/Y = run/pause,
 stick click = recentre.
 
+## Interface notes (from the synthetic first-time-user test)
+
+Panel text is fitted (long text shrinks, then gets an ellipsis; desktop also shows every message as a toast). Hovering a toolbar button
+shows what it does in the panel footer. SETTINGS has two pages (General / Display) so nothing falls off the bottom. Empty clicks with
+Add / Delete / Zap / Bring say what to aim at. Starting the tutorial with a changed structure asks first (save / replace / cancel).
+The first view is close to the structure (key F re-fits it). New visitors start at Adult level. On a phone (< 760 px) the panel is the
+**Menu** button and a bottom sheet, and the toolbar is a swipeable strip.
+
 ## Nano walk (the **Walk** button, SETTINGS → Walking, Esc to leave)
 
 The user is "made small": the structure is shown at 1.056 m per Å (C–C bond 1.5 m, atom radius about 0.3 m) and you stand on its
