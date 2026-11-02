@@ -32,6 +32,17 @@ VR controls: trigger = press UI / use tool, grip = move the experiment (both gri
 left stick = box size, while holding an atom the stick reels it in/out, A/X = next tool, B/Y = run/pause,
 stick click = recentre.
 
+## Together (Settings → Together; `src/collab.js`, `src/avatars.js`)
+
+One more person in the lab. The first person in a room is the **host** and runs the simulation; the second is the **guest** and sees it from the
+other side of the table (a third is turned away). The guest's copy of the structure is rebuilt from the host's (`Mat.serialize/restore`),
+then atom positions stream at about 10 Hz (16-bit quantised, interpolated) and velocities at 2 Hz; the structure is re-sent when it
+changes (atoms added or removed, substrate...). Each sees the other's head, name tag and hands (VR) or pointer ray (desktop), drawn in the
+structure's coordinates and scaled to the sender's size - so a person walking on the structure is a tiny figure for the other one, and the lab
+person is a giant in the starry sky for the walker. The guest only watches for now (edit tools say so); if the host leaves the guest gets their
+own experiment back. Transport: Supabase Realtime *broadcast* only (no tables, no presence); put the project in `supabase-config.js` or open the
+page once with `?sburl=https://xxxx.supabase.co&sbkey=ANON_KEY`. "Two tabs" mode (BroadcastChannel) needs no server. Invite link: `?room=ABCD&via=sb`.
+
 ## Interface notes (from the synthetic first-time-user test)
 
 Panel text is fitted (long text shrinks, then gets an ellipsis; desktop also shows every message as a toast). Hovering a toolbar button

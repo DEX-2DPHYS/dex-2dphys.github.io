@@ -1,0 +1,15 @@
+export const TOGETHER_DA = {
+  'Together': 'Sammen', 'Your name': 'Dit navn', 'Change name': 'Skift navn', 'Random name': 'Tilfældigt navn',
+  'Online rooms use your Supabase project. Share the link with one other person.': 'Online-rum bruger dit Supabase-projekt. Del linket med én anden person.',
+  'No Supabase project is set. "Two tabs" works without one: open this page twice in the same browser.': 'Intet Supabase-projekt er sat. "To faner" virker uden: åbn siden to gange i samme browser.',
+  'Start a room (online)': 'Start et rum (online)', 'Start a room (two tabs)': 'Start et rum (to faner)', 'Join a room…': 'Deltag i et rum…', 'Set Supabase project…': 'Sæt Supabase-projekt…',
+  'Room': 'Rum', 'You': 'Dig', 'Other person': 'Den anden person', 'waiting…': 'venter…', 'Copy invite link': 'Kopiér invitationslink', 'Leave room': 'Forlad rummet',
+  'Open this page in a second tab of this browser and press "Join a room" with the code above.': 'Åbn siden i en ny fane i denne browser og tryk "Deltag i et rum" med koden ovenfor.',
+  'You see the host\'s experiment from the other side of the table. Only the host edits it for now.': 'Du ser værtens eksperiment fra den anden side af bordet. Foreløbig er det kun værten, der redigerer.',
+  'You are viewing the host\'s experiment - only the host edits (for now)': 'Du ser værtens eksperiment - kun værten redigerer (foreløbig)',
+  'The host controls the experiment': 'Værten styrer eksperimentet', 'The host controls the temperature': 'Værten styrer temperaturen', 'The host controls time': 'Værten styrer tiden',
+  'The host uses the noble-gas box - not shared yet': 'Værten bruger ædelgas-boksen - deles ikke endnu', 'This structure is too large to share (more than 3000 atoms)': 'Strukturen er for stor til at dele (over 3000 atomer)',
+  'The host left - back to your own experiment': 'Værten gik - tilbage til dit eget eksperiment', 'The other person left': 'Den anden person gik', 'Link copied': 'Link kopieret',
+  'Joined {1}\'s experiment: {2}': 'Deltager i {1}s eksperiment: {2}', '{1} joined': '{1} kom ind',
+  'This room already has two people': 'Dette rum har allerede to personer', 'host': 'vært', 'guest': 'gæst',
+};

@@ -15,7 +15,10 @@ import { tr, setLang, addLanguage } from './i18n.js';
 import { DA } from './i18n-da.js';
 import { TUT_STEPS, TUT_DA } from './tutorial.js';
 import { createNanoWorld, WALK_DA } from './nanowalk.js';
-addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA));
+import { Collab, sbConfig, saveSbConfig, saveName, roomCode } from './collab.js';
+import { AvatarSet } from './avatars.js';
+import { TOGETHER_DA } from './together-da.js';
+addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA));
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
 // the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
@@ -277,7 +280,7 @@ function homeY() {
 }
 function tableFit() {                                            // called when the fit key (substrate, size, table height) changes
   const y0 = SIM_HOME.y; SIM_HOME.y = homeY(); const dh = SIM_HOME.y - y0; if (S.walk || S.wa || Math.abs(dh) < 1e-6) return;
-  if (S.vr) { bench.updateMatrixWorld(true); simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); simRoot.quaternion.copy(bench.quaternion); }
+  if (S.vr) { bench.updateMatrixWorld(true); simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); labQuat(); }
   else { simRoot.position.y = SIM_HOME.y; controls.target.y += dh; camera.position.y += dh; }
 }
 let fitKey = '';                                     // wps = metres per sigma at build time
@@ -333,6 +336,7 @@ const H = { t: [], T: [], ke: [], pe: [], e: [], P: [], mt: [], my: [], pt: [], 
 function resetHistory() { for (const k of ['t', 'T', 'ke', 'pe', 'e', 'P', 'mt', 'my', 'pt', 'py']) H[k].length = 0; H.lastStep = md.step; S.D = null; }
 
 function build(recipe, opts = {}) {
+  if (collab.guest) { toast('The host controls the experiment'); return; }
   S.lastBuild = Object.assign({}, recipe); S.buildN = null; clearContacts();
   if (recipe.sys === 'mat') return buildMat(recipe, opts);
   md = lj; S.el = recipe.el; U = ljUnits(S.el); if (S.dt > 0.02 || S.dt < 0.001) S.dt = 0.004;
@@ -775,7 +779,7 @@ function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty =
 /* ---------- levels: Kid, Adult (non-expert), Researcher. Same simulation; the level only decides what is shown and how.
    Tools are pictograms with a colour per kind: teal = grab, green = build, red/orange = remove, blue/red = electrodes. ---------- */
 const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
-const nudgeT = (f) => { const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; tutEvent(f > 1 ? 'warm' : 'cool'); };
+const nudgeT = (f) => { if (collab.guest) { toast('The host controls the temperature'); return; }  const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; tutEvent(f > 1 ? 'warm' : 'cool'); };
 const TOOLDEF = {
   camera: { l: 'Camera', icon: ICONS.camera, tint: '#b48cff', on: () => S.tool === 'camera', act: () => selectTool('camera') },
   hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => S.tool === 'hand', act: () => selectTool('hand') },
@@ -789,18 +793,19 @@ const TOOLDEF = {
   hfill: { l: 'H fill', icon: ICONS.hfill, tint: '#d8dde6', on: () => S.fillH, act: () => { S.fillH = !S.fillH; } },
   cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => S.tool === 'cminus', act: () => selectTool('cminus') },
   cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => S.tool === 'cplus', act: () => selectTool('cplus') },
-  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { S.paused = !S.paused; tutEvent(S.paused ? 'pause' : 'run'); } },
+  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { if (collab.guest) { toast('The host controls time'); return; } S.paused = !S.paused; tutEvent(S.paused ? 'pause' : 'run'); } },
   cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
   wand: { l: 'Bring', icon: ICONS.wand, tint: '#ffd166', on: () => S.tool === 'wand', act: () => selectTool('wand') },
   walk: { l: 'Walk', icon: ICONS.walk, tint: '#7be0ff', on: () => S.walk || !!S.wa, act: () => toggleWalk() },
   help: { l: 'Guide', icon: ICONS.help, tint: '#b48cff', on: () => S.tut >= 0, act: () => toggleTutorial() },
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
+  together: { l: 'Together', icon: ICONS.together, tint: '#ff9ecf', on: () => collab.connected, act: () => { S.tab = 6; S.setPage = 'c'; S.panel = true; dom.ui.style.display = ''; ui.dirty = true; } },
 };
 const TB_LEVEL = {
   kid: ['hand', 'add', 'zap', 'wand', 'cool', 'warm', 'run', 'camera', 'rebuild', 'walk', 'help'],
-  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'cool', 'warm', 'run', 'camera', 'walk', 'help'],
-  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'walk', 'help'],
+  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'cool', 'warm', 'run', 'camera', 'walk', 'together', 'help'],
+  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'walk', 'together', 'help'],
 };
 const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
@@ -1115,7 +1120,7 @@ function chemTools() {
 }
 
 function homeView() { const dx = window.innerWidth < 760 ? 0 : 0.14; controls.target.set(SIM_HOME.x + dx, SIM_HOME.y, SIM_HOME.z); camera.position.set(SIM_HOME.x + 0.44 + dx, SIM_HOME.y + 0.27, SIM_HOME.z + 0.92); controls.update(); }   // close enough to see the atoms, structure left of the panel
-function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); homeView(); } }
+function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); labQuat(); homeView(); } }
 
 function tabRun() {
   const mt = isMat();
@@ -1264,7 +1269,8 @@ function tabSystems() {
 }
 
 function tabSettings() {
-  S.setPage = ui.choice([['a', 'General'], ['b', 'Display']], S.setPage || 'a', { h: 46, size: 19 });
+  S.setPage = ui.choice([['a', 'General'], ['b', 'Display'], ['c', 'Together']], S.setPage || 'a', { h: 46, size: 19 });
+  if (S.setPage === 'c') return togetherPage();
   if (S.setPage !== 'b') {
   ui.section('Walking');
   if (ui.button(S.walk ? 'Back to the lab' : 'Make me small and let me walk on the structure', { icon: ICONS.walk, tint: '#7be0ff', active: S.walk, h: 72, size: 18 })) toggleWalk();
@@ -1436,6 +1442,7 @@ function rayOf(src) {
 }
 function toolDown(src) {
   if (hold.src !== null) return false;
+  if (collab.guest && S.tool !== 'camera') { toast('You are viewing the host\'s experiment - only the host edits (for now)'); return false; }
   const { o, d } = rayOf(src);
   if (thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
   if (S.tool === 'camera') { shoot(src); return true; }
@@ -1688,7 +1695,7 @@ renderer.xr.addEventListener('sessionend', () => {
   if (S.walk || S.wa) exitWalk(true);
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); vign.visible = false;
   S.vr = false; document.body.classList.remove('vr'); uiMesh.visible = plotMesh.visible = tbMesh.visible = ptMesh.visible = false;
-  bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); userScale = 1;
+  bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); simRoot.position.copy(SIM_HOME); labQuat(); userScale = 1;
   for (const vc of vrc) { vc.src = null; vc.obj.visible = false; vc.sq = null; vc.hit = null; toolUp(vc.i); }
   S.xr = null; renderer.setSize(window.innerWidth, window.innerHeight);
   setTableHeight(0.9, false); placePanels(1.32); simRoot.position.copy(SIM_HOME);
@@ -1705,7 +1712,7 @@ function recenter() {
   // fit to this person, seated or standing: table half a metre below the eyes, panels just below eye level
   setTableHeight(clamp(p.y - 0.52, 0.55, 1.05), false); placePanels(clamp(p.y - 0.12, 0.85, 1.75));
   bench.updateMatrixWorld(true);
-  simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); simRoot.quaternion.copy(bench.quaternion); userScale = 1;
+  simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); labQuat(); userScale = 1;
 }
 
 // controllers: simple geometry (no network needed)
@@ -1880,6 +1887,7 @@ let carry = null;
 const mouseHand = new THREE.Object3D(); scene.add(mouseHand);
 const carryObj = (src) => (src === 'mouse' ? mouseHand : vrc[src].obj);
 function startCarry(src, atom) {
+  if (collab.guest) return;
   if (src === 'mouse') { const w = new THREE.Vector3(mat.x[atom], mat.y[atom], mat.z[atom]).applyMatrix4(inner.matrixWorld); mouseHand.userData.dist = w.distanceTo(mouseRay.origin); mouseHand.position.copy(mouseRay.origin).addScaledVector(mouseRay.direction, mouseHand.userData.dist); mouseHand.quaternion.copy(camera.quaternion); }
   const fm = mat.fragmentMask(atom), N = mat.N, p0 = new Float64Array(3 * N);
   for (let i = 0; i < N; i++) if (fm.mask[i]) { p0[3 * i] = mat.x[i]; p0[3 * i + 1] = mat.y[i]; p0[3 * i + 2] = mat.z[i]; }
@@ -2005,14 +2013,14 @@ function frame() {
 
   md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
   if (isMat() && mat.model === 'uff' && mat.chem.pending) { mat.chem.relaxPending(S.vr ? 3 : 6); }   // settle a fresh attachment a few iterations per frame
-  if (!S.paused && md.N && !md.exploded) {
+  if (!S.paused && md.N && !md.exploded && !collab.guest) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
     while (n < S.speed && now() - t0 < budget) { md.run(1); n++; }
     S.sps = S.sps * 0.9 + 0.1 * (n / Math.max(dt, 1e-3));
     const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('Simulation unstable: lower the time step and Rebuild', 8000); }
-  if (S.escape && isMat() && md.N && !S.paused) escapeCheck();
+  if (S.escape && isMat() && md.N && !S.paused && !collab.guest) escapeCheck();
   updateFlashes(dt); updateToolShapes(); updateThermo(t);
 
   // transport: the live part (bond currents, current at the bias) a few times a second while atoms move; the curves on demand
@@ -2023,7 +2031,7 @@ function frame() {
     else if (TR.res && TR.res.N !== mat.N && t - TR.last > 250) requestTransport(false);          // atoms were added: refresh
     else if (S.tab === TAB_ELEC && !TR.curve && !TR.err && t - TR.last > 400) requestTransport(true);
   }
-  updateAtoms(); if (S.buildN === null && md.N) S.buildN = md.N;
+  collabTick(dt, t); updateAtoms(); if (S.buildN === null && md.N) S.buildN = md.N; avatars.update(dt, inner, simRoot.scale.x);
 
   if (ui.pressed || ui.released || (ui.dirty && t - lastUI >= (S.vr ? 33 : 0)) || t - lastUI > (S.vr ? 130 : 90)) { drawControls(); lastUI = t; if (S.vr) uiTex.needsUpdate = true; }
   if (tbar.pressed || tbar.released || tbar.dirty || t - lastTB > 150) { drawToolbar(); lastTB = t; if (S.vr) tbTex.needsUpdate = true; }
@@ -2129,7 +2137,7 @@ function finishExit() {
   applyTheme(S.theme); applyQuality(); userScale = 1;
   controls.rotateSpeed = 1; controls.minDistance = 0.3; controls.maxDistance = 6; controls.enableZoom = true; controls.enablePan = true; controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
   if (S.vr) { dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); recenter(); }
-  else { simRoot.position.copy(SIM_HOME); simRoot.quaternion.identity(); homeView(); }
+  else { simRoot.position.copy(SIM_HOME); labQuat(); homeView(); }
   ui.dirty = tbar.dirty = true;
 }
 function walkTick(dt) {                                           // the shrinking / growing animation, the fade, desktop walking
@@ -2174,6 +2182,123 @@ function walkSky(t, dt) {
   camera.getWorldPosition(wp); nano.update(wp, t, dt, S.vr ? 1.5 : renderer.getPixelRatio());
   headlamp.position.set(wp.x, wp.y + 0.3, wp.z); rim.position.set(0, 12, 0);
 }
+/* ================================================================== together (src/collab.js, src/avatars.js)
+   Host = the first person in the room: runs the simulation and streams it. Guest = the second: sees it (their copy of the structure is
+   rebuilt from the host's, then only positions arrive), with a view from the other side of the table. Both see each other's head, name and hands. */
+const collab = new Collab(), avatars = new AvatarSet(scene, () => makeHand());
+const Q_PI = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+function labQuat() { if (S.vr) simRoot.quaternion.copy(bench.quaternion); else simRoot.quaternion.identity(); if (collab.guest) simRoot.quaternion.multiply(Q_PI); }   // the guest stands across the table
+const CO = { poseT: 0, sigT: 0, snapT: 0, velT: 0, sig: '', backup: null, snaps: [], vel: null, lastCF: 0, hostName: '' };
+const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
+const unb64 = (str) => { const s = atob(str), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+function structSig() { if (!isMat() || !md.N) return 'none'; let h = 0; for (let i = 0; i < md.N; i++) h = (Math.imul(h, 31) + mat.sp[i] + 1) | 0; return `${md.N}:${h}:${mat.model === 'uff' ? mat.chem.bonds.length : 0}:${S.substrate}:${mat.name}`; }
+function sendStruct() {
+  CO.sig = structSig();
+  if (!isMat()) { collab.send('struct', { lj: true, sig: CO.sig }); return; }
+  if (md.N > 3000) { collab.send('struct', { big: true, sig: CO.sig }); return; }
+  collab.send('struct', { sig: CO.sig, data: mat.serialize(), T: S.TsetK, thermo: S.thermo, sub: S.substrate, atomR: S.atomR, bondR: S.bondR, sameSize: S.sameSize, host: collab.name });
+}
+function sendSnap(now_) {
+  const N = md.N, q = new Int16Array(3 * N), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9], A = [md.x, md.y, md.z];
+  for (let k = 0; k < 3; k++) for (let i = 0; i < N; i++) { const v = A[k][i]; if (v < lo[k]) lo[k] = v; if (v > hi[k]) hi[k] = v; }
+  for (let k = 0; k < 3; k++) { const sp = Math.max(hi[k] - lo[k], 1e-6); for (let i = 0; i < N; i++) q[3 * i + k] = Math.round((A[k][i] - lo[k]) / sp * 65535) - 32768; }
+  collab.send('snap', { sig: CO.sig, N, lo, sp: lo.map((l, k) => Math.max(hi[k] - l, 1e-6)), q: b64(new Uint8Array(q.buffer)), paused: S.paused, T: S.TsetK, thermo: S.thermo, tool: S.tool });
+  if (now_ - CO.velT > 500) {
+    CO.velT = now_; let vm = 1e-9; for (let i = 0; i < N; i++) vm = Math.max(vm, Math.abs(md.vx[i]), Math.abs(md.vy[i]), Math.abs(md.vz[i]));
+    const v = new Int16Array(3 * N); for (let i = 0; i < N; i++) { v[3 * i] = Math.round(md.vx[i] / vm * 32767); v[3 * i + 1] = Math.round(md.vy[i] / vm * 32767); v[3 * i + 2] = Math.round(md.vz[i] / vm * 32767); }
+    collab.send('vel', { sig: CO.sig, N, vm, q: b64(new Uint8Array(v.buffer)) });
+  }
+}
+function applyStruct(p) {
+  if (p.lj) { toast('The host uses the noble-gas box - not shared yet', 6000); return; }
+  if (p.big) { toast('This structure is too large to share (more than 3000 atoms)', 6000); return; }
+  if (!CO.backup && isMat() && mat.N) CO.backup = { data: mat.serialize(), T: S.TsetK, sub: S.substrate, atomR: S.atomR, bondR: S.bondR, sameSize: S.sameSize };
+  try { mat.restore(p.data); } catch (e) { toast('Could not load the host\'s structure'); return; }
+  md = mat; U = matUnits(); S.el = 'saved'; S.lastBuild = null; clearContacts(); S.substrate = p.sub; S.atomR = p.atomR; S.bondR = p.bondR; S.sameSize = p.sameSize; applySubstrate();
+  S.TsetK = p.T; S.thermo = p.thermo; mat.thermostat = p.thermo; mat.Ttarget = p.T; S.dtFs = mat.dt * TU_FS; S.bondA = -1;
+  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; for (let i = 0; i < mat.N; i++) { const P = [mat.x[i], mat.y[i], mat.z[i]]; for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], P[k]); hi[k] = Math.max(hi[k], P[k]); } }
+  const ext = mat.periodicAny ? Math.max(mat.Lx, mat.Ly) : Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) + 5; wps = clamp(0.45 / ext, 0.006, 0.14); userScale = 1;
+  S.paused = false; resetHistory(); retag(); CO.sig = p.sig; CO.snaps.length = 0; CO.vel = null; ui.dirty = true;
+  toast(`Joined ${p.host || 'the host'}'s experiment: ${mat.name}`, 4000);
+}
+function restoreLocal() {                                                  // the host left (or I did): back to my own experiment
+  CO.snaps.length = 0; const b = CO.backup; CO.backup = null; CO.sig = '';
+  if (b) { try { mat.restore(b.data); md = mat; U = matUnits(); S.el = 'saved'; S.lastBuild = null; S.substrate = b.sub; S.atomR = b.atomR; S.bondR = b.bondR; S.sameSize = b.sameSize; S.TsetK = b.T; mat.thermostat = true; mat.Ttarget = b.T; applySubstrate(); resetHistory(); retag(); } catch (e) { build(B); } }
+}
+collab.on.struct = (p) => { if (collab.guest) applyStruct(p); };
+collab.on.snap = (p) => {
+  if (!collab.guest || p.sig !== CO.sig || p.N !== md.N) return;
+  const q = new Int16Array(unb64(p.q).buffer), N = p.N, a = new Float32Array(3 * N);
+  for (let i = 0; i < N; i++) for (let k = 0; k < 3; k++) a[3 * i + k] = p.lo[k] + (q[3 * i + k] + 32768) / 65535 * p.sp[k];
+  CO.snaps.push({ t: performance.now(), a, N }); if (CO.snaps.length > 3) CO.snaps.shift();
+  S.paused = p.paused; S.TsetK = p.T; S.thermo = p.thermo; mat.thermostat = p.thermo; mat.Ttarget = U.Tstar ? U.Tstar(p.T) : mat.Ttarget;
+};
+collab.on.vel = (p) => { if (!collab.guest || p.sig !== CO.sig || p.N !== md.N) return; const q = new Int16Array(unb64(p.q).buffer); for (let i = 0; i < p.N; i++) { md.vx[i] = q[3 * i] / 32767 * p.vm; md.vy[i] = q[3 * i + 1] / 32767 * p.vm; md.vz[i] = q[3 * i + 2] / 32767 * p.vm; } };
+collab.on.pose = (p) => { const o = collab.other; avatars.setPose(p.from, o ? o.name : p.name, o && o.role === 'host' ? 'host' : 'guest', p); };
+collab.on.joined = (peer) => { toast(`${peer.name} joined`, 3000); if (!collab.guest) { CO.sigT = 0; setTimeout(() => { if (collab.connected && !collab.guest) sendStruct(); }, 1500); } };
+collab.on.left = (e) => { avatars.clear(); if (e && e.wasGuest) { restoreLocal(); toast('The host left - back to your own experiment', 5000); } else toast('The other person left', 3000); recenterSim(); ui.dirty = true; };
+let lastRole = 'host';
+collab.onchange = () => { ui.dirty = true; tbar.dirty = true; if (collab.role !== lastRole) { lastRole = collab.role; if (collab.role === 'host' && CO.backup) restoreLocal(); recenterSim(); } };
+const _m4 = new THREE.Matrix4(), _inv = new THREE.Matrix4(), _pp = new THREE.Vector3(), _qq = new THREE.Quaternion(), _ss = new THREE.Vector3();
+function collabPose() {                                                    // my head and hands in the structure's coordinates
+  inner.updateWorldMatrix(true, false); _inv.copy(inner.matrixWorld).invert(); camera.updateWorldMatrix(true, false);
+  const enc = (m4) => { _m4.multiplyMatrices(_inv, m4); _m4.decompose(_pp, _qq, _ss); return [_pp.x, _pp.y, _pp.z, _qq.x, _qq.y, _qq.z, _qq.w].map((v) => Math.round(v * 1e4) / 1e4); };
+  const msg = { name: collab.name, s: simRoot.scale.x, head: enc(camera.matrixWorld), hands: [null, null], ray: null, walk: S.walk };
+  if (S.vr) {
+    const fin = [0, 0, 0, 0];
+    vrc.forEach((vc, i) => { if (!vc.src || !vc.obj.visible) return; const h = vc.hand === 'left' ? 0 : 1; vc.obj.updateWorldMatrix(true, false); msg.hands[h] = enc(vc.obj.matrixWorld); const gp = vc.src.gamepad; fin[h * 2] = gp && gp.buttons[0] ? gp.buttons[0].value : 0; fin[h * 2 + 1] = gp && gp.buttons[1] ? gp.buttons[1].value : 0; });
+    msg.fin = fin;
+  } else {
+    const o = mouseRay.origin.clone().applyMatrix4(_inv), d = mouseRay.direction.clone().transformDirection(_inv);
+    msg.ray = [o.x, o.y, o.z, d.x, d.y, d.z].map((v) => Math.round(v * 1e3) / 1e3);
+  }
+  return msg;
+}
+function collabTick(dt, t) {
+  if (!collab.connected || !collab.other) return;
+  if (t - CO.poseT > 66) { CO.poseT = t; collab.send('pose', collabPose()); }
+  if (!collab.guest) {
+    if (t - CO.sigT > 500) { CO.sigT = t; if (structSig() !== CO.sig) sendStruct(); }
+    if (t - CO.snapT > 100 && md.N && isMat() && CO.sig && (!S.paused || t - CO.snapT > 1000)) { CO.snapT = t; sendSnap(t); }
+  } else if (CO.snaps.length && md.N === CO.snaps[CO.snaps.length - 1].N) {                                  // guest: show the host's atoms, a little behind, smoothed
+    const rt = t - 130, S1 = CO.snaps; let A = S1[0], B_ = S1[S1.length - 1];
+    for (let i = 0; i < S1.length - 1; i++) if (S1[i].t <= rt && S1[i + 1].t >= rt) { A = S1[i]; B_ = S1[i + 1]; }
+    const f = A === B_ ? 1 : clamp((rt - A.t) / Math.max(1, B_.t - A.t), 0, 1), N = md.N;
+    for (let i = 0; i < N; i++) { md.x[i] = A.a[3 * i] + (B_.a[3 * i] - A.a[3 * i]) * f; md.y[i] = A.a[3 * i + 1] + (B_.a[3 * i + 1] - A.a[3 * i + 1]) * f; md.z[i] = A.a[3 * i + 2] + (B_.a[3 * i + 2] - A.a[3 * i + 2]) * f; }
+    if (t - CO.lastCF > 80) { CO.lastCF = t; mat.listDirty = true; mat.computeForces(); }
+  }
+}
+function collabJoin(room, kind) { room = (room || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (!room) return; collab.join(room, kind); }
+function startRoom(kind) { collabJoin(roomCode(), kind); }
+function inviteLink() { return `${location.origin}${location.pathname}?room=${collab.room}&via=${collab.kind === 'local' ? 'local' : 'sb'}`; }
+function togetherPage() {
+  ui.section('Together');
+  const on = collab.connected || collab.state === 'joining', cfg = sbConfig();
+  if (!on) {
+    ui.readout('Your name', collab.name, { h: 40 });
+    ui.row(2); if (ui.button('Change name', { h: 52, size: 19, disabled: S.vr })) { const n = window.prompt('Your name', collab.name); if (n) { collab.name = n.trim().slice(0, 14); saveName(collab.name); } }
+    if (ui.button('Random name', { h: 52, size: 19 })) { collab.name = collab.name.replace(/-\d+$/, '') + '-' + Math.floor(Math.random() * 90 + 10); saveName(collab.name); }
+    ui.space(6); ui.paragraph(cfg ? 'Online rooms use your Supabase project. Share the link with one other person.' : 'No Supabase project is set. "Two tabs" works without one: open this page twice in the same browser.', { size: 18, color: COL.muted });
+    ui.row(2); if (ui.button('Start a room (online)', { h: 66, size: 19, primary: true, disabled: !cfg })) startRoom('supabase');
+    if (ui.button('Start a room (two tabs)', { h: 66, size: 19 })) startRoom('local');
+    ui.row(2); if (ui.button('Join a room…', { h: 52, size: 19, disabled: S.vr })) { const c = window.prompt('Room code (4 letters)'); if (c) collabJoin(c, cfg ? 'supabase' : 'local'); }
+    if (ui.button('Set Supabase project…', { h: 52, size: 18, disabled: S.vr })) { const u = window.prompt('Supabase project URL (https://xxxx.supabase.co)'), k = u && window.prompt('Supabase public anon key'); if (u && k) { saveSbConfig(u.trim(), k.trim()); ui.dirty = true; } }
+    if (collab.err) ui.paragraph(collab.err, { size: 18, color: COL.bad });
+  } else {
+    const o = collab.other;
+    ui.readout('Room', collab.room, { color: COL.accent, h: 40 });
+    ui.readout('You', `${collab.name} (${collab.state === 'joining' || !collab.settle ? collab.role : '…'})`, { h: 40 });
+    ui.readout('Other person', o ? `${o.name} (${o.role})` : 'waiting…', { h: 40, color: o ? COL.good : COL.warn });
+    ui.space(4); ui.paragraph(collab.kind === 'local' ? 'Open this page in a second tab of this browser and press "Join a room" with the code above.' : 'Send this link:  ' + inviteLink(), { size: 17, color: COL.muted });
+    ui.row(2);
+    if (ui.button('Copy invite link', { h: 52, size: 19, disabled: S.vr || !navigator.clipboard })) { navigator.clipboard.writeText(inviteLink()).then(() => toast('Link copied')); }
+    if (ui.button('Leave room', { h: 52, size: 19, danger: true })) collab.leave();
+    if (collab.guest) ui.paragraph('You see the host\'s experiment from the other side of the table. Only the host edits it for now.', { size: 18, color: COL.warn });
+  }
+}
+{ const q = new URLSearchParams(location.search); if (q.get('room')) setTimeout(() => collabJoin(q.get('room'), q.get('via') === 'local' ? 'local' : sbConfig() ? 'supabase' : 'local'), 600); }
+window.addEventListener('beforeunload', () => collab.leave());
+
 /* ================================================================== themes */
 function applyTheme(name) {
   S.theme = name === 'light' ? 'light' : 'dark'; const th = THEMES[S.theme];
@@ -2219,5 +2344,5 @@ setTableHeight(0.9, false);
 build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
-window.__mdlab = { enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
+window.__mdlab = { collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
   TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };

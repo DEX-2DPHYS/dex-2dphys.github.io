@@ -63,6 +63,11 @@ export const ICONS = {
   adult(c, x, y, s, col) { atom(c, x, y - s * 0.55, s * 0.3, col); c.save(); c.lineWidth = s * 0.16; c.strokeStyle = col; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s * 0.2); c.lineTo(x, y + s * 0.4); c.moveTo(x - s * 0.45, y - s * 0.05); c.lineTo(x + s * 0.45, y - s * 0.05); c.moveTo(x, y + s * 0.4); c.lineTo(x - s * 0.3, y + s * 0.95); c.moveTo(x, y + s * 0.4); c.lineTo(x + s * 0.3, y + s * 0.95); c.stroke(); c.restore(); },
   researcher(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.1; c.strokeStyle = col; c.lineJoin = 'round'; poly(c, [[x - s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.2], [x + s * 0.7, y + s * 0.75], [x - s * 0.7, y + s * 0.75], [x - s * 0.22, y - s * 0.2]]); c.stroke(); c.beginPath(); c.moveTo(x - s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.7, y + s * 0.75); c.lineTo(x - s * 0.7, y + s * 0.75); c.closePath(); c.fillStyle = col; c.fill(); c.restore(); },
   // ---- help and flags ----
+  together(c, x, y, s, col) {          // two people
+    c.save(); c.fillStyle = col; c.strokeStyle = col; c.lineCap = 'round';
+    for (const [dx, sc] of [[-0.42, 1], [0.42, 1]]) { c.beginPath(); c.arc(x + dx * s, y - s * 0.4, s * 0.26, 0, TAU); c.fill(); c.lineWidth = s * 0.3; c.beginPath(); c.moveTo(x + dx * s, y - s * 0.05); c.lineTo(x + dx * s, y + s * 0.55); c.stroke(); }
+    c.lineWidth = s * 0.1; c.beginPath(); c.moveTo(x - s * 0.15, y + s * 0.1); c.lineTo(x + s * 0.15, y + s * 0.1); c.stroke(); c.restore();
+  },
   wand(c, x, y, s, col) {             // a wand with a star, and an arrow pulling down
     c.save(); stick(c, x - s * 0.7, y + s * 0.75, x + s * 0.15, y - s * 0.1, s * 0.14, col);
     c.translate(x + s * 0.3, y - s * 0.3); c.fillStyle = col; poly(c, [[0, -s * 0.5], [s * 0.12, -s * 0.12], [s * 0.5, 0], [s * 0.12, s * 0.12], [0, s * 0.5], [-s * 0.12, s * 0.12], [-s * 0.5, 0], [-s * 0.12, -s * 0.12]]); c.fill(); c.restore();
