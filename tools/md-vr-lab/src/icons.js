@@ -62,4 +62,17 @@ export const ICONS = {
   kid(c, x, y, s, col) { atom(c, x, y - s * 0.45, s * 0.3, col); c.save(); c.lineWidth = s * 0.14; c.strokeStyle = col; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s * 0.1); c.lineTo(x, y + s * 0.4); c.moveTo(x - s * 0.4, y - s * 0.05); c.lineTo(x + s * 0.4, y - s * 0.05); c.moveTo(x, y + s * 0.4); c.lineTo(x - s * 0.25, y + s * 0.8); c.moveTo(x, y + s * 0.4); c.lineTo(x + s * 0.25, y + s * 0.8); c.stroke(); c.restore(); },
   adult(c, x, y, s, col) { atom(c, x, y - s * 0.55, s * 0.3, col); c.save(); c.lineWidth = s * 0.16; c.strokeStyle = col; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s * 0.2); c.lineTo(x, y + s * 0.4); c.moveTo(x - s * 0.45, y - s * 0.05); c.lineTo(x + s * 0.45, y - s * 0.05); c.moveTo(x, y + s * 0.4); c.lineTo(x - s * 0.3, y + s * 0.95); c.moveTo(x, y + s * 0.4); c.lineTo(x + s * 0.3, y + s * 0.95); c.stroke(); c.restore(); },
   researcher(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.1; c.strokeStyle = col; c.lineJoin = 'round'; poly(c, [[x - s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.2], [x + s * 0.7, y + s * 0.75], [x - s * 0.7, y + s * 0.75], [x - s * 0.22, y - s * 0.2]]); c.stroke(); c.beginPath(); c.moveTo(x - s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.7, y + s * 0.75); c.lineTo(x - s * 0.7, y + s * 0.75); c.closePath(); c.fillStyle = col; c.fill(); c.restore(); },
+  // ---- help and flags ----
+  help(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.14; c.strokeStyle = col; c.beginPath(); c.arc(x, y, s * 0.85, 0, TAU); c.stroke(); c.fillStyle = col; c.font = `700 ${Math.round(s * 1.25)}px system-ui,sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', x, y + s * 0.08); c.restore(); },
+  flagGB(c, x, y, s) {                // the Union Jack, 5:3
+    const W = s * 2, H = W * 0.6, x0 = x - W / 2, y0 = y - H / 2;
+    c.save(); c.beginPath(); c.rect(x0, y0, W, H); c.clip(); c.fillStyle = '#012169'; c.fillRect(x0, y0, W, H);
+    c.lineCap = 'butt'; for (const [col, k] of [['#ffffff', 0.2], ['#c8102e', 0.07]]) { c.strokeStyle = col; c.lineWidth = H * k; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x0 + W, y0 + H); c.moveTo(x0 + W, y0); c.lineTo(x0, y0 + H); c.stroke(); }
+    c.fillStyle = '#ffffff'; c.fillRect(x0, y - H * 0.17, W, H * 0.34); c.fillRect(x - W * 0.1, y0, W * 0.2, H);
+    c.fillStyle = '#c8102e'; c.fillRect(x0, y - H * 0.1, W, H * 0.2); c.fillRect(x - W * 0.06, y0, W * 0.12, H); c.restore();
+  },
+  flagDK(c, x, y, s) {                // the Dannebrog, 28:37 (drawn 4:3)
+    const W = s * 2, H = W * 0.75, x0 = x - W / 2, y0 = y - H / 2;
+    c.save(); c.fillStyle = '#c8102e'; c.fillRect(x0, y0, W, H); c.fillStyle = '#ffffff'; c.fillRect(x0, y - H * 0.09, W, H * 0.18); c.fillRect(x0 + W * 0.3, y0, W * 0.14, H); c.restore();
+  },
 };
