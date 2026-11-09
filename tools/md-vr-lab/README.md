@@ -43,11 +43,31 @@ person is a giant in the starry sky for the walker. The guest only watches for n
 own experiment back. Transport: Supabase Realtime *broadcast* only (no tables, no presence); put the project in `supabase-config.js` or open the
 page once with `?sburl=https://xxxx.supabase.co&sbkey=ANON_KEY`. "Two tabs" mode (BroadcastChannel) needs no server. Invite link: `?room=ABCD&via=sb`.
 
+## Together, round two (control, sides of the table, link, plots)
+
+*Control* is handed over like presenting in a video meeting. The person **in charge** (host) runs the simulation and has every tool and panel; the other
+person watches. The person in charge can **Hand over control**, the watcher can **Request control**, a non-admin in charge can **Release** it, and
+the room's **admin** (its creator, ★) can always **Take control back**. A handover moves the whole experiment - positions, velocities, contacts - to the
+other computer, which then runs it (so there is never a second simulation to drift out of step). The two people stand on **opposite sides of the table**:
+for the guest the room and table furniture are turned half a circle about the table centre, and with two people the experiment is locked to the table
+centre and only turns about the vertical, so a reset or a twist on one side can no longer leave it skewed on the other. The guest sees the plots (the host
+sends them at 1 Hz) and the ELEC curves (the contacts and bias are synced and the guest's own worker computes the curves from the mirrored atoms).
+*Link*: a direct WebRTC data channel (signalled over Supabase; the relay stays as the fallback) carries poses and snapshots; the sender stops
+and waits when the other side has not confirmed the last snapshots, so a slow link no longer piles up delay; the guest interpolates with an adaptive
+delay and carries atoms on with their velocities when a packet is late.
+
 ## The table
 
 The default is an empty table (no substrate). A substrate, when you choose one, always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
 replacing the structure or moving the experiment keeps it level), with the structure on it. The table is solid: atoms that reach the worktop
 bounce off it (specular reflection, the normal velocity flips), so an unsupported structure pushed down onto the table does not pass through.
+
+## VR reset and floor level
+
+The right thumbstick click, the **Recenter** toolbar button and Settings → Floor level (VR) put the table and panels in front of you: the direction is
+taken from the gaze (or from the top of the head when you look steeply up or down), the table height is 55 % of eye height (0.55–1.0 m) and a second
+recentre happens 1.7 s after VR starts (the first pose of a headset is often off). Settings has a **Floor level** slider (±50 cm) that raises or lowers
+you relative to the virtual floor, if the headset's floor is a little off.
 
 ## Interface notes (from the synthetic first-time-user test)
 

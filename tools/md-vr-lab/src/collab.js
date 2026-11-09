@@ -53,31 +53,39 @@ class SupabaseTransport {
   close() { try { this.client.removeChannel(this.ch); } catch (e) { /* closed */ } }
 }
 
+const FAST = new Set(['pose', 'snap', 'vel', 'plots', 'ack']);                   // high-rate events: sent over the direct (WebRTC) link when there is one
+
 export class Collab {
-  constructor() { this.id = uid(); this.name = defaultName(); this.state = 'off'; this.role = 'host'; this.peers = new Map(); this.on = {}; this.room = ''; this.kind = 'local'; this.err = ''; this.onchange = null; this.settle = null; }
+  constructor() { this.id = uid(); this.name = defaultName(); this.state = 'off'; this.role = 'host'; this.admin = false; this.epoch = 0; this.peers = new Map(); this.on = {}; this.room = ''; this.kind = 'local'; this.err = ''; this.onchange = null; this.settle = null; this.rtc = null; }
   get connected() { return this.state === 'on'; }
   get guest() { return this.state === 'on' && this.role === 'guest'; }
   get other() { for (const p of this.peers.values()) return p; return null; }              // at most one
+  get link() { return this.rtc && this.rtc.open ? 'direct' : 'relay'; }
   async join(room, kind) {
-    if (this.state !== 'off') return; this.state = 'joining'; this.err = ''; this.room = room; this.kind = kind; this.role = 'host'; this.peers.clear();
+    if (this.state !== 'off') return; this.state = 'joining'; this.err = ''; this.room = room; this.kind = kind; this.role = 'host'; this.admin = false; this.epoch = 0; this.peers.clear();
     this._changed(); this.tr = kind === 'supabase' ? new SupabaseTransport() : new LocalTransport();
     try { await this.tr.open(room, (ev, p) => this.handle(ev, p)); } catch (e) { this.state = 'off'; this.err = e.message || String(e); this._changed(); return; }
-    this.state = 'on'; this.settle = setTimeout(() => { this.settle = null; this._changed(); }, 1300); this._hi(false);
+    this.state = 'on'; this.settle = setTimeout(() => { this.settle = null; const o = this.other; if (this.role === 'host' && !(o && o.admin)) this.admin = true; this._hi(false); this._changed(); }, 1300); this._hi(false);
     this.timer = setInterval(() => { this._hi(false); const t = Date.now(); for (const [id, p] of [...this.peers]) if (t - p.last > 6000) this._gone(id); }, 1500);
     this._changed();
   }
   leave() {
     if (this.state === 'off') return; try { this.send('bye', {}); } catch (e) { /* closed */ }
-    clearInterval(this.timer); clearTimeout(this.settle); this.settle = null; this.tr.close(); const wasGuest = this.role === 'guest', had = this.peers.size > 0;
-    this.state = 'off'; this.peers.clear(); this.role = 'host'; this._changed(); if (had || wasGuest) this.fire('left', { wasGuest });
+    clearInterval(this.timer); clearTimeout(this.settle); this.settle = null; this._rtcClose(); this.tr.close(); const wasGuest = this.role === 'guest', had = this.peers.size > 0;
+    this.state = 'off'; this.peers.clear(); this.role = 'host'; this.admin = false; this._changed(); if (had || wasGuest) this.fire('left', { wasGuest });
   }
-  send(ev, p = {}) { if (this.state !== 'on') return; p.from = this.id; this.tr.send(ev, p); }
-  _hi(reply) { this.send('hi', { name: this.name, role: this.role, settled: !this.settle, reply: !!reply }); }
+  setRole(role, epoch) { this.role = role; if (epoch !== undefined) this.epoch = epoch; this._hi(false); this._changed(); }
+  send(ev, p = {}) {
+    if (this.state !== 'on') return; p.from = this.id;
+    if (FAST.has(ev) && this.rtc && this.rtc.open && this.rtc.dc.bufferedAmount < 400000) { try { this.rtc.dc.send(JSON.stringify({ ev, p })); return; } catch (e) { /* fall back to the relay */ } }
+    this.tr.send(ev, p);
+  }
+  _hi(reply) { this.send('hi', { name: this.name, role: this.role, settled: !this.settle, reply: !!reply, admin: this.admin, epoch: this.epoch }); }
   fire(ev, p) { const f = this.on[ev]; if (f) f(p); }
   _changed() { if (this.onchange) this.onchange(); }
   _gone(id) {
-    const peer = this.peers.get(id); if (!peer) return; this.peers.delete(id); const wasGuest = this.role === 'guest';
-    if (!this.peers.size) this.role = 'host'; this._changed(); this.fire('left', { peer, wasGuest });
+    const peer = this.peers.get(id); if (!peer) return; this.peers.delete(id); const wasGuest = this.role === 'guest'; this._rtcClose();
+    if (!this.peers.size) { this.role = 'host'; this.admin = true; } this._changed(); this.fire('left', { peer, wasGuest });
   }
   handle(ev, p) {
     if (!p || p.from === this.id || this.state !== 'on') return;
@@ -87,15 +95,39 @@ export class Collab {
         if (this.peers.size >= 1) { if (this.role === 'host' && !this.settle) this.send('full', { to: p.from }); return; }          // a third person
         peer = { id: p.from, last: 0 }; this.peers.set(p.from, peer); fresh = true; if (!p.reply) this._hi(true);                       // answer the newcomer
       }
-      peer.name = p.name; peer.role = p.role; peer.last = Date.now();
-      if (this.role === 'host' && p.role === 'host') {                                                                                 // both think they are host: the settled one stays, else the lower id
-        const mine = !this.settle, theirs = !!p.settled; if ((theirs && !mine) || (theirs === mine && p.from < this.id)) this.role = 'guest';
+      peer.name = p.name; peer.role = p.role; peer.admin = !!p.admin; peer.epoch = p.epoch || 0; peer.last = Date.now();
+      if (this.role === 'host' && p.role === 'host') {                                                                                 // two hosts: the newer handover, then the settled one, then the lower id stays
+        const mine = !this.settle, theirs = !!p.settled;
+        if ((p.epoch || 0) > this.epoch || ((p.epoch || 0) === this.epoch && ((theirs && !mine) || (theirs === mine && p.from < this.id)))) this.role = 'guest';
       }
-      this._changed(); if (fresh) this.fire('joined', peer); return;
+      this._changed(); if (fresh) { this.fire('joined', peer); this._startRtc(peer); } return;
     }
     if (ev === 'full') { if (p.to === this.id) { this.leave(); this.err = 'This room already has two people'; this._changed(); } return; }
     if (ev === 'bye') { this._gone(p.from); return; }
+    if (ev === 'rtc') { this._rtcSignal(p); return; }
     const peer = this.peers.get(p.from); if (peer) peer.last = Date.now();
     const f = this.on[ev]; if (f) f(p);
   }
+  // ---- direct link: a WebRTC data channel (unordered, short-lived packets), signalled over the same broadcast channel; the relay stays as the fallback ----
+  _startRtc(peer) {
+    if (this.rtc || typeof RTCPeerConnection === 'undefined') return;
+    const init = this.id < peer.id, pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }), r = this.rtc = { pc, dc: null, open: false, peer: peer.id, q: [], remote: false };
+    pc.onicecandidate = (e) => { if (e.candidate) this.send('rtc', { to: peer.id, kind: 'ice', c: e.candidate.toJSON() }); };
+    pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) this._rtcClose(); };
+    const setup = (dc) => { r.dc = dc; dc.onopen = () => { r.open = true; this._changed(); }; dc.onclose = () => { r.open = false; this._changed(); }; dc.onmessage = (e) => { try { const m = JSON.parse(e.data); if (this.state !== 'on' || !m || !m.p || m.p.from === this.id) return; const pe = this.peers.get(m.p.from); if (pe) pe.last = Date.now(); const h = this.on[m.ev]; if (h) h(m.p); } catch (x) { /* bad packet */ } }; };
+    if (init) {
+      setup(pc.createDataChannel('fast', { ordered: false, maxPacketLifeTime: 250 }));
+      pc.createOffer().then((o) => pc.setLocalDescription(o)).then(() => this.send('rtc', { to: peer.id, kind: 'offer', sdp: { type: pc.localDescription.type, sdp: pc.localDescription.sdp } })).catch(() => this._rtcClose());
+    } else pc.ondatachannel = (e) => setup(e.channel);
+    r.timer = setTimeout(() => { if (!r.open) this._rtcClose(); }, 12000);
+  }
+  async _rtcSignal(p) {
+    if (p.to !== this.id) return; if (!this.rtc) { const peer = this.peers.get(p.from); if (peer) this._startRtc(peer); } const r = this.rtc; if (!r) return;
+    try {
+      if (p.kind === 'ice') { if (r.remote) await r.pc.addIceCandidate(p.c); else r.q.push(p.c); return; }
+      await r.pc.setRemoteDescription(p.sdp); r.remote = true; for (const c of r.q.splice(0)) await r.pc.addIceCandidate(c);
+      if (p.kind === 'offer') { const a = await r.pc.createAnswer(); await r.pc.setLocalDescription(a); this.send('rtc', { to: p.from, kind: 'answer', sdp: { type: a.type, sdp: a.sdp } }); }
+    } catch (e) { /* the relay keeps working */ }
+  }
+  _rtcClose() { const r = this.rtc; if (!r) return; this.rtc = null; clearTimeout(r.timer); try { r.dc && r.dc.close(); r.pc.close(); } catch (e) { /* closed */ } this._changed(); }
 }

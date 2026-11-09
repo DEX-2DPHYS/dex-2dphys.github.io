@@ -63,6 +63,11 @@ export const ICONS = {
   adult(c, x, y, s, col) { atom(c, x, y - s * 0.55, s * 0.3, col); c.save(); c.lineWidth = s * 0.16; c.strokeStyle = col; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s * 0.2); c.lineTo(x, y + s * 0.4); c.moveTo(x - s * 0.45, y - s * 0.05); c.lineTo(x + s * 0.45, y - s * 0.05); c.moveTo(x, y + s * 0.4); c.lineTo(x - s * 0.3, y + s * 0.95); c.moveTo(x, y + s * 0.4); c.lineTo(x + s * 0.3, y + s * 0.95); c.stroke(); c.restore(); },
   researcher(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.1; c.strokeStyle = col; c.lineJoin = 'round'; poly(c, [[x - s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.2], [x + s * 0.7, y + s * 0.75], [x - s * 0.7, y + s * 0.75], [x - s * 0.22, y - s * 0.2]]); c.stroke(); c.beginPath(); c.moveTo(x - s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.7, y + s * 0.75); c.lineTo(x - s * 0.7, y + s * 0.75); c.closePath(); c.fillStyle = col; c.fill(); c.restore(); },
   // ---- help and flags ----
+  recenter(c, x, y, s, col) {          // a house with a centre mark: "back to the home position"
+    c.save(); c.lineWidth = s * 0.12; c.strokeStyle = col; c.lineJoin = 'round'; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(x - s * 0.8, y - s * 0.05); c.lineTo(x, y - s * 0.78); c.lineTo(x + s * 0.8, y - s * 0.05); c.moveTo(x - s * 0.58, y - s * 0.12); c.lineTo(x - s * 0.58, y + s * 0.72); c.lineTo(x + s * 0.58, y + s * 0.72); c.lineTo(x + s * 0.58, y - s * 0.12); c.stroke();
+    c.beginPath(); c.arc(x, y + s * 0.28, s * 0.2, 0, TAU); c.stroke(); c.restore();
+  },
   together(c, x, y, s, col) {          // two people
     c.save(); c.fillStyle = col; c.strokeStyle = col; c.lineCap = 'round';
     for (const [dx, sc] of [[-0.42, 1], [0.42, 1]]) { c.beginPath(); c.arc(x + dx * s, y - s * 0.4, s * 0.26, 0, TAU); c.fill(); c.lineWidth = s * 0.3; c.beginPath(); c.moveTo(x + dx * s, y - s * 0.05); c.lineTo(x + dx * s, y + s * 0.55); c.stroke(); }

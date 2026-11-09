@@ -53,6 +53,8 @@
   body.light #start{background:rgba(232,237,243,.95)}
   body.light #start h1{color:#0b827f} body.light #start p,body.light #start h2,body.light #start button small{color:#4f5f79}
   body.light #start button{color:#15202f;background:#dfe6f0;border-color:#b9c5d6} body.light #start button.sel{background:#a8dedb;border-color:#0b827f}
+  #modalWrap{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%);z-index:26}
+  #modalWrap canvas{display:block;width:min(480px,92vw);aspect-ratio:560/400;height:auto;border-radius:20px;box-shadow:0 16px 60px rgba(0,0,0,.65);touch-action:none}
   #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,12px);max-width:min(640px,92vw);background:rgba(13,20,34,.94);color:#e8eef8;border:1px solid #2a3a5c;border-radius:12px;padding:10px 16px;font:500 14px/1.4 system-ui,sans-serif;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.5)}
   #toast.on{opacity:1;transform:translate(-50%,0)}
   body.light #toast{background:rgba(246,248,251,.96);color:#15202f;border-color:#b9c5d6}
@@ -86,6 +88,7 @@
 <div id="uiWrap"></div>
 <div id="plotWrap"></div>
 <div id="toast"></div>
+<div id="modalWrap" style="display:none"></div>
 <div id="start"><div class="card">
   <h1>2DPHYS ATOMIC&nbsp;WORKBENCH</h1>
   <p data-t="sub"></p>
