@@ -215,7 +215,7 @@ click-interaction and mode switches, `gray-scott` for parameter sweeps and
 brushes, `2dmd` for the case where the browser owns the rendering and the core
 streams it packed geometry over the frame channel instead of pixels. (The EBL
 Workbench, once the example of a core that answers requests instead of drawing,
-is a standalone program now: see ../ebl-workbench/ and ../pro/.)
+left DSW in October 2026 and this repository in November 2026.)
 
 ## Protocol (for the curious)
 

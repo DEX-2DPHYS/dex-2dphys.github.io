@@ -79,7 +79,7 @@ dsw_add_plugin(superlubricity)
 
 # 2026-10: the rest of the current set. 2DMD is built WITHOUT LAMMPS here (its fast built-in
 # engine only; the LAMMPS engine is a local build, see the bundle README). (The EBL Workbench left DSW
-# in October 2026: it is a standalone now, ebl-workbench/ and pro/.)
+# in October 2026, and this repository in November 2026.)
 dsw_add_plugin(2dmd)
 dsw_add_plugin(klein-magnetometer)
 dsw_add_plugin(transim)

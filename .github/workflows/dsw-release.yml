@@ -93,7 +93,7 @@ jobs:
           mkdir -p "$out/plugins"
           for d in dsw/plugins/*/; do
             id=$(basename "$d")
-            # only real bundles (plugins/ebl-workbench/ is just a redirect for old links now)
+            # only real bundles (a folder without dex.json is skipped)
             [ -f "$d/dex.json" ] || continue
             # A bundle is dex.json + the compiled core + ui/ — never src/.
             mkdir -p "$out/plugins/$id"
