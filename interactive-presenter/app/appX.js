@@ -1952,7 +1952,7 @@ function renderCreditsPicker() {
   if (dom.creditsPickerHint) {
     dom.creditsPickerHint.textContent = state.people.length
       ? "Check people in the order they should appear."
-      : "Scan the People folder first (People & Credits panel).";
+      : "Scan the People folder first (People & Credits & Logo panel).";
   }
   dom.creditsPickerList.innerHTML = "";
   for (const person of state.people) {
@@ -13370,7 +13370,7 @@ function getAboutHtml() {
       <h3>People credits, acknowledgements and references</h3>
       <p>Put portrait photos in a <b>People</b> folder next to the presenter file, named <b>Full Name (Affiliation).png</b> or <b>.jpg</b> (e.g. "Nini Pryds (DTU Energy).jpg"). Portraits are always loaded by relative path, so the presenter keeps working when moved together with the folder.</p>
       <ol>
-        <li>In the People &amp; Credits panel, click <b>Scan People folder</b> once and pick the People folder. The list is cached and restores automatically on every startup; re-scan after adding new photos (browsers cannot list a local folder without this one click).</li>
+        <li>In the People &amp; Credits &amp; Logo panel, click <b>Scan People folder</b> once and pick the People folder. The list is cached and restores automatically on every startup; re-scan after adding new photos (browsers cannot list a local folder without this one click).</li>
         <li>On any slide, tick <b>Credits on this slide</b> (corner strip, in checked order) or <b>Acknowledgements on this slide</b> (centered columns grouped by affiliation), then check people in the movable picker window. Untick to start the order over.</li>
         <li>Format is deck-global so every slide matches: corner position, full/last name, affiliation line, and separate zooms for credits, acknowledgement portraits and the acknowledgement area. <b>Invert</b> is per-slide and turns the text white for dark slides.</li>
         <li>The <b>References</b> field types a per-slide reference line shown at the very bottom of the slide, with a global zoom and per-slide invert.</li>
