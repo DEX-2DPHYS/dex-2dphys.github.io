@@ -91,13 +91,15 @@
       else if (a.kind === "overlay-html-file") {
         url = a.htmlText ? resolveHtmlFileSourceExternalUrl(a, a.htmlText) : "";
         if (!url) { embedded++; continue; }
+      } else if (typeof isLinkedMediaAsset === "function" && isLinkedMediaAsset(a)) {
+        url = linkedMediaFileUrl(a); // linked picture/video (figures\, videos\), 2026-10-28
       } else continue;
       const row = {
         name: a.name || a.url || id,
         slides: [...slides].sort((x, y) => x - y),
         link: String(a.url || ""),
         rootRelative: !!normalizeConventionRelativePath(String(a.url || "")),
-        hasCopy: !!a.htmlText,
+        hasCopy: !!a.htmlText || /^data:/i.test(String(a.dataUrl || "")),
         url: "",
         status: "",
         checked: true,

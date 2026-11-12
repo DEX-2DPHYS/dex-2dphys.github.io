@@ -263,10 +263,20 @@
     return Object.prototype.hasOwnProperty.call(TITLE_FONT_STACKS, key) ? key : "system";
   }
 
+  // appX treats the first slide as the title page whatever its type, so decks
+  // whose opening slide has no type "title-page" still need the typography.
+  function isTitlePageSlide(slide) {
+    if (!slide) return false;
+    if (slide.type === "title-page") return true;
+    return typeof isTitleSlide === "function" && isTitleSlide(slide);
+  }
+
   function ensureTitleTypographyDefaults(slide) {
-    if (!slide || slide.type !== "title-page") return slide;
+    if (!isTitlePageSlide(slide)) return slide;
     slide.titleFont = normalizeTitleFontKey(slide.titleFont);
-    slide.titleBold = slide.titleBold !== false;
+    // Bold unless switched off by hand since 2026-11-03 (titleBoldSet): decks that had it off from
+    // before (PAVIA, unticked by accident) show the heavy title again, like the section dividers.
+    slide.titleBold = slide.titleBold !== false || slide.titleBoldSet !== true;
     return slide;
   }
 
@@ -274,15 +284,16 @@
     ensureTitleTypographyDefaults(slide);
     const title = block?.querySelector?.(".tp-title");
     if (!title) return block;
-    title.style.fontFamily = TITLE_FONT_STACKS[slide.titleFont];
-    title.style.fontWeight = slide.titleBold ? "800" : "400";
+    // Normalised here too: an unset key gave font-family "undefined", i.e. the browser's Times.
+    title.style.fontFamily = TITLE_FONT_STACKS[normalizeTitleFontKey(slide.titleFont)];
+    title.style.fontWeight = slide.titleBold !== false ? "800" : "400";
     return block;
   }
 
   function syncTitleTypographyControls() {
     if (typeof currentSlide !== "function") return;
     const slide = currentSlide();
-    if (!slide || slide.type !== "title-page") return;
+    if (!isTitlePageSlide(slide)) return;
     ensureTitleTypographyDefaults(slide);
     if (titleFontSelect) titleFontSelect.value = slide.titleFont;
     if (titleBoldToggle) titleBoldToggle.checked = slide.titleBold;
@@ -291,7 +302,7 @@
   function updateCurrentTitleTypography(mutate) {
     if (typeof currentSlide !== "function") return;
     const slide = currentSlide();
-    if (!slide || slide.type !== "title-page") return;
+    if (!isTitlePageSlide(slide)) return;
     ensureTitleTypographyDefaults(slide);
     mutate(slide);
     ensureTitleTypographyDefaults(slide);
@@ -1632,6 +1643,7 @@
     titleBoldToggle.addEventListener("change", () => {
       updateCurrentTitleTypography((slide) => {
         slide.titleBold = titleBoldToggle.checked;
+        slide.titleBoldSet = true;
       });
     });
   }

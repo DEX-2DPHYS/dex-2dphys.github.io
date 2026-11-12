@@ -80,7 +80,10 @@
   function createFrame(key) {
     const iframe = document.createElement("iframe");
     iframe.className = "dtuwrite-frame";
-    iframe.allow = "fullscreen; microphone; clipboard-read; clipboard-write";
+    // no "fullscreen": DTUwrite's ⛶ would make the board the browser's full screen element, covering the
+    // whole presenter (its slide-change strips included). Without it DTUwrite's own full screen mode still
+    // works inside the slide (menu bar tucked away, floating tool bar).
+    iframe.allow = "microphone; clipboard-read; clipboard-write";
     iframe.style.visibility = "hidden"; // until DTUwrite says hello (or it would show an error page)
     iframe.src = `${DTUWRITE_URL}?embed=ip&key=${encodeURIComponent(key)}`;
     const f = { key, iframe, ready: false, el: null, lastUsed: Date.now(), waiters: new Map(), timer: 0 };
@@ -161,6 +164,10 @@
         f.waiters.get(d.reqId)();
         f.waiters.delete(d.reqId);
       }
+    } else if (d.type === "dtuwrite-embed-slide") {
+      // the board has the keyboard and was already on its last / first page: next / previous slide
+      const dir = d.dir < 0 ? -1 : 1;
+      if (!isRapidNavRepeatForDelta(dir)) advancePresenterSequence(dir);
     }
   });
 
@@ -323,6 +330,8 @@
       const el = f.el;
       if (!el || !el.isConnected) {
         setStyle(fr, "display", "none");
+        // a board that had the keyboard gives it back to the deck when its slide is left
+        if (document.activeElement === fr) { fr.blur(); window.focus(); }
         continue;
       }
       setStyle(fr, "display", "");

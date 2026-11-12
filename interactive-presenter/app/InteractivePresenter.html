@@ -76,8 +76,19 @@
         </div>
         <div id="presentationRootHint" class="hint deck-path"></div>
         <button id="checkLinksBtn" class="deck-wide-btn" type="button">Check links</button>
+        <button id="saveToFolderBtn" class="deck-wide-btn" type="button" data-tooltip="Save an independent copy of this presentation in a folder you choose: the .ipe plus every sim, page and file its slides use, so nothing points back to the original.">Save to folder…</button>
+        <button id="portablePackageBtn" class="deck-wide-btn" type="button" data-tooltip="Make one folder that runs this presentation on another Windows PC with no installation and no internet: the app, the portraits, the presentation with every file it uses, and local copies of the web libraries its sims load. Double-click the START file in it.">Make portable package…</button>
         <button id="applyPresentationRootBtn" type="button" hidden>Set</button>
         <button id="deckRootBtn" type="button" hidden>.ipe folder</button>
+
+        <h3 class="deck-sub">Pictures, videos and file size</h3>
+        <div id="deckSizeHint" class="hint"></div>
+        <button id="linkMediaBtn" class="deck-wide-btn" type="button" data-tooltip="Turn the pictures and videos stored inside the .ipe into links to figures\ and videos\ in the presentation folder, like the sims. Files already there are linked; the others are written there first (you pick the folder once). The .ipe then holds only the links.">Link pictures and videos</button>
+        <button id="shrinkPicturesBtn" class="deck-wide-btn" type="button" data-tooltip="Re-save the pictures stored inside the .ipe as WebP, at most 2560 px wide. Only pictures that get at least 15% smaller change; SVG, GIF, slide images and linked pictures are left alone. New pictures are shrunk when they are added.">Shrink pictures</button>
+        <label class="check-row" data-tooltip="Off (the default): a linked sim, picture or video whose file is in the presentation folder is not copied into the .ipe, which keeps it small. A file that is missing at Save is always kept inside. On: every linked file is also stored in the .ipe, so the .ipe works without its folders.">
+          <input id="keepLinkedCopiesCheckbox" type="checkbox" />
+          <span>Also store linked files in the .ipe</span>
+        </label>
 
         <h3 class="deck-sub">Slide size</h3>
         <label class="field">
@@ -608,6 +619,26 @@
             <input id="overlayAllowKeyControlCheckbox" type="checkbox" />
             <span>Key control</span>
           </label>
+
+          <!-- video overlays only (2026-11-12) -->
+          <span id="overlayVideoOptions" hidden>
+            <label class="field check-row option-chip" title="Starts by itself when the slide shows (or when the video appears)">
+              <input id="overlayVideoAutoplayCheckbox" type="checkbox" />
+              <span>▶ Auto start</span>
+            </label>
+            <label class="field check-row option-chip" title="Plays again from the start when it ends">
+              <input id="overlayVideoLoopCheckbox" type="checkbox" />
+              <span>Loop</span>
+            </label>
+            <label class="field check-row option-chip" title="Plays without sound">
+              <input id="overlayVideoMutedCheckbox" type="checkbox" />
+              <span>Mute</span>
+            </label>
+            <label class="field check-row option-chip" title="While presenting, a click on the video plays or pauses it">
+              <input id="overlayVideoClickCheckbox" type="checkbox" />
+              <span>Click plays</span>
+            </label>
+          </span>
         </div>
 
         <label class="field">
@@ -861,6 +892,9 @@
   <script src="dtuwrite-board.js"></script>
   <script src="deck-links.js"></script>
   <script src="deck-panel.js"></script>
+  <script src="deck-save-folder.js"></script>
+  <script src="deck-portable.js"></script>
+  <script src="slide-invert.js"></script>
   <script>
   // Open the deck named by ?deck=... (relative to this page, or an absolute file:// address) on start.
   // open-ipe.ps1 uses this when a .ipe file is double-clicked.
@@ -884,7 +918,7 @@
     if (!src) return;
     try {
       const r = await importPowerPointManifest(new URL(src, location.href).href);
-      if (dom.modeHint) dom.modeHint.textContent = `Imported ${r.slides - 1} PowerPoint slides after a title page` + (r.animations ? `, ${r.animations} animation${r.animations === 1 ? "" : "s"}` : "") + (r.animMerged ? ` (${r.animMerged} paragraph step${r.animMerged === 1 ? "" : "s"} on boxes that came in as pictures merged into one)` : "") + (r.animSkipped ? ` (${r.animSkipped} animation${r.animSkipped === 1 ? "" : "s"} skipped)` : "") + (r.notes ? ` (speaker notes on ${r.notes} slide${r.notes === 1 ? "" : "s"} were not carried over)` : "") + ". Save to keep it as an .ipe file.";
+      if (dom.modeHint) dom.modeHint.textContent = `Imported ${r.slides - 1} PowerPoint slides after a title page` + (r.animations ? `, ${r.animations} animation${r.animations === 1 ? "" : "s"}` : "") + (r.animMerged ? ` (${r.animMerged} paragraph step${r.animMerged === 1 ? "" : "s"} on boxes that came in as pictures merged into one)` : "") + (r.animSkipped ? ` (${r.animSkipped} animation${r.animSkipped === 1 ? "" : "s"} skipped)` : "") + (r.notes ? ` (speaker notes on ${r.notes} slide${r.notes === 1 ? "" : "s"} were not carried over)` : "") + ". Save to keep it as an .ipe file." + powerPointMovieSummary(r);
     } catch (err) {
       alert("Could not import the PowerPoint file (" + err.message + ").");
     }

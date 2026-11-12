@@ -55,8 +55,14 @@ const TEXT_BOX_EDGE_GRAB_PX = 10;
 // Subfolders of the presentation folder whose links follow it (a deck's sims, html, pdf, figures and movies
 // folders). A link stored as e.g. "html/demo.html" loads from <presentation folder>/html/demo.html wherever
 // the folder is copied. Case does not matter (HTML/ and html/ both work).
-const ROOT_LINK_FOLDERS = ["sims", "html", "pdf", "figures", "movies"];
+// "videos" (2026-10-28): the folder name Peter's talk folders use; linked videos go there.
+const ROOT_LINK_FOLDERS = ["sims", "html", "pdf", "figures", "movies", "videos"];
 const ROOT_LINK_FOLDER_RE = new RegExp("^(?:\\./)?(" + ROOT_LINK_FOLDERS.join("|") + ")/", "i");
+// Where linked pictures and videos live (see "Linked pictures and videos" further down; up here
+// because start-up already resolves them).
+const MEDIA_LINK_FOLDERS = { "overlay-image": ["figures"], "overlay-video": ["videos", "movies"] };
+// localStorage holds ~5-10 MB: a deck estimated above this is not snapshotted (BUGLIST item 2).
+const LAST_DECK_STORAGE_MAX_CHARS = 4_000_000;
 
 const TEXT_REFERENCE_SLIDE_WIDTH = 960;
 const TEXT_SIZE_MIN = 6;
@@ -615,7 +621,27 @@ function restoreLastDeckFromStorage() {
   }
 }
 
+// localStorage holds ~5-10 MB. Building the JSON of a deck with its pictures, videos and sims
+// (100+ MB for a big deck) only to have setItem refuse it crashed the tab (BUGLIST item 2), so
+// the size is estimated first, without building any string (limit: LAST_DECK_STORAGE_MAX_CHARS, at the top).
+
+function estimateStoredChars(value, limit, depth = 0) {
+  if (typeof value === "string") return value.length;
+  if (!value || typeof value !== "object" || depth > 8) return 0;
+  let n = 0;
+  for (const v of Array.isArray(value) ? value : Object.values(value)) {
+    n += estimateStoredChars(v, limit - n, depth + 1);
+    if (n > limit) break;
+  }
+  return n;
+}
+
 function persistLastDeckToStorage() {
+  if (estimateStoredChars(state.deck, LAST_DECK_STORAGE_MAX_CHARS) > LAST_DECK_STORAGE_MAX_CHARS) {
+    // Too big for localStorage: drop the old snapshot too, so a start-up never restores another deck.
+    try { localStorage.removeItem(LAST_DECK_STORAGE_KEY); } catch { /* private window */ }
+    return;
+  }
   try {
     const payload = {
       savedAt: new Date().toISOString(),
@@ -2511,6 +2537,7 @@ function pickSummaryFigureImage(slide, item) {
     const dataUrl = await fileToDataUrl(f);
     const id = uid();
     state.deck.assets[id] = { id, kind: "overlay-image", mime: f.type || "image/png", name: f.name, dataUrl };
+    await shrinkPictureAsset(state.deck.assets[id]);
     item.assetId = id;
     state.summarySelectedItemId = item.id;
     touch();
@@ -2653,6 +2680,8 @@ function normalizeAnimationAction(action) {
     || txt === "appear-with-previous"
     || txt === "remove-after-click"
     || txt === "remove-with-previous"
+    || txt === "play-after-click"
+    || txt === "play-with-previous"
   ) {
     return txt;
   }
@@ -2725,7 +2754,18 @@ function getCurrentSlideAnimationEvents() {
 
 function isAnimationActionAfterClick(action) {
   const normalized = normalizeAnimationAction(action);
-  return normalized === "appear-after-click" || normalized === "remove-after-click";
+  return normalized === "appear-after-click" || normalized === "remove-after-click" || normalized === "play-after-click";
+}
+
+// "Play video" steps (2026-11-12, PowerPoint movies "In Click Sequence"): start a video overlay; it neither
+// appears nor goes, so visibility and fades ignore these steps.
+function isAnimationActionPlay(action) {
+  const normalized = normalizeAnimationAction(action);
+  return normalized === "play-after-click" || normalized === "play-with-previous";
+}
+
+function stageVideoOfOverlay(overlayId) {
+  return dom.stage?.querySelector(`.overlay[data-overlay-id="${CSS.escape(String(overlayId || ""))}"] video`) || null;
 }
 
 function isAnimationActionAppear(action) {
@@ -2815,6 +2855,11 @@ function clearAnimationStepTimers() {
 function playAnimationEventOnStage(slide, ev, animate) {
   const el = dom.stage?.querySelector(`.overlay[data-overlay-id="${CSS.escape(String(ev.overlayId || ""))}"]`);
   if (!el) return;
+  if (isAnimationActionPlay(ev.action)) {
+    const video = el.querySelector("video");
+    if (video && animate) video.play().catch(() => { if (dom.modeHint) dom.modeHint.textContent = "The browser blocked the video: click it, or use its Play button."; });
+    return;
+  }
   const show = isAnimationActionAppear(ev.action);
   const fade = animate ? safeClampNumber(ev.durationMs, 0, 5000, 0) : 0;
   if (ev.paragraph > 0) {
@@ -2826,6 +2871,11 @@ function playAnimationEventOnStage(slide, ev, animate) {
   el.style.transition = fade > 0 ? `opacity ${fade}ms ease` : "none";
   el.style.opacity = show ? String(baseOpacity) : "0";
   el.style.pointerEvents = show ? "" : "none";
+  if (overlay?.videoAutoplay && animate) {
+    const video = el.querySelector("video");
+    if (video && show) video.play().catch(() => {});
+    else if (video) video.pause();
+  }
   if (show && overlay && resolveAssetByAnyId(overlay.sourceId)?.kind === "overlay-notes-board") {
     const frame = el.querySelector("iframe.overlay-notes-board-frame");
     if (frame?.contentWindow) postNotesInitToOverlay(overlay.id, frame.contentWindow);
@@ -2918,7 +2968,7 @@ function getOverlayVisibilityMapForStep(slide, stepIndex) {
 
   for (let i = 0; i <= end; i++) {
     const ev = events[i];
-    if (!ev || !ev.overlayId || ev.paragraph > 0) {
+    if (!ev || !ev.overlayId || ev.paragraph > 0 || isAnimationActionPlay(ev.action)) {
       continue;
     }
     const show = isAnimationActionAppear(ev.action);
@@ -2942,7 +2992,7 @@ function getAnimationTransitionForStepChange(slide, fromStep, toStep) {
   const movingForward = toStep > fromStep;
   const index = movingForward ? toStep : fromStep;
   const ev = events[index];
-  if (!ev || !ev.overlayId) {
+  if (!ev || !ev.overlayId || isAnimationActionPlay(ev.action)) {
     return null;
   }
 
@@ -3188,6 +3238,16 @@ function applyAnimationStepToStage(slide, fromStep, toStep, animate = true) {
       else state.animationStepTimers.push(setTimeout(() => playAnimationEventOnStage(slide, ev, true), t));
     }
     return;
+  }
+
+  // back over a "Play video" step: that video stops and goes back to its start
+  if (toStep < fromStep) {
+    const events = slide.animationEvents || [];
+    for (let i = Math.max(0, toStep + 1); i <= fromStep && i < events.length; i++) {
+      if (!events[i] || !isAnimationActionPlay(events[i].action)) continue;
+      const video = stageVideoOfOverlay(events[i].overlayId);
+      if (video) { video.pause(); video.currentTime = 0; }
+    }
   }
 
   // back or a jump: the target step at once (paragraphs too; whole overlays below)
@@ -3454,7 +3514,11 @@ function renderAnimationPanel() {
     const actionTitle = document.createElement("span");
     actionTitle.textContent = "Action";
     const actionSelect = document.createElement("select");
-    actionOptions.forEach((optData) => {
+    const evKindSource = resolveAssetByAnyId(overlays.find((o) => o.id === ev.overlayId)?.sourceId);
+    const rowOptions = evKindSource?.kind === "overlay-video" || isAnimationActionPlay(ev.action)
+      ? [...actionOptions, { value: "play-after-click", label: "Play video after click" }, { value: "play-with-previous", label: "Play video with previous" }]
+      : actionOptions;
+    rowOptions.forEach((optData) => {
       const opt = document.createElement("option");
       opt.value = optData.value;
       opt.textContent = optData.label;
@@ -5293,6 +5357,7 @@ function bindEvents() {
     state.deck.settings.presentationRootPath = raw;
     state.presentationRootFileUrl = resolvePresentationRootFromSetting(raw);
     savePresentationRootToLocalStorage(state.deck.meta.title, raw, state.currentZipFileHandle?.name || "");
+    attachLinkedMediaUrls(); // linked pictures/videos follow the folder, like the sims
     touch();
     renderDeckMeta();
     renderStage();
@@ -5931,6 +5996,14 @@ function bindEvents() {
   dom.overlayAllowKeyControlCheckbox.addEventListener("change", () => updateSelectedOverlay((o) => {
     o.allowKeyControl = dom.overlayAllowKeyControlCheckbox.checked;
   }));
+
+  // video overlays: Auto start / Loop / Mute / Click plays (2026-11-12)
+  for (const [id, key] of [["overlayVideoAutoplayCheckbox", "videoAutoplay"], ["overlayVideoLoopCheckbox", "videoLoop"], ["overlayVideoMutedCheckbox", "videoMuted"], ["overlayVideoClickCheckbox", "videoClickToPlay"]]) {
+    document.getElementById(id)?.addEventListener("change", (e) => updateSelectedOverlay((o) => {
+      if (e.target.checked) o[key] = true;
+      else delete o[key];
+    }));
+  }
 
   dom.overlayAllowWritingCheckbox.addEventListener("change", () => updateSelectedOverlay((o) => {
     ensureOverlayAnnotationDefaults(o);
@@ -6872,6 +6945,7 @@ async function importOverlayImages(fileList) {
       name: f.name,
       dataUrl,
     };
+    await shrinkPictureAsset(state.deck.assets[id]);
     addedIds.push(id);
   }
 
@@ -10067,6 +10141,7 @@ function renderDeckMeta() {
   dom.scaleContextHint.textContent = `Scale preview source: ${scaleCtx.sourceLabel}; target ${Math.round(scaleCtx.stageWidth)}x${Math.round(scaleCtx.stageHeight)} px; reference ${Math.round(scaleCtx.refWidth)}x${Math.round(scaleCtx.refHeight)} px; fit ${(scaleCtx.fitRatio || 1).toFixed(3)}.`;
   if (!getPresentationRootFileUrl() && state.deck.settings.presentationRootPath) {
     state.presentationRootFileUrl = resolvePresentationRootFromSetting(state.deck.settings.presentationRootPath);
+    if (getPresentationRootFileUrl()) attachLinkedMediaUrls();
   }
   if (dom.presentationRootInput) {
     dom.presentationRootInput.value = String(state.deck.settings.presentationRootPath || "");
@@ -10488,6 +10563,7 @@ function renderOverlayInspector(updateSelect = true) {
   }
 
   if (!selected) {
+    syncOverlayVideoOptions(null);
     dom.overlaySourceSelect.value = "";
     dom.overlayFramedCheckbox.checked = true;
     dom.overlayShadedCheckbox.checked = false;
@@ -10526,6 +10602,7 @@ function renderOverlayInspector(updateSelect = true) {
     dom.overlayAllowWritingCheckbox.title = "Enable pen annotations on this overlay";
   }
 
+  syncOverlayVideoOptions(selected);
   dom.overlayOpacityRange.value = String(selected.opacity ?? 1);
   const localScale = safeClampNumber(selected.localScale, 0.25, 3, 1);
   dom.overlayLocalScaleRange.value = String(localScale);
@@ -10536,6 +10613,20 @@ function renderOverlayInspector(updateSelect = true) {
   dom.overlayHInput.value = (selected.h * 100).toFixed(2);
   syncFloatingToolbarState(selected);
   syncTextToolFromSelectedOverlaySource();
+}
+
+// the video options in the overlay panel: shown for a video overlay only
+function syncOverlayVideoOptions(selected) {
+  const box = document.getElementById("overlayVideoOptions");
+  if (!box) return;
+  const isVideo = !!selected && resolveAssetByAnyId(selected.sourceId)?.kind === "overlay-video";
+  box.hidden = !isVideo;
+  if (!isVideo) return;
+  const set = (id, on) => { const el = document.getElementById(id); if (el) el.checked = !!on; };
+  set("overlayVideoAutoplayCheckbox", selected.videoAutoplay);
+  set("overlayVideoLoopCheckbox", selected.videoLoop);
+  set("overlayVideoMutedCheckbox", selected.videoMuted);
+  set("overlayVideoClickCheckbox", selected.videoClickToPlay);
 }
 
 function initFloatingToolbar() {
@@ -10760,6 +10851,13 @@ function syncFloatingToolbarState(selectedOverlay) {
 
 function renderStage() {
   beginTextRenderSelectionGuard();
+  // videos on the stage now: where they are and whether they play, so a re-render of the same slide carries on
+  // (2026-11-12; before, any re-render put every video back to its start)
+  state.stageVideoResume = new Map();
+  for (const v of dom.stage.querySelectorAll(".overlay[data-overlay-id] video")) {
+    const id = v.closest(".overlay")?.dataset.overlayId;
+    if (id && v.dataset.slideId) state.stageVideoResume.set(`${v.dataset.slideId}/${id}`, { time: v.currentTime || 0, playing: !v.paused && !v.ended });
+  }
   // Everything except the DTUwrite board layer (dtuwrite-board.js): those boards must survive a
   // re-render, reloading them would lose the stroke being written and their undo history.
   for (const child of [...dom.stage.children]) {
@@ -10840,6 +10938,11 @@ function renderStage() {
     dom.stage.appendChild(titleLayer);
   }
 
+  // A DTUwrite board starts below the title strip (the title would otherwise sit under the board, and
+  // a title drawn over it would cover DTUwrite's own menu, which lives at the board's top edge).
+  // Display only: the overlay keeps its stored position.
+  const titleFrac = titleLayer && dom.stage.clientHeight ? titleLayer.offsetHeight / dom.stage.clientHeight : 0;
+
   const sorted = [...slide.overlays].sort((a, b) => a.zIndex - b.zIndex);
   const blockOverlayContentPointerEvents = false;
   const passThroughHtmlOverlayContent = state.mode === "present" && state.presenterTextInsertArmed;
@@ -10859,6 +10962,10 @@ function renderStage() {
     el.style.pointerEvents = visibleAtStep ? "" : "none";
 
     const source = resolveAssetByAnyId(overlay.sourceId);
+    if (titleFrac > 0 && source?.kind === "overlay-dtuwrite" && overlay.y < titleFrac) {
+      el.style.top = `${titleFrac * 100}%`;
+      el.style.height = `${Math.max(0.05, overlay.h - (titleFrac - overlay.y)) * 100}%`;
+    }
     if (source) {
       if (source.kind === "overlay-image") {
         const img = document.createElement("img");
@@ -10900,12 +11007,16 @@ function renderStage() {
         const video = document.createElement("video");
         video.className = "overlay-content";
         video.src = source.dataUrl;
-        video.loop = false;
-        video.muted = false;
+        // per overlay (2026-11-12, PowerPoint movies): videoLoop, videoMuted, videoAutoplay (starts when the
+        // slide shows / the overlay appears), videoClickToPlay (a click on the video plays / pauses it)
+        video.loop = !!overlay.videoLoop;
+        video.muted = !!overlay.videoMuted;
         video.autoplay = false;
         video.playsInline = true;
         video.controls = false;
         video.preload = "metadata";
+        if (source.poster) video.poster = source.poster;
+        video.dataset.slideId = String(slide?.uid || "");
         if (state.mode === "edit") {
           video.style.pointerEvents = "none";
         } else if (blockOverlayContentPointerEvents) {
@@ -10915,6 +11026,25 @@ function renderStage() {
         }
         applyGlobalContentScale(video, overlay.localScale);
         el.appendChild(video);
+        if (state.mode === "present") {
+          if (overlay.videoClickToPlay) {
+            video.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+              ev.preventDefault();
+              if (video.paused || video.ended) video.play().catch(() => {});
+              else video.pause();
+            });
+          }
+          const resume = state.stageVideoResume?.get(`${video.dataset.slideId}/${overlay.id}`);
+          if (resume) {
+            video.addEventListener("loadedmetadata", () => {
+              try { video.currentTime = resume.time; } catch { /* fine */ }
+              if (resume.playing) video.play().catch(() => {});
+            }, { once: true });
+          } else if (overlay.videoAutoplay && visibilityMap?.get(overlay.id) !== false) {
+            video.play().catch(() => { if (dom.modeHint) dom.modeHint.textContent = "The browser blocked the video from starting by itself: click it, or use its Play button."; });
+          }
+        }
 
         if (state.mode === "present") {
           const videoControls = buildOverlayVideoControls(overlay, video);
@@ -13499,11 +13629,13 @@ async function hydrateUnpackedAssets(deck, zip) {
 }
 
 // Build the deck .zip Blob, honouring the unpacked-assets setting. Shared by
-// manual save and autosave.
-async function buildDeckZipBlob() {
+// manual save and autosave. `transform` (optional) changes the saved copy before it is
+// packed, never the open deck (deck-save-folder.js uses it for its links and root).
+async function buildDeckZipBlob(transform) {
   // DTUwrite boards that are running hand over their newest board and page pictures first.
   if (window.DtuwriteBoards) await window.DtuwriteBoards.collectAll();
   const packaged = await buildPackagedDeckForSave();
+  if (typeof transform === "function") await transform(packaged);
   const zip = new JSZip();
   if (window.DtuwriteBoards) window.DtuwriteBoards.packIntoZip(packaged, zip);
   packaged.packaging = packaged.packaging || {};
@@ -13640,14 +13772,22 @@ async function saveDeckZip(forceSaveAs = false) {
   }
 
   // ── 2. Build the payload. (Slow — but the picker is already done.)
+  // A file just picked may be in another folder than the linked files: it keeps their copies for
+  // now, so it cannot break. deck-panel.js re-saves it slim (same folder) or offers to copy the
+  // files beside it, once the helper has found where it went. (A download lands somewhere unknown too.)
+  state.keepLinkedCopiesThisSave = !fileHandle || fileHandle !== state.currentZipFileHandle;
   let blob;
-  if (usingJsZip) {
-    blob = await buildDeckZipBlob();
-  } else {
-    if (!pickerWasBlocked) alert("JSZip not available. Saving deck.json instead.");
-    const packaged = await buildPackagedDeckForSave();
-    stripDeckAssetBundlePaths(packaged);
-    blob = new Blob([JSON.stringify(packaged, null, 2)], { type: "application/json" });
+  try {
+    if (usingJsZip) {
+      blob = await buildDeckZipBlob();
+    } else {
+      if (!pickerWasBlocked) alert("JSZip not available. Saving deck.json instead.");
+      const packaged = await buildPackagedDeckForSave();
+      stripDeckAssetBundlePaths(packaged);
+      blob = new Blob([JSON.stringify(packaged, null, 2)], { type: "application/json" });
+    }
+  } finally {
+    state.keepLinkedCopiesThisSave = false;
   }
 
   // ── 3a. Write via File System Access API if we have a handle.
@@ -13763,8 +13903,29 @@ async function saveBlobAsZip(blob, defaultName, forceSaveAs = false) {
   dom.modeHint.textContent = `Saved via download (${finalName}).`;
 }
 
+// What JSON.parse(JSON.stringify(v)) gives, without building the string: for a deck with its
+// pictures inside, that string was 100+ MB at every save and autosave (BUGLIST item 2). Strings
+// are shared, not copied (they cannot change).
+function jsonClone(v) {
+  if (v === null) return null;
+  const t = typeof v;
+  if (t === "string" || t === "boolean") return v;
+  if (t === "number") return Number.isFinite(v) ? v : null;
+  if (t !== "object") return undefined;
+  if (typeof v.toJSON === "function") return jsonClone(v.toJSON());
+  if (Array.isArray(v)) return v.map((x) => { const c = jsonClone(x); return c === undefined ? null : c; });
+  const out = {};
+  for (const k of Object.keys(v)) {
+    const c = jsonClone(v[k]);
+    if (c !== undefined) out[k] = c;
+  }
+  return out;
+}
+
 async function buildPackagedDeckForSave() {
-  const deck = JSON.parse(JSON.stringify(state.deck));
+  const deck = jsonClone(state.deck);
+  // Copies of linked files that their folders already hold stay out of the .ipe.
+  const linkedCopies = await leaveOutLinkedCopies(deck);
   // Object URLs are temporary handles owned by the current browser session.
   // Never persist them: after a reload they point to nothing and can mask the
   // durable PDF data that is stored inline or rehydrated from the ZIP bundle.
@@ -13801,6 +13962,7 @@ async function buildPackagedDeckForSave() {
     prunedSlideRefs: 0,
     bundledRefs,
     failedRefs,
+    linkedCopiesLeftOut: linkedCopies.leftOut,
   };
 
   if (bundledRefs > 0 || failedRefs > 0) {
@@ -14034,6 +14196,7 @@ async function loadDeckZip(file, options = {}) {
   }
   resetAutosaveTargetKeepSelection();
   setDeckSessionReady(true);
+  attachLinkedMediaUrls();
   renderAll();
   persistLastDeckToStorage();
   // deck-links.js: warn when a double-clicked deck takes its sims from another folder than its own
@@ -14552,6 +14715,10 @@ function buildOverlayClipboardData(overlay) {
       notebookFontSize: normalizeTextFontSize(overlay.notebookFontSize, 18),
       opacity: safeClampNumber(overlay.opacity, 0, 1, 1),
       localScale: safeClampNumber(overlay.localScale, 0.25, 3, 1),
+      videoAutoplay: !!overlay.videoAutoplay,
+      videoLoop: !!overlay.videoLoop,
+      videoMuted: !!overlay.videoMuted,
+      videoClickToPlay: !!overlay.videoClickToPlay,
     },
   };
 }
@@ -14704,6 +14871,10 @@ async function pasteOverlayFromClipboard() {
     notebookFontSize: normalizeTextFontSize(base.notebookFontSize, 18),
     opacity: safeClampNumber(base.opacity, 0, 1, 1),
     localScale: safeClampNumber(base.localScale, 0.25, 3, 1),
+    videoAutoplay: !!base.videoAutoplay,
+    videoLoop: !!base.videoLoop,
+    videoMuted: !!base.videoMuted,
+    videoClickToPlay: !!base.videoClickToPlay,
     zIndex: slide.overlays.reduce((m, o) => Math.max(m, o.zIndex || 1), 1) + 1,
   };
 
@@ -14774,6 +14945,7 @@ async function pasteImageOverlayFromClipboard() {
       name: `clipboard-image-${new Date().toISOString()}`,
       dataUrl,
     };
+    await shrinkPictureAsset(state.deck.assets[sourceId]);
 
     state.overlayPasteCount += 1;
     const rect = await buildClipboardImageOverlayRect(dataUrl, state.overlayPasteCount);
@@ -15302,6 +15474,285 @@ function fileToDataUrl(file) {
   });
 }
 
+// Pictures are stored inside the deck, and PNG screenshots of 2-4 MB were most of a 79 MB .ipe
+// (BUGLIST item 3). Overlay pictures are re-encoded as WebP, at most 2560 px on the long side
+// (the reference width), and kept only when that saves at least 15 %. SVG and GIF (vector,
+// animation) are never touched, and neither are slide images: their fingerprints match slides
+// on re-import.
+const PICTURE_MAX_SIDE = 2560;
+const PICTURE_WEBP_QUALITY = 0.9;
+const PICTURE_MIN_SAVING = 0.15;
+
+async function shrinkPictureDataUrl(dataUrl, mime) {
+  const type = String(mime || "").toLowerCase();
+  if (!/^image\/(png|jpe?g|webp|bmp)$/.test(type) || !/^data:/i.test(String(dataUrl || ""))) return null;
+  const blob = dataUrlToBlob(dataUrl, type);
+  if (!blob || blob.size < 40_000) return null;
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    return null;
+  }
+  const scale = Math.min(1, PICTURE_MAX_SIDE / Math.max(bitmap.width, bitmap.height, 1));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const g = canvas.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", PICTURE_WEBP_QUALITY));
+  if (!out || out.type !== "image/webp" || out.size > blob.size * (1 - PICTURE_MIN_SAVING)) return null;
+  return { dataUrl: await blobToDataUrl(out), mime: "image/webp", before: blob.size, after: out.size };
+}
+
+// Shrinks one overlay-image asset in place; returns the bytes saved (0 when left as it was).
+// Linked pictures are left alone (they are not stored in the .ipe). The original name and size
+// are remembered, so "Link pictures and videos" still finds the full-size file in figures\.
+async function shrinkPictureAsset(asset) {
+  if (!asset || asset.kind !== "overlay-image" || !asset.dataUrl || isLinkedMediaAsset(asset)) return 0;
+  const r = await shrinkPictureDataUrl(asset.dataUrl, asset.mime);
+  if (!r) return 0;
+  if (!asset.originalName) {
+    asset.originalName = asset.name;
+    asset.originalSize = r.before;
+  }
+  asset.dataUrl = r.dataUrl;
+  asset.mime = r.mime;
+  asset.name = String(asset.name || "picture").replace(/\.(png|jpe?g|bmp|webp)$/i, "") + ".webp";
+  return r.before - r.after;
+}
+
+// ─── Linked pictures and videos (BUGLIST item 3, 2026-10-28) ──────────────────────────────────
+// A picture or video can be a link, like a linked sim: asset.url = "figures/x.png" or
+// "videos/y.mp4" under the presentation folder. While the deck is open, asset.dataUrl holds the
+// file's address, so every <img>/<video> works unchanged. Save leaves the data out of the .ipe
+// when the file is there (deck.settings.keepLinkedCopies keeps a copy; a missing file keeps one).
+// The folders per kind: MEDIA_LINK_FOLDERS at the top.
+
+function isLinkedMediaAsset(asset) {
+  return !!asset && !!MEDIA_LINK_FOLDERS[asset.kind] && !!normalizeConventionRelativePath(String(asset.url || ""));
+}
+
+function linkedMediaFileUrl(asset) {
+  return isLinkedMediaAsset(asset) ? toPresentationRootAbsolute(asset.url) : "";
+}
+
+// After opening a deck or changing its folder: linked pictures/videos show from their files.
+// One that still carries its own data (linked this session, or its file was missing at Save)
+// keeps showing that.
+function attachLinkedMediaUrls(deck = state.deck) {
+  for (const asset of Object.values(deck?.assets || {})) {
+    if (!isLinkedMediaAsset(asset) || /^data:/i.test(String(asset.dataUrl || ""))) continue;
+    const url = linkedMediaFileUrl(asset);
+    if (url) asset.dataUrl = url;
+    else delete asset.dataUrl;
+  }
+}
+
+async function linkedFileExists(url) {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    const ok = r.ok || r.status === 0;
+    try { await r.body?.cancel(); } catch { /* fine */ }
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fileUrlToDataUrl(url, mime) {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!(r.ok || r.status === 0)) return "";
+    const buf = await r.arrayBuffer();
+    return await blobToDataUrl(new Blob([buf], { type: mime || "application/octet-stream" }));
+  } catch {
+    return "";
+  }
+}
+
+// On the copy that is being saved: leave out what the folders already hold. Linked sims lose their
+// stored copy, linked pictures/videos their data, when the file is really there. A file that is
+// missing keeps (or gets) its copy, so nothing is ever lost by saving.
+async function leaveOutLinkedCopies(deck) {
+  const keep = !!state.deck.settings?.keepLinkedCopies || !!state.keepLinkedCopiesThisSave;
+  const stats = { leftOut: 0, kept: 0 };
+  for (const asset of Object.values(deck.assets || {})) {
+    if (!asset || typeof asset !== "object") continue;
+    if (asset.kind === "overlay-html-filelink") {
+      if (keep || !asset.htmlText) continue;
+      const url = resolveHtmlFileLinkUrl(asset);
+      if (/^file:/i.test(url) && (await linkedFileExists(url))) {
+        delete asset.htmlText;
+        stats.leftOut += 1;
+      }
+      continue;
+    }
+    if (!isLinkedMediaAsset(asset)) continue;
+    const hasCopy = /^data:/i.test(String(asset.dataUrl || ""));
+    const fileUrl = linkedMediaFileUrl(asset);
+    const there = fileUrl ? await linkedFileExists(fileUrl) : false;
+    if (there && !keep) {
+      delete asset.dataUrl;
+      stats.leftOut += 1;
+      continue;
+    }
+    if (hasCopy) continue;
+    // only an address so far: store the file itself (a copy was asked for, or the link would break)
+    const src = there ? fileUrl : String(asset.dataUrl || "");
+    const data = /^file:/i.test(src) ? await fileUrlToDataUrl(src, asset.mime) : "";
+    if (data) {
+      asset.dataUrl = data;
+      stats.kept += 1;
+    } else {
+      delete asset.dataUrl;
+    }
+  }
+  return stats;
+}
+
+function mediaFileNameFor(asset) {
+  let name = String(asset.originalName || asset.name || "picture").replace(/[\\/:*?"<>|]+/g, "-").trim() || "picture";
+  if (!/\.[A-Za-z0-9]{2,5}$/.test(name)) name += BUNDLE_MIME_EXT[String(asset.mime || "").toLowerCase()] || "";
+  return name;
+}
+
+function sameBytes(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// The file in figures\ / videos\ / movies\ that holds this picture: the same bytes, or (for a
+// picture shrunk on insert) the original name and size. Returns "figures/x.png" or "".
+async function findMediaFileInFolders(asset, bytes) {
+  const names = [...new Set([asset.originalName, asset.name].filter(Boolean).map(String))];
+  for (const folder of MEDIA_LINK_FOLDERS[asset.kind] || []) {
+    for (const name of names) {
+      const rel = `${folder}/${encodeURIComponent(name)}`;
+      const url = toPresentationRootAbsolute(rel);
+      if (!url) continue;
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        if (!(r.ok || r.status === 0)) continue;
+        const file = new Uint8Array(await r.arrayBuffer());
+        if (sameBytes(file, bytes) || (asset.originalSize && file.length === asset.originalSize && name === asset.originalName)) return rel;
+      } catch { /* not there */ }
+    }
+  }
+  return "";
+}
+
+function setMediaLink(asset, rel) {
+  asset.url = rel;
+  const url = toPresentationRootAbsolute(rel);
+  if (url) asset.dataUrl = url; // shows from the file from now on (frees the copy in memory)
+}
+
+// Deck panel "Link pictures and videos": every picture/video stored inside the deck becomes a link
+// to its file in the presentation folder. Files found there with the same content are linked;
+// the others are written into figures\ / videos\ when askFolder(list) hands back a folder handle.
+async function linkDeckMediaToFolders(askFolder = null, onProgress = null) {
+  if (!getPresentationRootFileUrl()) return { error: "no-folder" };
+  const result = { linked: 0, written: 0, left: [], bytes: 0 };
+  const pending = [];
+  const assets = Object.values(state.deck?.assets || {})
+    .filter((a) => a && MEDIA_LINK_FOLDERS[a.kind] && !isLinkedMediaAsset(a) && /^data:/i.test(String(a.dataUrl || "")));
+  for (let i = 0; i < assets.length; i += 1) {
+    const asset = assets[i];
+    const blob = dataUrlToBlob(asset.dataUrl, asset.mime);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const rel = await findMediaFileInFolders(asset, bytes);
+    if (rel) {
+      setMediaLink(asset, rel);
+      result.linked += 1;
+      result.bytes += bytes.length;
+    } else {
+      pending.push({ asset, bytes });
+    }
+    if (onProgress) onProgress(i + 1, assets.length);
+  }
+  const dir = pending.length && askFolder ? await askFolder(pending.map((p) => ({ name: p.asset.name, kind: p.asset.kind, size: p.bytes.length }))) : null;
+  for (const { asset, bytes } of pending) {
+    if (!dir) {
+      result.left.push(asset.name);
+      continue;
+    }
+    try {
+      const folder = MEDIA_LINK_FOLDERS[asset.kind][0];
+      const sub = await dir.getDirectoryHandle(folder, { create: true });
+      const base = mediaFileNameFor(asset);
+      let name = base;
+      for (let n = 2; ; n += 1) {
+        let existing = null;
+        try { existing = await (await sub.getFileHandle(name)).getFile(); } catch { existing = null; }
+        if (!existing) break;
+        if (sameBytes(new Uint8Array(await existing.arrayBuffer()), bytes)) break; // already there
+        name = base.replace(/(\.[^.]+)?$/, (ext) => `-${n}${ext || ""}`);
+      }
+      const handle = await sub.getFileHandle(name, { create: true });
+      const w = await handle.createWritable();
+      await w.write(new Blob([bytes], { type: asset.mime || "application/octet-stream" }));
+      await w.close();
+      const rel = `${folder}/${encodeURIComponent(name)}`;
+      // only a file the presentation folder really has becomes a link (same folder name elsewhere?)
+      if (!(await linkedFileExists(toPresentationRootAbsolute(rel)))) {
+        result.left.push(asset.name);
+        continue;
+      }
+      setMediaLink(asset, rel);
+      result.written += 1;
+      result.bytes += bytes.length;
+    } catch {
+      result.left.push(asset.name);
+    }
+  }
+  if (result.linked || result.written) {
+    touch();
+    renderAll();
+  }
+  return result;
+}
+
+// What the .ipe would carry inside, for the Deck panel's size line.
+function summarizeDeckStorage(deck = state.deck) {
+  const out = { insideBytes: 0, insideFiles: 0, linkedMedia: 0, linkedSims: 0 };
+  for (const a of Object.values(deck?.assets || {})) {
+    if (!a || typeof a !== "object") continue;
+    if (isLinkedMediaAsset(a)) out.linkedMedia += 1;
+    if (a.kind === "overlay-html-filelink") out.linkedSims += 1;
+    if (/^data:/i.test(String(a.dataUrl || "")) && !isLinkedMediaAsset(a)) {
+      out.insideBytes += Math.round(String(a.dataUrl).length * 0.75);
+      out.insideFiles += 1;
+    }
+  }
+  return out;
+}
+
+// Deck panel "Shrink pictures": every overlay picture already in the deck.
+async function shrinkAllDeckPictures(onProgress = null) {
+  const assets = Object.values(state.deck?.assets || {}).filter((a) => a && a.kind === "overlay-image" && a.dataUrl);
+  let saved = 0;
+  let changed = 0;
+  for (let i = 0; i < assets.length; i += 1) {
+    const s = await shrinkPictureAsset(assets[i]);
+    if (s > 0) {
+      saved += s;
+      changed += 1;
+    }
+    if (onProgress) onProgress(i + 1, assets.length);
+  }
+  if (changed) {
+    touch();
+    renderAll();
+  }
+  return { pictures: assets.length, changed, saved };
+}
+
 function fileToText(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -15414,6 +15865,10 @@ function loadImage(src) {
 // charts, SmartArt, equations and theme graphics stay in the picture. Animations and transitions are not
 // carried, nor are speaker notes (a deck has no place for them; the count is reported). Slides hidden in
 // PowerPoint stay hidden.
+// Movies (2026-11-12) come as video overlays where PowerPoint had them (export: media\ + poster; loop, mute;
+// Play "Automatically" -> overlay.videoAutoplay, Play in the click sequence -> a "play-after-click" step, a click
+// on the movie plays it). They stay inside the deck until it is saved; then deck-panel.js has the helper copy
+// them into videos\ of the presentation folder and links them (placeImportedMovies).
 // Started by open-ipe.ps1 with ?pptx=<file address of manifest.json>.
 // options.insert: the slides go after the current slide of the open deck (no title page, the deck keeps its
 // file and settings) instead of becoming a new deck.
@@ -15436,6 +15891,8 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
   }
   const ptScale = TEXT_REFERENCE_SLIDE_WIDTH / (Number(m.slideWidthPt) || 960); // font sizes: px on the 960-wide reference slide
   let notesCount = 0, animCount = 0, animMerged = 0, animSkipped = 0;
+  let movieCount = 0, movieConverted = 0, movieAuto = 0;
+  const movieNotes = list(m.skippedMovies).map(String);
 
   for (const s of list(m.slides)) {
     const bg = await load(s.bg);
@@ -15451,6 +15908,27 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
       if (sh.kind === "picture") {
         const p = await load(sh.file);
         deck.assets[id] = { id, kind: "overlay-image", mime: "image/png", name: `${sh.name || "Picture"}.png`, dataUrl: p.dataUrl };
+        await shrinkPictureAsset(deck.assets[id]);
+      } else if (sh.kind === "video") {
+        // a movie (2026-11-12): stored in the deck for now, like a video inserted by hand; pptxMovie says
+        // where its file is, so the first Save can put it into videos\ of the presentation folder
+        // (deck-panel.js placeImportedMovies) and link it there instead
+        const v = await load(sh.file);
+        const fileName = String(sh.fileName || String(sh.file).split("/").pop() || "movie.mp4");
+        deck.assets[id] = {
+          id, kind: "overlay-video", mime: sh.mime || "video/mp4", name: fileName, originalName: fileName, originalSize: v.size,
+          dataUrl: v.dataUrl, pptxMovie: { dir: new URL("./", manifestUrl).href, file: String(sh.file) },
+        };
+        if (sh.poster) {
+          try {
+            const p = { kind: "overlay-image", mime: "image/png", name: "poster.png", dataUrl: (await load(sh.poster)).dataUrl };
+            await shrinkPictureAsset(p);
+            deck.assets[id].poster = p.dataUrl;
+          } catch { /* no poster: the video shows its first frame */ }
+        }
+        movieCount++;
+        if (sh.how === "converted" || sh.how === "remuxed") movieConverted++;
+        if (sh.note) movieNotes.push(`${fileName}: ${sh.note}`);
       } else if (sh.kind === "text") {
         const src = pptxTextSource(id, sh, ptScale, list);
         deck.assets[id] = src;
@@ -15479,6 +15957,12 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
       ov.sourceId = id;
       ov.locked = false;
       ov.zIndex = ++z;
+      if (sh.kind === "video") {
+        ov.framed = false; // PowerPoint draws a movie without a frame
+        ov.videoClickToPlay = true; // as in PowerPoint's slide show
+        if (sh.loop) ov.videoLoop = true;
+        if (sh.muted) ov.videoMuted = true;
+      }
       slide.overlays.push(ov);
       if (sh.id != null) overlayOf.set(Number(sh.id), ov.id);
     }
@@ -15489,8 +15973,26 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
     // picture they become one step for the whole box. Shapes left in the picture cannot move: skipped.
     const seen = new Set();
     let prevLengthMs = 0;
+    let sawClick = false;
     for (const a of list(s.animations)) {
       const ovId = overlayOf.get(Number(a.shapeId));
+      // a movie's Play: before the slide's first click ("Automatically") -> the video starts with the slide;
+      // later -> a "Play video" step. Pause / Stop are not carried (the video's own controls do that).
+      if (a.media) {
+        const ov = ovId && slide.overlays.find((o) => o.id === ovId);
+        const isVideo = ov && deck.assets[ov.sourceId]?.kind === "overlay-video";
+        if (!isVideo || a.media !== "play") { animSkipped++; if (a.trigger === "click") sawClick = true; continue; }
+        if (!sawClick && a.trigger !== "click") { ov.videoAutoplay = true; movieAuto++; continue; }
+        sawClick = sawClick || a.trigger === "click";
+        const ev = { id: uid(), overlayId: ovId, action: a.trigger === "click" ? "play-after-click" : "play-with-previous", durationMs: 0 };
+        const delayMs = Math.round(Math.max(0, Number(a.delay) || 0) * 1000) + (a.trigger === "after" ? prevLengthMs : 0);
+        if (delayMs > 0) ev.delayMs = Math.min(delayMs, 60000);
+        slide.animationEvents.push(ev);
+        prevLengthMs = 0;
+        animCount++;
+        continue;
+      }
+      if (a.trigger === "click") sawClick = true;
       if (!ovId) { animSkipped++; continue; }
       const isText = deck.assets[slide.overlays.find((o) => o.id === ovId)?.sourceId]?.kind === "overlay-text";
       const paragraph = isText ? Math.max(0, Math.round(Number(a.paragraph) || 0)) : 0;
@@ -15515,6 +16017,8 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
     deck.slides.push(slide);
   }
 
+  const movies = { count: movieCount, converted: movieConverted, auto: movieAuto, notes: movieNotes };
+
   // The first slide of a deck is always Interactive Presenter's title page (isTitleSlide), which draws its own
   // title over the slide. So a title page goes in front, filled from PowerPoint's first slide (its title and
   // the first other text as subtitle), and every PowerPoint slide follows unchanged.
@@ -15529,7 +16033,7 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
     touch();
     renderAll();
     persistLastDeckToStorage();
-    return { slides: deck.slides.length, inserted: true, notes: notesCount, animations: animCount, animMerged, animSkipped };
+    return { slides: deck.slides.length, inserted: true, notes: notesCount, animations: animCount, animMerged, animSkipped, movies };
   }
 
   const first = list(m.slides)[0];
@@ -15559,7 +16063,19 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
   touch();
   renderAll();
   persistLastDeckToStorage();
-  return { slides: deck.slides.length, notes: notesCount, animations: animCount, animMerged, animSkipped };
+  return { slides: deck.slides.length, notes: notesCount, animations: animCount, animMerged, animSkipped, movies };
+}
+
+// The movies part of the hint after a PowerPoint import ("" when there were none)
+function powerPointMovieSummary(res) {
+  const m = res?.movies;
+  if (!m || (!m.count && !m.notes?.length)) return "";
+  const n = (k, one, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
+  let t = m.count ? ` ${n(m.count, "movie")} came along as video${m.count === 1 ? "" : "s"}` : "";
+  if (m.converted) t += ` (${m.converted} converted so the browser can play ${m.converted === 1 ? "it" : "them"})`;
+  if (m.count) t += "; the first Save puts them into videos\\ (or an existing movies\\) beside the .ipe.";
+  if (m.notes?.length) t += ` Note: ${m.notes.join("; ")}.`;
+  return t;
 }
 
 // One PowerPoint text shape -> an overlay-text source. The box gets the most used size/colour/font; runs that

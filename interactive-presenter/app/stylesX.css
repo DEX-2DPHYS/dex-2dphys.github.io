@@ -4725,3 +4725,30 @@ body:not(.present-mode) .overlay.text-overlay {
   gap: 6px;
 }
 .sidebar .row.section-slide-controls button { min-width: 0; padding-left: 2px; padding-right: 2px; white-space: nowrap; }
+
+/* ─── Inverted slides (slide-invert.js): a white slide shown black ─────────────
+ * Only display: the stored picture, text and colours are unchanged. */
+.stage.slide-inverted,
+.thumb-inner-stage.slide-inverted { background: #000 !important; }
+.slide-inverted > img.base-slide,
+.slide-inverted > img.inv-bg { filter: invert(1) hue-rotate(180deg); }
+.slide-inverted .blank-white-slide-canvas { background: #000 !important; }
+/* the title strip: white title; the white strips go black, coloured bands stay */
+.slide-inverted .slide-title-layer { --sdv-ink: #f4f6f8; }
+.slide-inverted .stl-minimal-left,
+.slide-inverted .stl-minimal-center {
+  background: rgba(0, 0, 0, 0.92);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+/* text in the default dark ink turns white; coloured text keeps its colour */
+.slide-inverted .overlay-text-editable.inv-ink { color: #fff !important; }
+.slide-inverted .overlay-text-editable.inv-ink [style*="color: rgb(0, 0, 0)"],
+.slide-inverted .overlay-text-editable.inv-ink [style*="color:#000"],
+.slide-inverted .overlay-text-editable.inv-ink [style*="color: #000"],
+.slide-inverted .overlay-text-editable.inv-ink [style*="color: black"],
+.slide-inverted .overlay-text-editable.inv-ink font[color="#000000"] { color: #fff !important; }
+.slide-invert-toggle { white-space: nowrap; }
+
+/* video overlay options in the overlay panel (2026-11-12): only for a selected video */
+#overlayVideoOptions { display: contents; }
+#overlayVideoOptions[hidden] { display: none; }

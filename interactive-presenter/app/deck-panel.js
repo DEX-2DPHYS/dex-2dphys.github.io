@@ -59,6 +59,12 @@
       lastBackedUpEdit = editCount; // nothing new to back up yet
       renderFileStatus();
       renderAutosaveHint();
+      // opened with Open… (no address): ask the helper where the file is, as after Save, so the
+      // linked sims, pictures and videos of a "deck:" folder can load
+      if (options.fileHandle && !state.deckFileUrl && !locateTried.has(options.fileHandle)) {
+        locateTried.add(options.fileHandle);
+        locateSavedFile(options.fileHandle);
+      }
     };
   }
 
@@ -68,6 +74,7 @@
     saveDeckZip = async function saveDeckZipThenLocate(forceSaveAs = false) {
       const before = state.currentZipFileHandle;
       const beforeUrl = state.deckFileUrl;
+      const oldRoot = getPresentationRootFileUrl(); // where the linked files are now
       await baseSave(forceSaveAs);
       const after = state.currentZipFileHandle;
       renderFileStatus();
@@ -76,20 +83,125 @@
       locateTried.add(after);
       if (after !== before) state.deckFileUrl = ""; // a new file: the old folder no longer applies
       renderFileStatus();
-      locateSavedFile(after);
+      // a new file was saved with every linked copy inside (appX keepLinkedCopiesThisSave)
+      locateSavedFile(after, { afterSave: after !== before, oldRoot });
     };
   }
 
+  const sameFolder = (a, b) => decode(String(a || "")).replace(/\/?$/, "/").toLowerCase() === decode(String(b || "")).replace(/\/?$/, "/").toLowerCase();
+  function deckHasLinkedFiles() {
+    return Object.values(state.deck?.assets || {}).some((a) => a && (a.kind === "overlay-html-filelink" || (typeof isLinkedMediaAsset === "function" && isLinkedMediaAsset(a))));
+  }
+  // Save As put the .ipe into another folder than its linked files (BUGLIST item 3, 2026-10-28):
+  // copy them beside it (Save to folder's machinery, then the copy is the open deck), or keep using
+  // the old folder. Either way the .ipe that stays is the small one.
+  async function offerToMoveLinkedFiles(handle, oldRoot, newFolder) {
+    const folderName = decode(newFolder.replace(/\/$/, "").split("/").pop() || "");
+    const copy = confirm(`The new .ipe is in\n${windowsPath(newFolder)}\nbut its linked sims, pictures and videos are in\n${windowsPath(oldRoot)}\n\nOK: copy them into the new folder (sims\\, figures\\, videos\\ …), so the new presentation is complete there and its .ipe stays small. Windows then asks for the folder: choose "${folderName}".\n\nCancel: the new .ipe keeps using the files in the old folder.`);
+    if (copy && window.DeckSaveFolder?.copyInto && typeof window.showDirectoryPicker === "function") {
+      let dir = null;
+      try { dir = await window.showDirectoryPicker({ id: "ipe-save-to-folder", mode: "readwrite", startIn: handle }); } catch { dir = null; }
+      if (dir && dir.name.toLowerCase() === folderName.toLowerCase()) {
+        try {
+          const res = await window.DeckSaveFolder.copyInto(dir, { onStep: hint });
+          await loadDeckZip(await res.ipeHandle.getFile(), { fileHandle: res.ipeHandle, deckFileUrl: new URL(encodeURIComponent(res.ipeName), newFolder).href });
+          hint(`Saved in ${windowsPath(newFolder)}: ${res.ipeName} (${mb(res.ipeSize)}) and ${plural(res.files.length, "file")}.${res.independent ? "" : " Some links still need you: see Check links."}${res.ipeName.toLowerCase() !== String(handle.name).toLowerCase() ? ` The first file, ${handle.name}, still holds everything; you can delete it.` : ""}`);
+          return;
+        } catch (err) {
+          alert("Copying the files failed (" + err.message + "). The new .ipe keeps using the files in the old folder.");
+        }
+      } else if (dir) {
+        alert(`That was the folder "${dir.name}", not "${folderName}". Nothing was copied; the new .ipe keeps using the files in the old folder.`);
+      }
+    }
+    // keep the old folder: say so in the deck and write the small .ipe
+    dom.presentationRootInput.value = windowsPath(oldRoot).replace(/[\\/]?$/, "\\");
+    dom.applyPresentationRootBtn.click();
+    await saveDeckZip(false);
+    hint(`Saved ${handle.name}. Its sims, pictures and videos load from ${windowsPath(oldRoot)}.`);
+  }
+
+  // ---- PowerPoint movies (2026-11-12) ----
+  // An imported movie is stored inside the deck (asset.pptxMovie = { dir: import folder, file: "media/x.mp4" })
+  // until the deck has a folder. Then the helper copies the files from the import folder into videos\ of the
+  // presentation folder and each movie becomes a link (the next Save leaves its data out of the .ipe).
+  // Without the helper, or once the import folder is gone (pruned after 7 days), they stay inside; Deck >
+  // "Link pictures and videos" can still write them out.
+  function pendingImportedMovies() {
+    return Object.values(state.deck?.assets || {}).filter((a) => a && a.kind === "overlay-video" && a.pptxMovie?.dir && !isLinkedMediaAsset(a));
+  }
+  async function placeImportedMovies() {
+    const movies = pendingImportedMovies();
+    const root = getPresentationRootFileUrl();
+    if (!movies.length || !/^file:/i.test(root) || !(await helperUsable())) return null;
+    const res = { placed: 0, left: 0, folder: "videos" };
+    for (const dir of [...new Set(movies.map((a) => a.pptxMovie.dir))]) {
+      const group = movies.filter((a) => a.pptxMovie.dir === dir);
+      hint(`Putting ${group.length} movie${group.length === 1 ? "" : "s"} from PowerPoint into videos\\ of ${windowsPath(root)}…`);
+      const r = await helperCall("placemedia", { from: windowsPath(dir), to: windowsPath(root) }, { quiet: true, timeoutMs: 600000 });
+      if (r?.folder === "movies") res.folder = "movies";
+      if (r?.gone) { group.forEach((a) => delete a.pptxMovie); res.left += group.length; continue; }
+      const placed = new Map((Array.isArray(r?.placed) ? r.placed : r?.placed ? [r.placed] : []).map((p) => [String(p.file).toLowerCase(), String(p.name)]));
+      for (const a of group) {
+        const name = placed.get(String(a.pptxMovie.file).toLowerCase());
+        const rel = name ? `${r.folder === "movies" ? "movies" : "videos"}/${encodeURIComponent(name)}` : "";
+        if (rel && (await linkedFileExists(toPresentationRootAbsolute(rel)))) {
+          setMediaLink(a, rel);
+          a.name = name;
+          delete a.pptxMovie;
+          res.placed++;
+        } else res.left++;
+      }
+    }
+    if (res.placed) { touch(); renderStage(); }
+    return res;
+  }
+  window.__placeImportedMovies = placeImportedMovies; // tests
+
   const locateTried = new WeakSet();
-  async function locateSavedFile(handle) {
+  // near: a folder to search first (Save to folder passes the original's, since copies usually sit beside it)
+  // afterSave + oldRoot: the file was just saved as a new file, with its linked copies inside
+  async function locateSavedFile(handle, { near = "", afterSave = false, oldRoot = "" } = {}) {
     let f;
     try { f = await handle.getFile(); } catch { return; }
     if (!(await helperUsable())) return;
-    const r = await helperCall("locate", { name: f.name, size: f.size, t: f.lastModified }, { quiet: true, timeoutMs: 90000 });
+    const r = await helperCall("locate", { name: f.name, size: f.size, t: f.lastModified, ...(near ? { near } : {}) }, { quiet: true, timeoutMs: 90000 });
     if (!r?.path || state.currentZipFileHandle !== handle) return;
     state.deckFileUrl = toFileUrl(r.path);
     const setting = String(state.deck.settings?.presentationRootPath || "").trim();
-    if (!setting || /^deck:/i.test(setting)) {
+    const followsDeck = !setting || /^deck:/i.test(setting);
+    // movies from a PowerPoint import go into videos\ of the folder now known (then the slim re-save below)
+    let moviesNote = "";
+    if (pendingImportedMovies().length) {
+      if (followsDeck) {
+        dom.presentationRootInput.value = "deck:";
+        dom.applyPresentationRootBtn.click();
+      }
+      const m = await placeImportedMovies();
+      if (m?.placed) moviesNote = ` ${m.placed} movie${m.placed === 1 ? "" : "s"} from PowerPoint ${m.placed === 1 ? "is" : "are"} now in ${m.folder}\\.`;
+      if (m?.left) moviesNote += ` ${m.left} movie${m.left === 1 ? "" : "s"} stay${m.left === 1 ? "s" : ""} inside the .ipe (Deck > Link pictures and videos can write ${m.left === 1 ? "it" : "them"} out).`;
+      if (state.currentZipFileHandle !== handle) return;
+    }
+    if (afterSave && deckHasLinkedFiles()) {
+      const newFolder = new URL("./", state.deckFileUrl).href;
+      if (followsDeck && oldRoot && !sameFolder(oldRoot, newFolder)) {
+        await offerToMoveLinkedFiles(handle, oldRoot, newFolder);
+        renderFileStatus();
+        renderDeckMeta();
+        return;
+      }
+      // same folder (or the links have a folder of their own): rewrite it without the copies
+      if (followsDeck) {
+        dom.presentationRootInput.value = "deck:";
+        dom.applyPresentationRootBtn.click();
+      }
+      await saveDeckZip(false);
+      renderFileStatus();
+      renderDeckMeta();
+      hint(`Saved ${f.name} in ${windowsPath(new URL("./", state.deckFileUrl).href)}.${moviesNote}`);
+      return;
+    }
+    if (followsDeck) {
       // the default: links follow the folder the deck was saved in
       dom.presentationRootInput.value = "deck:";
       dom.applyPresentationRootBtn.click();
@@ -97,7 +209,7 @@
     }
     renderFileStatus();
     renderDeckMeta();
-    hint(`Saved ${f.name} in ${windowsPath(new URL("./", state.deckFileUrl).href)}`);
+    hint(`Saved ${f.name} in ${windowsPath(new URL("./", state.deckFileUrl).href)}.${moviesNote}`);
   }
 
   $("deckTitleInput")?.addEventListener("input", renderFileStatus);
@@ -135,9 +247,11 @@
     busy = true;
     const name = backupName();
     try {
+      // Open the folder first: on file:// it refuses, and the deck (79 MB for a big one) should
+      // not be packed in memory every 5 minutes only to be thrown away.
+      const dir = await backupDir();
       const blob = await buildDeckZipBlob();
       if (!blob || blob.size < 100) throw new Error("the deck came out empty");
-      const dir = await backupDir();
       const fh = await dir.getFileHandle(name, { create: true });
       const w = await fh.createWritable();
       await w.write(blob);
@@ -374,13 +488,100 @@
     const hasDeck = !!state.deck?.slides?.length;
     try {
       const res = await importPowerPointManifest(r.manifest, { insert: hasDeck });
-      hint(res.inserted
+      hint((res.inserted
         ? `Inserted ${res.slides} PowerPoint slide${res.slides === 1 ? "" : "s"} after the current slide${res.animations ? `, ${res.animations} animation${res.animations === 1 ? "" : "s"}` : ""}.`
-        : `Imported ${res.slides - 1} PowerPoint slides after a title page. Save to keep it as an .ipe file.`);
+        : `Imported ${res.slides - 1} PowerPoint slides after a title page. Save to keep it as an .ipe file.`) + powerPointMovieSummary(res));
+      // inserted into a deck whose folder is known: its movies can go into videos\ right away
+      if (res.inserted && res.movies?.count && state.deckFileUrl) {
+        const m = await placeImportedMovies();
+        if (m?.placed) hint(`Inserted ${res.slides} PowerPoint slide${res.slides === 1 ? "" : "s"}; ${m.placed} movie${m.placed === 1 ? " is" : "s are"} now in ${m.folder}\\ of the presentation folder. Save to keep it.`);
+      }
     } catch (err) {
       alert("Could not import the PowerPoint file (" + err.message + ").");
     }
   });
+
+  // ---- 5. pictures, videos and file size (BUGLIST item 3, 2026-10-28) -------------------------------
+  // The size line, "Link pictures and videos" (appX linkDeckMediaToFolders), "Shrink pictures"
+  // (appX shrinkAllDeckPictures) and whether linked files are also stored in the .ipe.
+  const mb = (n) => `${(n / 1048576).toFixed(n < 10 * 1048576 ? 1 : 0)} MB`;
+  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  function renderStorage() {
+    const box = $("keepLinkedCopiesCheckbox");
+    if (box) box.checked = !!state.deck.settings?.keepLinkedCopies;
+    const el = $("deckSizeHint");
+    if (!el || typeof summarizeDeckStorage !== "function") return;
+    const s = summarizeDeckStorage();
+    el.textContent = `Inside the .ipe: ${plural(s.insideFiles, "picture, video or slide image", "pictures, videos and slide images")} (${mb(s.insideBytes)}). Linked: ${plural(s.linkedMedia, "picture or video", "pictures and videos")}, ${plural(s.linkedSims, "sim")}.`;
+  }
+  async function askFolderForMedia(list) {
+    const root = getPresentationRootFileUrl();
+    const want = decode(root.replace(/\/$/, "").split("/").pop() || "");
+    const pics = list.filter((x) => x.kind === "overlay-image").length;
+    const vids = list.length - pics;
+    const total = list.reduce((sum, x) => sum + x.size, 0);
+    const msg = `${plural(list.length, "file")} (${mb(total)}) are not in the presentation folder yet: ${plural(pics, "picture")} would go into figures\\ and ${plural(vids, "video")} into videos\\.\n\nWrite them there now? Windows then asks for the folder: choose\n${windowsPath(root)}`;
+    if (!confirm(msg)) return null;
+    if (typeof window.showDirectoryPicker !== "function") {
+      alert("This browser cannot write into folders. The pictures and videos that are not in the folder stay inside the .ipe.");
+      return null;
+    }
+    let dir;
+    try { dir = await window.showDirectoryPicker({ id: "ip-media", mode: "readwrite" }); } catch { return null; }
+    if (dir.name.toLowerCase() !== want.toLowerCase()) {
+      alert(`That was the folder "${dir.name}", not the presentation folder "${want}". Nothing was written; those files stay inside the .ipe.`);
+      return null;
+    }
+    return dir;
+  }
+  $("linkMediaBtn")?.addEventListener("click", async (e) => {
+    if (!getPresentationRootFileUrl()) {
+      alert("The presentation folder is not known yet. Open the deck by double-clicking its .ipe file (or Save it once), then try again.");
+      return;
+    }
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const r = await linkDeckMediaToFolders(askFolderForMedia, (i, n) => hint(`Looking for the pictures and videos in the presentation folder… ${i}/${n}`));
+      if (r.error) return;
+      const done = r.linked + r.written;
+      if (!done && !r.left.length) { hint("Nothing to link: no pictures or videos are stored inside the .ipe."); return; }
+      const parts = [];
+      if (done) parts.push(`Linked ${plural(done, "picture or video", "pictures and videos")} (${mb(r.bytes)}): ${r.linked} already in the folder, ${r.written} written into figures\\ and videos\\.`);
+      if (r.left.length) parts.push(`${plural(r.left.length, "file")} stay${r.left.length === 1 ? "s" : ""} inside the .ipe.`);
+      if (done) parts.push("Save to make the .ipe smaller.");
+      hint(parts.join(" "));
+    } finally {
+      btn.disabled = false;
+      renderStorage();
+    }
+  });
+  $("shrinkPicturesBtn")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const r = await shrinkAllDeckPictures((i, n) => hint(`Shrinking pictures… ${i}/${n}`));
+      hint(r.changed
+        ? `Shrank ${r.changed} of ${plural(r.pictures, "picture")}: ${mb(r.saved)} smaller. Save to keep it.`
+        : `None of the ${plural(r.pictures, "picture")} stored inside got much smaller.`);
+    } finally {
+      btn.disabled = false;
+      renderStorage();
+    }
+  });
+  $("keepLinkedCopiesCheckbox")?.addEventListener("change", (e) => {
+    ensureDeckSettings();
+    state.deck.settings.keepLinkedCopies = e.target.checked;
+    touch();
+    renderStorage();
+  });
+  if (typeof renderDeckMeta === "function") {
+    const baseRenderMeta = renderDeckMeta;
+    renderDeckMeta = function renderDeckMetaStorage() {
+      baseRenderMeta();
+      renderStorage();
+    };
+  }
 
   // ---- start ---------------------------------------------------------------------------------------
   if (dom.autosaveEnabledCheckbox) dom.autosaveEnabledCheckbox.checked = autosaveOn();
@@ -388,5 +589,6 @@
   renderAutosaveHint();
   renderFileStatus();
   renderRoot();
+  renderStorage();
   window.DeckPanel = Object.freeze({ doAutosave: (o) => doAutosave(o), listBackups: async () => listBackups(await backupDir()), helperCall, renderFileStatus, locateSavedFile });
 })();
