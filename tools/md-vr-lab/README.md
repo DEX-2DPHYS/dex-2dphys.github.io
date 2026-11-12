@@ -190,6 +190,24 @@ Hydrogen carries no orbital; MoS₂ (needs d orbitals) is refused with a message
 no periodic images, vacuum all round, dangling edge atoms trimmed. Use this for transport; on a periodic sheet current can also
 run round the boundary.
 
+**Edges** (2026-11-12). The plain pi model gets the textbook nanoribbon families right (checked: armchair N = 3p+2 gapless, N = 7
+1.28 eV vs 1.27, N = 10 0.94 vs 0.91; zigzag ribbons metallic), but real narrow ribbons all have gaps. Two edge effects are now in:
+- *Armchair edge dimers* (always on): the bond between the two edge atoms is shorter and its hopping 12 % stronger (Son, Cohen, Louie,
+  PRL 97, 216803 (2006)). N = 7 then has 1.57 eV (their formula: +0.28 eV; DFT ~1.5-1.6) and the 3p+2 ribbons a small gap (N = 8:
+  0.13 eV). Edge dimer = two bonded carbons with two carbon neighbours each, both bonded to a three-fold carbon (not chains, not benzene).
+- *Spin-polarised zigzag edges* (ELEC: *Edge magnetism*, on by default): mean-field Hubbard, U = t = 2.7 eV, H_s = H0 + U(n_-s - 1/2),
+  solved self-consistently per geometry (sublattice-antiferromagnetic start, linear mixing, the chemical potential mid-gap of the two spin
+  spectra); T(E) and the bond currents are the spin averages. A 1.3 nm zigzag ribbon gets edge moments ~0.14 uB and a 0.47 eV transport
+  gap (LSDA ~0.5 eV); a structure without edge states (benzene, chains) converges to the non-magnetic solution and is unchanged. Cost:
+  for a 238-atom flake the full T(E), I(V) goes from 2.1 to 7.6 s and a live update from 0.25 to 0.8 s on a desktop (a Quest ~3x more);
+  the worker starts each live update from the last solution (2 iterations) and skips the spin loop while the structure is non-magnetic.
+- *Edge roughness*: a ribbon that is metallic when perfect gets a transport gap from rough edges - localisation, growing with length
+  (armchair N = 8, 20 % of its edge atoms removed: 1.4 eV over 6 nm, 1.9 eV over 15 nm; zigzag 1.3 nm: none over 6 nm, 1.5 eV over 15 nm).
+  This is why lithographic ribbons show transport gaps ~ 1/W whatever their orientation (Han et al., PRL 98, 206805 (2007)).
+- Still missing: the many-body enhancement of the gaps (a 7-armchair ribbon is ~2.4 eV in experiment), and any self-consistent
+  potential drop under bias.
+`test/ribbons.test.mjs` checks all of these.
+
 `test/transport.test.mjs`: eigen solver, single level (Breit–Wigner) and dimer against closed forms, the sign and size of the bond
 current, Kirchhoff at every inner atom of a flake, benzene para / meta / ortho interference, uniform vs dimerised carbon chain
 (gap = 2|t₁ − t₂|), open flakes stable for 3 ps at 300 K, periodic sheets unchanged, speed.

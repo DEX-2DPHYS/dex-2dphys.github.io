@@ -14,7 +14,8 @@
 // Transmission T(E) = sum_{l in -, r in +} Gamma_l Gamma_r |G_lr|^2, current I(V) = (2e^2/h) int T(E) [f_- - f_+] dE (spin included).
 // Bond currents: electron flow i -> j at energy E carried by the states injected from the "-" contact,
 //   J_ij(E) = -2 Im[H_ij A_ji],  A = G Gamma_- G^dagger,   in units where the total is T(E) (checked in the tests).
-export const TBP = { a0: 1.42, d0: 3.35, Vppp: -2.7, Vpps: 0.48, qp: 3.15, qs: 7.43, rOn: 4.0, rCut: 4.5, bond: 1.9 };
+export const TBP = { a0: 1.42, d0: 3.35, Vppp: -2.7, Vpps: 0.48, qp: 3.15, qs: 7.43, rOn: 4.0, rCut: 4.5, bond: 1.9, edgeT: 1.12 };
+export const HUB = { U: 2.7 };                     // on-site Coulomb repulsion for the spin-polarised edges (eV); 0 = off
 export const G0_SIEMENS = 7.748091729e-5;        // 2e^2/h
 
 const fcut = (d) => d <= TBP.rOn ? 1 : d >= TBP.rCut ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (d - TBP.rOn) / (TBP.rCut - TBP.rOn));
@@ -50,7 +51,7 @@ export function buildHamiltonian(sys) {
       nx[a] = px / pl; ny[a] = py / pl; nz[a] = pz / pl;
     } else { nx[a] = 0; ny[a] = 0; nz[a] = 1; }
   }
-  const H = new Float64Array(n * n), pairs = [];
+  const H = new Float64Array(n * n), pairs = [], cc = [];
   for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
     const i = idx[a], j = idx[b];
     const dx = mi(x[j] - x[i], 0), dy = mi(y[j] - y[i], 1), dz = mi(z[j] - z[i], 2);
@@ -60,9 +61,18 @@ export function buildHamiltonian(sys) {
     const vp = TBP.Vppp * Math.exp(TBP.qp * (1 - d / TBP.a0)), vs = TBP.Vpps * Math.exp(TBP.qs * (1 - d / TBP.d0));
     const t = (vs * ca * cb + vp * (nn - ca * cb)) * fcut(d);
     if (Math.abs(t) < 1e-6) continue;
-    H[a * n + b] = H[b * n + a] = t; pairs.push(a, b);
+    H[a * n + b] = H[b * n + a] = t; pairs.push(a, b); if (d < 1.7) cc.push(a, b);
   }
-  return { n, idx, H, pairs: Int32Array.from(pairs), normals: [nx, ny, nz] };
+  // Armchair edges: the bond between the two edge atoms of an edge dimer is shorter and its hopping ~12 % stronger (Son, Cohen, Louie,
+  // PRL 97, 216803 (2006)); it opens the small gap of the otherwise metallic N = 3p+2 armchair ribbons. Edge dimer = two bonded carbons
+  // with two carbon neighbours each, both also bonded to a three-fold carbon (so not a chain, not benzene).
+  let edgeBonds = 0;
+  if (TBP.edgeT !== 1) {
+    const deg = new Int32Array(n); for (let p = 0; p < cc.length; p += 2) { deg[cc[p]]++; deg[cc[p + 1]]++; }
+    const has3 = new Uint8Array(n); for (let p = 0; p < cc.length; p += 2) { const a = cc[p], b = cc[p + 1]; if (deg[b] === 3) has3[a] = 1; if (deg[a] === 3) has3[b] = 1; }
+    for (let p = 0; p < cc.length; p += 2) { const a = cc[p], b = cc[p + 1]; if (deg[a] === 2 && deg[b] === 2 && has3[a] && has3[b]) { H[a * n + b] *= TBP.edgeT; H[b * n + a] *= TBP.edgeT; edgeBonds++; } }
+  }
+  return { n, idx, H, pairs: Int32Array.from(pairs), normals: [nx, ny, nz], edgeBonds };
 }
 
 // symmetric eigen decomposition (Householder tridiagonalisation + implicit QL, after JAMA/EISPACK tred2/tql2)
@@ -177,12 +187,12 @@ function csolve(Ar, Ai, Br, Bi, m, q) {
 
 // A transport solver for one geometry. cm / cp = orbital indices (into the Hamiltonian) of the "-" and "+" contacts.
 export class Transport {
-  constructor(ham, cm, cp, gamma = 1.0, eta = 1e-9) {
+  constructor(ham, cm, cp, gamma = 1.0, eta = 1e-9, eig = null, EF = null) {
     this.ham = ham; this.n = ham.n; this.cm = cm; this.cp = cp; this.gamma = gamma; this.eta = eta;
     this.C = cm.concat(cp); this.nc = this.C.length; this.nm = cm.length;
-    const { w, U } = eigSym(ham.H, ham.n); this.w = w; this.U = U;
+    const { w, U } = eig || eigSym(ham.H, ham.n); this.w = w; this.U = U;
     const n = this.n, half = Math.floor(n / 2);                       // one pi electron per carbon: half filling
-    this.EF = n < 2 ? 0 : n % 2 ? w[half] : 0.5 * (w[half - 1] + w[half]);
+    this.EF = EF !== null ? EF : n < 2 ? 0 : n % 2 ? w[half] : 0.5 * (w[half - 1] + w[half]);
     this.gapHL = n < 2 ? 0 : n % 2 ? 0 : w[half] - w[half - 1];
     // eigenvector components on the contact orbitals, contiguous: UC[k*nc + c]
     const nc = this.nc; this.UC = new Float64Array(n * nc);
@@ -259,6 +269,58 @@ export class Transport {
   }
 }
 
+
+/* ---------------- spin-polarised edges: mean-field Hubbard ----------------
+   The pi model alone leaves zigzag ribbons metallic (a flat edge band at E_F). With the on-site Coulomb repulsion U in mean field,
+   H_s = H0 + U diag(n_{-s} - 1/2), the edge states polarise - ferromagnetic along an edge, opposite on the two edges - and a gap opens
+   (Son, Cohen, Louie, PRL 97, 216803 (2006); Yazyev, Rep. Prog. Phys. 73, 056501 (2010); U = t = 2.7 eV, which gives the LSDA gaps of narrow zigzag ribbons, ~0.5 eV at 1 nm). Solved self-consistently
+   for each geometry from an antiferromagnetic (sublattice) guess, or from the previous solution (prev), with linear mixing. A structure
+   without edge states (benzene, a chain, a bulk sheet) converges to the non-magnetic solution and nothing changes. */
+const MIX = 0.7;                                  // linear mixing of the densities between iterations
+export function meanField(ham, U, prev = null, maxIt = 60, tol = 2e-4) {
+  const n = ham.n, H0 = ham.H, kT = 0.01;
+  let nUp = new Float64Array(n), nDn = new Float64Array(n), warm = false;
+  if (prev && prev.n === n && prev.idx && prev.idx.length === n && prev.idx.every((v, k) => v === ham.idx[k])) { nUp.set(prev.nUp); nDn.set(prev.nDn); warm = true; }
+  else {                                                          // sublattice colouring over the strong bonds: +/- 0.2 moments
+    const col = new Int8Array(n), q = [];
+    for (let s0 = 0; s0 < n; s0++) {
+      if (col[s0]) continue; col[s0] = 1; q.push(s0);
+      while (q.length) { const a = q.pop(); for (let b = 0; b < n; b++) if (!col[b] && Math.abs(H0[a * n + b]) > 1.5) { col[b] = -col[a]; q.push(b); } }
+    }
+    for (let i = 0; i < n; i++) { nUp[i] = 0.5 + 0.2 * col[i]; nDn[i] = 0.5 - 0.2 * col[i]; }
+  }
+  const Hs = new Float64Array(n * n);
+  const solve = (nOther) => { Hs.set(H0); for (let i = 0; i < n; i++) Hs[i * n + i] += U * (nOther[i] - 0.5); return eigSym(Hs, n); };
+  let up = null, dn = null, mu = 0, it = 0, change = 1;
+  for (it = 1; it <= maxIt; it++) {
+    up = solve(nDn); dn = solve(nUp);
+    // chemical potential: n electrons (half filling) in the two spin spectra - midway between the highest filled and the lowest empty
+    // level of the combined spectrum (so it sits mid-gap in a gapped structure, as E_F without U); a little smearing for stability
+    const all = Float64Array.from([...up.w, ...dn.w]).sort();
+    mu = 0.5 * (all[n - 1] + all[n]);
+    const occ = (sp, out) => { out.fill(0); for (let k = 0; k < n; k++) { const f = fermi(sp.w[k], mu, kT); if (f < 1e-12) continue; const r = k * n; for (let i = 0; i < n; i++) out[i] += f * sp.U[r + i] * sp.U[r + i]; } };
+    const cu = new Float64Array(n), cd = new Float64Array(n); occ(up, cu); occ(dn, cd);
+    change = 0; for (let i = 0; i < n; i++) change = Math.max(change, Math.abs(cu[i] - nUp[i]), Math.abs(cd[i] - nDn[i]));
+    for (let i = 0; i < n; i++) { nUp[i] = (1 - MIX) * nUp[i] + MIX * cu[i]; nDn[i] = (1 - MIX) * nDn[i] + MIX * cd[i]; }
+    if (change < tol) break;
+  }
+  let mmax = 0; for (let i = 0; i < n; i++) mmax = Math.max(mmax, Math.abs(nUp[i] - nDn[i]) / 2);
+  const Hup = new Float64Array(H0), Hdn = new Float64Array(H0); for (let i = 0; i < n; i++) { Hup[i * n + i] += U * (nDn[i] - 0.5); Hdn[i * n + i] += U * (nUp[i] - 0.5); }
+  return { up, dn, Hup, Hdn, mu, it: Math.min(it, maxIt), conv: change < tol, mmax, warm, state: { n, idx: Array.from(ham.idx), nUp, nDn } };
+}
+// the two spin channels as one transport object: T and the bond currents are the spin averages (the 2e^2/h prefactor keeps spin)
+class SpinTransport {
+  constructor(ham, cm, cp, gamma, mf) {
+    this.up = new Transport(Object.assign({}, ham, { H: mf.Hup }), cm, cp, gamma, 1e-9, mf.up, mf.mu);
+    this.dn = new Transport(Object.assign({}, ham, { H: mf.Hdn }), cm, cp, gamma, 1e-9, mf.dn, mf.mu);
+    this.EF = mf.mu;
+    let homo = -Infinity, lumo = Infinity; for (const w of [mf.up.w, mf.dn.w]) for (const e of w) { if (e <= mf.mu && e > homo) homo = e; if (e > mf.mu && e < lumo) lumo = e; }
+    this.gapHL = isFinite(homo) && isFinite(lumo) ? lumo - homo : 0;
+  }
+  transmission(E) { return 0.5 * (this.up.transmission(E) + this.dn.transmission(E)); }
+  bondCurrents(E) { const a = this.up.bondCurrents(E), b = this.dn.bondCurrents(E); for (let p = 0; p < a.length; p++) a[p] = 0.5 * (a[p] + b[p]); return a; }
+}
+
 export const fermi = (E, mu, kT) => { const x = (E - mu) / Math.max(kT, 1e-6); return x > 40 ? 0 : x < -40 ? 1 : 1 / (1 + Math.exp(x)); };
 
 // everything the panel shows, for one geometry
@@ -273,9 +335,13 @@ export function analyse(sys, contactsMinus, contactsPlus, opts = {}) {
   for (const a of contactsPlus) if (where.has(a) && !contactsMinus.includes(a)) cp.push(where.get(a));
   if (!ham.n) return { error: 'No carbon atoms: transport uses a carbon p-orbital model (MoS₂ is not supported yet).' };
   if (!cm.length || !cp.length) return { error: 'Mark at least one − contact and one + contact on carbon atoms.', n: ham.n };
-  const gamma = opts.gamma ?? 1.0, kT = opts.kT ?? 0.025, tr = new Transport(ham, cm, cp, gamma);
+  const gamma = opts.gamma ?? 1.0, kT = opts.kT ?? 0.025, U = opts.U ?? 0;
+  let tr, mf = null;
+  if (U > 0 && ham.n > 1) { mf = meanField(ham, U, opts.prev || null, opts.mfIt ?? (opts.curve === false ? 2 : 60)); tr = new SpinTransport(ham, cm, cp, gamma, mf); }
+  else tr = new Transport(ham, cm, cp, gamma);
   const tEig = (typeof performance !== 'undefined' ? performance : Date).now() - t0;
-  const EF = tr.EF, out = { n: ham.n, EF, gapHL: tr.gapHL, TEF: tr.transmission(EF) };
+  const EF = tr.EF, out = { n: ham.n, EF, gapHL: tr.gapHL, TEF: tr.transmission(EF), edgeBonds: ham.edgeBonds };
+  if (mf) { out.mf = { U, it: mf.it, conv: mf.conv, mmax: mf.mmax, warm: mf.warm }; out.mfState = mf.state; }
   // live part: bond currents and the current at the chosen bias, from energies across the bias window (with thermal tails)
   const vb = Math.max(1e-4, opts.V ?? 0.2), lo = EF - vb / 2 - 5 * kT, hi = EF + vb / 2 + 5 * kT;
   const nw = Math.min(opts.nWindow ?? 24, Math.max(6, Math.ceil((hi - lo) / 0.015))), dw = (hi - lo) / nw;

@@ -117,7 +117,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     for (const y of [0, H]) for (const [x, z] of [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]]) v.push(x, y, z);
     window.__sem.trackedMeshes.add({ transform: { matrix: new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, -0.4, 0, -1.0, 1]), orientation: { x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) } },
       vertices: new Float32Array(v), indices: new Uint32Array([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]), semanticLabel: 'table' }); });
-  await wait(300); await ev(() => window.__mdlab.arRefit(true)); await wait(300); st = await state();
+  await wait(900); await ev(() => window.__mdlab.arRefit(true)); await wait(300); st = await state();     // (the scan is read twice a second)
   ok('a table given as a volume: its top is used', st.table && st.table.src === 'plane' && st.table.kind === 'volume' && Math.abs(st.table.top - 0.72) < 0.003 && Math.abs(Math.max(st.table.W, st.table.D) - 1.0) < 0.01 && Math.abs(Math.min(st.table.W, st.table.D) - 0.6) < 0.01, JSON.stringify(st.table));
 
   // leave: the VR lab comes back as it was

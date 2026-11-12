@@ -10,7 +10,7 @@ import { UI, COL, setPalette, roundRect, fitText } from './ui.js';
 import { ICONS } from './icons.js';
 import { buildSubstrate, SUB_KINDS } from './substrate.js';
 import { drawPlots, drawElec, PW, PH } from './plots.js';
-import { analyse as analyseNow } from './tb.js';
+import { analyse as analyseNow, HUB } from './tb.js';
 import { tr, setLang, addLanguage } from './i18n.js';
 import { DA } from './i18n-da.js';
 import { TUT_STEPS, TUT_DA } from './tutorial.js';
@@ -59,7 +59,7 @@ const S = {
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
-  ar: false, arTable: null, cal: null,                                                 // see-through mode on a real table (src/realtable.js)
+  ar: false, arTable: null, cal: null, edgeMag: true,                                                 // see-through mode on a real table (src/realtable.js)
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
   substrate: 'graphene', floorY: 0, lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
@@ -687,12 +687,13 @@ function requestTransport(curve) {
   const N = mat.N, orb = new Uint8Array(N), chem = mat.model === 'uff';
   for (let i = 0; i < N; i++) orb[i] = mat.sp[i] === SP.C && (!chem || mat.chem.deg[i] <= 3) ? 1 : 0;      // sp3 carbons: no pi orbital
   const msg = { id: ++TR.id, N, x: mat.x.slice(0, N), y: mat.y.slice(0, N), z: mat.z.slice(0, N), orb, per: mat.per.slice(), L: [mat.Lx, mat.Ly, mat.Lz],
-    cm: [...S.cm], cp: [...S.cp], opts: { gamma: S.gamma, V: S.bias, kT: 0.02585, curve: wantCurve, nE: 801, Vmax: Math.max(2, Math.ceil(S.bias)), nV: 81 } };
+    cm: [...S.cm], cp: [...S.cp], opts: { gamma: S.gamma, V: S.bias, kT: 0.02585, curve: wantCurve, nE: 801, Vmax: Math.max(2, Math.ceil(S.bias)), nV: 81, U: S.edgeMag ? HUB.U : 0 } };
   TR.last = now();
   if (TR.worker) { TR.busy = true; TR.worker.postMessage(msg, [msg.x.buffer, msg.y.buffer, msg.z.buffer]); }
   else {                                                    // no worker (very old browser): compute here, live part only
     const sys = { N, x: msg.x, y: msg.y, z: msg.z, per: msg.per, L: msg.L, orb: (i) => orb[i] === 1 };
-    const r = analyseNow(sys, msg.cm, msg.cp, Object.assign({}, msg.opts, { curve: false })); r.id = msg.id; r.curve = false; r.N = N; onTransport(r);
+    // (no worker: no self-consistent spin loop on the main thread)
+    const r = analyseNow(sys, msg.cm, msg.cp, Object.assign({}, msg.opts, { curve: false, U: 0 })); r.id = msg.id; r.curve = false; r.N = N; onTransport(r);
   }
 }
 function onTransport(r) {
@@ -1416,6 +1417,7 @@ function tabElec() {
   const v = ui.slider('bias', 'Bias voltage', S.bias, 0.01, 6, (x) => `${x.toFixed(2)} V`, { h: 60 });
   if (g !== S.gamma || v !== S.bias) { S.gamma = g; S.bias = v; TR.dirtyAt = now(); }
   ui.row(3); S.curBonds = ui.toggle('Current', S.curBonds, { h: 46 }); S.live = ui.toggle('Live', S.live, { h: 46 }); S.Tlog = ui.toggle('Log T', S.Tlog, { h: 46 });
+  { const em = ui.toggle('Edge magnetism (Hubbard U = 2.7 eV)', S.edgeMag, { h: 46 }); if (em !== S.edgeMag) { S.edgeMag = em; TR.dirtyAt = now(); } }
   ui.section('Result');
   const r = TR.res;
   if (TR.err) ui.paragraph(TR.err, { size: 20, color: COL.warn });
@@ -1425,6 +1427,7 @@ function tabElec() {
     ui.row(2); ui.readout('Current at bias', (cur < 0.01 ? cur.toExponential(1) : cur.toFixed(cur < 1 ? 3 : 2)) + ' \u00B5A', { color: COL.warn }); ui.readout('T(E_F)', r.TEF < 1e-3 ? r.TEF.toExponential(1) : r.TEF.toFixed(3));
     ui.row(2); ui.readout('Conductance', (Ga < 0.1 ? Ga.toExponential(1) : Ga.toFixed(2)) + ' \u00B5S'); ui.readout('HOMO\u2013LUMO', r.gapHL.toFixed(2) + ' eV');
     const cv = TR.curve; ui.row(2); ui.readout('Transport gap', cv ? (cv.gap > 0 ? cv.gap.toFixed(2) + ' eV' : 'none') : '\u2026'); ui.readout('Orbitals / time', `${r.n} / ${r.ms.toFixed(0)} ms`);
+    if (r.mf) ui.paragraph(r.mf.mmax > 0.02 ? `Spin-polarised edges: moments up to ${r.mf.mmax.toFixed(2)} µB${r.mf.conv ? '' : ' (still converging)'}` : 'No edge magnetism (no zigzag edge states here)', { size: 17, color: COL.muted });
     if (mat.periodicAny) ui.paragraph('Periodic sheet: current can also run round the boundary. Rebuild as an Open flake for a clean device.', { size: 18, color: COL.warn });
   }
 }
