@@ -15869,6 +15869,7 @@ function loadImage(src) {
 // Play "Automatically" -> overlay.videoAutoplay, Play in the click sequence -> a "play-after-click" step, a click
 // on the movie plays it). They stay inside the deck until it is saved; then deck-panel.js has the helper copy
 // them into videos\ of the presentation folder and links them (placeImportedMovies).
+// Animated GIFs (2026-11-12) come as image/gif pictures (all frames; not shrunk, which would stop them moving).
 // Started by open-ipe.ps1 with ?pptx=<file address of manifest.json>.
 // options.insert: the slides go after the current slide of the open deck (no title page, the deck keeps its
 // file and settings) instead of becoming a new deck.
@@ -15891,8 +15892,8 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
   }
   const ptScale = TEXT_REFERENCE_SLIDE_WIDTH / (Number(m.slideWidthPt) || 960); // font sizes: px on the 960-wide reference slide
   let notesCount = 0, animCount = 0, animMerged = 0, animSkipped = 0;
-  let movieCount = 0, movieConverted = 0, movieAuto = 0;
-  const movieNotes = list(m.skippedMovies).map(String);
+  let movieCount = 0, movieConverted = 0, movieAuto = 0, gifCount = 0;
+  const movieNotes = [...list(m.skippedMovies), ...list(m.notes)].map(String);
 
   for (const s of list(m.slides)) {
     const bg = await load(s.bg);
@@ -15907,8 +15908,14 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
       const id = uid();
       if (sh.kind === "picture") {
         const p = await load(sh.file);
-        deck.assets[id] = { id, kind: "overlay-image", mime: "image/png", name: `${sh.name || "Picture"}.png`, dataUrl: p.dataUrl };
-        await shrinkPictureAsset(deck.assets[id]);
+        if (sh.gif) {
+          // an animated GIF (2026-11-12): its own file, kept as it is (shrinking would stop it moving)
+          deck.assets[id] = { id, kind: "overlay-image", mime: "image/gif", name: `${String(sh.name || "Picture").replace(/\.gif$/i, "")}.gif`, dataUrl: String(p.dataUrl).replace(/^data:[^;,]*/, "data:image/gif") };
+          gifCount++;
+        } else {
+          deck.assets[id] = { id, kind: "overlay-image", mime: "image/png", name: `${sh.name || "Picture"}.png`, dataUrl: p.dataUrl };
+          await shrinkPictureAsset(deck.assets[id]);
+        }
       } else if (sh.kind === "video") {
         // a movie (2026-11-12): stored in the deck for now, like a video inserted by hand; pptxMovie says
         // where its file is, so the first Save can put it into videos\ of the presentation folder
@@ -16017,7 +16024,7 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
     deck.slides.push(slide);
   }
 
-  const movies = { count: movieCount, converted: movieConverted, auto: movieAuto, notes: movieNotes };
+  const movies = { count: movieCount, converted: movieConverted, auto: movieAuto, gifs: gifCount, notes: movieNotes };
 
   // The first slide of a deck is always Interactive Presenter's title page (isTitleSlide), which draws its own
   // title over the slide. So a title page goes in front, filled from PowerPoint's first slide (its title and
@@ -16069,11 +16076,12 @@ async function importPowerPointManifest(manifestUrl, options = {}) {
 // The movies part of the hint after a PowerPoint import ("" when there were none)
 function powerPointMovieSummary(res) {
   const m = res?.movies;
-  if (!m || (!m.count && !m.notes?.length)) return "";
+  if (!m || (!m.count && !m.gifs && !m.notes?.length)) return "";
   const n = (k, one, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
   let t = m.count ? ` ${n(m.count, "movie")} came along as video${m.count === 1 ? "" : "s"}` : "";
   if (m.converted) t += ` (${m.converted} converted so the browser can play ${m.converted === 1 ? "it" : "them"})`;
   if (m.count) t += "; the first Save puts them into videos\\ (or an existing movies\\) beside the .ipe.";
+  if (m.gifs) t += ` ${n(m.gifs, "animated GIF")} kept moving.`;
   if (m.notes?.length) t += ` Note: ${m.notes.join("; ")}.`;
   return t;
 }
