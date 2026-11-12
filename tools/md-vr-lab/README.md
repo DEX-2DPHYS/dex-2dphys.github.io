@@ -70,6 +70,23 @@ grip - checked after every MD step (`tableWall` once a frame for the plane, `tab
 surface, at most 1 A a step, and its downward velocity flips), so a fast atom cannot slip through between frames. Moving or scaling the whole
 experiment with the grips cannot push it into the table either (`keepAboveTable`: it is lifted by what its lowest atom over the worktop lacks).
 
+## Glovebox and pause (2026-11-12; `src/glovebox.js`)
+
+- **Glovebox.** A nearly invisible hemisphere stands on the worktop, centred under the experiment (a faint fresnel rim and a ring on the
+  table; it glows a little where atoms hit it). Every atom that reaches it bounces back with a slight damping: the normal velocity flips and
+  keeps 90 % of its size (a bounce takes 19 % of the normal kinetic energy, none of the tangential), so a hot or torn structure calms down
+  instead of scattering over the room. The hands go through it: it is never hit by the pointer, and atoms held in a hand (Hand pull, a
+  carried piece, a tweezers layer) are free to leave. Let go outside, they slide home at most 0.05 A a step (~30 A/s) instead of jumping.
+  It is checked after every MD step, like the table. RUN tab: **Glovebox** on/off (on by default) and **Glovebox size** (40-250 %).
+  The default radius is 0.405 m on the bench at build scale, or the structure's reach + 4 A if that is larger (sized again on every build
+  and every *Add next to it*); it belongs to the experiment, so the two-grip scale and moving the experiment take it along. Off for periodic
+  sheets and in Walk mode. While it is on, *Remove atoms that fly out of reach* is not needed and does not run. Test: `test/glovebox.test.mjs`.
+- **Pause stops every atom.** Pause sets all velocities to zero (the structure freezes where it is). **Run** then warms it from 0 K back to
+  the set temperature over 5 s: the thermostat target ramps linearly, and while it ramps the thermostat is much tighter (time constant 20
+  steps instead of 40 TU), because the strain left in the frozen structure turns into heat within a few steps and only a tight thermostat
+  holds it to the ramp. Headless (slow) check: 82, 68, 115, 185, 251 K at 0.5-4.5 s for 300 K. With the thermostat off, Run starts from rest
+  with no ramp. Toolbar, panel button, space bar and B/Y all do this (`setPaused`); *Step x20* only steps.
+
 ## Controls (2026-11-12)
 
 - **Only the headset recentres.** The thumbstick click no longer recentres (it fired by accident while pushing the stick for the temperature

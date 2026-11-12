@@ -19,7 +19,8 @@ import { Collab, sbConfig, sbExpired, sbExpires, saveSbConfig, saveName, roomCod
 import { AvatarSet } from './avatars.js';
 import { TOGETHER_DA } from './together-da.js';
 import { cornersFromEdge, fitTable, pickTable, toWorldPts, footprint, TABLE_DA } from './realtable.js';
-addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA, TABLE_DA));
+import { GLOVE, gloveStep, gloveFit, rampFactor, RAMP_S, GLOVE_DA } from './glovebox.js';
+addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA, TABLE_DA, GLOVE_DA));
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
 // the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
@@ -59,13 +60,14 @@ const S = {
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
+  glove: true, gbSize: 1,                                    // the glovebox (src/glovebox.js): on by default, size x the default
   ar: false, arTable: null, cal: null, edgeMag: false,     // (edge magnetism: off by default - it makes the transport 3-4x slower)                                                 // see-through mode on a real table (src/realtable.js)
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
   substrate: 'graphene', floorY: 0, lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
-try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'level', 'quality', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape', 'floorY']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
+try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'level', 'quality', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape', 'floorY', 'glove', 'gbSize']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
 try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
 const matUnits = () => ({ K: (T) => T, Tstar: (T) => T, nm: (r) => r * 0.1, ps: (t) => t * TU_FS / 1000, fs: (t) => t * TU_FS, bar: () => 0, eV: (e) => e, D_m2s: (D) => D * 1e-20 / (TU_FS * 1e-15), msdnm2: (v) => v * 0.01, sigma: 1, eps: 1 });
@@ -293,13 +295,52 @@ const _wn = new THREE.Vector3(), _wp = new THREE.Vector3(), _wi = new THREE.Matr
 // with the grip - checked after every MD step (not once a frame, so a fast atom cannot slip through between frames).
 const TW = { on: false, nx: 0, ny: 1, nz: 0, nd: 0 };
 function tableWall() {                                            // once a frame: the worktop plane in box coordinates
-  TW.on = false;
-  if (!isMat() || S.walk || S.wa || !md.N || collab.guest || S.paused || md.exploded || fitKey === '') return;      // (not in the frame right after a rebuild: the experiment is placed on the table first)
+  TW.on = false; TW.ok = false;
+  if (!isMat() || S.walk || S.wa || !md.N || md.exploded || fitKey === '') return;      // (not in the frame right after a rebuild: the experiment is placed on the table first)
   inner.updateWorldMatrix(true, false); bench.updateWorldMatrix(true, false); _wi.copy(inner.matrixWorld).invert(); _wb.copy(bench.matrixWorld).invert();
   _wn.set(0, 1, 0).transformDirection(_wi); _wp.set(0, S.tableH + 0.025, 0).applyMatrix4(bench.matrixWorld).applyMatrix4(_wi);     // (the bench is lifted onto a real table in see-through mode)
-  TW.nx = _wn.x; TW.ny = _wn.y; TW.nz = _wn.z; TW.nd = _wn.x * _wp.x + _wn.y * _wp.y + _wn.z * _wp.z; TW.on = true;
+  TW.nx = _wn.x; TW.ny = _wn.y; TW.nz = _wn.z; TW.nd = _wn.x * _wp.x + _wn.y * _wp.y + _wn.z * _wp.z; TW.ok = true;
+  TW.on = !collab.guest && !S.paused;                             // the physics runs where the MD runs
 }
-function tableWallStep() {                                        // after each MD step: atoms below the worktop go back onto it, moving down = bounce
+function tableWallStep() { tableFloorStep(); if (GB.on) { const h = gloveStep(md, GB, GB.held); if (h) GB.glow = Math.min(0.6, GB.glow + 0.004 * h); } }
+/* ---------- the glovebox (src/glovebox.js): a nearly invisible dome standing on the worktop, centred under the experiment. It belongs
+   to the experiment: it scales with it (two-grip scale) and moves with it. Atoms in a hand pass through; the rest bounce, slightly damped. */
+const GB = { on: false, cx: 0, cy: 0, cz: 0, R: 0, rad: 0, base: 0, need: true, glow: 0, held: null, heldBuf: new Uint8Array(0) };
+const gbMat = new THREE.ShaderMaterial({
+  uniforms: { uCol: { value: new THREE.Color(0x7fe9ff) }, uGlow: { value: 0 }, uA: { value: 1 } },
+  vertexShader: 'varying vec3 vN; varying vec3 vV; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+  fragmentShader: 'uniform vec3 uCol; uniform float uGlow; uniform float uA; varying vec3 vN; varying vec3 vV; void main() { float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 3.0); gl_FragColor = vec4(uCol, uA * (0.015 + 0.14 * f + uGlow * (0.08 + 0.5 * f))); }',
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+});
+const gbDome = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 20, 0, Math.PI * 2, 0, Math.PI / 2), gbMat);
+const gbRim = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 128 }, (_, k) => new THREE.Vector3(Math.cos(k / 64 * Math.PI), 0, Math.sin(k / 64 * Math.PI)))), new THREE.LineBasicMaterial({ color: 0x7fe9ff, transparent: true, opacity: 0.25, depthWrite: false }));
+gbDome.add(gbRim); gbDome.renderOrder = 5; gbDome.frustumCulled = false; gbDome.visible = false; gbDome.raycast = () => {}; gbRim.raycast = () => {};
+const _gc = new THREE.Vector3(), _gu = new THREE.Vector3(0, 1, 0);
+function gloveFrame(dt) {                                         // once a frame, after tableWall: centre, radius, the drawn dome, the atoms in a hand
+  GB.on = false; GB.glow = Math.max(0, GB.glow - 1.5 * dt);
+  const show = S.glove && TW.ok && !mat.periodicAny; gbDome.visible = show; if (!show) return;
+  if (!gbDome.parent) inner.add(gbDome);
+  simRoot.getWorldPosition(_gc).applyMatrix4(_wi);                 // the experiment's centre, dropped onto the worktop plane (box coordinates)
+  const h = TW.nx * _gc.x + TW.ny * _gc.y + TW.nz * _gc.z - TW.nd; GB.cx = _gc.x - h * TW.nx; GB.cy = _gc.y - h * TW.ny; GB.cz = _gc.z - h * TW.nz;
+  if (GB.need) { GB.base = gloveFit(md, GB.cx, GB.cy, GB.cz, wps); GB.need = false; }
+  GB.R = GB.base * S.gbSize; GB.rad = S.atomR;
+  gbDome.position.set(GB.cx, GB.cy, GB.cz); gbDome.quaternion.setFromUnitVectors(_gu, _wn.set(TW.nx, TW.ny, TW.nz)); gbDome.scale.setScalar(GB.R);
+  gbMat.uniforms.uGlow.value = GB.glow; gbMat.uniforms.uA.value = 1;
+  if (!TW.on) return;
+  GB.on = true; GB.held = null;                                    // the atoms in a hand are free to leave the box
+  const e = mat.ext, c = mat.carry;
+  if (e.i >= 0 || (c && c.mask)) {
+    if (GB.heldBuf.length < md.N) GB.heldBuf = new Uint8Array(mat.maxN || md.N); const hb = GB.heldBuf; hb.fill(0, 0, md.N);
+    if (c && c.mask) for (let i = 0; i < md.N; i++) if (c.mask[i]) hb[i] = 1;
+    if (e.i >= 0 && e.i < md.N) {
+      if (e.mode === 'group') { const g = mat.grp[e.i]; for (let i = 0; i < md.N; i++) if (mat.grp[i] === g) hb[i] = 1; }
+      else if (e.mode === 'frag' && e.mask) { for (let i = 0; i < md.N; i++) if (e.mask[i]) hb[i] = 1; }
+      else hb[e.i] = 1;
+    }
+    GB.held = hb;
+  }
+}
+function tableFloorStep() {                                       // after each MD step: atoms below the worktop go back onto it, moving down = bounce
   if (!TW.on) return;
   const { nx, ny, nz, nd } = TW, rad = S.atomR, X = md.x, Y = md.y, Z = md.z, fixed = md.fixed;
   for (let i = 0; i < md.N; i++) {
@@ -434,7 +475,7 @@ function addBlock() {
   const d = [a.hi[0] + 6 - b.lo[0], 0, 0]; d[up] = (a.lo[up] + a.hi[up]) / 2 - (b.lo[up] + b.hi[up]) / 2; d[side] = (a.lo[side] + a.hi[side]) / 2 - (b.lo[side] + b.hi[side]) / 2;
   try { mat.mergeFrom(o, d[0], d[1], d[2]); } catch (e) { toast(String(e.message || e)); return; }
   rebox(); mat.name = `${mat.name.replace(/ \u00B7 chemistry$/, '')} + ${o.name}`;
-  applySubstrate(); resetHistory(); zeroSpin(); ui.dirty = true;
+  applySubstrate(); resetHistory(); zeroSpin(); GB.need = true; ui.dirty = true;
   toast(`Added ${o.name} (${o.N} atoms) as a separate object. Pick it up with the Hand and push it onto the structure to join them.`, 6000);
 }
 // keep every atom inside the (open) box after something was added: shift and grow the box where needed
@@ -766,7 +807,7 @@ function updateAtoms() {
   const showBox = (!mt || mat.periodicAny) && !S.walk;
   boxEdges.visible = showBox; boxFaces.visible = showBox && !mt && !md.periodic;
   boxEdges.material.opacity = (mt || md.periodic) ? 0.5 : 0.95;
-  if (!S.walk && !S.wa) { const sb = mt ? mat.sub : null, key = `${sb ? sb.kind + sb.wMin.toFixed(2) : '-'}|${wps}|${S.atomR}|${S.tableH}|${Lx.toFixed(0)}${Ly.toFixed(0)}${Lz.toFixed(0)}|${md.name}|${md.N}`; if (key !== fitKey) { fitKey = key; tableFit(); } }
+  if (!S.walk && !S.wa) { if (!fitKey) GB.need = true; const sb = mt ? mat.sub : null, key = `${sb ? sb.kind + sb.wMin.toFixed(2) : '-'}|${wps}|${S.atomR}|${S.tableH}|${Lx.toFixed(0)}${Ly.toFixed(0)}${Lz.toFixed(0)}|${md.name}|${md.N}`; if (key !== fitKey) { fitKey = key; tableFit(); } }
   simRoot.scale.setScalar(walkScale((mt ? wps : Math.min(wps, 0.85 / Lx)) * userScale));
   if (!S.walk && !S.wa && mt && mat.sub && md.N) {                    // the substrate always lies on the table, whatever replaced or moved the experiment
     const sc = simRoot.scale.x, up = _upv.set(0, 1, 0).applyQuaternion(simRoot.quaternion);
@@ -850,7 +891,7 @@ const TOOLDEF = {
   hfill: { l: 'H fill', icon: ICONS.hfill, tint: '#d8dde6', on: () => S.fillH, act: () => { S.fillH = !S.fillH; } },
   cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => S.tool === 'cminus', act: () => selectTool('cminus') },
   cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => S.tool === 'cplus', act: () => selectTool('cplus') },
-  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => { if (collab.guest) { toast('You are watching. Ask for control: Settings \u2192 Together'); return; } S.paused = !S.paused; tutEvent(S.paused ? 'pause' : 'run'); } },
+  run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => setPaused(!S.paused) },
   cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
   wand: { l: 'Bring', icon: ICONS.wand, tint: '#ffd166', on: () => S.tool === 'wand', act: () => selectTool('wand') },
@@ -1006,12 +1047,18 @@ function adultBuild() {
 }
 function adultRun() {
   ui.row(2);
-  if (ui.button(S.paused ? '\u25B6  Run' : '\u275A\u275A  Pause', { primary: !S.paused, active: S.paused, h: 62 })) S.paused = !S.paused;
+  if (ui.button(S.paused ? '\u25B6  Run' : '\u275A\u275A  Pause', { primary: !S.paused, active: S.paused, h: 62 })) setPaused(!S.paused);
   if (ui.button('Start again', { h: 62 })) { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); }
 
   S.thermo = ui.toggle('Keep the temperature', S.thermo);
   const [lo, hi] = tRange(); S.TsetK = ui.slider('aT', 'Temperature', S.TsetK, lo, hi, (v) => `${v.toFixed(0)} K`, { step: 5, h: 64 });
   ui.paragraph('Heat makes the atoms shake. Very hot: bonds break. Cold: everything freezes still.', { size: 22, color: COL.muted });
+  gloveRow();
+}
+function gloveRow() {                                              // the glovebox switch and size (Run tab, both levels)
+  if (!isMat()) return;
+  S.glove = ui.toggle('Glovebox (keeps the atoms in)', S.glove, { h: 50 });
+  if (S.glove) S.gbSize = ui.slider('gbSize', 'Glovebox size', S.gbSize, 0.4, 2.5, (v) => `${(100 * v).toFixed(0)} %`, { step: 0.05, h: 58 });
 }
 function adultElec() {
   ui.paragraph('Mark where the current goes in (\u2212) and out (+). Bonds then light up: violet = little current, yellow = a lot.', { size: 22, color: COL.muted });
@@ -1135,7 +1182,7 @@ function toolHint(t = S.tool) {
   if (t === 'recenter') return S.vr ? 'RECENTER - put the table and panels in front of you again' : 'RECENTER - fit the view to the experiment (key F)';
   if (t === 'help') return 'GUIDE - a short tour of the basic tools on a graphene sheet';
   if (t === 'cool' || t === 'warm') return t === 'warm' ? 'WARMER - raise the target temperature: the atoms shake harder' : 'COLDER - lower the target temperature: the atoms calm down';
-  if (t === 'run') return 'RUN / PAUSE - let time flow or freeze the atoms (space bar)';
+  if (t === 'run') return 'RUN / PAUSE - pause stops every atom; run warms them back up to the set temperature over 5 s (space bar)';
   if (t === 'rebuild') return 'START AGAIN - rebuild the current structure from scratch';
   if (t === 'element') return S.tool === 'add' ? `ATOM ${S.cel} - press again to choose another element` : `ATOM - a ${S.cel} atom in your hand: let go near a structure and it bonds, elsewhere it floats`;
   if (t === 'hfill') return 'H FILL - fill free valences with hydrogen when attaching';
@@ -1215,18 +1262,40 @@ function chemTools() {
   if (S.tool === 'tweezers') { const g = ui.choice([['atom', 'Grab: atom'], ['frag', 'Grab: piece']], S.grab === 'group' ? 'frag' : S.grab, { h: 44, size: 19 }); S.grab = g; }
 }
 
+/* ---------- pause and run: pausing stops every atom (all velocities zero); running again warms the atoms from 0 K back to the set
+   temperature over RAMP_S = 5 s. While it ramps the thermostat is much tighter (time constant 20 steps): the strain left in the
+   structure turns into heat within a few steps, and only a tight thermostat holds it to the ramp. ---------- */
+const RAMP = { on: false, t0: 0, md: null, tau: 0 };
+function setPaused(p) {
+  if (collab.guest) { toast('You are watching. Ask for control: Settings \u2192 Together'); return; }
+  if (p === S.paused) return;
+  S.paused = p; tutEvent(p ? 'pause' : 'run'); ui.dirty = true; tbar.dirty = true;
+  if (p) {
+    rampEnd(); const n = md.N; md.vx.fill(0, 0, n); md.vy.fill(0, 0, n); md.vz.fill(0, 0, n); if (md.KE !== undefined) md.KE = 0;
+    toast('Paused: every atom stopped', 2000);
+  } else if (S.thermo && md.N) {
+    RAMP.on = true; RAMP.t0 = now(); RAMP.md = md; RAMP.tau = md.tauT; md.tauT = Math.max(20 * md.dt, md.tauT / 40);
+    toast(`Warming up to ${S.TsetK.toFixed(0)} K over 5 s`, 2500);
+  }
+}
+function rampEnd() { if (!RAMP.on) return; if (RAMP.md === md) md.tauT = RAMP.tau; RAMP.on = false; RAMP.md = null; }
+function rampTick() {                                              // the share of the set temperature the thermostat aims at now
+  if (!RAMP.on) return 1;
+  if (RAMP.md !== md || !S.thermo || S.paused) { rampEnd(); return 1; }        // rebuilt, thermostat switched off, or paused again
+  const f = rampFactor((now() - RAMP.t0) / 1000); if (f >= 1) rampEnd(); return f;
+}
 function homeView() { const dx = window.innerWidth < 760 ? 0 : 0.14; controls.target.set(SIM_HOME.x + dx, SIM_HOME.y, SIM_HOME.z); camera.position.set(SIM_HOME.x + 0.44 + dx, SIM_HOME.y + 0.27, SIM_HOME.z + 0.92); controls.update(); }   // close enough to see the atoms, structure left of the panel
 function recenterSim() { userScale = 1; if (S.vr) recenter(); else { simRoot.position.copy(SIM_HOME); labQuat(); homeView(); } }
 
 function tabRun() {
   const mt = isMat();
   ui.row(3);
-  if (ui.button(S.paused ? '\u25B6  Run' : '\u275A\u275A  Pause', { primary: !S.paused, active: S.paused, h: 62, size: 25 })) S.paused = !S.paused;
+  if (ui.button(S.paused ? '\u25B6  Run' : '\u275A\u275A  Pause', { primary: !S.paused, active: S.paused, h: 62, size: 25 })) setPaused(!S.paused);
   if (ui.button('Step \u00D720', { h: 62 })) { S.paused = true; md.run(20); }
   if (ui.button('Rebuild', { h: 62, danger: md.exploded })) { if (S.lastBuild) { build(S.lastBuild, { keepColor: true }); } }
   ui.space(2);
   S.thermo = ui.toggle(S.thermo ? 'Thermostat ON  (constant T)' : 'Thermostat OFF  (energy conserved)', S.thermo);
-  if (mt) S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 10, 3000, (v) => `${v.toFixed(0)} K`, { step: 10, h: 66 });
+  if (mt) { S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 10, 3000, (v) => `${v.toFixed(0)} K`, { step: 10, h: 66 }); gloveRow(); }
   else S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 3, 600, (v) => `${v.toFixed(0)} K  (T* ${(v / ELEMENTS[S.el].epsK).toFixed(2)})`, { step: 1, h: 66 });
   if (!mt) {
     const rho = md.density, nr = ui.slider('vol', 'Density \u03C1*  (squeeze / expand the box)', rho, 0.02, 1.4, (v) => `${v.toFixed(3)}   L = ${U.nm(Math.cbrt(md.N / v)).toFixed(2)} nm`, { log: true, h: 66 });
@@ -1402,7 +1471,7 @@ function tabSettings() {
   S.escape = ui.toggle('Remove atoms that fly out of reach', S.escape, { h: 48 });
   S.thermoOn = ui.toggle('Thermometer on the table', S.thermoOn, { h: 48 });
   }
-  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, level: S.level, quality: S.quality, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape, floorY: S.floorY })); } catch (e) { /* no storage */ }
+  try { localStorage.setItem('mdlab.view', JSON.stringify({ lang: S.lang, level: S.level, quality: S.quality, thermoOn: S.thermoOn, atomR: S.atomR, sameSize: S.sameSize, bondR: S.bondR, arrows: S.arrows, curBonds: S.curBonds, zapDeg: S.zapDeg, escape: S.escape, floorY: S.floorY, glove: S.glove, gbSize: S.gbSize })); } catch (e) { /* no storage */ }
 }
 
 function tabElec() {
@@ -1750,7 +1819,7 @@ controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
 homeView();
 window.addEventListener('keydown', (e) => {
   if (e.target && /input|textarea/i.test(e.target.tagName)) return;
-  if (e.code === 'Space') { S.paused = !S.paused; e.preventDefault(); }
+  if (e.code === 'Space') { setPaused(!S.paused); e.preventDefault(); }
   else if (e.key === '1') S.tool = 'tweezers'; else if (e.key === '2') S.tool = 'add'; else if (e.key === '3') S.tool = 'delete';
   else if (e.key === '4') S.tool = 'cminus'; else if (e.key === '5') S.tool = 'cplus';
   else if (e.key === '8') S.tool = 'zap'; else if (e.key === '9') S.tool = 'wand';
@@ -2462,7 +2531,7 @@ function vrInput(dt) {
       const ay = Math.abs(gp.axes[3] || 0) > 0.2 ? gp.axes[3] : 0;
       const btn = [!!(gp.buttons[4] && gp.buttons[4].pressed), !!(gp.buttons[5] && gp.buttons[5].pressed), !!(gp.buttons[3] && gp.buttons[3].pressed)];
       if (btn[0] && !vc.prev[0]) { S.tool = S.tool === 'tweezers' ? 'add' : S.tool === 'add' ? 'delete' : 'tweezers'; toast('Tool: ' + S.tool); }
-      if (btn[1] && !vc.prev[1]) S.paused = !S.paused;
+      if (btn[1] && !vc.prev[1]) setPaused(!S.paused);
       // (the thumbstick click no longer recentres: pushing the stick hard to change the temperature or reel an atom clicked it by accident.
       //  Only the headset's own recentre - holding the Meta button - moves the table; Settings keeps a Recenter button.)
       vc.prev = btn;
@@ -2486,11 +2555,11 @@ function frame() {
   if (S.vr) { vrInput(dt); if (S.walk) { walkClamp(); walkPanels(dt); } } else { controls.update(); if (S.walk) walkEye(); }
   toolUpdate();
 
-  md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK);
+  md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK * rampTick());
+  tableWall(); gloveFrame(dt);                                     // the worktop plane and the glovebox for this frame; tableWallStep after every step
   if (isMat() && mat.model === 'uff' && mat.chem.pending) { mat.chem.relaxPending(S.vr ? 3 : 6); }   // settle a fresh attachment a few iterations per frame
   if (!S.paused && md.N && !md.exploded && !collab.guest && !CO.handing) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
-    tableWall();                                                    // the worktop plane for this frame; tableWallStep after every step
     updateJoin();
     while (n < S.speed && now() - t0 < budget) { md.run(1); tableWallStep(); n++; }
     holdSpin(dt);                                                   // a piece held with the Hand stops turning
@@ -2499,7 +2568,7 @@ function frame() {
     const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('The simulation crashed - press Restart', 6000); }
-  if (S.escape && isMat() && md.N && !S.paused && !collab.guest) escapeCheck();
+  if (S.escape && isMat() && md.N && !S.paused && !collab.guest && !GB.on) escapeCheck();     // (inside the glovebox nothing escapes)
   tempGuard();
   updateFlashes(dt); updateToolShapes(); updateThermo(t);
 
@@ -2958,4 +3027,4 @@ build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
 window.__mdlab = { TR, plotData, get U() { return U; }, modal, recenter, labSide, offerControl, requestControl, takeBack, releaseControl, acceptPending, declinePending, collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
-  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable };
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable, GB, gbDome, setPaused, RAMP };
