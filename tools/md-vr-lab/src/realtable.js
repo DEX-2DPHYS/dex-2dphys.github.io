@@ -135,6 +135,8 @@ export const TABLE_DA = {
   'Holding {1} atom{2} - move and turn your hand, let go of the trigger to put it down': 'Holder {1} atomer - flyt og drej hånden, slip aftrækkeren for at lægge det fra dig',
   'Added {1} ({2} atoms) as a separate object. Pick it up with the Hand and push it onto the structure to join them.': 'Tilføjede {1} ({2} atomer) som et selvstændigt objekt. Tag det med Hånden, og skub det ind på strukturen for at sætte dem sammen.',
   'Joined: the two pieces are one object now': 'Sat sammen: de to stykker er nu ét objekt',
+  'ATOM {1} - press again to choose another element': 'ATOM {1} - tryk igen for at vælge et andet grundstof',
+  'ATOM - a {1} atom in your hand: let go near a structure and it bonds, elsewhere it floats': 'ATOM - et {1}-atom i hånden: slip det tæt på en struktur, så binder det; andre steder svæver det',
   '{1} bonded to {2}': '{1} bundet til {2}',
   '{1} let go - pick it up with the Hand and bring it to a structure to bond': '{1} sluppet - tag det med Hånden, og før det hen til en struktur for at binde det',
   'Too close to another atom - let go a little further away': 'For tæt på et andet atom - slip det lidt længere væk',

@@ -31,6 +31,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
   await wait(1500);
   const ev = (f, ...a) => p.evaluate(f, ...a);
+  await ev(() => { const L = window.__mdlab; L.S.substrate = 'none'; L.applySubstrate(); });     // (timed checks: headless software rendering is slow with the substrate drawn)
   const head = () => ev(() => { const L = window.__mdlab, c = L.camera, v = new L.camera.position.constructor(), d = v.clone(); c.getWorldPosition(v); c.getWorldDirection(d); return { x: v.x, y: v.y, z: v.z, yaw: Math.atan2(d.x, -d.z) * 180 / Math.PI }; });
   const press = async (hand, id, ms = 250) => { await ev((h, b) => window.__dev.controllers[h].updateButtonValue(b, 1), hand, id); await wait(ms); await ev((h, b) => window.__dev.controllers[h].updateButtonValue(b, 0), hand, id); await wait(ms); };
   const stick = async (hand, x, y, ms) => { await ev((h, a, b) => window.__dev.controllers[h].updateAxes('thumbstick', a, b), hand, x, y); await wait(ms); await ev((h) => window.__dev.controllers[h].updateAxes('thumbstick', 0, 0), hand); await wait(250); };
@@ -45,6 +46,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const s0 = await ev(() => window.__mdlab.md.step); await wait(1000);
   ok('frames run in VR (the simulation advances)', (await ev(() => window.__mdlab.md.step)) > s0);
 
+  if (process.env.DBG) console.log('VR rate', await ev(() => new Promise((res) => { const L = window.__mdlab, s0 = L.md.step, t0 = performance.now(); setTimeout(() => res(JSON.stringify({ sps: ((L.md.step - s0) / ((performance.now() - t0) / 1000)).toFixed(0), sub: L.S.substrate, hasSub: !!L.mat.sub, N: L.md.N })), 2000); })));
   // seated: put the head at 1.2 m, recentre (what the headset's own recentre - the Meta button - runs)
   await ev(() => window.__dev.position.set(0, 1.2, 0)); await wait(300);
   await ev(() => window.__mdlab.recenter()); await wait(300);
@@ -92,15 +94,15 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const c1 = await ev(() => { const L = window.__mdlab, c = new L.camera.position.constructor(); L.uiMesh.getWorldPosition(c); return [c.x, c.y, c.z]; });
   const moved = Math.hypot(c1[0] - c0[0] + 0.3, c1[1] - c0[1] - 0.1, c1[2] - c0[2]);
   ok('grip moves the panel with the hand', moved < 0.02, `panel moved (${(c1[0] - c0[0]).toFixed(2)}, ${(c1[1] - c0[1]).toFixed(2)}, ${(c1[2] - c0[2]).toFixed(2)}) m for a hand move of (-0.30, 0.10, 0)`);
-  // trigger on a toolbar button: aim at "Bond" on the toolbar in front of the table (the VR toolbar as drawn: tbList)
+  // trigger on a toolbar button: aim at the element button (the atom tool) on the toolbar in front of the table (the VR toolbar as drawn: tbList)
   await ev(() => {
-    const L = window.__mdlab, V = L.camera.position.constructor, TL = L.tbList(), NB = TL.length, AT = TL.indexOf('bond'), cw = (1000 - 20 - (NB - 1) * 8) / NB, u = (10 + AT * (cw + 8) + cw / 2) / 1000;
+    const L = window.__mdlab, V = L.camera.position.constructor, TL = L.tbList(), NB = TL.length, AT = TL.indexOf('element'), cw = (1000 - 20 - (NB - 1) * 8) / NB, u = (10 + AT * (cw + 8) + cw / 2) / 1000;
     const g = L.tbMesh.geometry.parameters, pt = new V((u - 0.5) * g.width, 0, 0.001); L.tbMesh.updateWorldMatrix(true, false); pt.applyMatrix4(L.tbMesh.matrixWorld);
     const rc = window.__dev.controllers.right, from = new V(pt.x + 0.05, pt.y + 0.25, pt.z + 0.3); rc.position.set(from.x, from.y, from.z);
     const q = new L.camera.quaternion.constructor().setFromUnitVectors(new V(0, 0, -1), pt.clone().sub(from).normalize()); rc.quaternion.set(q.x, q.y, q.z, q.w);
   }); await wait(400);
   await press('right', 'trigger', 300);
-  ok('trigger on the VR toolbar picks Bond', (await ev(() => window.__mdlab.S.tool)) === 'bond', await ev(() => window.__mdlab.S.tool));
+  ok('trigger on the element button picks the atom tool (Add)', (await ev(() => window.__mdlab.S.tool)) === 'add', await ev(() => window.__mdlab.S.tool));
   const simStill = await ev(() => window.__mdlab.simRoot.position.toArray());
   // walk: left stick forward for 1 s
   const h0 = await head();

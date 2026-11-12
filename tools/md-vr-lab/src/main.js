@@ -61,7 +61,7 @@ const S = {
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
   ar: false, arTable: null, cal: null,                                                 // see-through mode on a real table (src/realtable.js)
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
-  substrate: 'none', floorY: 0, lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
+  substrate: 'graphene', floorY: 0, lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
@@ -434,7 +434,7 @@ function addBlock() {
   const d = [a.hi[0] + 6 - b.lo[0], 0, 0]; d[up] = (a.lo[up] + a.hi[up]) / 2 - (b.lo[up] + b.hi[up]) / 2; d[side] = (a.lo[side] + a.hi[side]) / 2 - (b.lo[side] + b.hi[side]) / 2;
   try { mat.mergeFrom(o, d[0], d[1], d[2]); } catch (e) { toast(String(e.message || e)); return; }
   rebox(); mat.name = `${mat.name.replace(/ \u00B7 chemistry$/, '')} + ${o.name}`;
-  applySubstrate(); resetHistory(); ui.dirty = true;
+  applySubstrate(); resetHistory(); zeroSpin(); ui.dirty = true;
   toast(`Added ${o.name} (${o.N} atoms) as a separate object. Pick it up with the Hand and push it onto the structure to join them.`, 6000);
 }
 // keep every atom inside the (open) box after something was added: shift and grow the box where needed
@@ -486,6 +486,7 @@ function buildMat(r, opts) {
   S.paused = false; resetHistory(); retag();
   if (r.mat === 'junction' && mat.junction) { S.cm.add(mat.junction[0]); S.cp.add(mat.junction[1]); S.gamma = 0.5; contactsChanged(); }
   applySubstrate();
+  zeroSpin();                                                     // a free piece starts without spin (random thermal velocities carry some angular momentum)
   if (!opts.quiet) toast(`Built ${mat.name}: ${mat.N} atoms`);
 }
 
@@ -843,7 +844,8 @@ const TOOLDEF = {
   bond: { l: 'Bond', icon: ICONS.bond, tint: '#5fd38a', on: () => S.tool === 'bond', act: () => selectTool('bond') },
   delete: { l: 'Delete', icon: ICONS.delete, tint: '#ff6b6b', on: () => S.tool === 'delete', act: () => selectTool('delete') },
   zap: { l: 'Zap', icon: ICONS.zap, tint: '#ff9f43', on: () => S.tool === 'zap', act: () => selectTool('zap') },
-  element: { l: () => `${S.cel} \u25BE`, icon: ICONS.element, arg: () => S.cel, tint: () => famCol(S.cel), on: () => S.ptOpen, act: () => { S.ptOpen = !S.ptOpen; ptab.dirty = true; } },
+  element: { l: () => `${S.cel} \u25BE`, icon: ICONS.element, arg: () => S.cel, tint: () => famCol(S.cel), on: () => S.tool === 'add' || S.ptOpen,       // the atom tool: first press = an atom in the hand, again = the periodic table
+    act: () => { if (S.tool !== 'add') selectTool('add'); else S.ptOpen = !S.ptOpen; ptab.dirty = true; } },
   hfill: { l: 'H fill', icon: ICONS.hfill, tint: '#d8dde6', on: () => S.fillH, act: () => { S.fillH = !S.fillH; } },
   cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => S.tool === 'cminus', act: () => selectTool('cminus') },
   cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => S.tool === 'cplus', act: () => selectTool('cplus') },
@@ -860,8 +862,10 @@ const TOOLDEF = {
 };
 const TB_LEVEL = {
   kid: ['hand', 'add', 'zap', 'wand', 'cool', 'warm', 'run', 'camera', 'rebuild', 'recenter', 'walk', 'help'],
-  adult: ['hand', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'cool', 'warm', 'run', 'camera', 'recenter', 'walk', 'together', 'help'],
-  researcher: ['hand', 'tweezers', 'add', 'attach', 'bond', 'delete', 'zap', 'wand', 'element', 'hfill', 'cminus', 'cplus', 'run', 'camera', 'recenter', 'walk', 'together', 'help'],
+  // (Adult / Researcher: the element button is the atom tool - the atom in the hand bonds where it is let go, so Add, Attach and Bond
+  //  are not on the toolbar; keys 2 / 6 / 7 still pick them on the desktop. Kid keeps Add: carbon only, no element button.)
+  adult: ['hand', 'element', 'delete', 'zap', 'wand', 'cool', 'warm', 'run', 'camera', 'recenter', 'walk', 'together', 'help'],
+  researcher: ['hand', 'tweezers', 'element', 'hfill', 'delete', 'zap', 'wand', 'cminus', 'cplus', 'run', 'camera', 'recenter', 'walk', 'together', 'help'],
 };
 const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
@@ -887,7 +891,7 @@ const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['re
 function setLevel(l, force) {
   if (!TB_LEVEL[l] || (l === S.level && !force)) return;
   S.level = l; S.ptOpen = false;
-  if (!TB_LEVEL[l].includes(S.tool)) selectTool(TB_LEVEL[l][0]);
+  if (!TB_LEVEL[l].includes(S.tool) && !(S.tool === 'add' && TB_LEVEL[l].includes('element'))) selectTool(TB_LEVEL[l][0]);      // (Add lives in the element button)
   if (l === 'kid') { S.cel = 'C'; S.addSp = SP.C; S.fillH = false; }
   S.tab = 0; S.plots = l === 'researcher' && window.innerWidth >= 760; dom.plots.style.display = S.plots ? '' : 'none';
   if (S.vr) plotMesh.visible = l === 'researcher';
@@ -1028,7 +1032,7 @@ function drawPtable() {
       const ok = CHEM_ELEMENTS.includes(e);
       const fam = FAMILY[FAM_OF[e] || 'unknown'];
       if (ptab.button(e, { h: 50, size: e === S.cel ? 24 : 20, bg: fam[1], fg: '#15202f', bd: ok ? '#15202f' : fam[1], alpha: ok ? 1 : 0.45, disabled: !ok, active: false }) && ok) {
-        S.cel = e; S.addSp = SP[e]; S.ptOpen = false; if (S.tool !== 'attach' && S.tool !== 'add') selectTool(S.vr ? 'add' : 'attach'); tbar.dirty = true; ui.dirty = true;
+        S.cel = e; S.addSp = SP[e]; S.ptOpen = false; if (S.tool !== 'attach' && S.tool !== 'add') selectTool('add'); tbar.dirty = true; ui.dirty = true;
       }
     }
   }
@@ -1132,7 +1136,7 @@ function toolHint(t = S.tool) {
   if (t === 'cool' || t === 'warm') return t === 'warm' ? 'WARMER - raise the target temperature: the atoms shake harder' : 'COLDER - lower the target temperature: the atoms calm down';
   if (t === 'run') return 'RUN / PAUSE - let time flow or freeze the atoms (space bar)';
   if (t === 'rebuild') return 'START AGAIN - rebuild the current structure from scratch';
-  if (t === 'element') return 'ELEMENT - choose which element Attach and Add use';
+  if (t === 'element') return S.tool === 'add' ? `ATOM ${S.cel} - press again to choose another element` : `ATOM - a ${S.cel} atom in your hand: let go near a structure and it bonds, elsewhere it floats`;
   if (t === 'hfill') return 'H FILL - fill free valences with hydrogen when attaching';
   if (t === 'tweezers') return `Tool: TWEEZERS - hold ${trig} on an atom and drag`;
   return t === 'add' ? `Tool: ADD ATOM - ${trig} on or next to the structure` : `Tool: DELETE - ${trig} an atom to remove it`;
@@ -2305,16 +2309,21 @@ function spinOff(mask, frac = 1) {
   }
   return Math.hypot(wx, wy, wz);                                  // the angular velocity it had (rad per time unit)
 }
-function stopSpin(announce) {                                     // Stop spin: every connected piece stops turning
-  if (collab.guest) { toast('You are watching. Ask for control: Settings → Together → Request control'); return; }
-  if (!isMat() || !md.N) { toast('Build a material first'); return; }
-  if (mat.periodicAny) { toast('A periodic sheet cannot spin - build an open flake'); return; }
+function zeroSpin() {                                             // every connected piece without rigid rotation; returns how many were turning
+  if (!isMat() || !md.N || mat.periodicAny) return 0;
   const N = md.N, done = new Uint8Array(N); let pieces = 0;
   for (let i = 0; i < N; i++) {
     if (done[i]) continue;
     const fm = mat.fragmentMask(i); for (let k = 0; k < N; k++) if (fm.mask[k]) done[k] = 1;
     if (fm.n > 1 && spinOff(fm.mask, 1) > 1e-6) pieces++;
   }
+  return pieces;
+}
+function stopSpin(announce) {                                     // Stop spin: every connected piece stops turning
+  if (collab.guest) { toast('You are watching. Ask for control: Settings → Together → Request control'); return; }
+  if (!isMat() || !md.N) { toast('Build a material first'); return; }
+  if (mat.periodicAny) { toast('A periodic sheet cannot spin - build an open flake'); return; }
+  const pieces = zeroSpin();
   if (announce) toast(!pieces ? 'Nothing was spinning' : pieces === 1 ? 'Spinning stopped (1 piece)' : `Spinning stopped (${pieces} pieces)`, 2500);
 }
 const _grpMask = { mask: null };

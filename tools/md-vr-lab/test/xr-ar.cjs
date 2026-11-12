@@ -44,6 +44,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
   await wait(1500);
   const ev = (f, ...a) => p.evaluate(f, ...a);
+  await ev(() => { const L = window.__mdlab; L.S.substrate = 'none'; L.applySubstrate(); });     // (timed checks: headless software rendering is slow with the substrate drawn)
   const press = async (hand, id, ms = 250) => { await ev((h, b) => window.__dev.controllers[h].updateButtonValue(b, 1), hand, id); await wait(ms); await ev((h, b) => window.__dev.controllers[h].updateButtonValue(b, 0), hand, id); await wait(ms); };
   // where things are, in the table's own frame: x along its width, z across (+z = the user's side), y above the floor
   const state = () => ev((T) => {

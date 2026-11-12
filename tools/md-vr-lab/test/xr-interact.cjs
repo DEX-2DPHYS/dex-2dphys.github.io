@@ -31,6 +31,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
   await wait(1500);
   const ev = (f, ...a) => p.evaluate(f, ...a);
+  await ev(() => { const L = window.__mdlab; L.S.substrate = 'none'; L.applySubstrate(); });     // (timed checks: headless software rendering is slow with the substrate drawn)
   const press = async (hand, id, ms = 250) => { await ev((h, b) => window.__dev.controllers[h].updateButtonValue(b, 1), hand, id); await wait(ms); await ev((h, b) => window.__dev.controllers[h].updateButtonValue(b, 0), hand, id); await wait(ms); };
   const btn = (hand, id, v) => ev((h, b, x) => window.__dev.controllers[h].updateButtonValue(b, x), hand, id, v);
   // aim a controller from `from` at the world point `to` (both [x, y, z]), or along a direction

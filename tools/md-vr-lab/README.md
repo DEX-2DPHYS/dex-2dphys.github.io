@@ -62,7 +62,7 @@ delay and carries atoms on with their velocities when a packet is late.
 
 ## The table
 
-The default is an empty table (no substrate). A substrate, when you choose one, always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
+The default is a graphene substrate (Settings: None / Graphene / MoS2 / SiO2). A substrate always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
 replacing the structure or moving the experiment keeps it level), with the structure on it. The table is solid: atoms that reach the worktop
 bounce off it (specular reflection, the normal velocity flips), so an unsupported structure pushed down onto the table does not pass through.
 The worktop is a floor for **every** atom over it - the main structure, loose pieces, single atoms, a piece held by the Hand or carried with the
@@ -108,6 +108,11 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
   model: `chem.attach` on that side, H fill as set; reactive / MoS2: one bond length from it, on the side it was held) - or, with no bond
   line, it stays floating where it was let go, at rest. A floating atom is picked up with the Hand and bonds where it is brought (the
   potential, or `formClose`). This is Attach, so the VR toolbar has no Attach button (the desktop keeps it); the periodic table selects Add.
+- **The element button is the atom tool** (Adult, Researcher): first press = an atom of that element in the hand (Add), press again = the
+  periodic table. Add, Attach and Bond are no longer on these toolbars - the atom in the hand bonds where it is let go, and two atoms
+  brought close bond by themselves (desktop keys 2 / 6 / 7 still pick Add / Attach / Bond). Kid keeps its Add button (carbon only).
+- **No starting spin**: a freshly built or added free piece has its rigid rotation removed (random thermal velocities carry some
+  angular momentum, which made flakes tumble slowly); its heat is unchanged.
   `test/xr-hand.cjs` covers blocks and the atom in the hand.
 
 ## VR reset and floor level
@@ -259,7 +264,7 @@ starts from nothing.
 - **Carry a piece (grip; desktop: Shift + drag, wheel = nearer/farther)**: grip on an atom, with any tool, takes exactly the connected piece (bonds, or bond-length contacts, so each graphite layer is its own piece). It follows the hand in position and rotation (Mat.carry: each atom on a soft damped spring to its place in the hand) and still feels everything else, so graphene laid on hBN is held there by van der Waals. Grip in empty space still moves the experiment; both grips scale it. The momentum correction is off while carrying (it would push the rest away).
 - **Camera** (tool): VR = a camera on the controller with a live preview, trigger = photo; desktop = click in the view. 1920 x 1080 PNG (1280 x 720 at Low quality), rendered separately without lasers and pointer dots, downloaded as 2DPHYS-workbench_<date>.png and shown as a print on the table.
 - **Building blocks** (SYSTEMS: Replace system / Add as a block; Adult: Replace / Add next to it): the block is built separately (open) and placed 6 A beside the structure (Mat.mergeFrom, its own group). Carbon + carbon stays reactive; other elements switch to chemistry; MoS2 only with MoS2; no blocks on periodic sheets.
-- **Substrate** (None / Graphene / MoS2 / SiO2, src/substrate.js): fixed atoms under the structure, about the table circle in size and at least 10 A beyond the structure; not in the MD, only 12-6 van der Waals on the moving atoms with UFF parameters (binding per flake atom: graphene 72, MoS2 42, SiO2 23 meV - UFF binds graphene-graphene about 40 % stronger than experiment). test/substrate.test.mjs.
+- **Substrate** (None / Graphene / MoS2 / SiO2, src/substrate.js): fixed atoms under the structure, about the table circle in size and at least 10 A beyond the structure; not in the MD, only 12-6 van der Waals on the moving atoms: carbon on the graphene substrate with sigma 3.40 A and the depth set to the bilayer-graphene interlayer binding (45 meV per flake atom at 3.40 A; graphite exfoliation ~50 meV/atom - UFF had 72, about 1.6 times too strong), other pairs UFF (MoS2 42, SiO2 23 meV per flake carbon). For graphene and MoS2 the field is a precomputed lattice table (one cell, 0.1 A in plane, 0.08 A in height, looked up trilinearly; within 3 % of the direct sum in force, 2 meV/atom in energy, at 2.8-6.7 A) - a force call with a substrate under a 238-atom flake went from 2.3 to 0.3 ms; atoms within 2.6 A of the surface or near the disc edge, and SiO2, use the direct sum. test/substrate.test.mjs.
 - **Pointer highlight**: the atom under the laser or the mouse is drawn 35 % bigger and glows cyan-white (HOVER).
 - **Hand** (default tool, every level): trigger / mouse on an atom: a loose piece (at most half the atoms) moves whole; an atom of a big piece is pulled hard (HAND_PULL 20 eV/A^2, cap 40 eV/A) while every other atom of its piece is held by a soft spring to where it was (anchorFor), so it breaks out instead of dragging a floating flake along. Bring it close to a sheet, an edge or another atom and it bonds (reactive model: by the potential; chemistry model: formClose). The grip carries a whole piece (see Carry a piece). The glove makes a fist while holding. Pulling an edge atom can unzip a carbon chain first: real physics. test/hand.test.mjs.
 - **Attach does not freeze**: the local settling of a new atom runs in a few ms per frame (chem.relaxPending) instead of 120 force calls at once.

@@ -32,6 +32,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await p.goto(`http://127.0.0.1:${srv.address().port}/`, { waitUntil: 'load' });
   await wait(1500);
   const ev = (f, ...a) => p.evaluate(f, ...a);
+  ok('the default experiment lies on a graphene substrate', await ev(() => { const L = window.__mdlab; return L.S.substrate === 'graphene' && !!L.mat.sub && L.mat.sub.kind === 'graphene' && L.mat.sub.n > 100; }));
+  await ev(() => { const L = window.__mdlab; L.S.substrate = 'none'; L.applySubstrate(); });     // (timed checks: headless software rendering is slow with the substrate drawn)
   const btn = (hand, id, v) => ev((h, b, x) => window.__dev.controllers[h].updateButtonValue(b, x), hand, id, v);
   const press = async (hand, id, ms = 250) => { await btn(hand, id, 1); await wait(ms); await btn(hand, id, 0); await wait(ms); };
   // world position of atom i, and of the centre of a set of atoms
@@ -57,7 +59,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let st = await ev(() => { const L = window.__mdlab, md = L.md; const gs = new Set(); for (let i = 0; i < md.N; i++) gs.add(L.mat.grp[i]); return { N: md.N, objects: L.mat.objects, groups: [...gs], gB: L.mat.grp[md.N - 1], g0: L.mat.grp[0] }; });
   ok('a block added as a separate object (bigger than the flake)', st.objects && st.groups.length === 2 && st.gB !== st.g0 && st.N - before > before, JSON.stringify({ flake: before, block: st.N - before, groups: st.groups }));
   const B0 = st.N - 1, nBlock = st.N - before;
-  for (let k = 0; k < 8; k++) { await wait(500); if (process.env.DBG) console.log(await ev(() => { const L = window.__mdlab, md = L.md, m = L.mat; let g = 99; for (let i = 0; i < md.N; i++) if (m.grp[i] === m.grp[0]) for (let j = 0; j < md.N; j++) if (m.grp[j] !== m.grp[0]) g = Math.min(g, Math.hypot(md.x[i] - md.x[j], md.y[i] - md.y[j], md.z[i] - md.z[j])); return JSON.stringify({ gap: +g.toFixed(2), join: m.join ? [...m.join] : null, carry: !!L.carry, hold: L.hold.kind }); })); }
+  await wait(4000);
   st = await ev(() => { const L = window.__mdlab; return { fused: L.mat.fused || 0, g: [L.mat.grp[0], L.mat.grp[L.md.N - 1]], piece: L.mat.fragmentMask(L.md.N - 1).n }; });
   ok('left alone for 4 s, the block stays separate', st.g[0] !== st.g[1] && st.piece === nBlock, JSON.stringify(st));
   ok('the Hand moves the block whole, though it has more than half the atoms', await ev((i) => { const L = window.__mdlab; return L.movesWhole(i, L.mat.fragmentMask(i)); }, B0));
@@ -76,7 +78,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const fsum = await ev(() => window.__mdlab.mat.fused || 0);
   const tgt = await comW(gF);
   await ev((T, B, F) => { const c = window.__dev.controllers.right; c.position.set(c.position.x + (T[0] - B[0]) * 0.75, c.position.y - 0.08, c.position.z + (T[2] - B[2]) * 0.75); }, tgt, blk1, fl1);
-  await wait(4000);
+  for (let k = 0; k < 20 && (await ev(() => window.__mdlab.mat.fused || 0)) <= fsum; k++) { await wait(500); if (process.env.DBG) console.log(await ev(() => { const L = window.__mdlab, md = L.md, m = L.mat; let g = 99; for (let i = 0; i < md.N; i++) if (m.grp[i] === m.grp[0]) for (let j = 0; j < md.N; j++) if (m.grp[j] !== m.grp[0]) g = Math.min(g, Math.hypot(md.x[i] - md.x[j], md.y[i] - md.y[j], md.z[i] - md.z[j])); return JSON.stringify({ gap: +g.toFixed(2), join: m.join ? [...m.join] : null, carry: !!L.carry, hold: L.hold.kind }); })); }
   st = await ev(() => { const L = window.__mdlab; return { fused: L.mat.fused || 0, g: [L.mat.grp[0], L.mat.grp[L.md.N - 1]] }; });
   ok('held and pushed onto the flake, the block joins it (one object)', st.fused > fsum && st.g[0] === st.g[1], JSON.stringify(st));
   await btn('right', 'trigger', 0); await wait(300);
@@ -121,7 +123,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await btn('right', 'trigger', 0); await wait(1500);
   const end = await ev((i) => { const L = window.__mdlab, md = L.md; let nb = 99; for (let k = 0; k < md.N; k++) if (k !== i) nb = Math.min(nb, Math.hypot(md.x[k] - md.x[i], md.y[k] - md.y[i], md.z[k] - md.z[i])); return { nb, piece: L.mat.fragmentMask(i).n, N: md.N }; }, fl.i);
   ok('the Hand brings the floating atom to the edge: it bonds there', held.piece > 10 && end.nb < 1.75 && end.piece > 10, `nearest atom ${end.nb.toFixed(2)} A, its piece ${end.piece} of ${end.N} atoms`);
-  ok('the VR toolbar has no Attach (Add does it)', await ev(() => !window.__mdlab.tbList().includes('attach') && window.__mdlab.tbList().includes('add')));
+  ok('the VR toolbar: the element button is the atom tool; no Add, Attach or Bond', await ev(() => { const l = window.__mdlab.tbList(); return l.includes('element') && !l.includes('add') && !l.includes('attach') && !l.includes('bond'); }));
 
   await ev(() => window.__mdlab.renderer.xr.getSession().end()); await wait(600);
   const bad = errs.filter((e) => !/Unexpected token '<'|favicon|Failed to load resource/i.test(e));
