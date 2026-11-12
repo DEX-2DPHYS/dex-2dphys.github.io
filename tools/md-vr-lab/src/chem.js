@@ -73,7 +73,7 @@ export class Chem {
   // an OPEN atom has a real dangling bond: no bonds at all, or two or more missing (a bare edge carbon, a lone C or O).
   // Graphene carbons (3 of 4) are not open - their fourth valence is the pi bond - so stacked layers never fuse.
   open(i) { return !this.m.fixed[i] && (this.deg[i] === 0 || this.free(i) >= 2); }
-  reactivePair(i, j) { const f = this.m.fixed; return !f[i] && !f[j] && ((this.open(i) && this.free(j) > 0) || (this.open(j) && this.free(i) > 0)); }
+  reactivePair(i, j) { const f = this.m.fixed; if (this.m.objects && this.m.sepPair(i, j)) return false; return !f[i] && !f[j] && ((this.open(i) && this.free(j) > 0) || (this.open(j) && this.free(i) > 0)); }
   bonded(i, j) { for (const [a, b] of this.bonds) if ((a === i && b === j) || (a === j && b === i)) return true; return false; }
   neighbours(i) { const r = []; for (const [a, b] of this.bonds) { if (a === i) r.push(b); else if (b === i) r.push(a); } return r; }
   clear() { this.bonds = []; this.dirty = true; }
@@ -170,7 +170,7 @@ export class Chem {
 
   // the materials engine asks for its lists here: covalent CSR (for display / coordination) and our non-bonded pairs
   syncLists() {
-    const m = this.m, N = m.N; if (this.dirty || !this.nb || this.nb.length !== N) this.retype();
+    const m = this.m, N = m.N; if (m.objects) m.countGroups(); if (this.dirty || !this.nb || this.nb.length !== N) this.retype();
     const deg = m.start; deg.fill(0, 0, N + 1); let nb = 0;
     if (m.bi.length < this.bonds.length) { m.bi = new Int32Array(this.bonds.length * 2); m.bj = new Int32Array(this.bonds.length * 2); }
     for (const [a, b] of this.bonds) { m.bi[nb] = a; m.bj[nb] = b; nb++; deg[a + 1]++; deg[b + 1]++; }
@@ -294,12 +294,12 @@ export class Chem {
   // new bonds: an open atom bonds to a neighbour with a free valence once they are closer than 1.3 x the sum of
   // the covalent radii (bonds break at 1.6 rest lengths, so a fresh bond does not flicker). Returns how many formed.
   formClose() {
-    const m = this.m, N = m.N; if (this.dirty || !this.nb || this.nb.length !== N) this.retype();
+    const m = this.m, N = m.N; if (m.objects) m.countGroups(); if (this.dirty || !this.nb || this.nb.length !== N) this.retype();
     const opens = []; for (let i = 0; i < N; i++) if (this.open(i)) opens.push(i);
     if (!opens.length) return 0;
     const cand = [], rad = (i) => T[typeFor(this.sym(i), 1)][0];
     for (const i of opens) for (let j = 0; j < N; j++) {
-      if (j === i || this.free(j) < 1 || m.fixed[j] || (this.open(j) && j < i)) continue;
+      if (j === i || this.free(j) < 1 || m.fixed[j] || (this.open(j) && j < i) || (m.objects && m.sepPair(i, j))) continue;     // (two objects bond only when one is held)
       const lim = 1.3 * (rad(i) + rad(j));
       const dx = m.mi(m.x[j] - m.x[i], m.Lx, m.per[0]); if (dx > lim || dx < -lim) continue;
       const dy = m.mi(m.y[j] - m.y[i], m.Ly, m.per[1]); if (dy > lim || dy < -lim) continue;

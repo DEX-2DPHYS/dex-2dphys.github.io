@@ -66,6 +66,7 @@ export class Mat {
     this.mass = f(); this.sp = new Uint8Array(maxN); this.grp = new Int16Array(maxN); this.z_ = new Float32Array(maxN);
     this.N = 0; this.Lx = 20; this.Ly = 20; this.Lz = 20; this.per = [false, false, false];
     this.model = 'none'; this.tp = TERSOFF.graphene; this.vdw = null; this.charges = false;
+    this.objects = false; this.join = null; this.gsz = new Int32Array(32768);   // objects: see sepPair
     this.dt = 0.05; this.thermostat = true; this.Ttarget = 300; this.tauT = 40;     // tau in TU (~0.4 ps)
     this.time = 0; this.step = 0; this.PE = 0; this.KE = 0; this.markTime = 0; this.exploded = false;
     this.ext = { i: -1, x: 0, y: 0, z: 0, k: 4, mode: 'atom' }; this.extForce = 0; this.extForceEV = 0;
@@ -83,7 +84,34 @@ export class Mat {
   get density() { return this.N; }
   get periodicAny() { return this.per[0] || this.per[1] || this.per[2]; }
 
-  clear() { this.sub = null; this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
+  clear() { this.objects = false; this.join = null; this.sub = null; this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
+
+  /* Objects. A building block (mergeFrom) keeps its own group; from then on the groups are OBJECTS: two atoms of different objects
+     (each of at least 4 atoms) never bond on their own - they feel each other through van der Waals only, so a block that drifts
+     against the structure stays a separate thing you can pick up. They fuse only while one of them is held (join: the groups the
+     user holds with the Hand, the grip or the wand) and pushed on: the first bond between them makes them one object (fuseCheck).
+     Single atoms and small bits (< 4 atoms) are not objects: they bond to anything and join the object they bond to. */
+  countGroups() { const s = this.gsz, N = this.N; for (let i = 0; i < N; i++) s[this.grp[i]] = 0; for (let i = 0; i < N; i++) s[this.grp[i]]++; }
+  sepPair(i, j, ignoreJoin = false) {
+    if (!this.objects) return false; const gi = this.grp[i], gj = this.grp[j]; if (gi === gj) return false;
+    if (this.gsz[gi] < 4 || this.gsz[gj] < 4) return false;
+    return ignoreJoin || !(this.join && (this.join.has(gi) || this.join.has(gj)));
+  }
+  fuse(ga, gb) {                                                  // two objects become one (the bigger keeps its label)
+    if (ga === gb) return; this.countGroups(); const [keep, drop] = this.gsz[ga] >= this.gsz[gb] ? [ga, gb] : [gb, ga];
+    for (let i = 0; i < this.N; i++) if (this.grp[i] === drop) this.grp[i] = keep;
+    if (this.join && this.join.has(drop)) this.join.add(keep); this.countGroups(); this.listDirty = true; this.fused = (this.fused || 0) + 1;
+  }
+  fuseCheck() {                                                  // bonds that now link two groups merge them
+    if (!this.objects) return;
+    if (this.model === 'uff') { for (const [a, b] of this.chem.bonds) if (this.grp[a] !== this.grp[b]) this.fuse(this.grp[a], this.grp[b]); return; }
+    const lim = this.model === 'sw' ? 3.0 : 2.15, l2 = lim * lim;      // (inside the potential's reach: touching while held joins; the potential decides the bonds)
+    for (let p = 0; p < this.nb; p++) {
+      const i = this.bi[p], j = this.bj[p]; if (this.grp[i] === this.grp[j]) continue;
+      const dx = this.mi(this.x[i] - this.x[j], this.Lx, this.per[0]), dy = this.mi(this.y[i] - this.y[j], this.Ly, this.per[1]), dz = this.mi(this.z[i] - this.z[j], this.Lz, this.per[2]);
+      if (dx * dx + dy * dy + dz * dz < l2) this.fuse(this.grp[i], this.grp[j]);
+    }
+  }
 
   addRaw(sp, x, y, z, grp) {
     const i = this.N++; this.sp[i] = sp; this.mass[i] = SPECIES[sp].mass; this.grp[i] = grp; this.fixed[i] = 0;
@@ -269,10 +297,11 @@ export class Mat {
 
   buildLists() {
     const N = this.N, pe = this.per, Lx = this.Lx, Ly = this.Ly, Lz = this.Lz;
+    if (this.objects) this.countGroups();
     if (this.model === 'uff') {                                   // chemistry mode: bonds come from the topology, not from distances
       this.chem.syncLists(); this.listN = N; this.xr.set(this.x.subarray(0, N)); this.yr.set(this.y.subarray(0, N)); this.zr.set(this.z.subarray(0, N)); this.listDirty = false; return;
     }
-    const rc = this.rcov() + this.skinC, rc2 = rc * rc, rv = this.rvdw() + this.skinV, rv2 = rv * rv, useV = !!this.vdw;
+    const rc = this.rcov() + this.skinC, rc2 = rc * rc, rv = this.rvdw() + this.skinV, rv2 = rv * rv, useV = !!this.vdw, obj = this.objects;
     let nb = 0, nv = 0; const deg = this.start; deg.fill(0, 0, N + 1);
     const pushB = (i, j) => { if (nb >= this.bi.length) { const a = new Int32Array(nb * 2); a.set(this.bi); this.bi = a; const b = new Int32Array(nb * 2); b.set(this.bj); this.bj = b; } this.bi[nb] = i; this.bj[nb] = j; nb++; deg[i + 1]++; deg[j + 1]++; };
     const pushV = (i, j) => { if (nv >= this.vi.length) { const a = new Int32Array(nv * 2); a.set(this.vi); this.vi = a; const b = new Int32Array(nv * 2); b.set(this.vj); this.vj = b; } this.vi[nv] = i; this.vj[nv] = j; nv++; };
@@ -280,6 +309,11 @@ export class Mat {
       let dx = this.x[i] - this.x[j], dy = this.y[i] - this.y[j], dz = this.z[i] - this.z[j];
       if (pe[0]) dx -= Lx * Math.round(dx / Lx); if (pe[1]) dy -= Ly * Math.round(dy / Ly); if (pe[2]) dz -= Lz * Math.round(dz / Lz);
       const r2 = dx * dx + dy * dy + dz * dz;
+      if (obj && this.grp[i] !== this.grp[j] && this.gsz[this.grp[i]] >= 4 && this.gsz[this.grp[j]] >= 4) {      // two objects
+        if (!this.sepPair(i, j)) { if (r2 < rc2) pushB(i, j); }        // one of them held: they may bond
+        else if (useV && r2 < rv2) pushV(i, j);                       // otherwise they only feel each other
+        continue;
+      }
       if (r2 < rc2) pushB(i, j);
       if (useV && r2 < rv2 && this.grp[i] !== this.grp[j]) pushV(i, j);
     }
@@ -525,7 +559,8 @@ export class Mat {
       this.move(i, dt * vx[i], dt * vy[i], dt * vz[i]);
     }
     this.computeForces();
-    if (this.model === 'uff' && this.step % 5 === 0 && (this.chem.breakStretched() + this.chem.formClose())) this.computeForces();     // overstretched bonds snap, radicals that meet bond
+    if (this.model === 'uff' && this.step % 5 === 0 && (this.chem.breakStretched() + this.chem.formClose())) this.computeForces();
+    if (this.objects && this.step % 10 === 0) this.fuseCheck();     // overstretched bonds snap, radicals that meet bond
     for (let i = 0; i < N; i++) { if (this.fixed[i]) continue; const im = hdt / m[i]; vx[i] += im * fx[i]; vy[i] += im * fy[i]; vz[i] += im * fz[i]; }
     let KE = this.kinetic();
     if (this.thermostat && KE > 0) {
@@ -557,7 +592,10 @@ export class Mat {
     const l = --this.N; this.listDirty = true;
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_', 'fixed']) this[k][i] = this[k][l]; }
     if (this.ext.mask) { this.ext.mask[i] = this.ext.mask[l]; this.ext.mask[l] = 0; }
-    if (this.carry) this.carry = null;                               // indices move: let go of a carried piece
+    if (this.carry) {                                               // a carried piece keeps being carried: its slot moves with the atom
+      const C = this.carry; C.mask[i] = C.mask[l]; C.mask[l] = 0; for (let c = 0; c < 3; c++) C.p[3 * i + c] = C.p[3 * l + c];
+      if (this.onRemove) this.onRemove(i, l);
+    }
     if (this.ext.anchor) { const A = this.ext.anchor, am = A.mask; am[i] = am[l]; am[l] = 0; if (A.p) for (let c = 0; c < 3; c++) A.p[3 * i + c] = A.p[3 * l + c]; }
     if (this.ext.i === i) this.ext.i = -1; else if (this.ext.i === l) this.ext.i = i;
     if (this.model === 'uff') this.chem.removeAtom(i, l);
@@ -569,6 +607,7 @@ export class Mat {
   mergeFrom(o, dx, dy, dz) {
     if (this.N + o.N > this.maxN) throw new Error(`too many atoms (${this.N + o.N}, at most ${this.maxN})`);
     const off = this.N; let G = 0; for (let i = 0; i < this.N; i++) G = Math.max(G, this.grp[i] + 1);
+    this.objects = true; if (!this.vdw) this.vdw = this.model === 'tersoff' ? VDW.graphite : this.model === 'sw' ? VDW.mos2 : null;
     for (let i = 0; i < o.N; i++) { const k = this.addRaw(o.sp[i], o.x[i] + dx, o.y[i] + dy, o.z[i] + dz, o.grp[i] + G); this.vx[k] = o.vx[i]; this.vy[k] = o.vy[i]; this.vz[k] = o.vz[i]; this.fixed[k] = o.fixed[i]; }
     if (this.model === 'uff') { for (const [a, b] of o.chem.bonds) this.chem.bonds.push([a + off, b + off]); this.chem.dirty = true; this.chem.retype(); }
     this.listDirty = true; this.mark(); this.resetRDF(); this.computeForces(); return off;
@@ -673,7 +712,7 @@ export class Mat {
     return { v: 1, name: this.name, model: this.model, tp: this.tp === TERSOFF.diamond ? 'diamond' : 'graphene', vdw: vdwKey, charges: this.charges, per: this.per.slice(), L: [this.Lx, this.Ly, this.Lz], sheet: this.sheet,
       sp: Array.from(this.sp.subarray(0, N)), grp: Array.from(this.grp.subarray(0, N)), fixed: Array.from(this.fixed.subarray(0, N)),
       x: r4(this.x), y: r4(this.y), z: r4(this.z), vx: r4(this.vx), vy: r4(this.vy), vz: r4(this.vz), dt: this.dt,
-      chem: this.model === 'uff' ? this.chem.bonds.map((b) => b.slice()) : null, ff: this.model === 'ff' ? { bonds: this.bonds, angles: this.angles, oops: this.oops } : null };
+      objects: this.objects, chem: this.model === 'uff' ? this.chem.bonds.map((b) => b.slice()) : null, ff: this.model === 'ff' ? { bonds: this.bonds, angles: this.angles, oops: this.oops } : null };
   }
   restore(d) {
     this.clear(); this.model = d.model; this.tp = d.tp === 'diamond' ? TERSOFF.diamond : TERSOFF.graphene; this.vdw = d.vdw ? VDW[d.vdw] : null; this.charges = !!d.charges;
@@ -681,7 +720,7 @@ export class Mat {
     for (let i = 0; i < d.sp.length; i++) { this.addRaw(d.sp[i], d.x[i], d.y[i], d.z[i], d.grp[i]); this.fixed[i] = d.fixed ? d.fixed[i] : 0; this.vx[i] = d.vx[i]; this.vy[i] = d.vy[i]; this.vz[i] = d.vz[i]; }
     if (d.ff) { this.bonds = d.ff.bonds; this.angles = d.ff.angles; this.oops = d.ff.oops; }
     this.chem.clear(); if (d.chem) { this.chem.bonds = d.chem.map((b) => b.slice()); this.chem.dirty = true; this.chem.retype(); }
-    this.dt = d.dt; this.listDirty = true; this.computeForces(); this.KE = this.kinetic(); this.mark(); this.resetRDF();
+    this.objects = !!d.objects; this.dt = d.dt; this.listDirty = true; this.computeForces(); this.KE = this.kinetic(); this.mark(); this.resetRDF();
   }
   buildEmpty(span = 30) {
     this.clear(); this.model = 'uff'; this.vdw = null; this.charges = false; this.per = [false, false, false];
@@ -690,6 +729,7 @@ export class Mat {
   // the connected piece an atom belongs to: chemical bonds in the chemistry model, otherwise bond-length contacts
   // (graphite layers 3.35 A apart stay separate pieces). Returns a mask over the atoms and their count.
   fragmentMask(i0) {
+    if (this.objects) this.countGroups();
     const N = this.N, mask = new Uint8Array(this.x.length), st = [i0]; mask[i0] = 1; let n = 1;
     const adj = this.model === 'uff' && this.chem ? (() => { const a = Array.from({ length: N }, () => []); for (const [p, q] of this.chem.bonds) if (p < N && q < N) { a[p].push(q); a[q].push(p); } return a; })() : null;
     while (st.length) {
@@ -697,7 +737,7 @@ export class Mat {
       if (adj) { for (const j of adj[i]) if (!mask[j]) { mask[j] = 1; n++; st.push(j); } continue; }
       const ri = SPECIES[this.sp[i]].bond;
       for (let j = 0; j < N; j++) {
-        if (mask[j]) continue; const c = Math.max(ri, SPECIES[this.sp[j]].bond);
+        if (mask[j] || (this.objects && this.sepPair(i, j, true))) continue; const c = Math.max(ri, SPECIES[this.sp[j]].bond);
         const dx = this.mi(this.x[j] - this.x[i], this.Lx, this.per[0]); if (dx > c || dx < -c) continue;
         const dy = this.mi(this.y[j] - this.y[i], this.Ly, this.per[1]); if (dy > c || dy < -c) continue;
         const dz = this.mi(this.z[j] - this.z[i], this.Lz, this.per[2]);

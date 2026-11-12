@@ -412,8 +412,8 @@ function buildInto(m, r) {
   else m.buildNanodiamond(r.rad, T0);
   if (r.chem && m.model !== 'uff') m.toChem(T0);
 }
-// Load a system as a BUILDING BLOCK: it is built on its own and placed 6 A beside the current structure, so nothing bonds
-// until you push the two together with the Hand. Carbon + carbon keeps the reactive model; anything else switches both
+// Load a system as a BUILDING BLOCK: it is built on its own and placed 6 A beside the current structure as a separate OBJECT
+// (Mat.objects): it never bonds on its own, only when you hold one of them and push it onto the other. Carbon + carbon keeps the reactive model; anything else switches both
 // to the chemistry model. MoS2 combines only with MoS2 (its potential has no partners). A periodic sheet cannot take a block.
 function addBlock() {
   if (!isMat() || !mat.N) { loadSystem(); return; }
@@ -435,7 +435,7 @@ function addBlock() {
   try { mat.mergeFrom(o, d[0], d[1], d[2]); } catch (e) { toast(String(e.message || e)); return; }
   rebox(); mat.name = `${mat.name.replace(/ \u00B7 chemistry$/, '')} + ${o.name}`;
   applySubstrate(); resetHistory(); ui.dirty = true;
-  toast(`Added ${o.name} (${o.N} atoms) as a block. Take the Hand and push it onto the structure to join them.`, 6000);
+  toast(`Added ${o.name} (${o.N} atoms) as a separate object. Pick it up with the Hand and push it onto the structure to join them.`, 6000);
 }
 // keep every atom inside the (open) box after something was added: shift and grow the box where needed
 function rebox() {
@@ -870,7 +870,7 @@ const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIc
 function tbList() {
   if (S.tut >= 0) return TB_TUT;
   const l = TB_LEVEL[S.level] || TB_LEVEL.researcher;
-  return S.vr ? l.map((k) => (k === 'recenter' ? 'stopspin' : k)) : l.flatMap((k) => (k === 'recenter' ? ['stopspin', 'recenter'] : [k]));
+  return S.vr ? l.filter((k) => k !== 'attach').map((k) => (k === 'recenter' ? 'stopspin' : k)) : l.flatMap((k) => (k === 'recenter' ? ['stopspin', 'recenter'] : [k]));
 }
 function drawToolbar() {
   const tut = S.tut >= 0, list = tbList(), kid = S.level === 'kid' && !tut, hl = tut ? TUT_STEPS[S.tut].tool : null;
@@ -1028,7 +1028,7 @@ function drawPtable() {
       const ok = CHEM_ELEMENTS.includes(e);
       const fam = FAMILY[FAM_OF[e] || 'unknown'];
       if (ptab.button(e, { h: 50, size: e === S.cel ? 24 : 20, bg: fam[1], fg: '#15202f', bd: ok ? '#15202f' : fam[1], alpha: ok ? 1 : 0.45, disabled: !ok, active: false }) && ok) {
-        S.cel = e; S.addSp = SP[e]; S.ptOpen = false; if (S.tool !== 'attach' && S.tool !== 'add') selectTool('attach'); tbar.dirty = true; ui.dirty = true;
+        S.cel = e; S.addSp = SP[e]; S.ptOpen = false; if (S.tool !== 'attach' && S.tool !== 'add') selectTool(S.vr ? 'add' : 'attach'); tbar.dirty = true; ui.dirty = true;
       }
     }
   }
@@ -1585,16 +1585,22 @@ function toolDown(src) {
   }
   if (S.tool === 'tweezers' || S.tool === 'hand') {
     const p = pickAtom(o, d); if (!p) return false;
-    if (S.tool === 'hand') { grabAt(src, o, d, p, 'hand'); pulse(src, 0.5, 40); return true; }
+    if (S.tool === 'hand') {
+      // a loose piece or a separate object is picked up: it follows the hand (moved and turned, like the grip), at once - not dragged by
+      // its centre of mass, which follows slowly. The main structure: the atom is pulled (out of it, if you pull hard).
+      if (isMat() && !carry && md.model !== 'ff') { const fr = mat.fragmentMask(p.i); if (movesWhole(p.i, fr)) { startCarry(src, p.i, true); hold.src = src; hold.kind = 'carry'; tutEvent('grab'); pulse(src, 0.5, 40); return true; } }
+      grabAt(src, o, d, p, 'hand'); pulse(src, 0.5, 40); return true;
+    }
     // the spring pulls a reference point (the atom, or the centre of mass of its layer / molecule) so nothing jumps on grab
     const w0 = o.clone().addScaledVector(d, p.t * p.s), r0 = toLocal(w0, d).o;
     let frag = isMat() && S.grab === 'frag' ? mat.fragmentMask(p.i) : null; const grp = isMat() && S.grab === 'group';
-    if (frag && (frag.n < 2 || frag.n > md.N / 2)) frag = null;   // a lone atom, or the main structure: pull the atom itself
+    if (frag && !movesWhole(p.i, frag)) frag = null;   // a lone atom, or the main structure: pull the atom itself
     const ref = frag ? mat.maskCOM(p.i, frag.mask) : grp ? mat.groupCOM(p.i) : [md.x[p.i], md.y[p.i], md.z[p.i]];
     if (isMat()) md.ext.mask = frag ? frag.mask : null;
     hold.src = src; hold.kind = 'tw'; hold.grab = { i: p.i, dist: p.t * p.s, off: [ref[0] - r0.x, ref[1] - r0.y, ref[2] - r0.z] };
     md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom'; pulse(src, 0.5, 40); return true;
   }
+  if (S.tool === 'add' && src !== 'mouse' && S.vr && isMat() && addFromHand(src)) return true;          // VR: let go of the atom in the hand
   if (S.tool === 'add' || S.tool === 'delete') {
     hold.src = src; hold.kind = S.tool === 'add' ? 'add' : 'del'; hold.next = now() + 380;
     if (S.tool === 'add' ? doAdd(src, o, d) : doDel(src, o, d)) return true;
@@ -1634,6 +1640,27 @@ function doDel(src, o, d) {
   const p = pickAtom(o, d); if (!p) return false;
   removeAtomAt(p.i); pulse(src, 0.4, 30); tutEvent('del'); return true;
 }
+// A grabbed piece moves whole when it is loose (at most half the atoms) - or when it is a separate object (a building block) that is
+// not the main one, however big: a block can always be picked up. Only the main structure keeps the pull-an-atom-out behaviour.
+function mainGroup() { return md.N ? mat.grp[0] : 0; }                // the structure that was there first (blocks are appended after it)
+function movesWhole(i, frag) {
+  if (frag.n < 2) return false;
+  if (isMat() && mat.objects) {                                  // objects: every one but the original structure moves whole; of that one, only a bit broken off it
+    const g = mat.grp[i]; if (g !== mainGroup()) return true;
+    let n = 0; for (let k = 0; k < md.N; k++) if (mat.grp[k] === g) n++; return frag.n < n / 2;
+  }
+  return frag.n <= md.N / 2;
+}
+// The objects the user holds (Hand, grip, wand) may fuse with others they are pushed onto (Mat.sepPair); everything else stays apart.
+let joinKey = '', lastFused = 0;
+function updateJoin() {
+  if (!isMat() || !mat.objects) { if (joinKey) { joinKey = ''; if (isMat()) { mat.join = null; mat.listDirty = true; } } return; }
+  const g = new Set();
+  if (hold.kind === 'tw' && md.ext.i >= 0 && md.ext.i < md.N) { if (md.ext.mode === 'frag' && md.ext.mask) { for (let i = 0; i < md.N; i++) if (md.ext.mask[i]) g.add(mat.grp[i]); } else g.add(mat.grp[md.ext.i]); }
+  if (carry && mat.carry && mat.carry.mask) for (let i = 0; i < md.N; i++) if (mat.carry.mask[i]) g.add(mat.grp[i]);
+  const key = [...g].sort((a, b) => a - b).join(',');
+  if (key !== joinKey) { joinKey = key; mat.join = g.size ? g : null; mat.listDirty = true; }
+}
 // Hand grabs. mode 'hand': a loose piece (at most half the atoms) moves whole, otherwise the atom itself is pulled hard
 // (it breaks out); mode 'sheet': the whole layer the atom belongs to (grip button)
 const HAND_PULL = { kk: 20, cap: 40 };                                   // eV/A^2, eV/A - test/hand.test.mjs uses the same numbers
@@ -1641,7 +1668,7 @@ function grabAt(src, o, d, p, mode) {
   let frag = null, grp = false;
   if (isMat()) {
     if (mode === 'sheet') grp = true;
-    else { frag = mat.fragmentMask(p.i); if (frag.n < 2 || frag.n > md.N / 2) frag = null; }
+    else { frag = mat.fragmentMask(p.i); if (!movesWhole(p.i, frag)) frag = null; }
   }
   const w0 = o.clone().addScaledVector(d, p.t * p.s), r0 = toLocal(w0, d).o;
   const ref = frag ? mat.maskCOM(p.i, frag.mask) : grp ? mat.groupCOM(p.i) : [md.x[p.i], md.y[p.i], md.z[p.i]];
@@ -1660,6 +1687,7 @@ function toolUp(src) {
   if (carry && carry.wand && carry.src === src) stopCarry();
   if (hold.src !== src) return;
   if (hold.kind === 'tw') { md.ext.i = -1; md.ext.kk = 0; md.ext.cap = 0; md.ext.anchor = null; }
+  if (hold.kind === 'carry' && carry && carry.src === src) stopCarry();
   hold.byGrip = false;
   hold.src = null; hold.kind = null; hold.grab = null;
 }
@@ -2117,13 +2145,13 @@ const CURSORS = { camera: 'zoom-in', hand: 'grab', tweezers: 'grab', add: 'copy'
 let lastCursor = '';
 function updateToolShapes() {
   const elCol = (isMat() && SPECIES[SP[S.cel]]) ? SPECIES[SP[S.cel]].color : 0x88a0c0;
-  for (const vc of vrc) { if (!vc.tools) continue; for (const k in vc.tools.H) { const g = vc.tools.H[k], on = k === S.tool && !(vc.hit && vc.hit.ui); g.visible = on; if (on && g.userData.atom) g.userData.atom.material.color.setHex(S.tool === 'add' && !isMat() ? new THREE.Color(ELEMENTS[S.el] ? ELEMENTS[S.el].color : 0x88a0c0).getHex() : elCol); } }
+  for (const vc of vrc) { if (!vc.tools) continue; for (const k in vc.tools.H) { const g = vc.tools.H[k], on = k === S.tool && !(vc.hit && vc.hit.ui) && !(k === 'add' && vc.ghostOn); g.visible = on; if (on && g.userData.atom) g.userData.atom.material.color.setHex(S.tool === 'add' && !isMat() ? new THREE.Color(ELEMENTS[S.el] ? ELEMENTS[S.el].color : 0x88a0c0).getHex() : elCol); } }
   const cur = hold.src === 'mouse' && (S.tool === 'tweezers' || S.tool === 'hand') ? 'grabbing' : (CURSORS[S.tool] || 'default');
   if (cur !== lastCursor) { renderer.domElement.style.cursor = cur; lastCursor = cur; }
 }
 function handPose(vc, gp, dt) {
   const t = gp && gp.buttons[0] ? gp.buttons[0].value : 0, g = gp && gp.buttons[1] ? gp.buttons[1].value : 0;
-  const handGrab = hold.src === vc.i && hold.kind === 'tw' && S.tool === 'hand', tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab || vc.sheet;
+  const handGrab = hold.src === vc.i && ((hold.kind === 'tw' && S.tool === 'hand') || hold.kind === 'carry'), tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab || vc.sheet;
   const want = fist ? { index: 0.95, thumb: 0.8, others: 1 } : tw ? { index: 0.6, thumb: 0.9, others: 0.7 } : ui_ ? { index: 0.08 + 0.25 * t, thumb: 0.6, others: 0.9 } : { index: 0.1 + 0.8 * t, thumb: 0.15 + 0.6 * t, others: Math.max(0.25, g) };
   const a = Math.min(1, dt * 14), P = vc.hand3.pose; for (const k in want) P[k] += (want[k] - P[k]) * a; vc.hand3.apply();
 }
@@ -2153,7 +2181,7 @@ function regrab() {
 let carry = null;
 const mouseHand = new THREE.Object3D(); scene.add(mouseHand);
 const carryObj = (src) => (src === 'mouse' ? mouseHand : vrc[src].obj);
-function startCarry(src, atom) {
+function startCarry(src, atom, byTrigger = false) {
   if (collab.guest) return;
   if (src === 'mouse') { const w = new THREE.Vector3(mat.x[atom], mat.y[atom], mat.z[atom]).applyMatrix4(inner.matrixWorld); mouseHand.userData.dist = w.distanceTo(mouseRay.origin); mouseHand.position.copy(mouseRay.origin).addScaledVector(mouseRay.direction, mouseHand.userData.dist); mouseHand.quaternion.copy(camera.quaternion); }
   const fm = mat.fragmentMask(atom), N = mat.N, p0 = new Float64Array(3 * N);
@@ -2161,8 +2189,8 @@ function startCarry(src, atom) {
   carryObj(src).updateMatrixWorld(); inner.updateMatrixWorld();
   const M0 = new THREE.Matrix4().copy(carryObj(src).matrixWorld).invert().multiply(inner.matrixWorld);      // atom (box coordinates) -> hand
   carry = { src, N, mask: fm.mask, p0, M0, n: fm.n };
-  mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 };
-  toast(src === 'mouse' ? `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move the mouse (wheel: nearer / farther), release to put it down` : `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move and turn your hand, let go of the grip to put it down`, 3000);
+  mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 }; mat.onRemove = carryRemap;
+  toast(src === 'mouse' ? `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move the mouse (wheel: nearer / farther), release to put it down` : `Holding ${fm.n} atom${fm.n === 1 ? '' : 's'} - move and turn your hand, ${byTrigger ? 'let go of the trigger' : 'let go of the grip'} to put it down`, 3000);
 }
 /* ---------- the "bring to me" wand: a piece out of reach (high above you when you are tiny) is pulled to the tip of the wand and held there,
    a reach away along the pointing direction, but nearer eye height than where you aim; let go and it is dropped. ---------- */
@@ -2174,7 +2202,7 @@ function startWand(src, atom) {
   c.divideScalar(Math.max(1, fm.n)); let rad = 0;
   for (let i = 0; i < N; i++) if (fm.mask[i]) rad = Math.max(rad, Math.hypot(mat.x[i] - c.x, mat.y[i] - c.y, mat.z[i] - c.z));
   carry = { src, N, mask: fm.mask, p0, M0: null, n: fm.n, wand: { cb: c, off: new THREE.Vector3(), rad, t: now() } };
-  mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 };
+  mat.carry = { mask: fm.mask, p: Float64Array.from(p0), ka: 3 }; mat.onRemove = carryRemap;
   toast(`Pulling ${fm.n} atom${fm.n === 1 ? '' : 's'} to you - swing the wand to place them, let go to drop them`, 3500);
 }
 const wV = new THREE.Vector3(), wT = new THREE.Vector3(), wI = new THREE.Matrix4();
@@ -2191,7 +2219,12 @@ function updateWand() {
   const bp = wandBeam.geometry.attributes.position, c = wV.copy(w.cb).add(w.off).applyMatrix4(inner.matrixWorld);
   bp.setXYZ(0, o.x, o.y - 0.03, o.z); bp.setXYZ(1, c.x, c.y, c.z); bp.needsUpdate = true; wandBeam.visible = true;
 }
-function stopCarry() { carry = null; wandBeam.visible = false; if (isMat()) mat.carry = null; }
+function stopCarry() { carry = null; wandBeam.visible = false; if (isMat()) { mat.carry = null; mat.onRemove = null; } }
+// an atom removed anywhere (zapped, flown off) while a piece is carried: the carried piece follows the renumbering (Mat.removeAtom)
+function carryRemap(i, l) {
+  if (!carry) return; for (let c = 0; c < 3; c++) carry.p0[3 * i + c] = carry.p0[3 * l + c]; carry.N = mat.N;
+  let any = false; for (let k = 0; k < mat.N; k++) if (carry.mask[k]) { any = true; break; } if (!any) stopCarry();
+}
 const cM = new THREE.Matrix4(), cV = new THREE.Vector3();
 function updateCarry() {
   if (!carry) return;
@@ -2296,6 +2329,90 @@ function holdSpin(dt) {                                           // holding a p
   if (mask) spinOff(mask, 1 - Math.exp(-dt / 0.12));
 }
 
+/* ---------- Add in VR: the atom in your hand. With the Add tool each hand holds the next atom just in front of the fingertip, with a
+   tag saying what it is (the element button / periodic table chooses it; the right stick moves it nearer or farther). Near a structure a
+   bond line shows which atom it will bond to; pull the trigger and it is let go: bonded there if a bond line shows, otherwise it stays
+   floating where you let it go (no velocity). A floating atom is picked up with the Hand like any atom; brought close to a structure it
+   bonds by itself (reactive model: by the potential; chemistry model: formClose). Attach is the same thing, so VR has no Attach button. */
+const EL_NAME = { H: 'hydrogen', B: 'boron', C: 'carbon', N: 'nitrogen', O: 'oxygen', F: 'fluorine', Si: 'silicon', P: 'phosphorus', S: 'sulfur', Cl: 'chlorine', Br: 'bromine', I: 'iodine', Mo: 'molybdenum', Au: 'gold' };
+const COV_R = { H: 0.31, B: 0.84, C: 0.76, N: 0.71, O: 0.66, F: 0.57, Si: 1.11, P: 1.07, S: 1.05, Cl: 1.02, Br: 1.2, I: 1.39, Mo: 1.54, Au: 1.36 };
+const ADD = { reach: 0.07, tags: {} };
+const addEl = () => (isMat() && mat.model === 'sw' ? SPECIES[S.addSp].sym : S.cel);
+function tagTex(el) {                                             // "C  carbon" on a dark pill, one texture per element and language
+  const key = el + '|' + S.lang; if (ADD.tags[key]) return ADD.tags[key];
+  const sp = SPECIES[SP[el]], col = sp ? '#' + sp.color.toString(16).padStart(6, '0') : '#9fb2cf';
+  return (ADD.tags[key] = canvasTex(256, 96, (g, w, h) => {
+    g.fillStyle = 'rgba(10,17,32,0.86)'; roundRect(g, 3, 3, w - 6, h - 6, 30); g.fill(); g.strokeStyle = col; g.lineWidth = 5; g.stroke();
+    g.fillStyle = '#ffffff'; g.textBaseline = 'middle'; g.font = '700 54px system-ui,sans-serif'; g.textAlign = 'left'; g.fillText(el, 22, h / 2 + 2);
+    g.fillStyle = '#cfe0f5'; g.font = '30px system-ui,sans-serif'; g.fillText(tr(EL_NAME[el] || ''), 22 + g.measureText(el).width * 1.9 + 10, h / 2 + 2);
+  }));
+}
+const ghostGeo = new THREE.SphereGeometry(1, 20, 14);
+for (const vc of vrc) {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const ball = new THREE.Mesh(ghostGeo, new THREE.MeshPhongMaterial({ color: 0xffffff, emissive: 0x111111, transparent: true, opacity: 0.92, shininess: 60 })); g.add(ball);
+  const tag = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false, toneMapped: false })); tag.renderOrder = 9980; g.add(tag);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: 0x7dffb0, dashSize: 0.006, gapSize: 0.004, transparent: true, opacity: 0.95 }));
+  line.frustumCulled = false; line.visible = false; scene.add(line);
+  vc.ghost = { g, ball, tag, line, host: -1, el: '', P: new THREE.Vector3(), L: new THREE.Vector3() };
+}
+const _gi = new THREE.Matrix4(), _gw = new THREE.Vector3();
+function addHost(L, el) {                                         // the atom the new one would bond to: the nearest within reach that can take a bond
+  if (!isMat() || !md.N) return -1;
+  const uff = mat.model === 'uff', rEl = COV_R[el] || 0.8; let best = -1, bd = Infinity;
+  for (let j = 0; j < md.N; j++) {
+    const sj = SPECIES[mat.sp[j]].sym, lim = 1.45 * (rEl + (COV_R[sj] || 0.8));
+    const dx = md.x[j] - L.x, dy = md.y[j] - L.y, dz = md.z[j] - L.z, d2 = dx * dx + dy * dy + dz * dz; if (d2 > lim * lim || d2 >= bd) continue;
+    if (md.fixed && md.fixed[j]) continue;
+    if (uff && mat.chem.free(j) < 1) continue;                    // (chemistry model: valence rules)
+    if (!uff) { let c = 0; for (let k = 0; k < md.N; k++) if (k !== j && Math.hypot(md.x[k] - md.x[j], md.y[k] - md.y[j], md.z[k] - md.z[j]) < 1.9) c++; if (c >= (VALENCE[sj] || 4)) continue; }
+    bd = d2; best = j;
+  }
+  return best;
+}
+function updateGhost(vc) {                                        // every frame: where the atom in this hand is, what it would bond to
+  const G = vc.ghost; if (!G) return;
+  const on = S.vr && S.tool === 'add' && isMat() && md.model !== 'ff' && !!vc.src && !(vc.hit && vc.hit.ui) && !vc.hit?.bar && hold.src !== vc.i && !vc.sq && !vc.sheet && !vc.pg && !(carry && carry.src === vc.i) && !S.cal;
+  vc.ghostOn = on; G.g.visible = on; G.line.visible = false; if (!on) { G.host = -1; return; }
+  const el = addEl(), sp = SPECIES[SP[el]], sc = simRoot.scale.x, rad = Math.max(S.atomR, 0.25) * sc * 1.15;
+  if (G.el !== el + S.lang) { G.el = el + S.lang; G.ball.material.color.setHex(sp ? sp.color : 0x88a0c0); G.tag.material.map = tagTex(el); G.tag.material.needsUpdate = true; }
+  const { o, d } = rayOf(vc.i), reach = Math.max(ADD.reach * (S.walk ? 8 : 1), rad * 2.2);
+  G.P.copy(o).addScaledVector(d, reach); G.g.position.copy(G.P); G.ball.scale.setScalar(rad);
+  const tw = Math.max(0.05, rad * 5); G.tag.scale.set(tw, tw * 96 / 256, 1); G.tag.position.set(0, rad + tw * 0.28, 0);
+  inner.updateWorldMatrix(true, false); _gi.copy(inner.matrixWorld).invert(); G.L.copy(G.P).applyMatrix4(_gi);
+  const h = addHost(G.L, el);
+  if (h !== G.host) { if (h >= 0) pulse(vc.i, 0.25, 15); G.host = h; }
+  G.ball.material.emissive.setHex(h >= 0 ? 0x1f6f3f : 0x111111);
+  if (h >= 0) {
+    _gw.set(md.x[h], md.y[h], md.z[h]).applyMatrix4(inner.matrixWorld);
+    const pa = G.line.geometry.attributes.position; pa.setXYZ(0, G.P.x, G.P.y, G.P.z); pa.setXYZ(1, _gw.x, _gw.y, _gw.z); pa.needsUpdate = true; G.line.computeLineDistances(); G.line.visible = true;
+  }
+}
+function addFromHand(src) {                                       // trigger with the Add tool in VR: let the atom go
+  const G = vrc[src].ghost; if (!G || !vrc[src].ghostOn) return false;
+  const el = addEl(), sp = SP[el]; if (sp === undefined) return false;
+  const L = G.L, h = addHost(L, el);
+  if (!nativeSp(sp) && !ensureChem()) return true;
+  if (h >= 0) {
+    if (mat.model === 'uff') {
+      const res = mat.chem.attach(h, el, S.fillH, [L.x, L.y, L.z], true);
+      if (res.err) { toast(res.err); pulse(src, 0.8, 60); return true; }
+    } else {                                                       // reactive / SW model: put it at a bond length from the host, on the side it was held
+      const dx = L.x - md.x[h], dy = L.y - md.y[h], dz = L.z - md.z[h], r = Math.hypot(dx, dy, dz) || 1, b = (COV_R[el] || 0.76) + (COV_R[SPECIES[mat.sp[h]].sym] || 0.76) - 0.08;
+      const i = md.addAtom(md.x[h] + dx / r * b, md.y[h] + dy / r * b, md.z[h] + dz / r * b, sp);
+      if (i < 0) { toast('No room for another atom there'); pulse(src, 0.8, 60); return true; }
+      md.vx[i] = md.vx[h]; md.vy[i] = md.vy[h]; md.vz[i] = md.vz[h];
+    }
+    toast(`${el} bonded to ${SPECIES[mat.sp[h]].sym}`, 1500); pulse(src, 0.5, 35);
+  } else {
+    const i = md.addAtom(L.x, L.y, L.z, sp);
+    if (i < 0) { toast('Too close to another atom - let go a little further away'); pulse(src, 0.8, 60); return true; }
+    md.vx[i] = md.vy[i] = md.vz[i] = 0;                             // it stays where you let it go
+    toast(`${el} let go - pick it up with the Hand and bring it to a structure to bond`, 2500); pulse(src, 0.3, 25);
+  }
+  if (S.cm.size && S.cp.size) contactsChanged();
+  tutEvent('add'); return true;
+}
 const rc = new THREE.Raycaster();
 function vrInput(dt) {
   if (dolly.position.y !== FY()) dolly.position.y = FY();
@@ -2323,7 +2440,7 @@ function vrInput(dt) {
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
     HOVER.delete(vc.i);
     if (!hits.length && md.N && S.tool !== 'camera') { const p = pickAtom(o, d); if (p) { HOVER.set(vc.i, p.i); if (S.walk) len = Math.max(0.3, p.t * p.s); } }
-    vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt);
+    vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt); updateGhost(vc);
     vc.cone.visible = S.tool === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
     vc.laser.material.color.set(vc.hit ? 0xffffff : 0x4ae3e1);
 
@@ -2339,6 +2456,7 @@ function vrInput(dt) {
       vc.prev = btn;
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * (S.walk ? 9 : 0.9), 0.12, S.walk ? 40 : 3.5);
+        else if (vc.hand === 'right' && S.tool === 'add' && vc.ghostOn) ADD.reach = clamp(ADD.reach - ay * dt * 0.5, 0.04, 1.2);     // the atom in the hand: nearer / farther
         else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
       }
     }
@@ -2361,8 +2479,10 @@ function frame() {
   if (!S.paused && md.N && !md.exploded && !collab.guest && !CO.handing) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
     tableWall();                                                    // the worktop plane for this frame; tableWallStep after every step
+    updateJoin();
     while (n < S.speed && now() - t0 < budget) { md.run(1); tableWallStep(); n++; }
     holdSpin(dt);                                                   // a piece held with the Hand stops turning
+    if (isMat() && mat.fused && mat.fused !== lastFused) { lastFused = mat.fused; toast('Joined: the two pieces are one object now', 2500); for (const v of vrc) if (v.src) pulse(v.i, 0.7, 60); }
     S.sps = S.sps * 0.9 + 0.1 * (n / Math.max(dt, 1e-3));
     const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
@@ -2826,4 +2946,4 @@ build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
 window.__mdlab = { TR, plotData, get U() { return U; }, modal, recenter, labSide, offerControl, requestControl, takeBack, releaseControl, acceptPending, declinePending, collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
-  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable };
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable };

@@ -12,6 +12,7 @@ node test/physics.test.mjs                   # physics checks (no browser needed
 node test/xr-emulator.cjs index.html out     # VR in headless Chrome (IWER + puppeteer-core)
 node test/xr-ar.cjs index.html               # see-through on a real table, same tools
 node test/xr-interact.cjs index.html         # recentre only by the headset, two-grip scale, table floor, spin, panel handles
+node test/xr-hand.cjs index.html             # building blocks as objects, the Hand carrying them, the atom in the hand
 ```
 
 ## What it is
@@ -84,6 +85,30 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
   atoms held fixed, and periodic sheets, are left alone.
 - **Moving panels.** Each panel (menu, plots, toolbar, periodic table) has a handle bar with six grip dots on its top edge: trigger on it and
   drag - the panel follows the ray at the same distance and keeps facing you. Grip anywhere on a panel still moves it with the hand.
+
+## Objects and the atom in the hand (2026-11-12)
+
+- **Building blocks are objects** (`Mat.objects`, set by `mergeFrom`). Each block keeps its own group; two atoms of different objects (each of
+  at least 4 atoms) never bond on their own - between them only van der Waals acts (the reactive model gets the graphite C-C Lennard-Jones
+  for it, MoS2 its interlayer one, the chemistry model its UFF van der Waals; radicals of different objects feel the wall too). So a block
+  that drifts or flaps against the structure stays a separate thing. **Joining** happens only while one of them is held (Hand, grip or
+  wand: `updateJoin` hands the held groups to `Mat.join`): then the pair is treated covalently, and the first contact inside the
+  potential's reach (2.15 A reactive, 3.0 A MoS2, a new bond in the chemistry model) makes them one object (`fuseCheck`, "Joined").
+  Single atoms and small bits (< 4 atoms) are not objects: they bond to anything and join the object they bond to. Saved and synced
+  (Together) with the system. Before this, a block's edge atoms bonded to the flake on their own as the sheets flapped, and the joined
+  piece (more than half the atoms) could no longer be moved.
+- **The Hand picks pieces up.** Trigger on a loose piece or on any object but the original structure (the group of atom 0) carries it - it
+  follows the hand at once, moved and turned, like the grip - however big it is. (It used to be pulled by its centre of mass, strongly
+  damped: about 1 A per ps, a centimetre or two a second on the headset.) Trigger on the original structure still pulls the atom (out of it,
+  if you pull hard); a bit broken off it (less than half of it) is carried. A carried piece is no longer dropped when an atom elsewhere is
+  removed (zapped, flown off): it follows the renumbering.
+- **Add in VR: the atom in your hand.** With Add, each hand holds the next atom just in front of the fingertip, with a tag (symbol and
+  name); the right stick moves it nearer or farther. Within bonding reach of an atom that can take a bond (chemistry model: free valence;
+  reactive: fewer neighbours than its valence) a dashed bond line shows it, with a tick in the controller. Trigger: bonded there (chemistry
+  model: `chem.attach` on that side, H fill as set; reactive / MoS2: one bond length from it, on the side it was held) - or, with no bond
+  line, it stays floating where it was let go, at rest. A floating atom is picked up with the Hand and bonds where it is brought (the
+  potential, or `formClose`). This is Attach, so the VR toolbar has no Attach button (the desktop keeps it); the periodic table selects Add.
+  `test/xr-hand.cjs` covers blocks and the atom in the hand.
 
 ## VR reset and floor level
 

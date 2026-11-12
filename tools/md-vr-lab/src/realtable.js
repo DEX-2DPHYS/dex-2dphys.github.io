@@ -131,4 +131,13 @@ export const TABLE_DA = {
   'Nothing was spinning': 'Intet roterede',
   'A periodic sheet cannot spin - build an open flake': 'Et periodisk lag kan ikke rotere - byg en åben flage',
   'Build a material first': 'Byg et materiale først',
+  // objects and the atom in the hand (2026-11-12)
+  'Holding {1} atom{2} - move and turn your hand, let go of the trigger to put it down': 'Holder {1} atomer - flyt og drej hånden, slip aftrækkeren for at lægge det fra dig',
+  'Added {1} ({2} atoms) as a separate object. Pick it up with the Hand and push it onto the structure to join them.': 'Tilføjede {1} ({2} atomer) som et selvstændigt objekt. Tag det med Hånden, og skub det ind på strukturen for at sætte dem sammen.',
+  'Joined: the two pieces are one object now': 'Sat sammen: de to stykker er nu ét objekt',
+  '{1} bonded to {2}': '{1} bundet til {2}',
+  '{1} let go - pick it up with the Hand and bring it to a structure to bond': '{1} sluppet - tag det med Hånden, og før det hen til en struktur for at binde det',
+  'Too close to another atom - let go a little further away': 'For tæt på et andet atom - slip det lidt længere væk',
+  hydrogen: 'brint', boron: 'bor', carbon: 'kulstof', nitrogen: 'kvælstof', oxygen: 'ilt', fluorine: 'fluor', silicon: 'silicium', phosphorus: 'fosfor',
+  sulfur: 'svovl', chlorine: 'klor', bromine: 'brom', iodine: 'jod', molybdenum: 'molybdæn', gold: 'guld',
 };
