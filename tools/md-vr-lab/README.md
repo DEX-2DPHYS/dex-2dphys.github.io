@@ -8,7 +8,9 @@ from this folder - edit `src/`, never the bundle.
 ```
 npm install three@0.170.0 esbuild@0.24.0     # or: MDLAB_NODE_MODULES=/path/to/node_modules node build.js
 node build.js                                # writes index.html
-node test/physics.test.mjs                   # physics checks (no browser needed)
+node test/physics.test.mjs                   # physics checks (no browser needed); likewise the other test/*.test.mjs
+node test/xr-emulator.cjs index.html out     # VR in headless Chrome (IWER + puppeteer-core)
+node test/xr-ar.cjs index.html               # see-through on a real table, same tools
 ```
 
 ## What it is
@@ -68,6 +70,33 @@ The right thumbstick click, the **Recenter** toolbar button and Settings → Flo
 taken from the gaze (or from the top of the head when you look steeply up or down), the table height is 55 % of eye height (0.55–1.0 m) and a second
 recentre happens 1.7 s after VR starts (the first pose of a headset is often off). Settings has a **Floor level** slider (±50 cm) that raises or lowers
 you relative to the virtual floor, if the headset's floor is a little off.
+
+## Real table (see-through; the **Real table** button next to Enter VR, `src/realtable.js`)
+
+An `immersive-ar` session on a headset with passthrough (Quest 3 / 3S in colour; Quest 2 in black and white): the room, sky and fog are not
+drawn, so the real room shows, and the lab stands on a **real table**. The virtual worktop and legs are hidden; the work-area ring, thermometer,
+prints, toolbar and panels stay.
+
+- **Finding the table.** The session asks for `plane-detection`, which on a Quest gives the surfaces from the room scan (Space Setup; the
+  browser asks once for permission to share it). The nearest surface labelled *table* or *desk* wins, else a horizontal surface 35–130 cm
+  high (a scan without labels). Its outline becomes a rectangle (smallest area round the polygon). The edge nearest you is the front: the
+  lab faces into the table from there.
+- **Placing.** The virtual worktop's upper face lies exactly on the real table top; the experiment stands over the table centre (on a table
+  wider than 2 m or deeper than 1.2 m: in front of you, at least 0.6 m from its ends and 0.5 m in from the edge). The solid worktop
+  (atoms bounce off it) takes the real table's size, the toolbar lies just inside the front edge, the panels stand beside the table (at most
+  0.9 m out from the centre, so they stay in reach on a long table), the ring shrinks on a small table.
+- **No table in the scan** (no Space Setup, or the browser was not allowed to read it): after 5 s the lab asks you to **touch the table edge**
+  nearest you with the fingertip, where the laser starts - first at the left, then at the right (at least 25 cm apart). The table is then
+  taken to be 80 cm deep. Settings → General has *Find my table again* (thumbstick click and the Recenter button do the same), *Touch the
+  table edge*, *Scan the room* (Quest Browser: opens Space Setup to draw or confirm the table) and *Leave see-through*.
+- **Fixed to the table:** the sticks do not glide or turn the user in see-through (the lab would slide off the real table); the floor-level
+  slider is replaced by the table section (the real floor is the floor). Grip still moves and turns the experiment.
+- **Walking** works as before: while you are small the night sky (an opaque dome) covers the room, your feet are on the real floor, and
+  coming back puts the lab on the table again.
+- **Together:** both headsets fit the structure to the centre of the same table, the guest's turned half a circle as always; with the two
+  people on opposite sides of a real table each sees the other's avatar on the real person (each headset's own room scan must contain the
+  table). Sitting at a corner (90°) is not handled: the guest's view would be turned by a quarter.
+- **Photos** (camera tool) cannot see the passthrough image (a web page has no access to the cameras), so they get the lab's background.
 
 ## Interface notes (from the synthetic first-time-user test)
 
@@ -228,8 +257,9 @@ Task Manager and restart Link.
 - `test/lammps/`    cross-check against LAMMPS: energies and forces agree to ~1e-12 eV.
 - `test/physics.test.mjs`  energy conservation, ideal-gas pressure (periodic and walls), melting, g(r), speed.
 
-Tested headlessly with Chromium + the Immersive Web Emulation Runtime (session start, ray/UI hit, trigger,
-tweezers, thumbsticks, grip). It has not been run on a physical headset from this repository's CI.
+Used on Meta Quest headsets by hand. Automated checks run headlessly with Chromium + the Immersive Web Emulation Runtime
+(`test/xr-emulator.cjs`: session start, ray/UI hit, trigger, tweezers, thumbsticks, grip; `test/xr-ar.cjs`: see-through on a
+real table with a stand-in room scan). Passthrough itself and real room-scan data can only be checked on a headset.
 
 ## Materials mode - what is and is not validated
 

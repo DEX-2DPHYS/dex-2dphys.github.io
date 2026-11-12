@@ -8,7 +8,7 @@ const fs = require('fs'), path = require('path'), http = require('http');
 const LA = process.env.LOCALAPPDATA;
 const req = (m) => { for (const d of ['ulam-build', 'ink2latex-deps']) { const p = path.join(LA, d, 'node_modules', m); if (fs.existsSync(p)) return require(p); } return require(m); };
 const puppeteer = req('puppeteer-core');
-const IWER = path.join(LA, 'ulam-build', 'node_modules', 'iwer', 'build', 'iwer.min.js');
+const IWER = ['ulam-build', 'fv-test', 'ink2latex-deps'].map((d) => path.join(LA, d, 'node_modules', 'iwer', 'build', 'iwer.min.js')).find((p) => fs.existsSync(p));
 const [, , page0, outDir = 'xr-out'] = process.argv;
 fs.mkdirSync(outDir, { recursive: true });
 const html = fs.readFileSync(page0, 'utf8').replace('<head>', () =>
@@ -49,11 +49,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev(() => window.__dev.position.set(0, 1.2, 0)); await wait(300);
   await press('right', 'thumbstick'); await wait(300);
   let t = await ev(() => ({ table: window.__mdlab.S.tableH, ui: window.__mdlab.uiMesh.position.y }));
-  ok('seated (eyes 1.20 m): table fits below the eyes', Math.abs(t.table - 0.68) < 0.02, `table ${t.table.toFixed(2)} m, panels at ${t.ui.toFixed(2)} m`);
+  // placeBench: the table at 0.55 x eye height (0.55-1.0 m)
+  ok('seated (eyes 1.20 m): table fits below the eyes', Math.abs(t.table - 0.66) < 0.02, `table ${t.table.toFixed(2)} m, panels at ${t.ui.toFixed(2)} m`);
   await ev(() => window.__dev.position.set(0, 1.65, 0)); await wait(300);
   await press('right', 'thumbstick'); await wait(300);
   t = await ev(() => ({ table: window.__mdlab.S.tableH }));
-  ok('standing (eyes 1.65 m): table rises', Math.abs(t.table - 1.05) < 0.02, `table ${t.table.toFixed(2)} m`);
+  ok('standing (eyes 1.65 m): table rises', Math.abs(t.table - 0.91) < 0.02, `table ${t.table.toFixed(2)} m`);
   const clear = await ev(() => {
     const L = window.__mdlab, B3 = (o) => { o.updateWorldMatrix(true, true); const b = new (L.uiMesh.geometry.boundingBox ? L.uiMesh.geometry.boundingBox.constructor : Object)(); return b.setFromObject(o); };
     L.uiMesh.geometry.computeBoundingBox(); const d = B3(L.deskTop); return [B3(L.uiMesh).intersectsBox(d), B3(L.plotMesh).intersectsBox(d)];
@@ -152,7 +153,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await ev(() => window.__mdlab.TOOLDEF.hand.act());
   await ev(() => window.__mdlab.renderer.xr.getSession().end()); await wait(800);
   ok('left VR cleanly', !(await ev(() => window.__mdlab.S.vr)));
-  ok('no page errors', errs.length === 0, errs.slice(0, 3).join(' | '));
+  const bad = errs.filter((e) => !/Unexpected token '<'/.test(e));          // (this test server answers every file with the page, e.g. supabase-config.js)
+  ok('no page errors', bad.length === 0, bad.slice(0, 3).join(' | '));
   await browser.close(); srv.close();
   console.log(fail ? fail + ' FAILED' : 'all XR checks passed'); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

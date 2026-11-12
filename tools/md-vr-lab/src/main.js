@@ -18,7 +18,8 @@ import { createNanoWorld, WALK_DA } from './nanowalk.js';
 import { Collab, sbConfig, sbExpired, sbExpires, saveSbConfig, saveName, roomCode } from './collab.js';
 import { AvatarSet } from './avatars.js';
 import { TOGETHER_DA } from './together-da.js';
-addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA));
+import { planeCorners, cornersFromEdge, fitTable, pickTable, TABLE_DA } from './realtable.js';
+addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA, TABLE_DA));
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
 // the three 2DPHYS posters (A0, inlined like the logo). The images are loaded once; every rebuild of the room makes its own textures.
@@ -58,6 +59,7 @@ const S = {
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
+  ar: false, arTable: null, cal: null,                                                 // see-through mode on a real table (src/realtable.js)
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
   substrate: 'none', floorY: 0, lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
@@ -86,8 +88,9 @@ document.body.appendChild(renderer.domElement);
 renderer.domElement.id = 'gl';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x070b13);
-scene.fog = new THREE.Fog(0x070b13, 6, 16);
+const LAB_BG = new THREE.Color(0x070b13), LAB_FOG = new THREE.Fog(0x070b13, 6, 16);      // (see-through mode clears both; applyTheme puts them back)
+scene.background = LAB_BG;
+scene.fog = LAB_FOG;
 const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.03, 60);
 camera.position.set(0.9, 1.65, 0.55);
 const dolly = new THREE.Group(); scene.add(dolly); dolly.add(camera);       // the user's "rig" for seated movement in VR
@@ -213,6 +216,17 @@ for (const sx of [-0.64, 0.64]) for (const sz of [-1.34, -0.66]) { const l = new
 const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.008, 8, 96), new THREE.MeshBasicMaterial({ color: 0x4ae3e1 })); ring.rotation.x = Math.PI / 2;
 const disc = new THREE.Mesh(new THREE.CircleGeometry(0.3, 64), new THREE.MeshBasicMaterial({ color: 0x4ae3e1, transparent: true, opacity: 0.07 })); disc.rotation.x = -Math.PI / 2;
 desk.add(deskTop); desk.add(ring); desk.add(disc);
+// the worktop's extent in bench coordinates: the virtual table, or in see-through mode the real one (src/realtable.js)
+const TB_LAB = { x0: -0.7, x1: 0.7, z0: -1.4, z1: -0.6 }, TB = Object.assign({}, TB_LAB);
+/* see-through mode: the real room shows instead of the lab; the real table replaces the virtual worktop and legs.
+   The work-area ring, the thermometer, the prints and every panel stay. While walking (nano walk) the night sky covers the room again. */
+function arLook(on) {
+  if (room) room.visible = !on;
+  deskTop.material.visible = !on; for (const l of legs) l.visible = !on;          // (material only: the prints lying on the worktop stay)
+  const r = on ? clamp(Math.min(TB.x1 - TB.x0, TB.z1 - TB.z0) / 2 - 0.04, 0.12, 0.3) / 0.3 : 1;
+  ring.scale.set(r, r, 1); disc.scale.set(r, r, 1);                                // the work-area circle fits a small real table
+  THERMO.g.position.x = on ? Math.min(0.56, TB.x1 - 0.09) : 0.56; THERMO.g.position.z = on ? Math.min(-0.72, TB.z1 - 0.1) : -0.72;
+}
 /* ---------- the thermometer on the table: red liquid = the temperature now, teal handle = the target. Grab the handle (trigger /
    mouse) and slide it up or down to set the target (logarithmic scale; it switches the thermostat on). ---------- */
 const THERMO = { g: new THREE.Group(), H: 0.34, y0: 0.06, shownT: 0, lastLabel: 0 };
@@ -273,17 +287,17 @@ function setTableHeight(h, moveSim = true) {
 let userScale = 1, wps = 0.1;
 /* The experiment hovers above the table - unless it has a substrate: then the substrate lies on the table (its lowest atoms just touch the
    worktop) and the structure sits on it. Walking uses the same surface (see walkPlace). */
-/* The table is solid: atoms that reach the worktop (over its 1.4 x 0.8 m top) bounce off it - specular reflection, the normal velocity flips. */
+/* The table is solid: atoms that reach the worktop (over its 1.4 x 0.8 m top, or the real table: TB) bounce off it - specular reflection, the normal velocity flips. */
 const _wn = new THREE.Vector3(), _wp = new THREE.Vector3(), _wi = new THREE.Matrix4(), _wb = new THREE.Matrix4(), _wr = new THREE.Vector3();
 function tableWall() {
   if (!isMat() || S.walk || S.wa || !md.N || collab.guest || S.paused || md.exploded || fitKey === '') return;      // (not in the frame right after a rebuild: the experiment is placed on the table first)
   inner.updateWorldMatrix(true, false); bench.updateWorldMatrix(true, false); _wi.copy(inner.matrixWorld).invert(); _wb.copy(bench.matrixWorld).invert();
-  _wn.set(0, 1, 0).transformDirection(_wi); _wp.set(0, S.tableH + 0.025, 0).applyMatrix4(_wi);
+  _wn.set(0, 1, 0).transformDirection(_wi); _wp.set(0, S.tableH + 0.025, 0).applyMatrix4(bench.matrixWorld).applyMatrix4(_wi);     // (the bench is lifted onto a real table in see-through mode)
   const nx = _wn.x, ny = _wn.y, nz = _wn.z, nd = nx * _wp.x + ny * _wp.y + nz * _wp.z, rad = S.atomR, X = md.x, Y = md.y, Z = md.z, fixed = md.fixed;
   for (let i = 0; i < md.N; i++) {
     const d = nx * X[i] + ny * Y[i] + nz * Z[i] - nd; if (d >= rad) continue;
     if (fixed && fixed[i]) continue;
-    _wr.set(X[i], Y[i], Z[i]).applyMatrix4(inner.matrixWorld).applyMatrix4(_wb); if (Math.abs(_wr.x) > 0.7 || _wr.z < -1.4 || _wr.z > -0.6) continue;     // over the table top
+    _wr.set(X[i], Y[i], Z[i]).applyMatrix4(inner.matrixWorld).applyMatrix4(_wb); if (_wr.x < TB.x0 || _wr.x > TB.x1 || _wr.z < TB.z0 || _wr.z > TB.z1) continue;     // over the table top
     const k = Math.min(2 * (rad - d), 0.25); X[i] += nx * k; Y[i] += ny * k; Z[i] += nz * k;                 // a gentle push (at most 0.25 A a frame), never a jump
     const vn = nx * md.vx[i] + ny * md.vy[i] + nz * md.vz[i]; if (vn < 0) { md.vx[i] -= 2 * vn * nx; md.vy[i] -= 2 * vn * ny; md.vz[i] -= 2 * vn * nz; }
   }
@@ -747,7 +761,7 @@ function updateAtoms() {
   if (!S.walk && !S.wa && mt && mat.sub && md.N) {                    // the substrate always lies on the table, whatever replaced or moved the experiment
     const sc = simRoot.scale.x, up = _upv.set(0, 1, 0).applyQuaternion(simRoot.quaternion);
     if (up.y > 0.98) {
-      const want = S.tableH + 0.025 + ((mat.sheet ? Lz : Ly) / 2 - mat.sub.wMin + 0.85 * S.atomR) * sc, dy = want - simRoot.position.y;
+      const want = bench.position.y + S.tableH + 0.025 + ((mat.sheet ? Lz : Ly) / 2 - mat.sub.wMin + 0.85 * S.atomR) * sc, dy = want - simRoot.position.y;
       if (Math.abs(dy) > 1e-4) { simRoot.position.y = want; if (!S.vr && Math.abs(dy) > 0.02) { controls.target.y += dy; camera.position.y += dy; } }
     }
   }
@@ -1011,11 +1025,12 @@ function drawPtable() {
   ptab.label(`${S.cel}: valence ${VALENCE[S.cel]}. Bright = available; faded = no force-field parameters yet.`, { size: 18 });
   ptab.end();
 }
-function placePanels(y) {                 // either side of the table (it spans x = -0.7..0.7), angled towards the user
-  uiMesh.position.set(-1.13, y, -0.8); uiMesh.rotation.set(0, 0.72, 0);
-  plotMesh.position.set(1.18, y - 0.02, -0.82); plotMesh.rotation.set(0, -0.72, 0);
-  tbMesh.position.set(0, S.tableH + 0.07, -0.5); tbMesh.rotation.set(-0.75, 0, 0);          // toolbar: at the front edge of the table, tilted up
-  ptMesh.position.set(0, S.tableH + 0.36, -0.56); ptMesh.rotation.set(-0.3, 0, 0);          // periodic table: above it while open
+function placePanels(y) {                 // either side of the table (TB: x = -0.7..0.7 in the lab; a real table may differ), angled towards the user
+  const L = clamp(-TB.x0, 0.5, 0.9), R = clamp(TB.x1, 0.5, 0.9), F = TB.z1;          // (a long real table: the panels stay within reach)
+  uiMesh.position.set(-(L + 0.43), y, F - 0.2); uiMesh.rotation.set(0, 0.72, 0);
+  plotMesh.position.set(R + 0.48, y - 0.02, F - 0.22); plotMesh.rotation.set(0, -0.72, 0);
+  tbMesh.position.set(0, S.tableH + 0.07, S.ar ? F - 0.07 : F + 0.1); tbMesh.rotation.set(-0.75, 0, 0);   // toolbar: at the front edge of the table, tilted up (on a real table: just inside its edge, over the wood)
+  ptMesh.position.set(0, S.tableH + 0.36, F + 0.04); ptMesh.rotation.set(-0.3, 0, 0);          // periodic table: above it while open
 }
 placePanels(1.32);
 uiMesh.visible = plotMesh.visible = false;
@@ -1070,6 +1085,7 @@ function toolHint(t = S.tool) {
   if (t === 'camera') return S.vr ? 'Tool: CAMERA - aim and press the trigger; the photo goes to the Downloads folder on the PC' : 'Tool: CAMERA - click in the view to take a photo (1920 x 1080 PNG, saved to Downloads)';
   if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece (pull hard to break it off); grip carries a piece' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off';
   if (t === 'walk') return 'WALK - be made small and walk on the structure (atom 30 cm, bond 1.5 m). Esc or this button: back to the lab';
+  if (t === 'recenter' && S.ar && !S.walk) return 'RECENTER - find the real table again (also: click the right thumbstick)';
   if (t === 'recenter') return S.vr ? 'RECENTER - put the table and panels in front of you again (also: click the right thumbstick)' : 'RECENTER - fit the view to the experiment (key F)';
   if (t === 'help') return 'GUIDE - a short tour of the basic tools on a graphene sheet';
   if (t === 'cool' || t === 'warm') return t === 'warm' ? 'WARMER - raise the target temperature: the atoms shake harder' : 'COLDER - lower the target temperature: the atoms calm down';
@@ -1308,9 +1324,17 @@ function tabSettings() {
   if (S.setPage !== 'b') {
   ui.section('Walking');
   if (ui.button(S.walk ? 'Back to the lab' : 'Make me small and let me walk on the structure', { icon: ICONS.walk, tint: '#7be0ff', active: S.walk, h: 72, size: 18 })) toggleWalk();
+  if (S.ar) {                                                     // see-through: the real floor and the real table, so no floor slider
+    ui.section('Real table (see-through)');
+    const a = S.arTable, cm = (v) => (v * 100).toFixed(0);
+    ui.label(!a ? 'No table yet' : a.src === 'plane' ? `Table from the room scan: ${cm(a.W)} x ${cm(a.D)} cm, top at ${cm(a.top)} cm` : `Table from the touched edge, top at ${cm(a.top)} cm`, { size: 18 });
+    ui.row(2); if (ui.button('Find my table again', { h: 48, size: 19 })) arRefit(true); if (ui.button('Touch the table edge', { h: 48, size: 19, active: !!S.cal })) startCal();
+    ui.row(2); if (ui.button('Scan the room', { h: 48, size: 19, disabled: !(S.xr && S.xr.initiateRoomCapture) })) roomScan(); if (ui.button('Leave see-through', { h: 48, size: 19, danger: true })) endVR();
+  } else {
   ui.section('Floor level (VR)');
   { const fy = ui.slider('floorY', 'Raise me so my feet meet the floor', S.floorY, -0.5, 0.5, (v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)} cm`, { step: 0.01, h: 58 }); if (fy !== S.floorY) { S.floorY = fy; floorDirty = now() + 400; } }
   ui.row(2); if (ui.button('Recenter table', { h: 48, size: 19, disabled: !S.vr })) { recenter(); toast('Table recentred', 1500); } if (ui.button('Floor level: reset', { h: 48, size: 19 })) { S.floorY = 0; floorDirty = now() + 100; }
+  }
   ui.section('Level');
   levelRow(62);
   ui.section('Language / Sprog  \u00B7  Graphics');
@@ -1362,10 +1386,10 @@ function tabElec() {
 function tabVR() {
   ui.row(2);
   const th = ui.choice([['dark', 'Dark lab'], ['light', 'White lab']], S.theme, { h: 50, size: 21 }); if (th !== S.theme) applyTheme(th);
-  const h = ui.slider('table', 'Table height', S.tableH, 0.5, 1.2, (x) => `${(x * 100).toFixed(0)} cm`, { step: 0.01, h: 62 });
-  if (h !== S.tableH) setTableHeight(h);
+  if (S.ar) ui.label('See-through: the lab stands on a real table', { size: 20, color: COL.accent });
+  else { const h = ui.slider('table', 'Table height', S.tableH, 0.5, 1.2, (x) => `${(x * 100).toFixed(0)} cm`, { step: 0.01, h: 62 }); if (h !== S.tableH) setTableHeight(h); }
   ui.row(2);
-  if (ui.button('Fit table + panels to me', { h: 50, size: 20, disabled: !S.vr })) recenter();
+  if (ui.button(S.ar ? 'Find my table again' : 'Fit table + panels to me', { h: 50, size: 20, disabled: !S.vr })) recenter();
   if (ui.button('Reset panels', { h: 50, size: 20 })) placePanels(S.vr ? uiMesh.position.y : 1.32);
   ui.row(3);
   if (ui.button('Snap turn', { h: 48, size: 20, active: S.snapTurn })) S.snapTurn = true;
@@ -1381,9 +1405,12 @@ function tabVR() {
   ui.ctx.fillStyle = COL.muted; ui.ctx.font = '20px system-ui'; ui.ctx.textAlign = 'center'; ui.ctx.fillText(`${S.helpPage + 1} / ${VR_HELP.length}`, CW / 2, ui.y - 35);
   ui.label(p.title, { size: 26, bold: true, color: COL.accent });
   p.lines.forEach((l) => ui.paragraph(l, { size: 20, color: COL.text }));
-  ui.row(1);
-  if (S.vr) { if (ui.button('Exit VR', { danger: true, h: 56 })) endVR(); }
-  else if (ui.button(xrState.supported ? 'Enter VR' : 'VR not detected on this device', { primary: xrState.supported, h: 56, disabled: !xrState.supported })) enterVR();
+  if (S.vr) { ui.row(1); if (ui.button(S.ar ? 'Leave see-through' : 'Exit VR', { danger: true, h: 56 })) endVR(); }
+  else {
+    ui.row(xrState.ar ? 2 : 1);
+    if (ui.button(xrState.supported ? 'Enter VR' : 'VR not detected on this device', { primary: xrState.supported, h: 56, disabled: !xrState.supported })) enterVR();
+    if (xrState.ar && ui.button('Real table', { h: 56 })) enterAR();
+  }
 }
 
 function plotData() {
@@ -1403,6 +1430,7 @@ function plotData() {
 const dom = {
   ui: document.getElementById('uiWrap'), plots: document.getElementById('plotWrap'),
   vrBtn: document.getElementById('vrBtn'), plotBtn: document.getElementById('plotBtn'), panelBtn: document.getElementById('panelBtn'), themeBtn: document.getElementById('themeBtn'),
+  arBtn: document.getElementById('arBtn'),
 };
 dom.ui.appendChild(ui.canvas); dom.plots.appendChild(plotCanvas);
 // DOM buttons keep their English text in data-en and show the translation; the hint line has one version per language
@@ -1413,7 +1441,7 @@ const HINT = {
 };
 function setLangUI(lg) { S.lang = lg; setLang(lg); applyLangDom(); ui.dirty = true; }
 function applyLangDom() {
-  for (const el of [dom.vrBtn, dom.themeBtn, dom.plotBtn, dom.panelBtn]) { if (!el.dataset.en) el.dataset.en = el.textContent; el.textContent = tr(el.dataset.en); }
+  for (const el of [dom.vrBtn, dom.themeBtn, dom.plotBtn, dom.panelBtn, dom.arBtn]) { if (!el) continue; if (!el.dataset.en) el.dataset.en = el.textContent; el.textContent = tr(el.dataset.en); }
   const h = document.getElementById('hint'); if (h) h.innerHTML = HINT[S.lang] || HINT.en;
   const sb = document.querySelector('.brand .sub, header .sub, .sub'); if (sb) { if (!sb.dataset.en) sb.dataset.en = sb.textContent; sb.textContent = tr(sb.dataset.en); }
   document.documentElement.lang = S.lang; ui.dirty = true; tbar.dirty = true; ptab.dirty = true; lastPlot = 0;
@@ -1680,11 +1708,106 @@ async function enterVR() {
     const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor'] });
     useBaseLayer(session);
     renderer.xr.setFramebufferScaleFactor(XR_SCALE[S.quality] || 1);
-    await renderer.xr.setSession(session);
+    xrMode = 'vr'; await renderer.xr.setSession(session);
   } catch (e) { toast('Could not start VR: ' + (e.message || e)); S.tab = TAB_VR; }
   finally { vrStarting = false; setBtn(dom.vrBtn, 'Enter VR'); }
 }
 function endVR() { const s = renderer.xr.getSession(); if (s) s.end(); }
+
+/* ================================================================== see-through mode: the lab on a real table
+   An immersive-ar session: the headset's passthrough shows the room, the page draws no room, sky or fog. The table comes from the
+   headset's room scan (WebXR plane detection = Space Setup on a Quest): the nearest surface labelled table/desk, else a horizontal
+   surface at table height. Without one, the user touches the table edge nearest them twice with the fingertip (where the laser starts).
+   src/realtable.js turns the table into the bench placement: the bench turns to face the edge nearest the user, the virtual worktop
+   lies exactly on the real one, and the experiment sits over the table centre (on a very big table: in front of the user). Both people
+   in Together then put the structure on the same spot of the same table, so each sees the other's avatar on the real person (opposite sides).
+   Walking still works: the night sky covers the room while you are small, and the lab comes back on the table afterwards. */
+let xrMode = 'vr';
+xrState.ar = false;
+if (navigator.xr && navigator.xr.isSessionSupported) navigator.xr.isSessionSupported('immersive-ar').then((ok) => { xrState.ar = ok; if (dom.arBtn) dom.arBtn.style.display = ok ? '' : 'none'; ui.dirty = true; }).catch(() => {});
+async function enterAR() {
+  if (!navigator.xr || vrStarting || renderer.xr.getSession()) return;
+  vrStarting = true; setBtn(dom.arBtn, 'Starting see-through…');
+  try {
+    const session = await navigator.xr.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'plane-detection'] });
+    useBaseLayer(session);
+    renderer.xr.setFramebufferScaleFactor(XR_SCALE[S.quality] || 1);
+    xrMode = 'ar'; await renderer.xr.setSession(session);
+  } catch (e) { xrMode = 'vr'; toast(`Could not start see-through: ${e.message || e}`); }
+  finally { vrStarting = false; setBtn(dom.arBtn, 'Real table'); }
+}
+if (dom.arBtn) dom.arBtn.onclick = () => enterAR();
+const AR = { searchUntil: 0, plane: null, markers: [] };
+const FY = () => (S.ar ? 0 : S.floorY);                          // the floor offset: the real floor in see-through mode
+const _ah = new THREE.Vector3(), _ap = new THREE.Vector3();
+function headPos() { camera.getWorldPosition(_ah); return [_ah.x, _ah.y, _ah.z]; }
+function toWorld(c) { dolly.updateMatrixWorld(true); return c.map((p) => { _ap.set(p[0], p[1], p[2]).applyMatrix4(dolly.matrixWorld); return [_ap.x, _ap.y, _ap.z]; }); }
+function detectedTables() {                                       // [{ corners (world), label, horizontal, plane }] from this frame
+  const fr = renderer.xr.getFrame && renderer.xr.getFrame(), ref = renderer.xr.getReferenceSpace();
+  const out = [], planes = fr && fr.detectedPlanes; if (!planes || !ref) return out;
+  planes.forEach((pl) => {
+    let pose = null; try { pose = fr.getPose(pl.planeSpace, ref); } catch (e) { /* plane gone */ }
+    if (!pose || !pl.polygon || pl.polygon.length < 3) return;
+    const corners = toWorld(planeCorners(pl.polygon.map((p) => [p.x, p.z]), pose.transform.matrix));
+    out.push({ corners, label: pl.semanticLabel || '', horizontal: pl.orientation ? pl.orientation === 'horizontal' : true, plane: pl });
+  });
+  return out;
+}
+function findTable() {
+  const list = detectedTables(); if (!list.length) return null;
+  if (AR.plane) { const same = list.find((p) => p.plane === AR.plane); if (same) return same; }      // keep to the table already chosen
+  const i = pickTable(list, headPos(), 0); return i < 0 ? null : list[i];
+}
+function applyTable(corners, src) {                               // put the bench on the real table (corners in world coordinates)
+  const head = headPos(), f = fitTable(corners, head);
+  Object.assign(TB, f.ext);
+  const h = clamp(f.top, 0.5, 1.2); setTableHeight(h, false);
+  bench.rotation.set(0, f.yaw, 0); bench.position.set(f.benchPos[0], f.top - h - 0.025, f.benchPos[1]);     // the worktop's upper face = the real table top
+  const eye = head[1];
+  placePanels(clamp(eye - 0.12, f.top + 0.3, f.top + 1.0) - bench.position.y);
+  arLook(true); bench.updateMatrixWorld(true);
+  if (!S.walk) { simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); labQuat(); userScale = 1; }
+  S.arTable = { src, W: f.W, D: f.D, top: f.top }; ui.dirty = tbar.dirty = true;
+}
+function arRefit(manual) {                                        // recentre in see-through mode: the table again (scan, or the edge touched before)
+  if (S.walk) { benchToHead(); return; }
+  const t = findTable();
+  if (t) { AR.plane = t.plane; applyTable(t.corners, 'plane'); if (manual) toast(`Lab set on your table (${(S.arTable.W * 100).toFixed(0)} x ${(S.arTable.D * 100).toFixed(0)} cm)`, 4000); return; }
+  if (manual) { startCal(true); return; }
+  if (AR.edge) applyTable(AR.edge, 'touch'); else if (!AR.searchUntil) AR.searchUntil = now() + 4000;
+}
+function arTick() {                                               // while looking for the table at the start of a session
+  if (!AR.searchUntil || S.cal || S.walk || needRecenter > 0) return;
+  const t = findTable();
+  if (t) { AR.searchUntil = 0; AR.plane = t.plane; applyTable(t.corners, 'plane'); toast(`Lab set on your table (${(S.arTable.W * 100).toFixed(0)} x ${(S.arTable.D * 100).toFixed(0)} cm)`, 5000); return; }
+  if (now() > AR.searchUntil) { AR.searchUntil = 0; if (!S.arTable) startCal(true); }
+}
+// touch calibration: two points on the edge nearest the user, the fingertip (the ray origin) on the table top
+const calMat = new THREE.MeshBasicMaterial({ color: 0x4ae3e1, depthTest: false, transparent: true, opacity: 0.9 });
+const calGeo = new THREE.TorusGeometry(0.018, 0.004, 8, 32); calGeo.rotateX(Math.PI / 2);
+function clearCalMarkers() { for (const m of AR.markers) scene.remove(m); AR.markers.length = 0; }
+function startCal(noTable) {
+  if (!S.ar) return;
+  if (S.walk) exitWalk(true);
+  S.cal = { pts: [] }; clearCalMarkers(); AR.searchUntil = 0;
+  toast(noTable ? 'No table found in the room scan. Touch the table edge nearest you with the fingertip (where the laser starts): first at the left, then at the right.' : 'Touch the table edge nearest you with the fingertip (where the laser starts): first at the left, then at the right.', 20000);
+  ui.dirty = true;
+}
+function calPoint(i) {                                            // a trigger press while calibrating: the fingertip is on the table edge
+  const vc = vrc[i]; vc.obj.updateWorldMatrix(true, false); const p = new THREE.Vector3().setFromMatrixPosition(vc.obj.matrixWorld), pts = S.cal.pts;
+  if (pts.length === 1 && Math.hypot(p.x - pts[0][0], p.z - pts[0][2]) < 0.25) { toast('Touch points further apart (at least 25 cm)', 4000); pulse(i, 0.8, 120); return; }
+  pts.push([p.x, p.y, p.z]); pulse(i, 0.5, 40);
+  const m = new THREE.Mesh(calGeo, calMat); m.position.copy(p); m.renderOrder = 9990; scene.add(m); AR.markers.push(m);
+  if (pts.length === 1) { toast('Now touch the same edge further to the right', 20000); return; }
+  AR.edge = cornersFromEdge(pts[0], pts[1], headPos(), 0.8); AR.plane = null; S.cal = null;
+  applyTable(AR.edge, 'touch'); toast('Lab set on the table edge you touched', 4000);
+  setTimeout(clearCalMarkers, 1500);
+}
+function roomScan() {                                             // Quest Browser: open Space Setup to draw or confirm the table, then come back
+  const s = S.xr; if (!s || !s.initiateRoomCapture) return;
+  s.initiateRoomCapture().then(() => { AR.plane = null; AR.searchUntil = now() + 6000; }).catch(() => {});
+  toast('Room scan opened: draw or confirm your table, then come back', 6000);
+}
 dom.vrBtn.onclick = () => { if (xrState.supported) enterVR(); else { S.tab = TAB_VR; S.helpPage = 0; toast('No VR device found - see the VR tab for setup help', 6000); } };
 dom.themeBtn.onclick = () => applyTheme(S.theme === 'dark' ? 'light' : 'dark');
 
@@ -1702,6 +1825,7 @@ function locoTurn(a) {                                            // a > 0 turns
 const vign = new THREE.Mesh(new THREE.RingGeometry(0.16, 1.2, 48), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false }));
 vign.position.z = -0.25; vign.renderOrder = 9999; vign.visible = false; camera.add(vign);
 function locomotion(vc, gp, dt) {
+  if (S.ar && !S.walk) return;                                    // see-through: the lab is fixed to the real table, so no gliding or turning
   const dz = 0.15, axv = (k) => { const v = gp.axes[k] || 0; return Math.abs(v) > dz ? (v - Math.sign(v) * dz) / (1 - dz) : 0; };
   const x = axv(2), y = axv(3);
   if (vc.hand === 'left' && !(hold.src === vc.i && hold.grab) && (x || y)) {
@@ -1724,7 +1848,10 @@ let needRecenter = 0;          // frames to wait: the camera only carries the he
 renderer.xr.addEventListener('sessionstart', () => {
   if (S.walk || S.wa) exitWalk(true);
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
-  S.vr = true; needRecenter = 4; recenterAt = now() + 1700; document.body.classList.add('vr'); dolly.position.y = S.floorY;
+  const ses = renderer.xr.getSession();
+  S.ar = xrMode === 'ar' && !!ses && ses.environmentBlendMode !== 'opaque'; xrMode = 'vr';
+  if (S.ar) { Object.assign(TB, TB_LAB); S.arTable = null; AR.plane = null; AR.edge = null; AR.searchUntil = now() + 5000; applyTheme(S.theme); arLook(true); document.body.classList.add('ar'); }
+  S.vr = true; needRecenter = 4; recenterAt = now() + 1700; document.body.classList.add('vr'); dolly.position.y = FY();
   // the headset's own recentre (e.g. holding the Meta button) moves the tracking origin: put the table back in front of the user
   try { const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { needRecenter = 3; }); } catch (e) { /* not supported */ }
   uiMesh.visible = plotMesh.visible = tbMesh.visible = true; plotMesh.visible = S.level === 'researcher';
@@ -1732,6 +1859,10 @@ renderer.xr.addEventListener('sessionstart', () => {
 });
 renderer.xr.addEventListener('sessionend', () => {
   if (S.walk || S.wa) exitWalk(true);
+  if (S.ar) {
+    S.ar = false; S.cal = null; S.arTable = null; clearCalMarkers(); Object.assign(AR, { plane: null, edge: null, searchUntil: 0 });
+    Object.assign(TB, TB_LAB); arLook(false); applyTheme(S.theme); document.body.classList.remove('ar');
+  }
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); vign.visible = false;
   S.vr = false; document.body.classList.remove('vr'); uiMesh.visible = plotMesh.visible = tbMesh.visible = ptMesh.visible = false;
   bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); simRoot.position.copy(SIM_HOME); labQuat(); userScale = 1;
@@ -1751,12 +1882,13 @@ function headYaw() {                                              // the directi
 function placeBench() {                                           // table and panels in front of the person, at a natural height for standing or sitting
   const p = new THREE.Vector3(); camera.getWorldPosition(p);
   bench.rotation.set(0, headYaw(), 0); bench.position.set(p.x, 0, p.z);
-  const eye = Math.max(0.6, p.y - S.floorY);                      // eye height above the real floor
-  setTableHeight(S.floorY + clamp(eye * 0.55, 0.55, 1.0), false); placePanels(S.floorY + clamp(eye - 0.12, 0.85, 1.75));
+  const fy = FY(), eye = Math.max(0.6, p.y - fy);                // eye height above the real floor
+  setTableHeight(fy + clamp(eye * 0.55, 0.55, 1.0), false); placePanels(fy + clamp(eye - 0.12, 0.85, 1.75));
   bench.updateMatrixWorld(true);
 }
 function recenter() {
   if (S.walk) { benchToHead(); return; }
+  if (S.ar) { arRefit(false); return; }                          // see-through: back onto the real table, never in front of the head
   placeBench(); simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); labQuat(); userScale = 1;
 }
 
@@ -1773,6 +1905,7 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('connected', (e) => { vc.src = e.data; vc.hand = e.data.handedness; obj.visible = true; });
   obj.addEventListener('disconnected', () => { vc.src = null; obj.visible = false; });
   obj.addEventListener('selectstart', () => {
+    if (S.cal && !(vc.hit && vc.hit.ui && (vc.hitObj === uiMesh || vc.hitObj === modalMesh))) { calPoint(i); return; }     // touching the table edge (the menu panel still works)
     if (vc.hit) { if (vc.hit.ui) { vc.hit.ui.press(i); vc.uiHeld = vc.hit.ui; } return; }
     toolDown(i);
   });
@@ -1830,7 +1963,9 @@ function renderInto(rt) {
   const hidden = [];
   for (const vc of vrc) for (const o of [vc.laser, vc.dot, vc.tools && vc.tools.root]) if (o && o.visible) { o.visible = false; hidden.push(o); }
   const xr = renderer.xr.enabled, prev = renderer.getRenderTarget();
+  const bg0 = scene.background; if (bg0 === null) scene.background = LAB_BG;          // see-through: the page cannot see the camera image, so photos get the lab's background
   renderer.xr.enabled = false; renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, CAM.cam); renderer.setRenderTarget(prev); renderer.xr.enabled = xr;
+  scene.background = bg0;
   for (const o of hidden) o.visible = true;
 }
 function camPreviewSrc() { const v = vrc.find((c) => c.src && c.hand === 'right') || vrc.find((c) => c.src); return v ? v.i : null; }
@@ -2006,10 +2141,11 @@ function updateGrab() {
 
 const rc = new THREE.Raycaster();
 function vrInput(dt) {
-  if (dolly.position.y !== S.floorY) dolly.position.y = S.floorY;
+  if (dolly.position.y !== FY()) dolly.position.y = FY();
   if (recenterAt && now() > recenterAt) { recenterAt = 0; recenter(); }
   if (floorDirty && now() > floorDirty && !ui.down) { floorDirty = 0; recenter(); }
   if (needRecenter > 0 && renderer.xr.getCamera().cameras && renderer.xr.getCamera().cameras.length && --needRecenter === 0) recenter();
+  if (S.ar) arTick();
   bench.updateMatrixWorld(true);
   for (const vc of vrc) {
     vc.hit = null; if (!vc.pg) vc.hitObj = null;
@@ -2155,6 +2291,7 @@ function finishEnter() {
   S.walk = true;
   Object.assign(walkSaved, { near: camera.near, far: camera.far, fog: scene.fog, bg: scene.background, sunPos: sun.position.clone(), sunCol: sun.color.getHex(), rimD: rim.distance });
   nano.build(); nano.setQuality(S.quality === 'low'); nano.root.visible = true;
+  if (S.ar) arLook(false);                                        // see-through: the night sky covers the room; the far ghost lab is whole again
   labFar.add(room); labFar.add(desk); labFar.position.set(-200, -40, -1250); labFar.rotation.set(0, 0.35, 0); labFar.scale.setScalar(75); ghostify(labFar, true);
   scene.background = nano.bg; scene.fog = nano.fog;
   hemi.color.setHex(0x8fa6ff); hemi.groundColor.setHex(0x3a2060); hemi.intensity = 1.05;
@@ -2164,9 +2301,9 @@ function finishEnter() {
   userScale = 1; WI.lock = null; applyQuality(); walkPlace();
   const sz = clamp(WI.ext * 0.75 + 3, 6, WI.R - 2);
   if (S.vr) {
-    dolly.position.set(0, S.floorY, 0); dolly.rotation.set(0, 0, 0); dolly.updateMatrixWorld(true);
+    dolly.position.set(0, FY(), 0); dolly.rotation.set(0, 0, 0); dolly.updateMatrixWorld(true);
     dolly.rotation.y = -headYaw(); dolly.updateMatrixWorld(true);
-    camera.getWorldPosition(wp); dolly.position.x += -wp.x; dolly.position.z += sz - wp.z; dolly.position.y = S.floorY; benchToHead();
+    camera.getWorldPosition(wp); dolly.position.x += -wp.x; dolly.position.z += sz - wp.z; dolly.position.y = FY(); benchToHead();
   } else {
     controls.rotateSpeed = 0.6; controls.minDistance = 0.001; controls.maxDistance = 0.5; controls.enableZoom = false; controls.enablePan = false; controls.minPolarAngle = 0.3; controls.maxPolarAngle = Math.PI - 0.3;
     camera.position.set(0, EYE, sz); controls.target.set(0, EYE - 0.004, sz - 0.02); controls.update();
@@ -2178,9 +2315,9 @@ function finishExit() {
   S.walk = false; nano.root.visible = false; ghostify(labFar, false); bench.add(room); bench.add(desk); headlamp.intensity = 0; rim.distance = walkSaved.rimD || 4;
   scene.fog = walkSaved.fog; scene.background = walkSaved.bg; sun.position.copy(walkSaved.sunPos); sun.color.setHex(walkSaved.sunCol);
   camera.near = walkSaved.near; camera.far = walkSaved.far; camera.updateProjectionMatrix();
-  applyTheme(S.theme); applyQuality(); userScale = 1;
+  applyTheme(S.theme); applyQuality(); userScale = 1; if (S.ar) arLook(true);
   controls.rotateSpeed = 1; controls.minDistance = 0.3; controls.maxDistance = 6; controls.enableZoom = true; controls.enablePan = true; controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
-  if (S.vr) { dolly.position.set(0, S.floorY, 0); dolly.rotation.set(0, 0, 0); bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); recenter(); }
+  if (S.vr) { dolly.position.set(0, FY(), 0); dolly.rotation.set(0, 0, 0); bench.position.set(0, 0, 0); bench.rotation.set(0, 0, 0); recenter(); }
   else { simRoot.position.copy(SIM_HOME); labQuat(); homeView(); }
   ui.dirty = tbar.dirty = true;
 }
@@ -2481,9 +2618,11 @@ window.addEventListener('beforeunload', () => collab.leave());
 function applyTheme(name) {
   S.theme = name === 'light' ? 'light' : 'dark'; const th = THEMES[S.theme];
   setPalette(S.theme);
-  if (!S.walk) { scene.background.set(th.bg); scene.fog.color.set(th.bg); scene.fog.near = th.fog[0]; scene.fog.far = th.fog[1]; }
+  if (!S.walk && S.ar) { scene.background = null; scene.fog = null; }            // see-through: the real room is the background
+  else if (!S.walk) { scene.background = LAB_BG; scene.fog = LAB_FOG; scene.background.set(th.bg); scene.fog.color.set(th.bg); scene.fog.near = th.fog[0]; scene.fog.far = th.fog[1]; }
   if (!S.walk) { hemi.color.set(th.hemi[0]); hemi.groundColor.set(th.hemi[1]); hemi.intensity = th.hemi[2]; sun.intensity = th.sun; rim.color.set(th.accent); rim.intensity = th.rim; }
   if (room) { const par = room.parent || bench; par.remove(room); disposeTree(room); room = makeRoom(th); par.add(room); } else { room = makeRoom(th); bench.add(room); }
+  room.visible = !(S.ar && !S.walk);
   labSide();
   deskTop.material.color.set(th.top); legM.color.set(th.cab); ring.material.color.set(th.accent); disc.material.color.set(th.accent);
   boxEdges.material.color.set(th.accent); boxFaces.material.color.set(th.accent);
@@ -2524,4 +2663,4 @@ build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
 window.__mdlab = { TR, plotData, get U() { return U; }, modal, recenter, labSide, offerControl, requestControl, takeBack, releaseControl, acceptPending, declinePending, collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
-  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop };
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; } };
