@@ -195,7 +195,7 @@ run round the boundary.
 - *Armchair edge dimers* (always on): the bond between the two edge atoms is shorter and its hopping 12 % stronger (Son, Cohen, Louie,
   PRL 97, 216803 (2006)). N = 7 then has 1.57 eV (their formula: +0.28 eV; DFT ~1.5-1.6) and the 3p+2 ribbons a small gap (N = 8:
   0.13 eV). Edge dimer = two bonded carbons with two carbon neighbours each, both bonded to a three-fold carbon (not chains, not benzene).
-- *Spin-polarised zigzag edges* (ELEC: *Edge magnetism*, on by default): mean-field Hubbard, U = t = 2.7 eV, H_s = H0 + U(n_-s - 1/2),
+- *Spin-polarised zigzag edges* (ELEC: *Edge magnetism*, off by default - it makes the transport 3-4x slower): mean-field Hubbard, U = t = 2.7 eV, H_s = H0 + U(n_-s - 1/2),
   solved self-consistently per geometry (sublattice-antiferromagnetic start, linear mixing, the chemical potential mid-gap of the two spin
   spectra); T(E) and the bond currents are the spin averages. A 1.3 nm zigzag ribbon gets edge moments ~0.14 uB and a 0.47 eV transport
   gap (LSDA ~0.5 eV); a structure without edge states (benzene, chains) converges to the non-magnetic solution and is unchanged. Cost:

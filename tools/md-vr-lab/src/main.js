@@ -59,7 +59,7 @@ const S = {
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
-  ar: false, arTable: null, cal: null, edgeMag: true,                                                 // see-through mode on a real table (src/realtable.js)
+  ar: false, arTable: null, cal: null, edgeMag: false,     // (edge magnetism: off by default - it makes the transport 3-4x slower)                                                 // see-through mode on a real table (src/realtable.js)
   cm: new Set(), cp: new Set(), gamma: 1.0, bias: 0.2, arrows: false, curBonds: true, live: true, Tlog: false,     // electron transport (ELEC tab)
   substrate: 'graphene', floorY: 0, lang: 'en', level: 'adult', tutAsk: false, buildN: null, hoverTool: null, walk: false, wa: null, tut: -1, tutOk: false, tutAt: 0, quality: 'high', thermoOn: true, atomR: 0.32, sameSize: true, bondR: 0.08, ptOpen: false, zapDeg: 6, escape: true, saveDel: false, savePage: 0,
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
