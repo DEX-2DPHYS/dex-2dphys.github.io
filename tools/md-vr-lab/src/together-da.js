@@ -1,7 +1,7 @@
 export const TOGETHER_DA = {
   'Floor level (VR)': 'Gulvhøjde (VR)', 'Raise me so my feet meet the floor': 'Løft mig, så mine fødder rammer gulvet', 'Recenter table': 'Centrér bordet', 'Floor level: reset': 'Gulvhøjde: nulstil',
   'Recenter': 'Centrér', 'Table recentred': 'Bordet er centreret',
-  'RECENTER - put the table and panels in front of you again (also: click the right thumbstick)': 'CENTRÉR - sæt bord og paneler foran dig igen (også: tryk på højre styrepind)',
+  'RECENTER - put the table and panels in front of you again': 'CENTRÉR - sæt bord og paneler foran dig igen',
   'RECENTER - fit the view to the experiment (key F)': 'CENTRÉR - tilpas visningen til eksperimentet (tast F)',
   'Oh no - the simulation crashed': 'Åh nej - simuleringen brød sammen', 'Something moved too fast and the energy blew up.': 'Noget bevægede sig for hurtigt, og energien løb løbsk.',
   'The host\'s simulation crashed': 'Værtens simulering brød sammen', 'Waiting for the host to restart.': 'Venter på, at værten genstarter.', 'Restart': 'Genstart',

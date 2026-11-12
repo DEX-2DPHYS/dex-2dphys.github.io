@@ -25,6 +25,21 @@ export function rectFromPolygon(pts) {
 export function planeCorners(poly, m) {
   return rectFromPolygon(poly).map(([x, z]) => [m[0] * x + m[8] * z + m[12], m[1] * x + m[9] * z + m[13], m[2] * x + m[10] * z + m[14]]);
 }
+// points (x, y, z in their own space) through a column-major 4x4 into the world
+export function toWorldPts(pts, m) {
+  return pts.map(([x, y, z]) => [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]]);
+}
+// A table top from world points, whatever axis convention the headset used for the plane: the outline's points (a plane), or the
+// top slice of a volume's mesh (top = true: the vertices within `slice` metres of the highest one). Returns the rectangle round them,
+// its height, and how far the points spread in height (a flat outline spreads by a few millimetres; a wall by metres).
+export function footprint(pts, top = false, slice = 0.03) {
+  if (!pts.length) return null;
+  let lo = Infinity, hi = -Infinity; for (const p of pts) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
+  const use = top ? pts.filter((p) => p[1] > hi - slice) : pts; if (use.length < 3) return null;
+  const y = top ? hi : use.reduce((s, p) => s + p[1], 0) / use.length;
+  const corners = rectFromPolygon(use.map((p) => [p[0], p[2]])).map(([x, z]) => [x, y, z]);
+  return { corners, top: y, spread: top ? 0 : hi - lo };
+}
 
 // two points touched on the edge nearest the user -> a rectangle reaching `depth` metres away from the user
 export function cornersFromEdge(a, b, head, depth = 0.8) {
@@ -104,6 +119,16 @@ export const TABLE_DA = {
   'Table from the room scan: {1} x {2} cm, top at {3} cm': 'Bord fra rumscanningen: {1} x {2} cm, bordplade i {3} cm',
   'Table from the touched edge, top at {1} cm': 'Bord fra den berørte kant, bordplade i {1} cm',
   'No table yet': 'Intet bord endnu',
-  'RECENTER - find the real table again (also: click the right thumbstick)': 'CENTRER - find det rigtige bord igen (også: klik på højre thumbstick)',
+  'RECENTER - find the real table again': 'CENTRÉR - find det rigtige bord igen',
   'Room scan opened: draw or confirm your table, then come back': 'Rumscanning åbnet: tegn eller bekræft dit bord, og kom så tilbage',
+  'Room scan: nothing shared (allow spatial data when asked, or run Space Setup)': 'Rumscanning: intet delt (tillad rumdata, når du bliver spurgt, eller kør Space Setup)',
+  'Room scan - surfaces: {1}; volumes: {2}': 'Rumscanning - flader: {1}; rumfang: {2}',
+  // controls (2026-11-12): stop spin, panels
+  'Stop spin': 'Stop rotation',
+  'STOP SPIN - every loose piece stops turning; the atoms keep their thermal motion (holding a piece with the Hand stops it too)': 'STOP ROTATION - alle løse stykker holder op med at dreje; atomerne beholder deres termiske bevægelse (at holde et stykke med Hånden stopper det også)',
+  'Spinning stopped (1 piece)': 'Rotationen er stoppet (1 stykke)',
+  'Spinning stopped ({1} pieces)': 'Rotationen er stoppet ({1} stykker)',
+  'Nothing was spinning': 'Intet roterede',
+  'A periodic sheet cannot spin - build an open flake': 'Et periodisk lag kan ikke rotere - byg en åben flage',
+  'Build a material first': 'Byg et materiale først',
 };

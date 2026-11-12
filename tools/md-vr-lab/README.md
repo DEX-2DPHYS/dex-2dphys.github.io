@@ -11,6 +11,7 @@ node build.js                                # writes index.html
 node test/physics.test.mjs                   # physics checks (no browser needed); likewise the other test/*.test.mjs
 node test/xr-emulator.cjs index.html out     # VR in headless Chrome (IWER + puppeteer-core)
 node test/xr-ar.cjs index.html               # see-through on a real table, same tools
+node test/xr-interact.cjs index.html         # recentre only by the headset, two-grip scale, table floor, spin, panel handles
 ```
 
 ## What it is
@@ -32,7 +33,7 @@ SteamVR is reached through the browser's OpenXR runtime; there is no native Open
 
 VR controls: trigger = press UI / use tool, grip = move the experiment (both grips: scale), right stick = target T,
 left stick = box size, while holding an atom the stick reels it in/out, A/X = next tool, B/Y = run/pause,
-stick click = recentre.
+holding the Meta button (the headset's own recentre) = recentre; nothing else on the controllers moves the table.
 
 ## Together (Settings → Together; `src/collab.js`, `src/avatars.js`)
 
@@ -63,10 +64,30 @@ delay and carries atoms on with their velocities when a packet is late.
 The default is an empty table (no substrate). A substrate, when you choose one, always lies on the table (its lowest atoms touch the worktop; this is re-applied every frame, so
 replacing the structure or moving the experiment keeps it level), with the structure on it. The table is solid: atoms that reach the worktop
 bounce off it (specular reflection, the normal velocity flips), so an unsupported structure pushed down onto the table does not pass through.
+The worktop is a floor for **every** atom over it - the main structure, loose pieces, single atoms, a piece held by the Hand or carried with the
+grip - checked after every MD step (`tableWall` once a frame for the plane, `tableWallStep` after each step: an atom below goes back onto the
+surface, at most 1 A a step, and its downward velocity flips), so a fast atom cannot slip through between frames. Moving or scaling the whole
+experiment with the grips cannot push it into the table either (`keepAboveTable`: it is lifted by what its lowest atom over the worktop lacks).
+
+## Controls (2026-11-12)
+
+- **Only the headset recentres.** The thumbstick click no longer recentres (it fired by accident while pushing the stick for the temperature
+  or to reel an atom); no controller button moves the table. Holding the Meta button (the headset's own recentre, a reference-space
+  `reset`) does, and Settings keeps *Recenter table*. In VR the toolbar has **Stop spin** where Recenter was; the desktop toolbar has both.
+- **Both grips = scale, always.** The second grip turns whatever the first grip was doing (carrying a piece, moving a panel) into the
+  two-hand gesture: spread the hands to scale, twist to turn, about the point between them. Letting go of either grip ends it - the other
+  hand does not start dragging the experiment. A hidden panel (the plots below Researcher level) no longer catches the ray.
+- **Spinning.** A piece pulled off-centre keeps its angular momentum and turns. `spinOff` removes the rigid-body rotation of a piece (the part
+  omega x r of the velocities about its centre of mass, omega = I^-1 L) and nothing else: the centre-of-mass motion and the thermal motion
+  stay (test: the kinetic energy returns exactly to its value before the spin was added). **Stop spin** (toolbar) does it for every connected
+  piece; **holding** a piece with the Hand (or a layer) damps its spin with a 0.12 s time constant, so holding it still stops it. Pieces with
+  atoms held fixed, and periodic sheets, are left alone.
+- **Moving panels.** Each panel (menu, plots, toolbar, periodic table) has a handle bar with six grip dots on its top edge: trigger on it and
+  drag - the panel follows the ray at the same distance and keeps facing you. Grip anywhere on a panel still moves it with the hand.
 
 ## VR reset and floor level
 
-The right thumbstick click, the **Recenter** toolbar button and Settings → Floor level (VR) put the table and panels in front of you: the direction is
+The headset's own recentre (hold the Meta button), Settings → General → *Recenter table* and the desktop **Recenter** button put the table and panels in front of you (the thumbstick click no longer does: it happened by accident while pushing the stick; in VR the toolbar has *Stop spin* in its place): the direction is
 taken from the gaze (or from the top of the head when you look steeply up or down), the table height is 55 % of eye height (0.55–1.0 m) and a second
 recentre happens 1.7 s after VR starts (the first pose of a headset is often off). Settings has a **Floor level** slider (±50 cm) that raises or lowers
 you relative to the virtual floor, if the headset's floor is a little off.
@@ -77,17 +98,21 @@ An `immersive-ar` session on a headset with passthrough (Quest 3 / 3S in colour;
 drawn, so the real room shows, and the lab stands on a **real table**. The virtual worktop and legs are hidden; the work-area ring, thermometer,
 prints, toolbar and panels stay.
 
-- **Finding the table.** The session asks for `plane-detection`, which on a Quest gives the surfaces from the room scan (Space Setup; the
-  browser asks once for permission to share it). The nearest surface labelled *table* or *desk* wins, else a horizontal surface 35–130 cm
-  high (a scan without labels). Its outline becomes a rectangle (smallest area round the polygon). The edge nearest you is the front: the
-  lab faces into the table from there.
+- **Finding the table.** The session asks for `plane-detection` and `mesh-detection`, which on a Quest give the room scan (Space Setup; the
+  browser asks once for permission to share it): surfaces, and volumes (a Quest 3 scan gives furniture as boxes - the top face of a
+  *table*/*desk* volume is used). The nearest surface or volume labelled *table* or *desk* wins, else a horizontal surface 35–130 cm high
+  (a scan without labels). The outline is taken through its pose into the world and must be flat (whatever axis convention the headset
+  uses for the plane); it becomes a rectangle (smallest area round it). The edge nearest you is the front: the lab faces into the table from
+  there. The scan is read twice a second for the whole session, so a table that arrives late (after the permission question) is still
+  used. Settings → General shows what the scan holds ("Room scan - surfaces: floor, wall x4, table; volumes: ..."), to see why a table is or
+  is not found.
 - **Placing.** The virtual worktop's upper face lies exactly on the real table top; the experiment stands over the table centre (on a table
   wider than 2 m or deeper than 1.2 m: in front of you, at least 0.6 m from its ends and 0.5 m in from the edge). The solid worktop
   (atoms bounce off it) takes the real table's size, the toolbar lies just inside the front edge, the panels stand beside the table (at most
   0.9 m out from the centre, so they stay in reach on a long table), the ring shrinks on a small table.
-- **No table in the scan** (no Space Setup, or the browser was not allowed to read it): after 5 s the lab asks you to **touch the table edge**
+- **No table in the scan** (no Space Setup, or the browser was not allowed to read it): after 8 s the lab asks you to **touch the table edge**
   nearest you with the fingertip, where the laser starts - first at the left, then at the right (at least 25 cm apart). The table is then
-  taken to be 80 cm deep. Settings → General has *Find my table again* (thumbstick click and the Recenter button do the same), *Touch the
+  taken to be 80 cm deep (a table that the scan delivers later replaces the request, unless you have already touched the edge). Settings → General has *Find my table again* (the Meta-button recentre does the same), *Touch the
   table edge*, *Scan the room* (Quest Browser: opens Space Setup to draw or confirm the table) and *Leave see-through*.
 - **Fixed to the table:** the sticks do not glide or turn the user in see-through (the lab would slide off the real table); the floor-level
   slider is replaced by the table section (the real floor is the floor). Grip still moves and turns the experiment.
@@ -224,7 +249,7 @@ starts from nothing.
 
 - Dark or white lab (VR tab, the *White lab* button, or key T). The furnished room (benches, cabinets, shelves, windows) is merged
   into one mesh per material and costs well under 1 ms of GPU time per frame.
-- Recentring (thumbstick click) fits the table to the user: half a metre below the eyes, seated or standing; the VR tab has a
+- Recentring (Meta button, or Settings) fits the table to the user: half a metre below the eyes, seated or standing; the VR tab has a
   table-height slider and the left stick moves the table in the materials mode.
 - The panels stand beside the table, not through it. Grip while pointing at a panel moves it.
 

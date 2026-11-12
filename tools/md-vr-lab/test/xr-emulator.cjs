@@ -45,14 +45,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const s0 = await ev(() => window.__mdlab.md.step); await wait(1000);
   ok('frames run in VR (the simulation advances)', (await ev(() => window.__mdlab.md.step)) > s0);
 
-  // seated: put the head at 1.2 m, recentre with the right thumbstick click
+  // seated: put the head at 1.2 m, recentre (what the headset's own recentre - the Meta button - runs)
   await ev(() => window.__dev.position.set(0, 1.2, 0)); await wait(300);
-  await press('right', 'thumbstick'); await wait(300);
+  await ev(() => window.__mdlab.recenter()); await wait(300);
   let t = await ev(() => ({ table: window.__mdlab.S.tableH, ui: window.__mdlab.uiMesh.position.y }));
   // placeBench: the table at 0.55 x eye height (0.55-1.0 m)
   ok('seated (eyes 1.20 m): table fits below the eyes', Math.abs(t.table - 0.66) < 0.02, `table ${t.table.toFixed(2)} m, panels at ${t.ui.toFixed(2)} m`);
   await ev(() => window.__dev.position.set(0, 1.65, 0)); await wait(300);
-  await press('right', 'thumbstick'); await wait(300);
+  await ev(() => window.__mdlab.recenter()); await wait(300);
   t = await ev(() => ({ table: window.__mdlab.S.tableH }));
   ok('standing (eyes 1.65 m): table rises', Math.abs(t.table - 0.91) < 0.02, `table ${t.table.toFixed(2)} m`);
   const clear = await ev(() => {
@@ -76,7 +76,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const sc1 = await ev(() => window.__mdlab.simRoot.scale.x), m1 = await ev(() => { const c = window.__mdlab.simRoot.position; return [c.x, c.y, c.z]; });
   await ev(() => { window.__dev.controllers.left.updateButtonValue('squeeze', 0); window.__dev.controllers.right.updateButtonValue('squeeze', 0); }); await wait(300);
   ok('both grips, hands twice as far apart: the structure doubles in size and stays put', Math.abs(sc1 / sc0 - 2) < 0.05 && Math.hypot(m1[0] - m0[0], m1[2] - m0[2]) < 0.4, `scale x${(sc1 / sc0).toFixed(2)}`);
-  await press('right', 'thumbstick');
+  await ev(() => window.__mdlab.recenter());
   // grip on a panel moves it: aim the right controller at the control panel, squeeze, move the hand 0.3 m sideways
   const aim = () => ev(() => {
     const L = window.__mdlab, V = L.camera.position.constructor, c = new V(); L.uiMesh.getWorldPosition(c);

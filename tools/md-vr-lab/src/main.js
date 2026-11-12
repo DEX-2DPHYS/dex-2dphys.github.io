@@ -18,7 +18,7 @@ import { createNanoWorld, WALK_DA } from './nanowalk.js';
 import { Collab, sbConfig, sbExpired, sbExpires, saveSbConfig, saveName, roomCode } from './collab.js';
 import { AvatarSet } from './avatars.js';
 import { TOGETHER_DA } from './together-da.js';
-import { planeCorners, cornersFromEdge, fitTable, pickTable, TABLE_DA } from './realtable.js';
+import { cornersFromEdge, fitTable, pickTable, toWorldPts, footprint, TABLE_DA } from './realtable.js';
 addLanguage('da', Object.assign({}, DA, TUT_DA, WALK_DA, TOGETHER_DA, TABLE_DA));
 import LOGO from './logo-2dphys.jpg';                                      // inlined as a data URL by build.js
 const logoImg = new Image(); logoImg.src = LOGO;
@@ -289,16 +289,24 @@ let userScale = 1, wps = 0.1;
    worktop) and the structure sits on it. Walking uses the same surface (see walkPlace). */
 /* The table is solid: atoms that reach the worktop (over its 1.4 x 0.8 m top, or the real table: TB) bounce off it - specular reflection, the normal velocity flips. */
 const _wn = new THREE.Vector3(), _wp = new THREE.Vector3(), _wi = new THREE.Matrix4(), _wb = new THREE.Matrix4(), _wr = new THREE.Vector3();
-function tableWall() {
+// The worktop is a floor for EVERY atom over it - the main structure, loose pieces, single atoms, a piece held by the Hand or carried
+// with the grip - checked after every MD step (not once a frame, so a fast atom cannot slip through between frames).
+const TW = { on: false, nx: 0, ny: 1, nz: 0, nd: 0 };
+function tableWall() {                                            // once a frame: the worktop plane in box coordinates
+  TW.on = false;
   if (!isMat() || S.walk || S.wa || !md.N || collab.guest || S.paused || md.exploded || fitKey === '') return;      // (not in the frame right after a rebuild: the experiment is placed on the table first)
   inner.updateWorldMatrix(true, false); bench.updateWorldMatrix(true, false); _wi.copy(inner.matrixWorld).invert(); _wb.copy(bench.matrixWorld).invert();
   _wn.set(0, 1, 0).transformDirection(_wi); _wp.set(0, S.tableH + 0.025, 0).applyMatrix4(bench.matrixWorld).applyMatrix4(_wi);     // (the bench is lifted onto a real table in see-through mode)
-  const nx = _wn.x, ny = _wn.y, nz = _wn.z, nd = nx * _wp.x + ny * _wp.y + nz * _wp.z, rad = S.atomR, X = md.x, Y = md.y, Z = md.z, fixed = md.fixed;
+  TW.nx = _wn.x; TW.ny = _wn.y; TW.nz = _wn.z; TW.nd = _wn.x * _wp.x + _wn.y * _wp.y + _wn.z * _wp.z; TW.on = true;
+}
+function tableWallStep() {                                        // after each MD step: atoms below the worktop go back onto it, moving down = bounce
+  if (!TW.on) return;
+  const { nx, ny, nz, nd } = TW, rad = S.atomR, X = md.x, Y = md.y, Z = md.z, fixed = md.fixed;
   for (let i = 0; i < md.N; i++) {
     const d = nx * X[i] + ny * Y[i] + nz * Z[i] - nd; if (d >= rad) continue;
     if (fixed && fixed[i]) continue;
     _wr.set(X[i], Y[i], Z[i]).applyMatrix4(inner.matrixWorld).applyMatrix4(_wb); if (_wr.x < TB.x0 || _wr.x > TB.x1 || _wr.z < TB.z0 || _wr.z > TB.z1) continue;     // over the table top
-    const k = Math.min(2 * (rad - d), 0.25); X[i] += nx * k; Y[i] += ny * k; Z[i] += nz * k;                 // a gentle push (at most 0.25 A a frame), never a jump
+    const k = Math.min(rad - d, 1.0); X[i] += nx * k; Y[i] += ny * k; Z[i] += nz * k;                   // onto the surface (deep in: at most 1 A a step, never a jump)
     const vn = nx * md.vx[i] + ny * md.vy[i] + nz * md.vz[i]; if (vn < 0) { md.vx[i] -= 2 * vn * nx; md.vy[i] -= 2 * vn * ny; md.vz[i] -= 2 * vn * nz; }
   }
 }
@@ -844,6 +852,7 @@ const TOOLDEF = {
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
   wand: { l: 'Bring', icon: ICONS.wand, tint: '#ffd166', on: () => S.tool === 'wand', act: () => selectTool('wand') },
   recenter: { l: 'Recenter', icon: ICONS.recenter, tint: '#9fd8fb', on: () => false, act: () => { if (S.vr) { recenter(); toast('Table recentred', 1500); } else homeView(); } },
+  stopspin: { l: 'Stop spin', icon: ICONS.stopspin, tint: '#9fd8fb', on: () => false, act: () => stopSpin(true) },
   walk: { l: 'Walk', icon: ICONS.walk, tint: '#7be0ff', on: () => S.walk || !!S.wa, act: () => toggleWalk() },
   help: { l: 'Guide', icon: ICONS.help, tint: '#b48cff', on: () => S.tut >= 0, act: () => toggleTutorial() },
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
@@ -856,8 +865,15 @@ const TB_LEVEL = {
 };
 const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
+// In VR only the headset's own (Meta button) recentre moves the table, so the toolbar has Stop spin where Recenter was
+// (Recenter stays in Settings); on the desktop Recenter is the fit-view button and Stop spin comes next to it.
+function tbList() {
+  if (S.tut >= 0) return TB_TUT;
+  const l = TB_LEVEL[S.level] || TB_LEVEL.researcher;
+  return S.vr ? l.map((k) => (k === 'recenter' ? 'stopspin' : k)) : l.flatMap((k) => (k === 'recenter' ? ['stopspin', 'recenter'] : [k]));
+}
 function drawToolbar() {
-  const tut = S.tut >= 0, list = tut ? TB_TUT : (TB_LEVEL[S.level] || TB_LEVEL.researcher), kid = S.level === 'kid' && !tut, hl = tut ? TUT_STEPS[S.tut].tool : null;
+  const tut = S.tut >= 0, list = tbList(), kid = S.level === 'kid' && !tut, hl = tut ? TUT_STEPS[S.tut].tool : null;
   tbar.begin(); tbar.y = 13; tbar.row(list.length); let hov = null;
   for (const k of list) {
     const d = TOOLDEF[k], r = tbar._rect(66); if (tbar._hover(r)) hov = k;
@@ -1035,6 +1051,30 @@ function placePanels(y) {                 // either side of the table (TB: x = -
 placePanels(1.32);
 uiMesh.visible = plotMesh.visible = false;
 bench.add(uiMesh); bench.add(plotMesh);
+/* ---------- moving panels: a handle bar (six grip dots) on top of each panel. Trigger on it and drag: the panel follows the ray at
+   the same distance and keeps facing you. (Grip anywhere on a panel still moves it with the hand, turning with it.) ---------- */
+const barTex = canvasTex(256, 40, (g, w, h) => {
+  g.fillStyle = 'rgba(14,22,38,0.88)'; roundRect(g, 2, 2, w - 4, h - 4, 18); g.fill(); g.strokeStyle = '#4ae3e1'; g.lineWidth = 2.5; g.stroke();
+  g.fillStyle = '#cfe8ff'; for (let r = 0; r < 2; r++) for (let k = 0; k < 6; k++) { g.beginPath(); g.arc(w / 2 - 50 + k * 20, h / 2 - 6 + r * 12, 3.6, 0, Math.PI * 2); g.fill(); }
+});
+const PANEL_BARS = [uiMesh, plotMesh, tbMesh, ptMesh].map((p) => {
+  const ph = p.geometry.parameters.height, b = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.031), new THREE.MeshBasicMaterial({ map: barTex, transparent: true, toneMapped: false, color: 0xb8c8dc }));
+  b.position.set(0, ph / 2 + 0.024, 0.002); b.userData.panel = p; p.add(b); return b;
+});
+const _pgO = new THREE.Vector3(), _pgD = new THREE.Vector3(), _pgH = new THREE.Vector3(), _pgE = new THREE.Euler(0, 0, 0, 'YXZ');
+function startPanelDrag(vc, hit) {                                // trigger on a handle bar
+  const p = hit.bar; p.updateWorldMatrix(true, false);
+  _pgE.setFromQuaternion(p.getWorldQuaternion(new THREE.Quaternion()), 'YXZ');
+  vc.pg = { mesh: p, ray: true, dist: hit.dist, off: p.getWorldPosition(new THREE.Vector3()).sub(hit.point), pitch: _pgE.x };
+}
+function dragPanel(vc) {                                          // every frame while dragging: on the ray, facing the head (yaw only)
+  const g = vc.pg; vc.obj.updateWorldMatrix(true, false);
+  _pgO.setFromMatrixPosition(vc.obj.matrixWorld); _pgD.set(0, 0, -1).transformDirection(vc.obj.matrixWorld);
+  const t = _pgO.addScaledVector(_pgD, g.dist).add(g.off); camera.getWorldPosition(_pgH);
+  const yaw = Math.atan2(_pgH.x - t.x, _pgH.z - t.z) - bench.rotation.y;
+  bench.updateMatrixWorld(true); g.mesh.position.copy(t.applyMatrix4(tmpM.copy(bench.matrixWorld).invert()));
+  g.mesh.rotation.order = 'YXZ'; g.mesh.rotation.set(g.pitch, yaw, 0);
+}
 uiMesh.userData.ui = true;
 
 function drawControls() {
@@ -1085,8 +1125,9 @@ function toolHint(t = S.tool) {
   if (t === 'camera') return S.vr ? 'Tool: CAMERA - aim and press the trigger; the photo goes to the Downloads folder on the PC' : 'Tool: CAMERA - click in the view to take a photo (1920 x 1080 PNG, saved to Downloads)';
   if (t === 'hand') return S.vr ? 'Tool: HAND - trigger grabs an atom or a loose piece (pull hard to break it off); grip carries a piece' : 'Tool: HAND - drag an atom or a loose piece; pull hard to break it off';
   if (t === 'walk') return 'WALK - be made small and walk on the structure (atom 30 cm, bond 1.5 m). Esc or this button: back to the lab';
-  if (t === 'recenter' && S.ar && !S.walk) return 'RECENTER - find the real table again (also: click the right thumbstick)';
-  if (t === 'recenter') return S.vr ? 'RECENTER - put the table and panels in front of you again (also: click the right thumbstick)' : 'RECENTER - fit the view to the experiment (key F)';
+  if (t === 'stopspin') return 'STOP SPIN - every loose piece stops turning; the atoms keep their thermal motion (holding a piece with the Hand stops it too)';
+  if (t === 'recenter' && S.ar && !S.walk) return 'RECENTER - find the real table again';
+  if (t === 'recenter') return S.vr ? 'RECENTER - put the table and panels in front of you again' : 'RECENTER - fit the view to the experiment (key F)';
   if (t === 'help') return 'GUIDE - a short tour of the basic tools on a graphene sheet';
   if (t === 'cool' || t === 'warm') return t === 'warm' ? 'WARMER - raise the target temperature: the atoms shake harder' : 'COLDER - lower the target temperature: the atoms calm down';
   if (t === 'run') return 'RUN / PAUSE - let time flow or freeze the atoms (space bar)';
@@ -1328,6 +1369,7 @@ function tabSettings() {
     ui.section('Real table (see-through)');
     const a = S.arTable, cm = (v) => (v * 100).toFixed(0);
     ui.label(!a ? 'No table yet' : a.src === 'plane' ? `Table from the room scan: ${cm(a.W)} x ${cm(a.D)} cm, top at ${cm(a.top)} cm` : `Table from the touched edge, top at ${cm(a.top)} cm`, { size: 18 });
+    ui.label(scanText(), { size: 15, color: COL.muted });
     ui.row(2); if (ui.button('Find my table again', { h: 48, size: 19 })) arRefit(true); if (ui.button('Touch the table edge', { h: 48, size: 19, active: !!S.cal })) startCal();
     ui.row(2); if (ui.button('Scan the room', { h: 48, size: 19, disabled: !(S.xr && S.xr.initiateRoomCapture) })) roomScan(); if (ui.button('Leave see-through', { h: 48, size: 19, danger: true })) endVR();
   } else {
@@ -1729,7 +1771,7 @@ async function enterAR() {
   if (!navigator.xr || vrStarting || renderer.xr.getSession()) return;
   vrStarting = true; setBtn(dom.arBtn, 'Starting see-through…');
   try {
-    const session = await navigator.xr.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'plane-detection'] });
+    const session = await navigator.xr.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'plane-detection', 'mesh-detection'] });
     useBaseLayer(session);
     renderer.xr.setFramebufferScaleFactor(XR_SCALE[S.quality] || 1);
     xrMode = 'ar'; await renderer.xr.setSession(session);
@@ -1737,20 +1779,35 @@ async function enterAR() {
   finally { vrStarting = false; setBtn(dom.arBtn, 'Real table'); }
 }
 if (dom.arBtn) dom.arBtn.onclick = () => enterAR();
-const AR = { searchUntil: 0, plane: null, markers: [] };
+const AR = { askAt: 0, nextScan: 0, plane: null, markers: [], info: null };
 const FY = () => (S.ar ? 0 : S.floorY);                          // the floor offset: the real floor in see-through mode
 const _ah = new THREE.Vector3(), _ap = new THREE.Vector3();
 function headPos() { camera.getWorldPosition(_ah); return [_ah.x, _ah.y, _ah.z]; }
 function toWorld(c) { dolly.updateMatrixWorld(true); return c.map((p) => { _ap.set(p[0], p[1], p[2]).applyMatrix4(dolly.matrixWorld); return [_ap.x, _ap.y, _ap.z]; }); }
-function detectedTables() {                                       // [{ corners (world), label, horizontal, plane }] from this frame
+function detectedTables() {                                       // [{ corners (world), label, horizontal, plane }] from this frame: surfaces and volumes
   const fr = renderer.xr.getFrame && renderer.xr.getFrame(), ref = renderer.xr.getReferenceSpace();
-  const out = [], planes = fr && fr.detectedPlanes; if (!planes || !ref) return out;
-  planes.forEach((pl) => {
+  const out = [], info = { planes: [], meshes: [], shared: false };
+  if (!fr || !ref) return AR.last || out;                        // (outside a frame: what the last scan saw - it is read twice a second)
+  const planes = fr.detectedPlanes, meshes = fr.detectedMeshes;
+  info.shared = !!(planes || meshes);
+  if (planes) planes.forEach((pl) => {                            // surfaces: the outline, taken through its pose (any axis convention)
+    const label = pl.semanticLabel || ''; info.planes.push(label || '?');
     let pose = null; try { pose = fr.getPose(pl.planeSpace, ref); } catch (e) { /* plane gone */ }
     if (!pose || !pl.polygon || pl.polygon.length < 3) return;
-    const corners = toWorld(planeCorners(pl.polygon.map((p) => [p.x, p.z]), pose.transform.matrix));
-    out.push({ corners, label: pl.semanticLabel || '', horizontal: pl.orientation ? pl.orientation === 'horizontal' : true, plane: pl });
+    const f = footprint(toWorld(toWorldPts(pl.polygon.map((p) => [p.x, p.y, p.z]), pose.transform.matrix)), false);
+    if (!f) return;
+    out.push({ corners: f.corners, label, horizontal: f.spread < 0.06, plane: pl, kind: 'surface' });
   });
+  if (meshes) meshes.forEach((me) => {                            // volumes (a Quest 3 scan gives furniture as boxes): the top of a table or desk
+    const label = me.semanticLabel || ''; info.meshes.push(label || '?');
+    if (!/table|desk/i.test(label) || !me.vertices || me.vertices.length < 9) return;
+    let pose = null; try { pose = fr.getPose(me.meshSpace, ref); } catch (e) { /* mesh gone */ }
+    if (!pose) return;
+    const v = me.vertices, pts = []; for (let k = 0; k + 2 < v.length; k += 3) pts.push([v[k], v[k + 1], v[k + 2]]);
+    const f = footprint(toWorld(toWorldPts(pts, pose.transform.matrix)), true);
+    if (f) out.push({ corners: f.corners, label, horizontal: true, plane: me, kind: 'volume' });
+  });
+  AR.info = info; AR.last = out;
   return out;
 }
 function findTable() {
@@ -1769,18 +1826,36 @@ function applyTable(corners, src) {                               // put the ben
   if (!S.walk) { simRoot.position.copy(SIM_HOME).applyMatrix4(bench.matrixWorld); labQuat(); userScale = 1; }
   S.arTable = { src, W: f.W, D: f.D, top: f.top }; ui.dirty = tbar.dirty = true;
 }
+function useScanned(t, quiet) {
+  AR.plane = t.plane; applyTable(t.corners, 'plane'); S.arTable.kind = t.kind;
+  if (S.cal) { S.cal = null; clearCalMarkers(); }                 // the scan arrived while we were asking for the edge: no need any more
+  if (!quiet) toast(`Lab set on your table (${(S.arTable.W * 100).toFixed(0)} x ${(S.arTable.D * 100).toFixed(0)} cm)`, 5000);
+}
 function arRefit(manual) {                                        // recentre in see-through mode: the table again (scan, or the edge touched before)
   if (S.walk) { benchToHead(); return; }
   const t = findTable();
-  if (t) { AR.plane = t.plane; applyTable(t.corners, 'plane'); if (manual) toast(`Lab set on your table (${(S.arTable.W * 100).toFixed(0)} x ${(S.arTable.D * 100).toFixed(0)} cm)`, 4000); return; }
+  if (t) { useScanned(t, !manual); return; }
   if (manual) { startCal(true); return; }
-  if (AR.edge) applyTable(AR.edge, 'touch'); else if (!AR.searchUntil) AR.searchUntil = now() + 4000;
+  if (AR.edge) applyTable(AR.edge, 'touch');
 }
-function arTick() {                                               // while looking for the table at the start of a session
-  if (!AR.searchUntil || S.cal || S.walk || needRecenter > 0) return;
+// The scan can arrive late (the permission question, a slow start), so it is read twice a second for the whole session until a table
+// from it is in use; after 8 s without one the user is asked to touch the edge, and a table that turns up after that still wins -
+// unless the user has already touched an edge (their choice stands; Find my table again uses the scan).
+function arTick() {
+  if (S.walk || needRecenter > 0 || now() < AR.nextScan) return;
+  AR.nextScan = now() + 500;
+  const fromScan = S.arTable && S.arTable.src === 'plane', touched = S.arTable && S.arTable.src === 'touch';
+  if (fromScan && AR.plane) { detectedTables(); return; }       // (keeps the scan info for Settings fresh)
+  if (touched || (S.cal && S.cal.pts.length)) { detectedTables(); return; }
   const t = findTable();
-  if (t) { AR.searchUntil = 0; AR.plane = t.plane; applyTable(t.corners, 'plane'); toast(`Lab set on your table (${(S.arTable.W * 100).toFixed(0)} x ${(S.arTable.D * 100).toFixed(0)} cm)`, 5000); return; }
-  if (now() > AR.searchUntil) { AR.searchUntil = 0; if (!S.arTable) startCal(true); }
+  if (t) { useScanned(t, false); return; }
+  if (!S.cal && AR.askAt && now() > AR.askAt) { AR.askAt = 0; startCal(true); }
+}
+function scanText() {                                             // Settings: what the headset shares, to see why a table is or is not found
+  const i = AR.info;
+  if (!i || !i.shared) return 'Room scan: nothing shared (allow spatial data when asked, or run Space Setup)';
+  const list = (a) => { const c = {}; a.forEach((l) => { c[l] = (c[l] || 0) + 1; }); return Object.entries(c).map(([k, n]) => (n > 1 ? `${k} x${n}` : k)).join(', ') || '-'; };
+  return `Room scan - surfaces: ${list(i.planes)}; volumes: ${list(i.meshes)}`;
 }
 // touch calibration: two points on the edge nearest the user, the fingertip (the ray origin) on the table top
 const calMat = new THREE.MeshBasicMaterial({ color: 0x4ae3e1, depthTest: false, transparent: true, opacity: 0.9 });
@@ -1789,7 +1864,7 @@ function clearCalMarkers() { for (const m of AR.markers) scene.remove(m); AR.mar
 function startCal(noTable) {
   if (!S.ar) return;
   if (S.walk) exitWalk(true);
-  S.cal = { pts: [] }; clearCalMarkers(); AR.searchUntil = 0;
+  S.cal = { pts: [] }; clearCalMarkers(); AR.askAt = 0;
   toast(noTable ? 'No table found in the room scan. Touch the table edge nearest you with the fingertip (where the laser starts): first at the left, then at the right.' : 'Touch the table edge nearest you with the fingertip (where the laser starts): first at the left, then at the right.', 20000);
   ui.dirty = true;
 }
@@ -1805,7 +1880,7 @@ function calPoint(i) {                                            // a trigger p
 }
 function roomScan() {                                             // Quest Browser: open Space Setup to draw or confirm the table, then come back
   const s = S.xr; if (!s || !s.initiateRoomCapture) return;
-  s.initiateRoomCapture().then(() => { AR.plane = null; AR.searchUntil = now() + 6000; }).catch(() => {});
+  s.initiateRoomCapture().then(() => { AR.plane = null; if (S.arTable) S.arTable.src = 'plane'; AR.nextScan = 0; }).catch(() => {});
   toast('Room scan opened: draw or confirm your table, then come back', 6000);
 }
 dom.vrBtn.onclick = () => { if (xrState.supported) enterVR(); else { S.tab = TAB_VR; S.helpPage = 0; toast('No VR device found - see the VR tab for setup help', 6000); } };
@@ -1850,7 +1925,7 @@ renderer.xr.addEventListener('sessionstart', () => {
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
   const ses = renderer.xr.getSession();
   S.ar = xrMode === 'ar' && !!ses && ses.environmentBlendMode !== 'opaque'; xrMode = 'vr';
-  if (S.ar) { Object.assign(TB, TB_LAB); S.arTable = null; AR.plane = null; AR.edge = null; AR.searchUntil = now() + 5000; applyTheme(S.theme); arLook(true); document.body.classList.add('ar'); }
+  if (S.ar) { Object.assign(TB, TB_LAB); S.arTable = null; AR.plane = null; AR.edge = null; AR.info = null; AR.last = null; AR.nextScan = 0; AR.askAt = now() + 8000; applyTheme(S.theme); arLook(true); document.body.classList.add('ar'); }
   S.vr = true; needRecenter = 4; recenterAt = now() + 1700; document.body.classList.add('vr'); dolly.position.y = FY();
   // the headset's own recentre (e.g. holding the Meta button) moves the tracking origin: put the table back in front of the user
   try { const rs = renderer.xr.getReferenceSpace(); if (rs && rs.addEventListener) rs.addEventListener('reset', () => { needRecenter = 3; }); } catch (e) { /* not supported */ }
@@ -1860,7 +1935,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 renderer.xr.addEventListener('sessionend', () => {
   if (S.walk || S.wa) exitWalk(true);
   if (S.ar) {
-    S.ar = false; S.cal = null; S.arTable = null; clearCalMarkers(); Object.assign(AR, { plane: null, edge: null, searchUntil: 0 });
+    S.ar = false; S.cal = null; S.arTable = null; clearCalMarkers(); Object.assign(AR, { plane: null, edge: null, askAt: 0, info: null, last: null });
     Object.assign(TB, TB_LAB); arLook(false); applyTheme(S.theme); document.body.classList.remove('ar');
   }
   dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0); vign.visible = false;
@@ -1906,17 +1981,29 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('disconnected', () => { vc.src = null; obj.visible = false; });
   obj.addEventListener('selectstart', () => {
     if (S.cal && !(vc.hit && vc.hit.ui && (vc.hitObj === uiMesh || vc.hitObj === modalMesh))) { calPoint(i); return; }     // touching the table edge (the menu panel still works)
+    if (vc.hit && vc.hit.bar && !vc.pg) { startPanelDrag(vc, vc.hit); pulse(i, 0.3, 30); return; }          // a panel's handle bar: drag the panel
     if (vc.hit) { if (vc.hit.ui) { vc.hit.ui.press(i); vc.uiHeld = vc.hit.ui; } return; }
     toolDown(i);
   });
-  obj.addEventListener('selectend', () => { if (vc.uiHeld) { vc.uiHeld.release(i); vc.uiHeld = null; } toolUp(i); });
+  obj.addEventListener('selectend', () => { if (vc.pg && vc.pg.ray) vc.pg = null; if (vc.uiHeld) { vc.uiHeld.release(i); vc.uiHeld = null; } toolUp(i); });
   obj.addEventListener('squeezestart', () => {
+    vc.gripDown = true;
+    const other = vrc[1 - i];
+    if (other && other.gripDown && !S.walk) {                       // both grips = scale and turn the experiment, whatever either hand points at
+      if (other.pg) other.pg = null; if (vc.pg) vc.pg = null;          // (the first grip may have started carrying a piece or moving a panel)
+      if (other.sheet) { other.sheet = false; stopCarry(); }
+      other.sq = true; vc.sq = true; regrab(); pulse(i, 0.3, 30); pulse(1 - i, 0.3, 30); return;
+    }
     if (vc.hitObj === uiMesh || vc.hitObj === plotMesh || vc.hitObj === tbMesh || vc.hitObj === ptMesh) { vc.obj.updateWorldMatrix(true, false); vc.hitObj.updateWorldMatrix(true, false); vc.pg = { mesh: vc.hitObj, rel: vc.obj.matrixWorld.clone().invert().multiply(vc.hitObj.matrixWorld) }; pulse(i, 0.3, 30); return; }
     if (isMat() && md.N && !carry) { const r = rayOf(i), p = pickAtom(r.o, r.d, 2.0); if (p) { startCarry(i, p.i); vc.sheet = true; pulse(i, 0.5, 40); return; } }
     if (S.walk) return;
     vc.sq = true; regrab();
   });
-  obj.addEventListener('squeezeend', () => { if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; stopCarry(); return; } vc.sq = null; regrab(); });
+  obj.addEventListener('squeezeend', () => {
+    vc.gripDown = false;
+    if (grabRef && grabRef.two) { for (const v of vrc) v.sq = null; regrab(); return; }    // letting go of either grip ends the two-hand gesture (the other hand does not start dragging)
+    if (vc.pg) { vc.pg = null; return; } if (vc.sheet) { vc.sheet = false; stopCarry(); return; } vc.sq = null; regrab();
+  });
   return vc;
 });
 
@@ -2119,6 +2206,7 @@ function updateCarry() {
 const pgM = new THREE.Matrix4(), pgS = new THREE.Vector3();
 function updatePanelGrabs() {
   for (const vc of vrc) if (vc.pg) {
+    if (vc.pg.ray) { dragPanel(vc); continue; }
     pgM.multiplyMatrices(vc.obj.matrixWorld, vc.pg.rel); pgM.premultiply(tmpM.copy(bench.matrixWorld).invert());
     pgM.decompose(vc.pg.mesh.position, vc.pg.mesh.quaternion, pgS);
   }
@@ -2132,11 +2220,80 @@ function updateGrab() {
     const k = clamp(grabRef.s0 * l / l0, 0.15, 6) / grabRef.s0, q = new THREE.Quaternion().setFromUnitVectors(grabRef.v0.clone().normalize(), v.clone().normalize());
     simRoot.position.copy(grabRef.pos0).sub(grabRef.mid0).multiplyScalar(k).applyQuaternion(q).add(mid);
     simRoot.quaternion.copy(q).multiply(grabRef.q0); userScale = grabRef.s0 * k;
-    return;
+    keepAboveTable(); return;
   }
   const d = grabRef.drv, q = d.obj.getWorldQuaternion(new THREE.Quaternion()), p = d.obj.getWorldPosition(new THREE.Vector3());
   simRoot.position.copy(grabRef.relP).applyQuaternion(q).add(p);
   simRoot.quaternion.copy(q).multiply(grabRef.relQ);
+  keepAboveTable();
+}
+/* Moving (or scaling) the whole experiment cannot push it into the table: every atom over the worktop - the main structure, loose
+   pieces and single atoms alike - stays on or above it; the experiment is lifted by what the lowest one lacks. (Inside the simulation
+   the same worktop is a hard floor for every atom, each step: tableWall.) */
+function keepAboveTable() {
+  if (!isMat() || !md.N || S.walk || S.wa) return;
+  simRoot.scale.setScalar(walkScale(wps * userScale));                // (the scale is set in updateAtoms too; it must be current here)
+  simRoot.updateMatrixWorld(true); bench.updateMatrixWorld(true);
+  const e = inner.matrixWorld.elements, bi = tmpM.copy(bench.matrixWorld).invert().elements, top = bench.position.y + S.tableH + 0.025;
+  const rad = S.atomR * simRoot.scale.x; let low = Infinity;
+  for (let i = 0; i < md.N; i++) {
+    const x = md.x[i], y = md.y[i], z = md.z[i];
+    const wx = e[0] * x + e[4] * y + e[8] * z + e[12], wy = e[1] * x + e[5] * y + e[9] * z + e[13], wz = e[2] * x + e[6] * y + e[10] * z + e[14];
+    const lx = bi[0] * wx + bi[8] * wz + bi[12], lz = bi[2] * wx + bi[10] * wz + bi[14];       // the bench turns about +y only
+    if (lx < TB.x0 || lx > TB.x1 || lz < TB.z0 || lz > TB.z1) continue;
+    if (wy < low) low = wy;
+  }
+  if (low < top + rad) simRoot.position.y += top + rad - low;
+}
+/* ---------- spinning: a piece that was pulled off-centre keeps turning (angular momentum is conserved). spinOff removes the
+   rigid-body rotation of one piece - the part of the velocities that is omega x r about its centre of mass, with omega = I^-1 L -
+   and leaves everything else alone: the centre-of-mass motion and the thermal motion of the atoms against each other (with zero
+   angular momentum, as in the thermostat's eyes the rotation was never heat). frac < 1 removes only that share (smooth damping). ---------- */
+function spinOff(mask, frac = 1) {
+  if (!isMat() || !md.N || mat.periodicAny) return 0;
+  const N = md.N, m = mat.mass, X = md.x, Y = md.y, Z = md.z, VX = md.vx, VY = md.vy, VZ = md.vz, fx = md.fixed;
+  let M = 0, cx = 0, cy = 0, cz = 0, ux = 0, uy = 0, uz = 0, n = 0;
+  for (let i = 0; i < N; i++) if (mask[i]) { if (fx && fx[i]) return 0; const w = m[i]; M += w; n++; cx += w * X[i]; cy += w * Y[i]; cz += w * Z[i]; ux += w * VX[i]; uy += w * VY[i]; uz += w * VZ[i]; }   // (a piece held fixed cannot spin)
+  if (n < 2) return 0;
+  cx /= M; cy /= M; cz /= M; ux /= M; uy /= M; uz /= M;
+  let Lx = 0, Ly = 0, Lz = 0, Ixx = 0, Iyy = 0, Izz = 0, Ixy = 0, Ixz = 0, Iyz = 0;
+  for (let i = 0; i < N; i++) if (mask[i]) {
+    const w = m[i], rx = X[i] - cx, ry = Y[i] - cy, rz = Z[i] - cz, vx = VX[i] - ux, vy = VY[i] - uy, vz = VZ[i] - uz;
+    Lx += w * (ry * vz - rz * vy); Ly += w * (rz * vx - rx * vz); Lz += w * (rx * vy - ry * vx);
+    Ixx += w * (ry * ry + rz * rz); Iyy += w * (rx * rx + rz * rz); Izz += w * (rx * rx + ry * ry); Ixy -= w * rx * ry; Ixz -= w * rx * rz; Iyz -= w * ry * rz;
+  }
+  const eps = 1e-9 * (Ixx + Iyy + Izz); const a = Ixx + eps, b = Iyy + eps, c = Izz + eps;      // (a straight chain has no inertia about its axis)
+  const A = b * c - Iyz * Iyz, B = Ixz * Iyz - Ixy * c, C = Ixy * Iyz - Ixz * b, D = a * c - Ixz * Ixz, E = Ixy * Ixz - a * Iyz, F = a * b - Ixy * Ixy;
+  const det = a * A + Ixy * B + Ixz * C; if (!(Math.abs(det) > 0)) return 0;
+  const wx = (A * Lx + B * Ly + C * Lz) / det, wy = (B * Lx + D * Ly + E * Lz) / det, wz = (C * Lx + E * Ly + F * Lz) / det;
+  for (let i = 0; i < N; i++) if (mask[i]) {
+    const rx = X[i] - cx, ry = Y[i] - cy, rz = Z[i] - cz;
+    VX[i] -= frac * (wy * rz - wz * ry); VY[i] -= frac * (wz * rx - wx * rz); VZ[i] -= frac * (wx * ry - wy * rx);
+  }
+  return Math.hypot(wx, wy, wz);                                  // the angular velocity it had (rad per time unit)
+}
+function stopSpin(announce) {                                     // Stop spin: every connected piece stops turning
+  if (collab.guest) { toast('You are watching. Ask for control: Settings → Together → Request control'); return; }
+  if (!isMat() || !md.N) { toast('Build a material first'); return; }
+  if (mat.periodicAny) { toast('A periodic sheet cannot spin - build an open flake'); return; }
+  const N = md.N, done = new Uint8Array(N); let pieces = 0;
+  for (let i = 0; i < N; i++) {
+    if (done[i]) continue;
+    const fm = mat.fragmentMask(i); for (let k = 0; k < N; k++) if (fm.mask[k]) done[k] = 1;
+    if (fm.n > 1 && spinOff(fm.mask, 1) > 1e-6) pieces++;
+  }
+  if (announce) toast(!pieces ? 'Nothing was spinning' : pieces === 1 ? 'Spinning stopped (1 piece)' : `Spinning stopped (${pieces} pieces)`, 2500);
+}
+const _grpMask = { mask: null };
+function holdSpin(dt) {                                           // holding a piece with the Hand (or a layer) stops its spinning within a fraction of a second
+  if (!isMat() || hold.kind !== 'tw' || md.ext.i < 0 || mat.periodicAny) return;
+  let mask = null;
+  if (md.ext.mode === 'frag' && md.ext.mask) mask = md.ext.mask;
+  else if (md.ext.mode === 'group') {
+    const g = mat.grp[md.ext.i]; if (!_grpMask.mask || _grpMask.mask.length < mat.x.length) _grpMask.mask = new Uint8Array(mat.x.length);
+    for (let i = 0; i < md.N; i++) _grpMask.mask[i] = mat.grp[i] === g ? 1 : 0; mask = _grpMask.mask;
+  }
+  if (mask) spinOff(mask, 1 - Math.exp(-dt / 0.12));
 }
 
 const rc = new THREE.Raycaster();
@@ -2152,13 +2309,16 @@ function vrInput(dt) {
     if (!vc.src) continue;
     const o = new THREE.Vector3().setFromMatrixPosition(vc.obj.matrixWorld), d = new THREE.Vector3(0, 0, -1).transformDirection(vc.obj.matrixWorld);
     rc.set(o, d); rc.far = 3;
-    const hits = rc.intersectObjects((modalMesh.visible ? [modalMesh] : []).concat(ptMesh.visible ? [uiMesh, plotMesh, tbMesh, ptMesh] : [uiMesh, plotMesh, tbMesh]), false);
+    const shown = [uiMesh, plotMesh, tbMesh, ptMesh].filter((p) => p.visible);       // (a hidden panel - the plots below Researcher level - must not catch the ray)
+    const hits = rc.intersectObjects((modalMesh.visible ? [modalMesh] : []).concat(shown, PANEL_BARS.filter((b) => b.userData.panel.visible)), false);
     let len = S.walk ? 14 : 1.5;
+    if (vc === vrc[0]) for (const b of PANEL_BARS) b.material.color.setHex(0xb8c8dc);      // (lit again below by whichever ray is on it)
     if (hits.length) {
-      const h = hits[0]; len = h.distance; if (!vc.pg) vc.hitObj = h.object;
+      const h = hits[0], bar = h.object.userData.panel || null; len = h.distance; if (!vc.pg) vc.hitObj = bar || h.object;
       const U_ = h.object === uiMesh ? ui : h.object === tbMesh ? tbar : h.object === ptMesh ? ptab : h.object === modalMesh ? modal : null;
       for (const o of [ui, tbar, ptab, modal]) if (o !== U_) o.leave(vc.i);
-      if (U_) { vc.hit = { ui: U_ }; U_.move(h.uv.x * U_.w, (1 - h.uv.y) * U_.h, vc.i); } else vc.hit = { ui: null };
+      if (bar) { vc.hit = { ui: null, bar, dist: h.distance, point: h.point.clone() }; h.object.material.color.setHex(0xffffff); }
+      else if (U_) { vc.hit = { ui: U_ }; U_.move(h.uv.x * U_.w, (1 - h.uv.y) * U_.h, vc.i); } else vc.hit = { ui: null };
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
     HOVER.delete(vc.i);
@@ -2174,7 +2334,8 @@ function vrInput(dt) {
       const btn = [!!(gp.buttons[4] && gp.buttons[4].pressed), !!(gp.buttons[5] && gp.buttons[5].pressed), !!(gp.buttons[3] && gp.buttons[3].pressed)];
       if (btn[0] && !vc.prev[0]) { S.tool = S.tool === 'tweezers' ? 'add' : S.tool === 'add' ? 'delete' : 'tweezers'; toast('Tool: ' + S.tool); }
       if (btn[1] && !vc.prev[1]) S.paused = !S.paused;
-      if (btn[2] && !vc.prev[2] && vc.hand === 'right') { recenter(); toast('Table recentred', 1500); }
+      // (the thumbstick click no longer recentres: pushing the stick hard to change the temperature or reel an atom clicked it by accident.
+      //  Only the headset's own recentre - holding the Meta button - moves the table; Settings keeps a Recenter button.)
       vc.prev = btn;
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * (S.walk ? 9 : 0.9), 0.12, S.walk ? 40 : 3.5);
@@ -2199,13 +2360,15 @@ function frame() {
   if (isMat() && mat.model === 'uff' && mat.chem.pending) { mat.chem.relaxPending(S.vr ? 3 : 6); }   // settle a fresh attachment a few iterations per frame
   if (!S.paused && md.N && !md.exploded && !collab.guest && !CO.handing) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
-    while (n < S.speed && now() - t0 < budget) { md.run(1); n++; }
+    tableWall();                                                    // the worktop plane for this frame; tableWallStep after every step
+    while (n < S.speed && now() - t0 < budget) { md.run(1); tableWallStep(); n++; }
+    holdSpin(dt);                                                   // a piece held with the Hand stops turning
     S.sps = S.sps * 0.9 + 0.1 * (n / Math.max(dt, 1e-3));
     const SI = isMat() ? 50 : 25; while (md.step - H.lastStep >= SI) { H.lastStep += SI; sample(); }
   } else S.sps *= 0.9;
   if (md.exploded && !S.paused) { S.paused = true; toast('The simulation crashed - press Restart', 6000); }
   if (S.escape && isMat() && md.N && !S.paused && !collab.guest) escapeCheck();
-  tableWall(); tempGuard();
+  tempGuard();
   updateFlashes(dt); updateToolShapes(); updateThermo(t);
 
   // transport: the live part (bond currents, current at the bias) a few times a second while atoms move; the curves on demand
@@ -2663,4 +2826,4 @@ build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
 window.__mdlab = { TR, plotData, get U() { return U; }, modal, recenter, labSide, offerControl, requestControl, takeBack, releaseControl, acceptPending, declinePending, collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
-  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; } };
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable };

@@ -1,5 +1,5 @@
 // node test/realtable.test.mjs - the see-through table fit (src/realtable.js): plane polygon -> rectangle -> bench placement
-import { rectFromPolygon, planeCorners, cornersFromEdge, fitTable, pickTable, DESK_Z } from '../src/realtable.js';
+import { rectFromPolygon, planeCorners, cornersFromEdge, fitTable, pickTable, toWorldPts, footprint, DESK_Z } from '../src/realtable.js';
 let fail = 0; const ok = (n, c, i = '') => { console.log((c ? 'ok   ' : 'FAIL ') + n + (i ? '  ' + i : '')); if (!c) fail++; };
 const near = (a, b, e = 1e-6) => Math.abs(a - b) < e;
 const deg = Math.PI / 180;
@@ -60,5 +60,18 @@ const toWorld = (f, lx, lz) => { const c = Math.cos(f.yaw), s = Math.sin(f.yaw);
   ok('nearest labelled table wins over floor, couch, a far table and an unlabelled shelf', pickTable(planes, head) === 2);
   ok('no labels: a horizontal surface at table height', pickTable([planes[0], { corners: planes[2].corners, label: '', horizontal: true }], head) === 1);
   ok('nothing table-like: none', pickTable([planes[0], planes[3]], head) === -1);
+}
+{ // footprint: a plane whose outline lies in its x-y plane (normal +z, the OpenXR convention) still gives the table top
+  const a = 25 * deg, c = Math.cos(a), s = Math.sin(a);
+  // plane space: x along the table, y across it, z up -> world: x' = R(x), z' = R(y), y' = z
+  const m = [c, 0, -s, 0, s, 0, c, 0, 0, 1, 0, 0, 0.5, 0.73, -0.8, 1];
+  const pts = toWorldPts([[-0.6, -0.4, 0], [0.6, -0.4, 0], [0.6, 0.4, 0], [-0.6, 0.4, 0]], m), f = footprint(pts, false);
+  const w = Math.hypot(f.corners[1][0] - f.corners[0][0], f.corners[1][2] - f.corners[0][2]), d = Math.hypot(f.corners[2][0] - f.corners[1][0], f.corners[2][2] - f.corners[1][2]);
+  ok('outline in the plane\'s x-y (normal +z): flat, at the right height and size', f.spread < 1e-9 && near(f.top, 0.73) && near(Math.max(w, d), 1.2, 1e-6) && near(Math.min(w, d), 0.8, 1e-6), `${Math.max(w, d).toFixed(3)} x ${Math.min(w, d).toFixed(3)} at ${f.top.toFixed(3)}`);
+  const wall = footprint(toWorldPts([[-1, 0, 0], [1, 0, 0], [1, 2.4, 0], [-1, 2.4, 0]], [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -2, 1]), false);
+  ok('a wall is not flat (spread 2.4 m)', near(wall.spread, 2.4, 1e-9));
+  const box = []; for (const y of [0, 0.75]) for (const [x, z] of [[-0.5, -0.3], [0.5, -0.3], [0.5, 0.3], [-0.5, 0.3]]) box.push([x + 1, y, z - 1]);
+  const t = footprint(box, true);
+  ok('a volume (box): its top face', near(t.top, 0.75) && t.corners.every((p) => p[1] === 0.75));
 }
 if (fail) { console.log(fail + ' FAILED'); process.exit(1); } else console.log('all real-table checks passed');

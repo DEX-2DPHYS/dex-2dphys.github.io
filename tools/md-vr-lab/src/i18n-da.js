@@ -38,7 +38,7 @@ export const DA = {
  "7 · Defects and free play": "7 · Defekter og fri leg",
  "8 · Benzene": "8 · Benzen",
  "9 · Graphene": "9 · Grafen",
- "A / X: next tool.  B / Y: run or pause.  Thumbstick click: recentre in front of you.": "A / X: næste værktøj.  B / Y: kør eller pause.  Klik på tommelfingerstikket: centrér foran dig.",
+ "A / X: next tool.  B / Y: run or pause.  Hold the Meta button: recentre in front of you.": "A / X: næste værktøj.  B / Y: kør eller pause.  Hold Meta-knappen inde: centrér foran dig.",
  "A block can only be added to an open structure (a flake, tube or molecule), not to a periodic sheet": "En byggeklods kan kun tilføjes en åben struktur (flage, rør eller molekyle), ikke et periodisk lag",
  "A nanometre-sized piece of diamond, cut from the lattice. Its surface is bare, so see what the atoms do about their dangling bonds.": "Et nanometerstort stykke diamant, skåret ud af gitteret. Overfladen er bar, så se hvad atomerne gør ved deres frie bindinger.",
  "A real molecule: six carbons and six hydrogens in a flat ring. Watch it vibrate, then let seven molecules find out how benzene sticks together.": "Et rigtigt molekyle: seks kulstofatomer og seks brintatomer i en flad ring. Se det vibrere, og lad derefter syv molekyler finde ud af, hvordan benzen hænger sammen.",

@@ -63,6 +63,14 @@ export const ICONS = {
   adult(c, x, y, s, col) { atom(c, x, y - s * 0.55, s * 0.3, col); c.save(); c.lineWidth = s * 0.16; c.strokeStyle = col; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - s * 0.2); c.lineTo(x, y + s * 0.4); c.moveTo(x - s * 0.45, y - s * 0.05); c.lineTo(x + s * 0.45, y - s * 0.05); c.moveTo(x, y + s * 0.4); c.lineTo(x - s * 0.3, y + s * 0.95); c.moveTo(x, y + s * 0.4); c.lineTo(x + s * 0.3, y + s * 0.95); c.stroke(); c.restore(); },
   researcher(c, x, y, s, col) { c.save(); c.lineWidth = s * 0.1; c.strokeStyle = col; c.lineJoin = 'round'; poly(c, [[x - s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.85], [x + s * 0.22, y - s * 0.2], [x + s * 0.7, y + s * 0.75], [x - s * 0.7, y + s * 0.75], [x - s * 0.22, y - s * 0.2]]); c.stroke(); c.beginPath(); c.moveTo(x - s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.45, y + s * 0.3); c.lineTo(x + s * 0.7, y + s * 0.75); c.lineTo(x - s * 0.7, y + s * 0.75); c.closePath(); c.fillStyle = col; c.fill(); c.restore(); },
   // ---- help and flags ----
+  stopspin(c, x, y, s, col) {          // a molecule with a turning arrow round it, held by a stop bar: "stop spinning"
+    c.save(); c.lineWidth = s * 0.11; c.strokeStyle = col; c.fillStyle = col; c.lineCap = 'round';
+    stick(c, x - s * 0.32, y + s * 0.18, x + s * 0.32, y - s * 0.18, s * 0.1, col); atom(c, x - s * 0.32, y + s * 0.18, s * 0.17, col); atom(c, x + s * 0.32, y - s * 0.18, s * 0.17, col);
+    c.beginPath(); c.arc(x, y, s * 0.78, -2.6, 0.9); c.stroke();
+    const a = 0.9, ex = x + s * 0.78 * Math.cos(a), ey = y + s * 0.78 * Math.sin(a);              // arrow head at the end of the arc
+    poly(c, [[ex + s * 0.2, ey - s * 0.08], [ex - s * 0.2, ey - s * 0.04], [ex + s * 0.02, ey + s * 0.24]]); c.fill();
+    c.lineWidth = s * 0.16; c.beginPath(); c.moveTo(x - s * 0.95, y + s * 0.9); c.lineTo(x - s * 0.35, y + s * 0.9); c.stroke(); c.restore();
+  },
   recenter(c, x, y, s, col) {          // a house with a centre mark: "back to the home position"
     c.save(); c.lineWidth = s * 0.12; c.strokeStyle = col; c.lineJoin = 'round'; c.lineCap = 'round';
     c.beginPath(); c.moveTo(x - s * 0.8, y - s * 0.05); c.lineTo(x, y - s * 0.78); c.lineTo(x + s * 0.8, y - s * 0.05); c.moveTo(x - s * 0.58, y - s * 0.12); c.lineTo(x - s * 0.58, y + s * 0.72); c.lineTo(x + s * 0.58, y + s * 0.72); c.lineTo(x + s * 0.58, y - s * 0.12); c.stroke();

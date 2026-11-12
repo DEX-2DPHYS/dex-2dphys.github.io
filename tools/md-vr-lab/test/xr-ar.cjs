@@ -23,7 +23,7 @@ window.__dev = new IWER.XRDevice(IWER.metaQuest3); window.__dev.installRuntime({
   const floor = { transform: { matrix: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), orientation: { x: 0, y: 0, z: 0, w: 1 } },
     polygon: [[-3, -3], [3, -3], [3, 3], [-3, 3]].map(([x, z]) => new DOMPointReadOnly(x, 0, z, 1)), semanticLabel: 'floor' };
   window.__scan = { table: plane, floor };
-  window.__dev.installSEM(class { constructor() { this.trackedPlanes = new Set([floor, plane]); this.trackedMeshes = new Set(); this.environmentCanvas = document.createElement('canvas'); window.__sem = this; } render() {} computeHitTestResults() { return []; } });
+  window.__dev.installSEM(class { constructor() { this.trackedPlanes = new Set([floor]); this.trackedMeshes = new Set(); this.environmentCanvas = document.createElement('canvas'); window.__sem = this; } render() {} computeHitTestResults() { return []; } });
 })();
 </script>`);
 const srv = http.createServer((q, r) => {
@@ -60,8 +60,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
   ok('the page offers Real table (immersive-ar supported)', await ev(() => document.getElementById('arBtn').style.display !== 'none' && window.__mdlab.xrState.ar));
   await ev(() => { document.getElementById('arBtn').click(); document.getElementById('arBtn').click(); });
-  await wait(3500);
+  // the room scan arrives late (as when the permission question takes a while): after 8 s the lab asks for the edge, then the table comes
+  await wait(9000);
   let st = await state();
+  ok('no table after 8 s: the lab asks to touch the edge', st.ar && st.cal && !st.table, JSON.stringify({ cal: st.cal, table: st.table }));
+  ok('Settings shows what the scan holds', /floor/.test(await ev(() => window.__mdlab.scanText())), await ev(() => window.__mdlab.scanText()));
+  await ev(() => window.__sem.trackedPlanes.add(window.__scan.table)); await wait(1200);
+  st = await state();
+  ok('the table arriving late is still used, and the touch request goes away', st.table && st.table.src === 'plane' && !st.cal);
   ok('see-through session started (one session for two clicks)', st.ar && st.vr && errs.filter((e) => /already/.test(e)).length === 0);
   ok('no room, sky or fog: the real room shows', st.bg === null && !st.fog && !st.room, `background ${st.bg}, room ${st.room}`);
   ok('virtual worktop and legs hidden', !st.top && !st.legs);
@@ -80,9 +86,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('sticks do not move or turn the lab off the table', (await state()).dolly.join() === d0);
   // the user walks round to the far side and recentres: the lab turns to face them, same centre
   await ev((T) => { const s = Math.sin(T.a), c = Math.cos(T.a); window.__dev.position.set(T.cx - s * 0.9, 1.6, T.cz - c * 0.9); window.__dev.quaternion.set(0, Math.sin((T.a + Math.PI) / 2), 0, Math.cos((T.a + Math.PI) / 2)); }, TABLE); await wait(300);
-  await press('right', 'thumbstick'); await wait(400); st = await state();
+  await ev(() => window.__mdlab.recenter()); await wait(400); st = await state();     // (the headset recentre - the Meta button - runs this)
   ok('recentre from the far side: lab turned round, worktop still at the table centre', st.fwd.z > 0.99 && Math.abs(st.desk.x) < 0.005 && Math.abs(st.desk.z) < 0.005, `fwd ${JSON.stringify(st.fwd)} desk ${JSON.stringify(st.desk)}`);
-  await ev(() => { window.__dev.position.set(0, 1.6, 0); window.__dev.quaternion.set(0, 0, 0, 1); }); await wait(200); await press('right', 'thumbstick'); await wait(300);
+  await ev(() => { window.__dev.position.set(0, 1.6, 0); window.__dev.quaternion.set(0, 0, 0, 1); }); await wait(200); await ev(() => window.__mdlab.recenter()); await wait(300);
 
   // walking: the night sky covers the room; coming back puts the lab on the table again
   await ev(() => window.__mdlab.enterWalk()); await wait(3200); st = await state();
@@ -91,7 +97,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('back from the walk: see-through again, lab on the table', !st.walk && st.bg === null && !st.room && Math.abs(st.desk.y - 0.74) < 0.003 && Math.hypot(st.desk.x, st.desk.z) < 0.005 && Math.hypot(st.sim.x, st.sim.z) < 0.02, JSON.stringify({ walk: st.walk, bg: st.bg, room: st.room, desk: st.desk, sim: st.sim }));
 
   // the room scan loses the table: Find my table again asks for the edge to be touched; two touches set the table
-  await ev(() => window.__sem.trackedPlanes.delete(window.__scan.table)); await wait(300);
+  await ev(() => window.__sem.trackedPlanes.delete(window.__scan.table)); await wait(900);    // (the scan is read twice a second)
   await ev(() => window.__mdlab.arRefit(true)); await wait(200);
   ok('no table in the scan: Find my table again starts the touch fallback', (await state()).cal);
   const touch = async (x, y, z) => {
@@ -104,6 +110,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('two touches on the edge: table set from the fingertip', !st.cal && st.table && st.table.src === 'touch' && Math.abs(st.table.top - (a[1] + b[1]) / 2) < 0.002, `top ${st.table && st.table.top.toFixed(3)} touched ${a[1].toFixed(3)} / ${b[1].toFixed(3)}`);
   const fe = await ev((A, B) => { const L = window.__mdlab, V = L.camera.position.constructor; L.bench.updateMatrixWorld(true); const e = new V(0, 0, L.TB.z1).applyMatrix4(L.bench.matrixWorld), d = new V(0, 0, -1).applyQuaternion(L.bench.quaternion); return { ez: e.z, mid: (A[2] + B[2]) / 2, fz: d.z, fx: d.x }; }, a, b);
   ok('touched edge = the worktop front edge, the lab faces away from the user', Math.abs(fe.ez - fe.mid) < 0.005 && fe.fz < -0.99, JSON.stringify(fe));
+
+  // a table that the scan gives only as a volume (a box, as a Quest 3 scan does for furniture): Find my table again uses its top
+  await ev(() => { const a = -15 * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), W = 1.0, D = 0.6, H = 0.72, v = [];
+    for (const y of [0, H]) for (const [x, z] of [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]]) v.push(x, y, z);
+    window.__sem.trackedMeshes.add({ transform: { matrix: new Float32Array([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, -0.4, 0, -1.0, 1]), orientation: { x: 0, y: Math.sin(a / 2), z: 0, w: Math.cos(a / 2) } },
+      vertices: new Float32Array(v), indices: new Uint32Array([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]), semanticLabel: 'table' }); });
+  await wait(300); await ev(() => window.__mdlab.arRefit(true)); await wait(300); st = await state();
+  ok('a table given as a volume: its top is used', st.table && st.table.src === 'plane' && st.table.kind === 'volume' && Math.abs(st.table.top - 0.72) < 0.003 && Math.abs(Math.max(st.table.W, st.table.D) - 1.0) < 0.01 && Math.abs(Math.min(st.table.W, st.table.D) - 0.6) < 0.01, JSON.stringify(st.table));
 
   // leave: the VR lab comes back as it was
   await ev(() => window.__mdlab.renderer.xr.getSession().end()); await wait(900); st = await state();
