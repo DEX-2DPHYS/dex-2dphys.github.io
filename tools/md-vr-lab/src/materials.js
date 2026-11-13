@@ -3,9 +3,13 @@
 // Models (all parameters taken from published sets distributed with LAMMPS):
 //   tersoff  - carbon. 'graphene': Lindsay & Broido, PRB 81, 205441 (2010) (optimised for graphene/CNT phonons)
 //              'diamond': Tersoff, PRB 39, 5566 (1989) carbon (diamond, cohesive energy 7.37 eV)
+//   eam      - gold: second-moment tight-binding (Gupta) potential, Cleri & Rosato, PRB 48, 22 (1993): E_i = sum_j A exp(-p(r/r0-1))
+//              - sqrt(sum_j xi^2 exp(-2q(r/r0-1))), the square root being the metallic many-body term; cut off smoothly between 2nd and 3rd neighbours.
 //   sw       - MoS2: Stillinger-Weber set of J.-W. Jiang, Acta Mech. Solida Sin. 32, 17 (2019) (tmd.sw.mod)
 //   ff       - benzene: harmonic bonds/angles + out-of-plane terms with OPLS-AA bond/angle constants,
 //              OPLS-AA Lennard-Jones and partial charges between molecules.
+//              water: flexible SPC/Fw, Wu, Tepper & Voth, J. Chem. Phys. 124, 024503 (2006): harmonic O-H (1.012 A) and H-O-H
+//              (113.24 deg), O-O Lennard-Jones, charges O -0.82 / H +0.41 (Coulomb shifted-force at the cutoff, as for benzene).
 // Van der Waals between layers/molecules: shifted-force Lennard-Jones between atoms of *different groups*
 // (graphite: C-C epsilon/sigma from the usual graphite LJ set; MoS2: effective S/Mo values tuned in
 // test/materials.test.mjs to the bulk interlayer spacing and binding energy).
@@ -42,17 +46,30 @@ export const TERSOFF = {
   diamond:  { A: 1393.6, B: 346.74, l1: 3.4879, l2: 2.2119, beta: 1.5724e-7, n: 0.72751, c: 38049, d: 4.3484, h: -0.57058, R: 1.95, D: 0.15 },
   graphene: { A: 1393.6, B: 430.00, l1: 3.4879, l2: 2.2119, beta: 1.5724e-7, n: 0.72751, c: 38049, d: 4.3484, h: -0.93000, R: 1.95, D: 0.15 },
 };
+export const GUPTA = { A: 0.2061, xi: 1.790, p: 10.229, q: 4.036, r0: 2.884, r1: 4.4, r2: 4.9, a: 4.08 };      // Au; a = fcc lattice constant (A)
 // Jiang SW (LAMMPS 'sw/mod' with maxdelcs 0.25 0.35), Mo-S: pair (Mo S S) and (S Mo Mo); three-body lambda for centre Mo (S,S) and centre S (Mo,Mo)
 export const SW = { eps: 1.0, sigma: 1.252, a: 2.523, A: 6.918, B: 7.223, p: 4, cos0: 0.143, d1: 0.25, d2: 0.35, gamma: 1.0, lamMoSS: 67.883, lamSMoMo: 62.449 };
 
-// van der Waals: [epsilon eV, sigma A] per species pair index a*4+b
-function vdwTable(spec) { const e = new Float64Array(16), s = new Float64Array(16); for (const [a, b, eps, sig] of spec) { e[a * 4 + b] = e[b * 4 + a] = eps; s[a * 4 + b] = s[b * 4 + a] = sig; } return { e, s }; }
+// van der Waals: [epsilon eV, sigma A] per species pair index a*NSP+b; q: partial charge per species (force fields with charges)
+const NSP = 16;
+function vdwTable(spec, q = null) { const e = new Float64Array(NSP * NSP), s = new Float64Array(NSP * NSP); for (const [a, b, eps, sig] of spec) { e[a * NSP + b] = e[b * NSP + a] = eps; s[a * NSP + b] = s[b * NSP + a] = sig; } return { e, s, q }; }
+const BENZENE_Q = new Float64Array(NSP); BENZENE_Q[0] = -0.115; BENZENE_Q[1] = 0.115;
+const WATER_Q = new Float64Array(NSP); WATER_Q[6] = -0.82; WATER_Q[1] = 0.41;
 export const VDW = {
   graphite: vdwTable([[0, 0, 0.0042, 3.40]]),
   mos2: vdwTable([[3, 3, 0.0207, 3.12], [2, 3, 0.0058, 3.20], [2, 2, 0.00145, 3.40]]),
-  benzene: vdwTable([[0, 0, 0.070 * KCAL, 3.550], [1, 1, 0.030 * KCAL, 2.420], [0, 1, Math.sqrt(0.070 * 0.030) * KCAL, Math.sqrt(3.550 * 2.420)]]),
+  benzene: vdwTable([[0, 0, 0.070 * KCAL, 3.550], [1, 1, 0.030 * KCAL, 2.420], [0, 1, Math.sqrt(0.070 * 0.030) * KCAL, Math.sqrt(3.550 * 2.420)]], BENZENE_Q),
+  water: vdwTable([[6, 6, 0.1554253 * KCAL, 3.165492]], WATER_Q),        // SPC/Fw: only O-O Lennard-Jones, the H are bare charges
 };
-const BENZENE_Q = [-0.115, 0.115, 0, 0];
+/* The lab's water is SPC/Fw with every intermolecular energy scaled by WATER_F (LJ epsilon x f, charges x sqrt f): a small cluster of SPC/Fw
+   melts far below 273 K (small crystallites melt low, and SPC-type models melt low in bulk too), and scaling the intermolecular energy
+   scales every temperature of the phase diagram by f, so the crystallite melts near 0 C as real ice does (test/water.test.mjs). */
+export const WATER_F0 = 1.45;                 // melts at ~275 K for 150 molecules (measured: f 1.0 -> ~190 K, 1.3 -> ~255 K)
+export let WATER_F = 1;
+export function waterScale(f) { const T = VDW.water; T.e[6 * NSP + 6] = 0.1554253 * KCAL * f; T.q.fill(0); T.q[6] = -0.82 * Math.sqrt(f); T.q[1] = 0.41 * Math.sqrt(f); T.cache = null; WATER_F = f; }
+waterScale(WATER_F0);
+export const WATER = { rOH: 1.012, kOH: 0.5 * 1059.162 * KCAL, th: 113.24 * Math.PI / 180, kth: 0.5 * 75.90 * KCAL,   // (E = k (x - x0)^2 here)
+  mH: 4, dtFs: 1.5 };   // the H carry 4 amu so the step can be 1.5 fs: classical equilibrium (melting, evaporation) does not depend on the masses
 
 const fc = (r, R, D) => r < R - D ? 1 : r > R + D ? 0 : 0.5 - 0.5 * Math.sin(Math.PI / 2 * (r - R) / D);
 const dfc = (r, R, D) => (r < R - D || r > R + D) ? 0 : -0.25 * Math.PI / D * Math.cos(Math.PI / 2 * (r - R) / D);
@@ -82,6 +99,7 @@ export class Mat {
   }
   get isMat() { return true; }
   get density() { return this.N; }
+  get water() { return this.vdw === VDW.water; }
   get periodicAny() { return this.per[0] || this.per[1] || this.per[2]; }
 
   clear() { this.carry = null; this.objects = false; this.join = null; this.sub = null; this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
@@ -105,7 +123,7 @@ export class Mat {
   fuseCheck() {                                                  // bonds that now link two groups merge them
     if (!this.objects) return;
     if (this.model === 'uff') { for (const [a, b] of this.chem.bonds) if (this.grp[a] !== this.grp[b]) this.fuse(this.grp[a], this.grp[b]); return; }
-    const lim = this.model === 'sw' ? 3.0 : 2.15, l2 = lim * lim;      // (inside the potential's reach: touching while held joins; the potential decides the bonds)
+    const lim = this.model === 'sw' ? 3.0 : this.model === 'eam' ? 3.2 : 2.15, l2 = lim * lim;      // (inside the potential's reach: touching while held joins; the potential decides the bonds)
     for (let p = 0; p < this.nb; p++) {
       const i = this.bi[p], j = this.bj[p]; if (this.grp[i] === this.grp[j]) continue;
       const dx = this.mi(this.x[i] - this.x[j], this.Lx, this.per[0]), dy = this.mi(this.y[i] - this.y[j], this.Ly, this.per[1]), dz = this.mi(this.z[i] - this.z[j], this.Lz, this.per[2]);
@@ -234,11 +252,110 @@ export class Mat {
     this.name = n === 1 ? 'Benzene' : `Benzene ×${n}`; this.finish(T0, 0.3);
   }
 
+  /* A gold particle: a truncated octahedron (the equilibrium shape of an fcc metal: {111} facets, small {100} facets) cut from the
+     fcc lattice, |x|,|y|,|z| <= s and |x|+|y|+|z| <= 1.5 s, centred on an atom. */
+  buildGold(s, T0) {
+    this.clear(); this.model = 'eam'; this.vdw = null; this.charges = false; this.per = [false, false, false];
+    const a = GUPTA.a, n = Math.ceil(s / a) + 1, P = [];
+    for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) for (let k = -n; k <= n; k++) for (const b of [[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]]) {
+      const p = [(i + b[0]) * a, (j + b[1]) * a, (k + b[2]) * a];
+      if (Math.max(Math.abs(p[0]), Math.abs(p[1]), Math.abs(p[2])) <= s + 1e-6 && Math.abs(p[0]) + Math.abs(p[1]) + Math.abs(p[2]) <= 1.5 * s + 1e-6) P.push(p);
+    }
+    if (P.length > this.maxN) throw new Error('too many atoms - choose a smaller particle');
+    const span = Math.ceil(2 * s + 24); this.Lx = this.Ly = this.Lz = span;
+    for (const p of P) this.addRaw(SP.Au, span / 2 + p[0], span / 2 + p[1], span / 2 + p[2], 0);
+    this.name = `Gold particle (${this.N} atoms)`; this.finish(T0, 1.0); this.removeRotation();
+  }
+
+  /* An armchair graphene nanoribbon along x: N dimer lines across (width (N-1) a/2), armchair edges. N = 3p and 3p+1 have a band gap,
+     3p+2 nearly none (Son, Cohen & Louie, PRL 97, 216803 (2006)); the transport model (ELEC) shows it between contacts on the two ends. */
+  buildRibbon(N, len, T0) {
+    this.clear(); this.model = 'tersoff'; this.tp = TERSOFF.graphene; this.vdw = null; this.charges = false; this.per = [false, false, false];
+    const b = GR_B, a = Math.sqrt(3) * b, nc = Math.max(2, Math.round(len / (3 * b))), wy = (N - 1) * a / 2, M = OPEN_MARGIN;
+    this.Lx = nc * 3 * b + 2 * M; this.Ly = wy + 2 * M; this.Lz = 14;
+    for (let i = 0; i <= Math.ceil(N / 2); i++) for (let j = 0; j < nc; j++) for (const [px, py] of [[0, 0], [b / 2, a / 2], [1.5 * b, a / 2], [2 * b, 0]]) {
+      const Y = i * a + py; if (Y > wy + 1e-6) continue; this.addRaw(SP.C, M + j * 3 * b + px, M + Y, 7, 0);
+    }
+    this.trimEdges(1.7, 2); this.sheet = true;
+    this.name = `Armchair nanoribbon N = ${N} (${(wy / 10).toFixed(2)} nm wide)`; this.finish(T0, 0.5);
+  }
+
+  /* Water census: gas = no other oxygen within 4.5 A; ice-like = exactly four oxygens within 3.5 A, arranged as a tetrahedron (orientational
+     order q > 0.9, Errington & Debenedetti, Nature 409, 318 (2001): q = 1 for a perfect tetrahedron, ~0.6 on average in liquid water);
+     the rest liquid (a crystallite's surface counts as liquid: it is). */
+  waterPhase() {
+    const O = []; for (let i = 0; i < this.N; i++) if (this.sp[i] === SP.O) O.push(i);
+    let ice = 0, gas = 0; const nb = [];
+    for (const i of O) {
+      nb.length = 0; let dmin = 1e9;
+      for (const j of O) {
+        if (j === i) continue; const dx = this.x[j] - this.x[i], dy = this.y[j] - this.y[i], dz = this.z[j] - this.z[i], d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 < dmin) dmin = d2; if (d2 < 12.25) nb.push([dx, dy, dz, Math.sqrt(d2)]);
+      }
+      if (dmin > 20.25) { gas++; continue; }
+      if (nb.length !== 4) continue;
+      let q = 0; for (let a = 0; a < 3; a++) for (let b = a + 1; b < 4; b++) { const u = nb[a], v = nb[b], c = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (u[3] * v[3]); q += (c + 1 / 3) ** 2; }
+      if (1 - 3 / 8 * q > 0.9) ice++;
+    }
+    return { n: O.length, ice, gas, liquid: O.length - ice - gas };
+  }
+
+  /* n water molecules as a crystallite of ice Ih: the n oxygens of an Ih lattice nearest a point, each hydrogen on an O-O bond (one per bond,
+     two per oxygen inside: the Bernal-Fowler ice rules). The bonds are oriented along closed trails of the O-O graph (a dummy vertex joins
+     the odd-degree surface oxygens), which gives every interior oxygen exactly two outgoing bonds; a surface oxygen short of two puts its
+     other hydrogen on a vacant lattice direction (a dangling OH, as on a real ice surface). Random trails = proton disorder, as in ice Ih. */
+  buildWater(n, T0, rand = Math.random) {
+    this.clear(); this.model = 'ff'; this.vdw = VDW.water; this.charges = true; this.per = [false, false, false];
+    const a = 4.518, c = 7.356, ra = Math.ceil(Math.cbrt(n) * 0.9) + 2, rc = Math.ceil(Math.cbrt(n) * 0.6) + 2, P = [];
+    const bas = [[1 / 3, 2 / 3, 1 / 16], [2 / 3, 1 / 3, 9 / 16], [1 / 3, 2 / 3, 7 / 16], [2 / 3, 1 / 3, 15 / 16]];
+    for (let i = -ra; i <= ra; i++) for (let j = -ra; j <= ra; j++) for (let k = -rc; k <= rc; k++) for (const b of bas) {
+      const u = i + b[0], v = j + b[1]; P.push([a * (u - 0.5 * v), a * 0.8660254 * v, c * (k + b[2])]);
+    }
+    const o0 = [0.31, 0.17, 0.23], d2 = (p) => (p[0] - o0[0]) ** 2 + (p[1] - o0[1]) ** 2 + ((p[2] - o0[2]) * 1.05) ** 2;
+    P.sort((p, q) => d2(p) - d2(q));
+    const M = Math.min(n, P.length), near = P.slice(0, Math.min(P.length, M + 400));     // the cluster and a shell round it (for vacant directions)
+    const nb = near.map(() => []);
+    for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) {
+      const dx = near[i][0] - near[j][0], dy = near[i][1] - near[j][1], dz = near[i][2] - near[j][2];
+      if (dx * dx + dy * dy + dz * dz < 2.9 * 2.9) { nb[i].push(j); nb[j].push(i); }
+    }
+    const E = [], adj = Array.from({ length: M + 1 }, () => []);                           // edges inside the cluster (+ dummy vertex M)
+    for (let i = 0; i < M; i++) for (const j of nb[i]) if (j > i && j < M) { adj[i].push(E.length); adj[j].push(E.length); E.push([i, j]); }
+    for (let i = 0; i < M; i++) if (adj[i].length % 2) { adj[i].push(E.length); adj[M].push(E.length); E.push([i, M]); }
+    const used = new Uint8Array(E.length), from = new Int32Array(E.length);
+    for (let s0 = 0; s0 <= M; s0++) for (;;) {                                             // closed trails: orient each edge as walked
+      let v = s0, moved = false;
+      for (;;) {
+        const free = adj[v].filter((e) => !used[e]); if (!free.length) break;
+        const e = free[Math.floor(rand() * free.length)]; used[e] = 1; from[e] = v; v = E[e][0] === v ? E[e][1] : E[e][0]; moved = true;
+      }
+      if (!moved) break;
+    }
+    const out = Array.from({ length: M }, () => []);
+    for (let e = 0; e < E.length; e++) { const [i, j] = E[e]; if (j === M) continue; if (from[e] === i) out[i].push(j); else out[j].push(i); }
+    let cx = 0, cy = 0, cz = 0; for (let i = 0; i < M; i++) { cx += near[i][0]; cy += near[i][1]; cz += near[i][2]; } cx /= M; cy /= M; cz /= M;
+    let R = 0; for (let i = 0; i < M; i++) R = Math.max(R, Math.hypot(near[i][0] - cx, near[i][1] - cy, near[i][2] - cz));
+    const span = Math.max(40, Math.ceil(2 * R + 24)); this.Lx = this.Ly = this.Lz = span;
+    const unit = (p, q) => { const d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], l = Math.hypot(...d); return [d[0] / l, d[1] / l, d[2] / l]; };
+    for (let m = 0; m < M; m++) {
+      const p = near[m], dirs = out[m].map((j) => unit(p, near[j]));
+      const vac = nb[m].filter((j) => j >= M).map((j) => unit(p, near[j]));
+      while (dirs.length < 2 && vac.length) dirs.push(vac.splice(Math.floor(rand() * vac.length), 1)[0]);
+      while (dirs.length < 2) { const d = dirs[0] || [0, 0, 1]; dirs.push([-d[0] * 0.33 + 0.94, -d[1] * 0.33, -d[2] * 0.33]); }   // (an isolated oxygen: never in practice)
+      const X = (q) => span / 2 + q[0] - cx, Y = (q) => span / 2 + q[1] - cy, Z = (q) => span / 2 + q[2] - cz;
+      const o = this.addRaw(SP.O, X(p), Y(p), Z(p), m), hs = [];
+      for (const d of dirs.slice(0, 2)) { const q = [p[0] + WATER.rOH * d[0], p[1] + WATER.rOH * d[1], p[2] + WATER.rOH * d[2]]; const h = this.addRaw(SP.H, X(q), Y(q), Z(q), m); this.mass[h] = WATER.mH; hs.push(h); }
+      this.bonds.push([o, hs[0], WATER.rOH, WATER.kOH], [o, hs[1], WATER.rOH, WATER.kOH]);
+      this.angles.push([hs[0], o, hs[1], WATER.th, WATER.kth]);
+    }
+    this.name = `Ice (${M} H₂O)`; this.finish(T0, 0.3); this.removeRotation();
+  }
+
   finish(T0, quenchDt) {
     this.thermostat = true; this.Ttarget = T0; this.listDirty = true; this.exploded = false;
     this.computeForces(); this.quench(400, quenchDt);
     this.thermalise(T0); this.computeForces(); this.mark(); this.resetRDF(); this.time = 0; this.step = 0;
-    this.dt = (this.model === 'ff' || this.model === 'uff' ? 0.5 : 1.0) / TU_FS;
+    this.dt = (this.water ? WATER.dtFs : this.model === 'ff' || this.model === 'uff' ? 0.5 : this.model === 'eam' ? 2.0 : 1.0) / TU_FS;
   }
 
   quench(steps, dtfs) {
@@ -257,6 +374,24 @@ export class Mat {
   thermalise(T) {
     for (let i = 0; i < this.N; i++) { if (this.fixed[i]) { this.vx[i] = this.vy[i] = this.vz[i] = 0; continue; } const s = Math.sqrt(KB * T / this.mass[i]); this.vx[i] = s * this.gauss(); this.vy[i] = s * this.gauss(); this.vz[i] = s * this.gauss(); }
     this.removeCOM(); const cur = this.temperature(); if (cur > 0) { const k = Math.sqrt(T / cur); for (let i = 0; i < this.N; i++) { this.vx[i] *= k; this.vy[i] *= k; this.vz[i] *= k; } }
+  }
+  /* A free cluster starts without spin: random velocities carry angular momentum, the internal forces conserve it and the velocity-scaling
+     thermostat keeps it, so the whole cluster would tumble for ever (the "flying ice cube" of the Berendsen thermostat). Subtract the rigid
+     rotation omega x r, omega = I^-1 L. */
+  removeRotation() {
+    const N = this.N; let M = 0, cx = 0, cy = 0, cz = 0;
+    for (let i = 0; i < N; i++) { if (this.fixed[i]) return; const m = this.mass[i]; M += m; cx += m * this.x[i]; cy += m * this.y[i]; cz += m * this.z[i]; }
+    if (!M) return; cx /= M; cy /= M; cz /= M;
+    let lx = 0, ly = 0, lz = 0, xx = 0, yy = 0, zz = 0, xy = 0, xz = 0, yz = 0;
+    for (let i = 0; i < N; i++) {
+      const m = this.mass[i], x = this.x[i] - cx, y = this.y[i] - cy, z = this.z[i] - cz;
+      lx += m * (y * this.vz[i] - z * this.vy[i]); ly += m * (z * this.vx[i] - x * this.vz[i]); lz += m * (x * this.vy[i] - y * this.vx[i]);
+      xx += m * x * x; yy += m * y * y; zz += m * z * z; xy += m * x * y; xz += m * x * z; yz += m * y * z;
+    }
+    const a = yy + zz, b = -xy, c = -xz, d = xx + zz, e = -yz, g = xx + yy;           // inertia tensor [[a b c] [b d e] [c e g]]
+    const A = d * g - e * e, B = -(b * g - c * e), C = b * e - c * d, det = a * A + b * B + c * C; if (Math.abs(det) < 1e-12) return;
+    const wx = (A * lx + B * ly + C * lz) / det, wy = (B * lx + (a * g - c * c) * ly - (a * e - b * c) * lz) / det, wz = (C * lx - (a * e - c * b) * ly + (a * d - b * b) * lz) / det;
+    for (let i = 0; i < N; i++) { const x = this.x[i] - cx, y = this.y[i] - cy, z = this.z[i] - cz; this.vx[i] -= wy * z - wz * y; this.vy[i] -= wz * x - wx * z; this.vz[i] -= wx * y - wy * x; }
   }
   removeCOM() {
     let M = 0, px = 0, py = 0, pz = 0; for (let i = 0; i < this.N; i++) { if (this.fixed[i]) continue; M += this.mass[i]; px += this.mass[i] * this.vx[i]; py += this.mass[i] * this.vy[i]; pz += this.mass[i] * this.vz[i]; }
@@ -291,7 +426,7 @@ export class Mat {
   }
 
   /* ---------------- neighbour lists ---------------- */
-  rcov() { return this.model === 'sw' ? 3.17 : this.model === 'ff' ? 1.6 : (this.tp.R + this.tp.D); }
+  rcov() { return this.model === 'sw' ? 3.17 : this.model === 'ff' ? 1.6 : this.model === 'eam' ? GUPTA.r2 : (this.tp.R + this.tp.D); }
   rvdw() { return this.model === 'ff' ? 9.0 : this.model === 'sw' ? 9.0 : 8.0; }
   mi(d, L, p) { return p ? d - L * Math.round(d / L) : d; }
 
@@ -338,7 +473,7 @@ export class Mat {
     const N = this.N; for (let i = 0; i < N; i++) { this.fx[i] = this.fy[i] = this.fz[i] = 0; }
     if (this.needList()) this.buildLists();
     let pe = 0;
-    if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF(); else if (this.model === 'uff') pe += this.chem.forces();
+    if (this.model === 'tersoff') pe += this.fTersoff(); else if (this.model === 'sw') pe += this.fSW(); else if (this.model === 'ff') pe += this.fFF(); else if (this.model === 'eam') pe += this.fGupta(); else if (this.model === 'uff') pe += this.chem.forces();
     if (this.vdw) pe += this.fVdw();
     pe += this.fExt();
     if (this.sub) pe += substrateForces(this, this.sub);
@@ -357,7 +492,26 @@ export class Mat {
       zs[i] += 0.05 * (n - zs[i]);
     }
   }
-  bondLimit(i, j) { if (this.model === 'uff') return 99; const a = this.sp[i], b = this.sp[j]; if (a === SP.S && b === SP.S) return 0; if (a === SP.Mo && b === SP.Mo) return 0; return Math.max(SPECIES[a].bond, SPECIES[b].bond) > 2 ? 2.9 : (a === SP.H || b === SP.H) ? 1.3 : 1.9; }
+  bondLimit(i, j) { if (this.model === 'uff') return 99; const a = this.sp[i], b = this.sp[j]; if (this.model === 'eam') return 3.2; if (a === SP.S && b === SP.S) return 0; if (a === SP.Mo && b === SP.Mo) return 0; return Math.max(SPECIES[a].bond, SPECIES[b].bond) > 2 ? 2.9 : (a === SP.H || b === SP.H) ? 1.3 : 1.9; }
+
+  fGupta() {                                                     // E = sum over pairs 2 V(r) - sum_i sqrt(rho_i), V and the rho terms tapered from r1 to r2
+    const N = this.N, P = GUPTA, x = this.x, y = this.y, z = this.z, fx = this.fx, fy = this.fy, fz = this.fz, pe = this.per, Lx = this.Lx, Ly = this.Ly, Lz = this.Lz;
+    const rho = this.gRho && this.gRho.length >= N ? this.gRho : (this.gRho = new Float64Array(this.maxN)); rho.fill(0, 0, N);
+    const xi2 = P.xi * P.xi, r22 = P.r2 * P.r2, w = P.r2 - P.r1;
+    const d = (p) => { const i = this.bi[p], j = this.bj[p]; let dx = x[i] - x[j], dy = y[i] - y[j], dz = z[i] - z[j];
+      if (pe[0]) dx -= Lx * Math.round(dx / Lx); if (pe[1]) dy -= Ly * Math.round(dy / Ly); if (pe[2]) dz -= Lz * Math.round(dz / Lz); D[0] = dx; D[1] = dy; D[2] = dz; return dx * dx + dy * dy + dz * dz; };
+    const D = [0, 0, 0], tap = (r) => { if (r <= P.r1) { T[0] = 1; T[1] = 0; return; } const u = (r - P.r1) / w; T[0] = 1 - u * u * u * (10 - 15 * u + 6 * u * u); T[1] = -30 * u * u * (1 - u) * (1 - u) / w; }, T = [1, 0];
+    for (let p = 0; p < this.nb; p++) { const r2 = d(p); if (r2 >= r22) continue; const r = Math.sqrt(r2); tap(r); const g = xi2 * Math.exp(-2 * P.q * (r / P.r0 - 1)) * T[0]; rho[this.bi[p]] += g; rho[this.bj[p]] += g; }
+    let E = 0; for (let i = 0; i < N; i++) { const s = Math.sqrt(rho[i]); E -= s; rho[i] = s > 0 ? 0.5 / s : 0; }
+    for (let p = 0; p < this.nb; p++) {
+      const r2 = d(p); if (r2 >= r22) continue; const i = this.bi[p], j = this.bj[p], r = Math.sqrt(r2); tap(r);
+      const v = P.A * Math.exp(-P.p * (r / P.r0 - 1)), g = xi2 * Math.exp(-2 * P.q * (r / P.r0 - 1));
+      E += 2 * v * T[0];
+      const dE = 2 * (-P.p / P.r0 * v * T[0] + v * T[1]) - (-2 * P.q / P.r0 * g * T[0] + g * T[1]) * (rho[i] + rho[j]), f = -dE / r;
+      fx[i] += f * D[0]; fy[i] += f * D[1]; fz[i] += f * D[2]; fx[j] -= f * D[0]; fy[j] -= f * D[1]; fz[j] -= f * D[2];
+    }
+    return E;
+  }
 
   fTersoff() {
     const P = this.tp, N = this.N, S = this.scratch, Rc = P.R + P.D, Rc2 = Rc * Rc, pe = this.per;
@@ -479,11 +633,11 @@ export class Mat {
     const x = this.x, y = this.y, z = this.z, fx = this.fx, fy = this.fy, fz = this.fz, pe = this.per, sp = this.sp, T = this.vdw;
     const rc = this.rvdw(), rc2 = rc * rc, coul = this.charges, Lx = this.Lx, Ly = this.Ly, Lz = this.Lz, hx = 0.5 * Lx, hy = 0.5 * Ly, hz = 0.5 * Lz;
     if (!T.cache || T.cache.rc !== rc) {                       // shifted-force constants per species pair
-      const ec = new Float64Array(16), dEc = new Float64Array(16);
-      for (let k = 0; k < 16; k++) if (T.e[k] > 0) { const s6 = Math.pow(T.s[k] / rc, 6); ec[k] = 4 * T.e[k] * (s6 * s6 - s6); dEc[k] = -24 * T.e[k] * (2 * s6 * s6 - s6) / rc; }
+      const ec = new Float64Array(NSP * NSP), dEc = new Float64Array(NSP * NSP);
+      for (let k = 0; k < NSP * NSP; k++) if (T.e[k] > 0) { const s6 = Math.pow(T.s[k] / rc, 6); ec[k] = 4 * T.e[k] * (s6 * s6 - s6); dEc[k] = -24 * T.e[k] * (2 * s6 * s6 - s6) / rc; }
       T.cache = { rc, ec, dEc };
     }
-    const ecT = T.cache.ec, dEcT = T.cache.dEc; let E = 0;
+    const ecT = T.cache.ec, dEcT = T.cache.dEc, Q = coul ? T.q : null; let E = 0;
     for (let p = 0; p < this.nv; p++) {
       const i = this.vi[p], j = this.vj[p];
       let dx = x[i] - x[j], dy = y[i] - y[j], dz = z[i] - z[j];
@@ -491,13 +645,13 @@ export class Mat {
       if (pe[1]) { if (dy > hy) dy -= Ly; else if (dy < -hy) dy += Ly; }
       if (pe[2]) { if (dz > hz) dz -= Lz; else if (dz < -hz) dz += Lz; }
       const r2 = dx * dx + dy * dy + dz * dz; if (r2 >= rc2) continue;
-      const r = Math.sqrt(r2), idx = sp[i] * 4 + sp[j], eps = T.e[idx]; let ff = 0;
+      const r = Math.sqrt(r2), idx = sp[i] * NSP + sp[j], eps = T.e[idx]; let ff = 0;
       if (eps > 0) {
         const sig = T.s[idx], s2 = sig * sig / r2, s6 = s2 * s2 * s2, s12 = s6 * s6;
         E += 4 * eps * (s12 - s6) - ecT[idx] - (r - rc) * dEcT[idx];
         ff = 24 * eps * (2 * s12 - s6) / r + dEcT[idx];       // -(E'(r) - E'(rc))
       }
-      if (coul) { const qq = KE_COUL * BENZENE_Q[sp[i]] * BENZENE_Q[sp[j]]; if (qq !== 0) { E += qq * (1 / r - 1 / rc + (r - rc) / (rc * rc)); ff += qq * (1 / r2 - 1 / rc2); } }
+      if (Q) { const qq = KE_COUL * Q[sp[i]] * Q[sp[j]]; if (qq !== 0) { E += qq * (1 / r - 1 / rc + (r - rc) / (rc * rc)); ff += qq * (1 / r2 - 1 / rc2); } }
       const f = ff / r; fx[i] += f * dx; fy[i] += f * dy; fz[i] += f * dz; fx[j] -= f * dx; fy[j] -= f * dy; fz[j] -= f * dz;
     }
     return E;
@@ -588,8 +742,13 @@ export class Mat {
     this.computeForces(); return i;
   }
   removeAtom(i, noForces = false) {
-    if (i < 0 || i >= this.N || this.model === 'ff') return;
+    if (i < 0 || i >= this.N || (this.model === 'ff' && !this.water)) return;      // (benzene: main.js switches to the chemistry model first)
     const l = --this.N; this.listDirty = true;
+    if (this.model === 'ff') {                                      // water: terms with the atom go, the last atom's terms follow it to slot i
+      const has = (t, n) => { for (let k = 0; k < n; k++) if (t[k] === i) return true; return false; }, ren = (t, n) => { for (let k = 0; k < n; k++) if (t[k] === l) t[k] = i; return t; };
+      this.bonds = this.bonds.filter((t) => !has(t, 2)).map((t) => ren(t, 2)); this.angles = this.angles.filter((t) => !has(t, 3)).map((t) => ren(t, 3));
+      this.oops = this.oops.filter((t) => !has(t, 4)).map((t) => ren(t, 4));
+    }
     if (i !== l) { for (const k of ['x', 'y', 'z', 'vx', 'vy', 'vz', 'cx', 'cy', 'cz', 'mass', 'sp', 'grp', 'z_', 'fixed']) this[k][i] = this[k][l]; }
     if (this.ext.mask) { this.ext.mask[i] = this.ext.mask[l]; this.ext.mask[l] = 0; }
     if (this.carry) {                                               // a carried piece keeps being carried: its slot moves with the atom
@@ -719,6 +878,7 @@ export class Mat {
     this.per = d.per.slice(); [this.Lx, this.Ly, this.Lz] = d.L; this.sheet = !!d.sheet; this.name = d.name;
     for (let i = 0; i < d.sp.length; i++) { this.addRaw(d.sp[i], d.x[i], d.y[i], d.z[i], d.grp[i]); this.fixed[i] = d.fixed ? d.fixed[i] : 0; this.vx[i] = d.vx[i]; this.vy[i] = d.vy[i]; this.vz[i] = d.vz[i]; }
     if (d.ff) { this.bonds = d.ff.bonds; this.angles = d.ff.angles; this.oops = d.ff.oops; }
+    if (this.water) for (let i = 0; i < this.N; i++) if (this.sp[i] === SP.H) this.mass[i] = WATER.mH;
     this.chem.clear(); if (d.chem) { this.chem.bonds = d.chem.map((b) => b.slice()); this.chem.dirty = true; this.chem.retype(); }
     this.objects = !!d.objects; this.dt = d.dt; this.listDirty = true; this.computeForces(); this.KE = this.kinetic(); this.mark(); this.resetRDF();
   }

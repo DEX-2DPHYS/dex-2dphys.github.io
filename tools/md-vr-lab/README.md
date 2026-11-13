@@ -18,7 +18,7 @@ node test/xr-hand.cjs index.html             # building blocks as objects, the H
 ## What it is
 
 A WebXR lab in which the user **builds** either a Lennard-Jones noble-gas system (element, lattice size, FCC crystal or random
-gas, density, start temperature) or a real material - benzene, graphene, graphite, MoS2, nanodiamond (see below) - and edits it atom by atom with the Add and Delete tools, **runs** it (heat, squeeze, thermostat
+gas, density, start temperature) or a real material - benzene, graphene, graphite, MoS2, nanodiamond, water/ice, gold, a nanoribbon (see below) - and edits it atom by atom with the Add and Delete tools, **runs** it (heat, squeeze, thermostat
 on/off, time step, periodic box or hard walls) and **measures** it (T, P, energy per atom, coordination, g(r),
 MSD and D, a recordable table with CSV export). Twelve guided tasks load ready-made setups.
 
@@ -96,6 +96,11 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
   rest, lifted so it never goes into the table or the substrate (2.9 A above its top layer). Let go, it stays exactly there. Run computes
   fresh forces and warms up over the 5 s ramp, so pieces put close together settle. Test: `xr-hand` (moved 5.0 / 6.0 cm for a 5 / 6 cm
   hand move, shape change 4e-15 A).
+  It is also never put down **inside another piece** (`liftClear`, 2026-11-13): with no forces acting nothing else stopped atoms landing
+  on atoms, and Run then crashed within ~440 steps every time (a block put on the flake, shifted 0.7 A, or half over its edge). The piece
+  now rides up along the worktop normal until it is clear: two objects (blocks) stay 2.5 A apart (`PLACE_DMIN`) and land about 3 A
+  above the flake, Run stays at 260-310 K; atoms that can bond (a single atom or a small bit, in the chemistry model only free valences)
+  may come to 0.9 x the sum of their covalent radii (`PLACE_BOND`), so an atom put against the flake while paused still bonds on Run. Test: `node test/paused-place.cjs index.html` (fails on the build before the fix).
 - **Down to 1 K** (2026-11-13). The temperature range is 1-3000 K (Lennard-Jones 1-600 K). The temperature sliders are logarithmic like
   the thermometer, so 1-10 K has as much room as 300-3000 K; below 20 K the thermometer steps 1 K, above 5 K (kids: 5 C). The right
   stick changes the temperature by a factor per second (as quick from 3 to 30 K as from 300 to 3000 K).
@@ -314,6 +319,41 @@ starts from nothing.
 - `test/systems.test.mjs` (12 checks): nanotube diameters and stability, zone folding in the transport ((5,5), (9,0) metallic;
   (10,0), (8,0) semiconducting), C₆₀, hBN, junctions (pads fixed, no bond lost, conductance falls with every ring),
   JSON save/restore, cutting many atoms at once.
+
+## Water, gold and a nanoribbon (2026-11-13; SYSTEMS tab and the system cards)
+
+- **Water / ice** (`Mat.buildWater`, force field `ff` with `VDW.water`): flexible SPC/Fw (Wu, Tepper & Voth, J. Chem. Phys. 124,
+  024503 (2006)) - harmonic O-H and H-O-H, O-O Lennard-Jones, charges O -0.82 / H +0.41 with the shifted-force Coulomb benzene
+  already used. It starts as a crystallite of **ice Ih**: the oxygens of an Ih lattice nearest a point, one hydrogen on every O-O
+  bond and two per interior oxygen (the Bernal-Fowler rules, checked on every bond). The bonds are oriented along random closed
+  trails of the O-O graph (a dummy vertex joins the odd-degree surface oxygens), which gives proton disorder as in real ice; a
+  surface oxygen short of two hydrogens puts one on a vacant lattice direction (a dangling OH).
+  - **Temperatures.** A 150-molecule crystallite of plain SPC/Fw melts at ~190 K (small crystals melt low, and SPC-type water melts
+    low in bulk too). Every intermolecular energy is therefore scaled by `WATER_F0` = 1.45 (LJ epsilon x f, charges x sqrt f), which
+    scales every temperature of the phase diagram by f: measured, f 1.0 -> ~190 K, 1.3 -> ~255 K, 1.45 -> ~275 K. The liquid
+    diffuses at ~2e-5 cm^2/s just above melting, like real water. **Boiling cannot be put right at the same time**: the same scale
+    moves evaporation too, and at 100 C a nanodroplet loses nothing in 80 ps. Molecules leave from ~450 K (2 in 80 ps), fast at
+    550 K (6 in 40 ps) and 650 K (19 in 40 ps). Inside the glovebox (on by default) the vapour stays; outside it, molecules that
+    fly out of reach are removed whole (`removeAtomsBatch` takes whole molecules for water and keeps the force field - it does not
+    switch to the chemistry model as benzene does).
+  - The hydrogens carry **4 amu** so the step can be **1.5 fs** (classical equilibrium - melting, evaporation - does not depend on
+    the masses; NVE drift 0.4 meV/molecule over 1.5 ps). Built as ice at 230 K (`WATER_T0`); the thermostat then goes to the
+    temperature asked for. A card picks the cold start.
+  - The RUN panel shows the **census** (`Mat.waterPhase`): ice order (four oxygens within 3.5 A in a tetrahedron,
+    orientational order q > 0.9), liquid, vapour (no oxygen within 4.5 A). A 150-molecule crystallite reads ~20-33 % ice-like when
+    solid (its surface is not crystalline) and ~0-5 % melted.
+- **Gold particle** (`Mat.buildGold`, model `eam`): the second-moment tight-binding (Gupta) potential of Cleri & Rosato, PRB 48, 22
+  (1993), cut off smoothly between 2nd and 3rd neighbours (4.4-4.9 A). Bulk fcc from it: a0 4.08 A (exp. 4.08), cohesive energy
+  3.76 eV (exp. 3.78). The particle is a truncated octahedron (the fcc equilibrium shape, {111} and {100} facets), 405 atoms by
+  default; it melts at ~740 K (energy jump 0.06 eV/atom and diffusion between 700 and 750 K), where ~2 nm gold particles melt
+  (bulk 1337 K). Step 2 fs, 2.4 ps of simulation per second here. Gold combines only with gold.
+- **Free clusters start without spin** (`Mat.removeRotation`, water and gold): random starting velocities carry angular momentum,
+  the internal forces conserve it and the Berendsen thermostat keeps it, so a cluster would tumble for ever (the "flying ice cube").
+- **Armchair graphene nanoribbon** (`Mat.buildRibbon`, Tersoff carbon): N dimer lines across (5-15), 3-12 nm long, along x, with
+  transport contacts on both ends, so the ELEC tab shows its gap at once. Ideal geometry: N = 6 0.88, 7 1.48, 8 0.00, 9 0.58,
+  10 1.08 eV (3p+1 > 3p > 3p+2 ~ 0, Son, Cohen & Louie 2006); at 300 K the ripple narrows the smaller gaps (N = 7 keeps ~1.3 eV).
+- `test/newsystems.test.mjs` (13 checks): the ice rules, forces, no spin, NVE, removing a molecule, save/restore of water; gold
+  lattice constant, cohesive energy, forces, a run; the ribbon widths, the gap families, a run at 300 K.
 
 ## Language, thermometer, grabbing pieces, tool shapes
 
