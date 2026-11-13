@@ -235,6 +235,7 @@ function arLook(on) {
   const r = on ? clamp(Math.min(TB.x1 - TB.x0, TB.z1 - TB.z0) / 2 - 0.04, 0.12, 0.3) / 0.3 : 1;
   ring.scale.set(r, r, 1); disc.scale.set(r, r, 1);                                // the work-area circle fits a small real table
   THERMO.g.position.x = on ? Math.min(0.56, TB.x1 - 0.09) : 0.56; THERMO.g.position.z = on ? Math.min(-0.72, TB.z1 - 0.1) : -0.72;
+  if (GBB) GBB.g.position.x = on ? Math.max(-0.56, TB.x0 + 0.09) : -0.56; if (GBB) GBB.g.position.z = on ? Math.min(-0.72, TB.z1 - 0.1) : -0.72;
 }
 /* ---------- the thermometer on the table: red liquid = the temperature now, teal handle = the target. Grab the handle (trigger /
    mouse) and slide it up or down to set the target (logarithmic scale; it switches the thermostat on). ---------- */
@@ -291,7 +292,7 @@ simRoot.position.copy(SIM_HOME);
 function setTableHeight(h, moveSim = true) {
   h = clamp(h, 0.5, 1.2); const dh = h - S.tableH; S.tableH = h;
   deskTop.position.set(0, h, -1.0); for (const l of legs) { l.scale.y = h - 0.025; l.position.y = (h - 0.025) / 2; }
-  ring.position.set(0, h + 0.03, -1.0); disc.position.set(0, h + 0.029, -1.0); rim.position.set(0, h + 1.0, -1.0); THERMO.g.position.y = h + 0.025;
+  ring.position.set(0, h + 0.03, -1.0); disc.position.set(0, h + 0.029, -1.0); rim.position.set(0, h + 1.0, -1.0); THERMO.g.position.y = h + 0.025; if (GBB) GBB.g.position.y = h + 0.025;
   SIM_HOME.y = homeY();
   if (dh && typeof tbMesh !== "undefined") { tbMesh.position.y += dh; ptMesh.position.y += dh; }
   if (moveSim && dh) { simRoot.position.y += dh; if (!S.vr) { controls.target.y += dh; camera.position.y += dh; } }
@@ -315,7 +316,7 @@ function tableWall() {                                            // once a fram
 function tableWallStep() { tableFloorStep(); if (GB.on) { const h = gloveStep(md, GB, GB.held); if (h) GB.glow = Math.min(0.6, GB.glow + 0.004 * h); } }
 /* ---------- the glovebox (src/glovebox.js): a nearly invisible dome standing on the worktop, centred under the experiment. It belongs
    to the experiment: it scales with it (two-grip scale) and moves with it. Atoms in a hand pass through; the rest bounce, slightly damped. */
-const GB = { on: false, cx: 0, cy: 0, cz: 0, R: 0, rad: 0, base: 0, need: true, glow: 0, held: null, heldBuf: new Uint8Array(0) };
+const GB = { fade: 1, on: false, cx: 0, cy: 0, cz: 0, R: 0, rad: 0, base: 0, need: true, glow: 0, held: null, heldBuf: new Uint8Array(0) };
 const gbMat = new THREE.ShaderMaterial({
   uniforms: { uCol: { value: new THREE.Color(0x7fe9ff) }, uGlow: { value: 0 }, uA: { value: 1 } },
   vertexShader: 'varying vec3 vN; varying vec3 vV; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
@@ -327,16 +328,16 @@ const gbRim = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.
 gbDome.add(gbRim); gbDome.renderOrder = 5; gbDome.frustumCulled = false; gbDome.visible = false; gbDome.raycast = () => {}; gbRim.raycast = () => {};
 const _gc = new THREE.Vector3(), _gu = new THREE.Vector3(0, 1, 0);
 function gloveFrame(dt) {                                         // once a frame, after tableWall: centre, radius, the drawn dome, the atoms in a hand
-  GB.on = false; GB.glow = Math.max(0, GB.glow - 1.5 * dt);
-  const show = S.glove && TW.ok && !mat.periodicAny; gbDome.visible = show; if (!show) return;
+  GB.on = false; GB.glow = Math.max(0, GB.glow - 1.5 * dt); GB.fade += ((S.glove ? 1 : 0) - GB.fade) * Math.min(1, dt * 6);
+  const show = GB.fade > 0.01 && TW.ok && !mat.periodicAny; gbDome.visible = show; if (!show) return;
   if (!gbDome.parent) inner.add(gbDome);
   simRoot.getWorldPosition(_gc).applyMatrix4(_wi);                 // the experiment's centre, dropped onto the worktop plane (box coordinates)
   const h = TW.nx * _gc.x + TW.ny * _gc.y + TW.nz * _gc.z - TW.nd; GB.cx = _gc.x - h * TW.nx; GB.cy = _gc.y - h * TW.ny; GB.cz = _gc.z - h * TW.nz;
   if (GB.need) { GB.base = gloveFit(md, GB.cx, GB.cy, GB.cz, wps); GB.need = false; }
   GB.R = GB.base * S.gbSize; GB.rad = S.atomR;
   gbDome.position.set(GB.cx, GB.cy, GB.cz); gbDome.quaternion.setFromUnitVectors(_gu, _wn.set(TW.nx, TW.ny, TW.nz)); gbDome.scale.setScalar(GB.R);
-  gbMat.uniforms.uGlow.value = GB.glow; gbMat.uniforms.uA.value = 1;
-  if (!TW.on) return;
+  gbMat.uniforms.uGlow.value = GB.glow; gbMat.uniforms.uA.value = GB.fade; gbRim.material.opacity = 0.25 * GB.fade;
+  if (!S.glove || !TW.on) return;
   GB.on = true; GB.held = null;                                    // the atoms in a hand are free to leave the box
   const e = mat.ext, c = mat.carry;
   if (e.i >= 0 || (c && c.mask)) {
@@ -348,6 +349,46 @@ function gloveFrame(dt) {                                         // once a fram
       else hb[e.i] = 1;
     }
     GB.held = hb;
+  }
+}
+/* ---------- the glovebox button on the table (front left, the thermometer's mirror): poke it with the controller tip, or point and pull
+   the trigger, or click it. Lit cyan = on, grey = off; it sinks when pressed and the dome fades in or out. ---------- */
+var GBB = { g: new THREE.Group(), next: 0, sink: 0 };          // (var: setTableHeight and arLook may run before this line)
+{
+  const B = GBB, house = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.022, 32), new THREE.MeshPhongMaterial({ color: 0x2a3140, shininess: 40 }));
+  house.position.y = 0.011; B.g.add(house);
+  B.capMat = new THREE.MeshPhongMaterial({ color: 0x2bd3cf, emissive: 0x0e5553, shininess: 90 });
+  B.cap = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.016, 32), B.capMat); B.cap.position.y = 0.03; B.g.add(B.cap);
+  B.cv = document.createElement('canvas'); B.cv.width = 320; B.cv.height = 96; B.tex = new THREE.CanvasTexture(B.cv); B.tex.colorSpace = THREE.SRGBColorSpace;
+  B.label = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.045), new THREE.MeshBasicMaterial({ map: B.tex, transparent: true, toneMapped: false }));
+  B.label.position.set(0, 0.075, -0.035); B.label.rotation.x = -0.35; B.g.add(B.label);
+  B.hit = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 16), new THREE.MeshBasicMaterial({ visible: false })); B.hit.position.y = 0.03; B.g.add(B.hit);
+  B.g.position.set(-0.56, S.tableH + 0.025, -0.72); B.g.rotation.y = 0.35; desk.add(B.g);
+}
+let gbbDrawn = '';
+function drawGloveButton() {
+  const B = GBB, key = (S.glove ? 1 : 0) + S.lang + S.theme; if (key === gbbDrawn) return; gbbDrawn = key;
+  B.capMat.color.setHex(S.glove ? 0x2bd3cf : 0x5c6676); B.capMat.emissive.setHex(S.glove ? 0x0e5553 : 0x000000);
+  const c = B.cv.getContext('2d'); c.clearRect(0, 0, 320, 96); c.fillStyle = S.theme === 'light' ? 'rgba(255,255,255,0.88)' : 'rgba(10,17,32,0.85)'; c.fillRect(0, 0, 320, 96);
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = S.glove ? '#2bd3cf' : '#8894a8'; c.font = '700 40px system-ui,sans-serif';
+  c.fillText(tr(S.glove ? 'Glovebox on' : 'Glovebox off'), 160, 48); B.tex.needsUpdate = true;
+}
+function toggleGlove(src) {
+  if (now() < GBB.next) return; GBB.next = now() + 600; GBB.sink = 1;
+  S.glove = !S.glove; ui.dirty = true; drawGloveButton(); if (src !== undefined && src !== 'mouse') pulse(src, 0.6, 40);
+  toast(S.glove ? 'Glovebox on' : 'Glovebox off', 1500);
+  try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); v.glove = S.glove; localStorage.setItem('mdlab.view', JSON.stringify(v)); } catch (e) { /* no storage */ }
+}
+const gbbRay = new THREE.Raycaster(), _bt = new THREE.Vector3(), _bp = new THREE.Vector3();
+function gloveButtonHit(o, d) { if (!GBB.g.visible) return false; gbbRay.set(o, d); GBB.g.updateWorldMatrix(true, true); return gbbRay.intersectObject(GBB.hit, false).length > 0; }
+function gloveButtonTick(dt) {                                    // every frame: the press animation, and a poke with a controller tip
+  const B = GBB; drawGloveButton(); B.sink = Math.max(0, B.sink - dt * 5); B.cap.position.y = 0.03 - 0.008 * Math.min(1, B.sink * 2);
+  B.g.visible = !S.walk && !S.wa; if (!S.vr || !B.g.visible) return;
+  B.cap.getWorldPosition(_bt);
+  for (const vc of vrc) {
+    if (!vc.src) { vc.gbIn = false; continue; }
+    vc.obj.getWorldPosition(_bp); const dy = _bp.y - (_bt.y + 0.008), inside = Math.hypot(_bp.x - _bt.x, _bp.z - _bt.z) < 0.045 && dy < 0.012 && dy > -0.05;
+    if (inside && !vc.gbIn) toggleGlove(vc.i); vc.gbIn = inside;
   }
 }
 function tableFloorStep() {                                       // after each MD step: atoms below the worktop go back onto it, moving down = bounce
@@ -1653,6 +1694,7 @@ function toolDown(src) {
   if (busy && (hold.src === src || !['add', 'delete', 'zap', 'camera', 'cminus', 'cplus'].includes(tool))) { if (busy && hold.src !== src && (tool === 'hand' || tool === 'tweezers' || tool === 'wand')) toast('One hand at a time can hold - let go with the other hand first', 2500); return false; }
   if (collab.guest && tool !== 'camera') { toast('You are watching. Ask for control: Settings \u2192 Together \u2192 Request control'); return false; }
   const { o, d } = rayOf(src);
+  if (!busy && gloveButtonHit(o, d)) { toggleGlove(src); return true; }
   if (!busy && thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
   if (tool === 'camera') { shoot(src); return true; }
   if (tool === 'wand') {
@@ -2604,7 +2646,7 @@ function frame() {
   toolUpdate();
 
   md.dt = isMat() ? S.dtFs / TU_FS : S.dt; md.thermostat = S.thermo; md.Ttarget = U.Tstar(S.TsetK * rampTick());
-  tableWall(); gloveFrame(dt);                                     // the worktop plane and the glovebox for this frame; tableWallStep after every step
+  tableWall(); gloveFrame(dt); gloveButtonTick(dt);                                     // the worktop plane and the glovebox for this frame; tableWallStep after every step
   if (isMat() && mat.model === 'uff' && mat.chem.pending) { mat.chem.relaxPending(S.vr ? 3 : 6); }   // settle a fresh attachment a few iterations per frame
   if (!S.paused && md.N && !md.exploded && !collab.guest && !CO.handing) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
@@ -3075,4 +3117,4 @@ build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
 window.__mdlab = { TR, plotData, get U() { return U; }, modal, recenter, labSide, offerControl, requestControl, takeBack, releaseControl, acceptPending, declinePending, collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
-  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable, GB, gbDome, setPaused, RAMP, toolOf, toolHeld, toolDown, toolUp, get hold() { return hold; }, vrc, fmtT };
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable, GB, gbDome, setPaused, RAMP, GBB, toggleGlove, gloveButtonHit, toolOf, toolHeld, toolDown, toolUp, get hold() { return hold; }, vrc, fmtT };

@@ -139,6 +139,17 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const lowT = await ev(() => { const L = window.__mdlab; L.setPaused(false); const T0 = L.S.TsetK; L.THERMO.g.updateWorldMatrix(true, true); const V = L.camera.position.constructor, b = new V(); L.THERMO.bottom.getWorldPosition(b);
     const o = new V(b.x, b.y - 0.05, b.z + 0.5), d = new V(0, -0.05, -0.5).normalize(); L.thermoDrag(o, d); const t1 = L.S.TsetK; L.S.TsetK = T0; return t1; });
   ok('the thermometer goes down to 1 K', lowT === 1, `bottom of the thermometer: ${lowT} K`);
+  // the glovebox button on the table: poke it with the controller tip (from above, down onto the cap)
+  const g0 = await ev(() => window.__mdlab.S.glove);
+  const cap = await ev(() => { const L = window.__mdlab, V = L.camera.position.constructor, w = new V(); L.GBB.cap.getWorldPosition(w); return [w.x, w.y, w.z]; });
+  await ev((C) => { const c = window.__dev.controllers.right; c.position.set(C[0], C[1] + 0.12, C[2]); c.quaternion.set(-Math.SQRT1_2, 0, 0, Math.SQRT1_2); }, cap); await wait(400);
+  await ev((C) => { const c = window.__dev.controllers.right; c.position.set(C[0], C[1] + 0.005, C[2]); }, cap); await wait(500);
+  const g1 = await ev(() => window.__mdlab.S.glove);
+  await ev((C) => { const c = window.__dev.controllers.right; c.position.set(C[0], C[1] + 0.12, C[2]); }, cap); await wait(900);
+  await ev((C) => { const c = window.__dev.controllers.right; c.position.set(C[0], C[1] + 0.005, C[2]); }, cap); await wait(500);
+  const g2 = await ev(() => window.__mdlab.S.glove);
+  await ev((C) => { const c = window.__dev.controllers.right; c.position.set(C[0], C[1] + 0.3, C[2]); }, cap); await wait(300);
+  ok('poking the glovebox button on the table switches the dome off and on', g1 === !g0 && g2 === g0, `${g0} -> ${g1} -> ${g2}`);
   // a tool per hand: the left holds something (the one hold), the right still adds an atom; a second grab is refused
   await ev(() => { const S_ = window.__mdlab.S; S_.htool.left = 'hand'; S_.htool.right = 'add'; });
   const iL = await ev(() => window.__mdlab.vrc.findIndex((c) => c.hand === 'left')), iR = await ev(() => window.__mdlab.vrc.findIndex((c) => c.hand === 'right'));

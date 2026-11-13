@@ -82,6 +82,10 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
   The default radius is 0.405 m on the bench at build scale, or the structure's reach + 4 A if that is larger (sized again on every build
   and every *Add next to it*); it belongs to the experiment, so the two-grip scale and moving the experiment take it along. Off for periodic
   sheets and in Walk mode. While it is on, *Remove atoms that fly out of reach* is not needed and does not run. Test: `test/glovebox.test.mjs`.
+- **The glovebox button** (2026-11-13). A push button on the table, front left (the thermometer's mirror; on a real table it keeps
+  inside the worktop): poke it with the controller tip, point at it and pull the trigger, or click it. Cyan cap and "Glovebox on" = on,
+  grey and "Glovebox off" = off; it sinks when pressed, the controller buzzes, and the dome fades in or out over about half a second
+  (the physics switches at once). Every level has it. Same setting as the RUN tab switch (`S.glove`, remembered). Test: `xr-hand` (poke).
 - **Pause stops every atom.** Pause sets all velocities to zero (the structure freezes where it is). **Run** then warms it from 0 K back to
   the set temperature over 5 s: the thermostat target ramps linearly, and while it ramps the thermostat is much tighter (time constant 20
   steps instead of 40 TU), because the strain left in the frozen structure turns into heat within a few steps and only a tight thermostat
