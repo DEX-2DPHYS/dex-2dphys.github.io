@@ -139,7 +139,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('the moved panel faces the user', after.face > 0.99, `cos ${after.face.toFixed(3)}`);
   const stays = await ev(() => window.__mdlab.uiMesh.position.toArray().join()); await moveBy('right', [-0.3, 0, 0]); await wait(300);
   ok('after letting go the panel stays put', (await ev(() => window.__mdlab.uiMesh.position.toArray().join())) === stays);
-  ok('the toolbar has Stop spin where Recenter was (VR)', await ev(() => { const l = window.__mdlab.tbList(); return l.includes('stopspin') && !l.includes('recenter'); }));
+  ok('the VR toolbar has Stop spin and Recenter (in the controls section)', await ev(() => { const l = window.__mdlab.tbList(), i = l.indexOf('|'); return i > 0 && l.indexOf('stopspin') > i && l.indexOf('recenter') > i; }));
 
   await ev(() => window.__mdlab.renderer.xr.getSession().end()); await wait(600);
   ok('the desktop toolbar has both Stop spin and Recenter', await ev(() => { const l = window.__mdlab.tbList(); return l.includes('stopspin') && l.includes('recenter'); }));

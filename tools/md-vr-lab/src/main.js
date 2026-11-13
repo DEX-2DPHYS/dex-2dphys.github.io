@@ -56,7 +56,7 @@ const MAT_INFO = {
 const CHEM_INFO = 'Chemistry: explicit bonds on the Universal Force Field (UFF). Attach any main-group atom; valence is respected, hybridisation follows the bonds (sp\u00B2 \u2192 sp\u00B3). Bonds snap at 1.6\u00D7 their length.';
 const S = {
   el: 'Ar', TsetK: 30, thermo: true, paused: false, dt: 0.004, speed: 10, periodic: true,
-  color: 'speed', tool: 'hand', trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
+  color: 'speed', deskTool: 'hand', htool: { left: 'hand', right: 'hand' }, uiSrc: null, trail: true, bonds: true, grab: 'atom', addSp: 3, dtFs: 1.0, tag: 0, tab: 0, taskPage: 0, helpPage: 0,
   rows: [], msg: '', msgUntil: 0, D: null, vr: false, xr: null, sps: 0, lastBuild: null, plots: true, panel: true,
   cel: 'C', fillH: false, bondA: -1,                                                       // chemistry tools
   theme: 'dark', tableH: 0.9, moveSpeed: 1.2, snapTurn: true, vignette: true,          // room and seated movement
@@ -67,6 +67,13 @@ const S = {
   sys: { sel: 'graphene', size: 10, layers: 2, open: true, rad: 7, n: 6, m: 6, len: 4, nmol: 5, rings: 3, T: 300 },                                 // SETTINGS tab, periodic-table popup
 };
 const TABS = ['BUILD', 'RUN', 'DATA', 'LAB', 'ELEC', 'VR', 'SETTINGS', 'SYSTEMS'], TAB_ELEC = 4, TAB_VR = 5, TAB_SYS = 7;
+/* A tool per hand: in VR each hand has its own tool (both start as the Hand). A toolbar or panel press gives the tool to the hand that
+   pressed it; the trigger uses that hand's tool. S.tool reads and sets the tool of the hand using the panels (the mouse on the desktop),
+   so the panel code needs no hand of its own. */
+const handOf = (src) => (S.vr && typeof src === 'number' && vrc[src] ? (vrc[src].hand === 'left' ? 'left' : 'right') : null);
+function toolOf(src) { const h = handOf(src); return h ? S.htool[h] : S.deskTool; }
+function toolHeld(t) { return S.vr ? S.htool.left === t || S.htool.right === t : S.deskTool === t; }
+Object.defineProperty(S, 'tool', { get() { return toolOf(S.uiSrc); }, set(v) { const h = handOf(S.uiSrc); if (h) S.htool[h] = v; else S.deskTool = v; }, enumerable: true, configurable: true });
 try { const v = JSON.parse(localStorage.getItem('mdlab.view') || '{}'); for (const k of ['lang', 'level', 'quality', 'thermoOn', 'atomR', 'sameSize', 'bondR', 'arrows', 'curBonds', 'zapDeg', 'escape', 'floorY', 'glove', 'gbSize']) if (k in v) S[k] = v[k]; } catch (e) { /* no storage */ }
 try { const t = localStorage.getItem('mdlab.theme'); if (t === 'light' || t === 'dark') S.theme = t; } catch (e) { /* no storage */ }
 const ljUnits = (el) => { const u = units(el); u.msdnm2 = (v) => v * u.sigma * u.sigma * 1e18; return u; };
@@ -251,6 +258,8 @@ const THERMO = { g: new THREE.Group(), H: 0.34, y0: 0.06, shownT: 0, lastLabel: 
   g.position.set(0.56, 0.9, -0.72); g.rotation.y = -0.35; desk.add(g);
 }
 const tRange = () => (isMat() ? [10, 3000] : [3, 600]);
+const KID_T = 293.15;                                                  // kids: 20 C to start with, and every temperature in C
+const fmtT = (K) => (S.level === 'kid' ? `${Math.round(K - 273.15)} \u00B0C` : `${K.toFixed(0)} K`);
 const tFrac = (T) => { const [a, b] = tRange(); return clamp(Math.log(Math.max(T, a) / a) / Math.log(b / a), 0, 1); };
 const thermoRay = new THREE.Raycaster();
 function thermoHit(o, d) { if (!S.thermoOn || !THERMO.g.visible) return false; thermoRay.set(o, d); THERMO.g.updateWorldMatrix(true, true); return thermoRay.intersectObject(THERMO.hit, false).length > 0; }
@@ -258,7 +267,7 @@ function thermoDrag(o, d) {
   const b = THERMO.bottom.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(d.x, 0, d.z); if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
   const den = n.dot(d); if (Math.abs(den) < 1e-4) return;
   const t = n.dot(b.clone().sub(o)) / den, y = o.y + d.y * t, f = clamp((y - b.y) / THERMO.H, 0, 1), [lo, hi] = tRange();
-  S.TsetK = Math.round(lo * Math.pow(hi / lo, f) / (isMat() ? 5 : 1)) * (isMat() ? 5 : 1); S.thermo = true; ui.dirty = true;
+  const K = lo * Math.pow(hi / lo, f); S.TsetK = S.level === 'kid' ? Math.round((K - 273.15) / 5) * 5 + 273.15 : Math.round(K / (isMat() ? 5 : 1)) * (isMat() ? 5 : 1); S.thermo = true; ui.dirty = true;
 }
 function updateThermo(t) {
   const T = THERMO; T.g.visible = S.thermoOn; if (!S.thermoOn) return;
@@ -267,8 +276,8 @@ function updateThermo(t) {
   T.knob.position.y = T.y0 + tFrac(S.TsetK) * T.H; T.knobMat.opacity = 1; T.knobMat.emissive.setHex(S.thermo ? 0x0a3a3a : 0x000000); T.knobMat.color.setHex(S.thermo ? 0x2bd3cf : 0x66707f);
   if (t - T.lastLabel > 250) {
     T.lastLabel = t; const c = T.cv.getContext('2d'); c.clearRect(0, 0, 320, 120); c.fillStyle = S.theme === 'light' ? 'rgba(255,255,255,0.88)' : 'rgba(10,17,32,0.85)'; c.fillRect(0, 0, 320, 120);
-    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ff6a5c'; c.font = '700 54px system-ui,sans-serif'; c.fillText(`${now_.toFixed(0)} K`, 160, 44);
-    c.fillStyle = S.thermo ? '#2bd3cf' : '#8894a8'; c.font = '28px system-ui,sans-serif'; c.fillText(S.thermo ? `${tr('target')} ${S.TsetK.toFixed(0)} K` : tr('thermostat off'), 160, 96); T.tex.needsUpdate = true;
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#ff6a5c'; c.font = '700 54px system-ui,sans-serif'; c.fillText(fmtT(now_), 160, 44);
+    c.fillStyle = S.thermo ? '#2bd3cf' : '#8894a8'; c.font = '28px system-ui,sans-serif'; c.fillText(S.thermo ? `${tr('target')} ${fmtT(S.TsetK)}` : tr('thermostat off'), 160, 96); T.tex.needsUpdate = true;
   }
 }
 
@@ -878,23 +887,23 @@ function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty =
 const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
 const nudgeT = (f) => { if (collab.guest) { toast('You are watching. Ask for control: Settings \u2192 Together'); return; }  const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; tutEvent(f > 1 ? 'warm' : 'cool'); };
 const TOOLDEF = {
-  camera: { l: 'Camera', icon: ICONS.camera, tint: '#b48cff', on: () => S.tool === 'camera', act: () => selectTool('camera') },
-  hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => S.tool === 'hand', act: () => selectTool('hand') },
-  tweezers: { l: 'Tweezers', icon: ICONS.tweezers, tint: '#2bd3cf', on: () => S.tool === 'tweezers', act: () => selectTool('tweezers') },
-  add: { l: 'Add', icon: ICONS.add, tint: '#5fd38a', on: () => S.tool === 'add', act: () => selectTool('add') },
-  attach: { l: 'Attach', icon: ICONS.attach, tint: '#5fd38a', on: () => S.tool === 'attach', act: () => selectTool('attach') },
-  bond: { l: 'Bond', icon: ICONS.bond, tint: '#5fd38a', on: () => S.tool === 'bond', act: () => selectTool('bond') },
-  delete: { l: 'Delete', icon: ICONS.delete, tint: '#ff6b6b', on: () => S.tool === 'delete', act: () => selectTool('delete') },
-  zap: { l: 'Zap', icon: ICONS.zap, tint: '#ff9f43', on: () => S.tool === 'zap', act: () => selectTool('zap') },
-  element: { l: () => `${S.cel} \u25BE`, icon: ICONS.element, arg: () => S.cel, tint: () => famCol(S.cel), on: () => S.tool === 'add' || S.ptOpen,       // the atom tool: first press = an atom in the hand, again = the periodic table
+  camera: { l: 'Camera', icon: ICONS.camera, tint: '#b48cff', on: () => toolHeld('camera'), act: () => selectTool('camera') },
+  hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => toolHeld('hand'), act: () => selectTool('hand') },
+  tweezers: { l: 'Tweezers', icon: ICONS.tweezers, tint: '#2bd3cf', on: () => toolHeld('tweezers'), act: () => selectTool('tweezers') },
+  add: { l: 'Add', icon: ICONS.add, tint: '#5fd38a', on: () => toolHeld('add'), act: () => selectTool('add') },
+  attach: { l: 'Attach', icon: ICONS.attach, tint: '#5fd38a', on: () => toolHeld('attach'), act: () => selectTool('attach') },
+  bond: { l: 'Bond', icon: ICONS.bond, tint: '#5fd38a', on: () => toolHeld('bond'), act: () => selectTool('bond') },
+  delete: { l: 'Delete', icon: ICONS.delete, tint: '#ff6b6b', on: () => toolHeld('delete'), act: () => selectTool('delete') },
+  zap: { l: 'Zap', icon: ICONS.zap, tint: '#ff9f43', on: () => toolHeld('zap'), act: () => selectTool('zap') },
+  element: { l: 'Add', icon: ICONS.element, arg: () => S.cel, tint: () => famCol(S.cel), on: () => toolHeld('add') || S.ptOpen,       // the atom tool: first press = an atom in the hand, again = the periodic table
     act: () => { if (S.tool !== 'add') selectTool('add'); else S.ptOpen = !S.ptOpen; ptab.dirty = true; } },
   hfill: { l: 'H fill', icon: ICONS.hfill, tint: '#d8dde6', on: () => S.fillH, act: () => { S.fillH = !S.fillH; } },
-  cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => S.tool === 'cminus', act: () => selectTool('cminus') },
-  cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => S.tool === 'cplus', act: () => selectTool('cplus') },
+  cminus: { l: '\u2212 contact', icon: ICONS.cminus, tint: '#4aa3ff', on: () => toolHeld('cminus'), act: () => selectTool('cminus') },
+  cplus: { l: '+ contact', icon: ICONS.cplus, tint: '#ff5a5a', on: () => toolHeld('cplus'), act: () => selectTool('cplus') },
   run: { l: () => (S.paused ? 'Run' : 'Pause'), dynIcon: () => (S.paused ? ICONS.run : ICONS.pause), tint: '#ffd166', on: () => S.paused, act: () => setPaused(!S.paused) },
   cool: { l: 'Colder', icon: ICONS.cold, tint: '#5fb6ff', on: () => false, act: () => nudgeT(1 / 1.5) },
   warm: { l: 'Warmer', icon: ICONS.warm, tint: '#ff8a5c', on: () => false, act: () => nudgeT(1.5) },
-  wand: { l: 'Bring', icon: ICONS.wand, tint: '#ffd166', on: () => S.tool === 'wand', act: () => selectTool('wand') },
+  wand: { l: 'Bring', icon: ICONS.wand, tint: '#ffd166', on: () => toolHeld('wand'), act: () => selectTool('wand') },
   recenter: { l: 'Recenter', icon: ICONS.recenter, tint: '#9fd8fb', on: () => false, act: () => { if (S.vr) { recenter(); toast('Table recentred', 1500); } else homeView(); } },
   stopspin: { l: 'Stop spin', icon: ICONS.stopspin, tint: '#9fd8fb', on: () => false, act: () => stopSpin(true) },
   walk: { l: 'Walk', icon: ICONS.walk, tint: '#7be0ff', on: () => S.walk || !!S.wa, act: () => toggleWalk() },
@@ -902,28 +911,34 @@ const TOOLDEF = {
   rebuild: { l: 'Start again', icon: ICONS.rebuild, tint: '#c3cad6', on: () => false, act: () => { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); } },
   together: { l: 'Together', icon: ICONS.together, tint: '#ff9ecf', on: () => collab.connected, act: () => { S.tab = 6; S.setPage = 'c'; S.panel = true; dom.ui.style.display = ''; ui.dirty = true; } },
 };
+// Two sections: the tools (in VR each hand has its own) | the controls. Colder / Warmer are gone from the toolbar: the thermometer on
+// the table, the right stick and the RUN tab set the temperature (the tutorial keeps its own Warmer / Colder buttons).
 const TB_LEVEL = {
-  kid: ['hand', 'add', 'zap', 'wand', 'cool', 'warm', 'run', 'camera', 'rebuild', 'recenter', 'walk', 'help'],
+  kid: ['hand', 'add', 'zap', 'wand', 'camera', '|', 'run', 'stopspin', 'rebuild', 'recenter', 'walk', 'help'],
   // (Adult / Researcher: the element button is the atom tool - the atom in the hand bonds where it is let go, so Add, Attach and Bond
   //  are not on the toolbar; keys 2 / 6 / 7 still pick them on the desktop. Kid keeps Add: carbon only, no element button.)
-  adult: ['hand', 'element', 'delete', 'zap', 'wand', 'cool', 'warm', 'run', 'camera', 'recenter', 'walk', 'together', 'help'],
-  researcher: ['hand', 'tweezers', 'element', 'hfill', 'delete', 'zap', 'wand', 'cminus', 'cplus', 'run', 'camera', 'recenter', 'walk', 'together', 'help'],
+  adult: ['hand', 'element', 'delete', 'zap', 'wand', 'camera', '|', 'run', 'stopspin', 'recenter', 'walk', 'together', 'help'],
+  researcher: ['hand', 'tweezers', 'element', 'hfill', 'delete', 'zap', 'wand', 'cminus', 'cplus', 'camera', '|', 'run', 'stopspin', 'recenter', 'walk', 'together', 'help'],
 };
-const TB_TUT = ['hand', 'add', 'delete', 'zap', 'cool', 'warm', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
+const TB_TUT = ['hand', 'add', 'delete', 'zap', '|', 'run', 'help'];             // the toolbar while the tutorial runs, whatever the level
 const val = (v) => (typeof v === 'function' ? v() : v), iconOf = (d) => (d.dynIcon ? d.dynIcon() : d.icon);
-// In VR only the headset's own (Meta button) recentre moves the table, so the toolbar has Stop spin where Recenter was
-// (Recenter stays in Settings); on the desktop Recenter is the fit-view button and Stop spin comes next to it.
-function tbList() {
-  if (S.tut >= 0) return TB_TUT;
-  const l = TB_LEVEL[S.level] || TB_LEVEL.researcher;
-  return S.vr ? l.filter((k) => k !== 'attach').map((k) => (k === 'recenter' ? 'stopspin' : k)) : l.flatMap((k) => (k === 'recenter' ? ['stopspin', 'recenter'] : [k]));
-}
+// (Recenter is on the toolbar in VR too - newcomers rarely know the Meta button; no other controller button recentres.)
+function tbList() { return S.tut >= 0 ? TB_TUT : (TB_LEVEL[S.level] || TB_LEVEL.researcher); }
+const TB_TOOLKEY = { element: 'add' };                                // toolbar key -> the tool it gives a hand
 function drawToolbar() {
   const tut = S.tut >= 0, list = tbList(), kid = S.level === 'kid' && !tut, hl = tut ? TUT_STEPS[S.tut].tool : null;
   tbar.begin(); tbar.y = 13; tbar.row(list.length); let hov = null;
   for (const k of list) {
+    if (k === '|') { const r = tbar._rect(66), c = tbar.ctx; c.save(); c.strokeStyle = COL.muted; c.globalAlpha = 0.45; c.lineWidth = 2; c.beginPath(); c.moveTo(r.x + r.w / 2, r.y + 8); c.lineTo(r.x + r.w / 2, r.y + r.h - 8); c.stroke(); c.restore(); tbar._advance(66); continue; }
     const d = TOOLDEF[k], r = tbar._rect(66); if (tbar._hover(r)) hov = k;
     if (tbar.button(kid ? '' : val(d.l), { icon: iconOf(d), iconArg: d.arg ? d.arg() : undefined, tint: val(d.tint), active: d.on(), h: 66, size: list.length > 16 ? 12 : list.length > 14 ? 13 : list.length > 10 ? 15 : 17 })) { d.act(); tbar.dirty = true; ui.dirty = true; }
+    if (S.vr && d.on !== undefined) {                                  // which hand has it: L / R (V / H) badges
+      const t = TB_TOOLKEY[k] || k, c = tbar.ctx;
+      for (const [h, x] of [['left', r.x + 4], ['right', r.x + r.w - 26]]) if (S.htool[h] === t) {
+        c.save(); c.fillStyle = val(d.tint); roundRect(c, x, r.y + 3, 22, 20, 6); c.fill(); c.fillStyle = '#0b1220'; c.font = '700 15px system-ui,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(h === 'left' ? (S.lang === 'da' ? 'V' : 'L') : (S.lang === 'da' ? 'H' : 'R'), x + 11, r.y + 13.5); c.restore();
+      }
+    }
     if (k === hl) { const c = tbar.ctx; c.save(); c.strokeStyle = '#ffd166'; c.lineWidth = 3 + 2 * Math.sin(now() / 220); roundRect(c, r.x - 3, r.y - 3, r.w + 6, r.h + 6, 16); c.stroke(); c.restore(); }
   }
   if (hov !== S.hoverTool) { S.hoverTool = hov; ui.dirty = true; }
@@ -933,7 +948,10 @@ const LEVELS = [['kid', 'Kid', ICONS.kid], ['adult', 'Adult', ICONS.adult], ['re
 function setLevel(l, force) {
   if (!TB_LEVEL[l] || (l === S.level && !force)) return;
   S.level = l; S.ptOpen = false;
-  if (!TB_LEVEL[l].includes(S.tool) && !(S.tool === 'add' && TB_LEVEL[l].includes('element'))) selectTool(TB_LEVEL[l][0]);      // (Add lives in the element button)
+  const okT = (t) => TB_LEVEL[l].includes(t) || (t === 'add' && TB_LEVEL[l].includes('element'));      // (Add lives in the element button)
+  for (const h of ['left', 'right']) if (!okT(S.htool[h])) S.htool[h] = 'hand';
+  if (!okT(S.deskTool)) S.deskTool = 'hand'; S.bondA = -1; tbar.dirty = true;
+  if (l === 'kid') S.TsetK = KID_T;                                    // kids start at 20 C
   if (l === 'kid') { S.cel = 'C'; S.addSp = SP.C; S.fillH = false; }
   S.tab = 0; S.plots = l === 'researcher' && window.innerWidth >= 760; dom.plots.style.display = S.plots ? '' : 'none';
   if (S.vr) plotMesh.visible = l === 'researcher';
@@ -965,8 +983,8 @@ function tempBar(h = 64) {
   c.fillStyle = g; roundRect(c, r.x + 10, r.y + h * 0.42, r.w - 20, h * 0.28, h * 0.14); c.fill();
   c.fillStyle = '#ffffff'; c.fillRect(fx(T) - 3, r.y + h * 0.3, 6, h * 0.52);
   if (S.thermo) { c.strokeStyle = COL.text; c.lineWidth = 3; c.beginPath(); c.arc(fx(S.TsetK), r.y + h * 0.56, h * 0.2, 0, Math.PI * 2); c.stroke(); }
-  c.font = '700 22px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = COL.text; c.fillText(`${T.toFixed(0)} K`, r.x + 10, r.y + h * 0.14);
-  c.textAlign = 'right'; c.fillStyle = COL.muted; c.font = '18px system-ui,sans-serif'; c.fillText(`${lo} \u2013 ${hi} K`, r.x + r.w - 10, r.y + h * 0.14);
+  c.font = '700 22px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = COL.text; c.fillText(fmtT(T), r.x + 10, r.y + h * 0.14);
+  c.textAlign = 'right'; c.fillStyle = COL.muted; c.font = '18px system-ui,sans-serif'; c.fillText(S.level === 'kid' ? `${fmtT(lo)} \u2013 ${fmtT(hi)}` : `${lo} \u2013 ${hi} K`, r.x + r.w - 10, r.y + h * 0.14);
   ui._advance(h);
 }
 /* ---------- tutorial: a guided tour of the basic tools on a graphene sheet (src/tutorial.js). The toolbar switches to the tools
@@ -1006,6 +1024,7 @@ function drawFooter(text, warn) {                                   // one line 
 function drawTutorial() {
   const st = TUT_STEPS[S.tut], N = TUT_STEPS.length;
   if (st.ev === 'pause' && S.paused) tutEvent('pause'); else if (st.ev === 'run' && !S.paused) tutEvent('run');
+  if (S.tutT !== undefined) { if (S.TsetK > S.tutT + 0.5) tutEvent('warm'); else if (S.TsetK < S.tutT - 0.5) tutEvent('cool'); } S.tutT = S.TsetK;
   if (S.tutOk && !st.last && now() - S.tutAt > 2200) tutGo(S.tut + 1);
   ui.begin(); ui.hdrR = 52; ui.header('TUTORIAL', `Step ${S.tut + 1} of ${N}`); helpBtn();
   ui.bar((S.tut + (S.tutOk || st.last ? 1 : 0)) / N); ui.space(6);
@@ -1028,8 +1047,8 @@ function drawKid() {
   ui.begin(); ui.hdrR = 52; ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty'); helpBtn();
   tempBar(70); ui.space(2);
   systemCards(KID_SYS, 170); ui.space(6);
-  ui.row(3);
-  for (const k of ['cool', 'warm', 'run']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 160 })) { d.act(); tbar.dirty = true; } }
+  { const c0 = S.TsetK - 273.15, c = ui.slider('kidT', 'Temperature', c0, -260, 1500, (v) => `${v.toFixed(0)} \u00B0C`, { step: 5, h: 76 }); if (c !== c0) { S.TsetK = c + 273.15; S.thermo = true; } }
+  { const d = TOOLDEF.run; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 110 })) { d.act(); tbar.dirty = true; } }
   ui.row(3);
   for (const k of ['hand', 'add', 'zap']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 150 })) { d.act(); tbar.dirty = true; } }
   ui.space(6); levelRow(84);
@@ -1275,7 +1294,7 @@ function setPaused(p) {
     toast('Paused: every atom stopped', 2000);
   } else if (S.thermo && md.N) {
     RAMP.on = true; RAMP.t0 = now(); RAMP.md = md; RAMP.tau = md.tauT; md.tauT = Math.max(20 * md.dt, md.tauT / 40);
-    toast(`Warming up to ${S.TsetK.toFixed(0)} K over 5 s`, 2500);
+    toast(`Warming up to ${fmtT(S.TsetK)} over 5 s`, 2500);
   }
 }
 function rampEnd() { if (!RAMP.on) return; if (RAMP.md === md) md.tauT = RAMP.tau; RAMP.on = false; RAMP.md = null; }
@@ -1393,7 +1412,8 @@ function loadSaved(e) {
 }
 function loadSystem() {
   const Y = S.sys, r = Object.assign({}, B, { sys: 'mat', mat: Y.sel, size: Y.size, layers: Y.layers, open: Y.open, rad: Y.rad, n: Y.n, m: Y.m, len: Y.len, nmol: Y.nmol, rings: Y.rings, Tm: Y.T, chem: false });
-  Object.assign(B, r); S.TsetK = Y.T; build(r);
+  if (S.level === 'kid') r.Tm = KID_T;
+  Object.assign(B, r); S.TsetK = S.level === 'kid' ? KID_T : Y.T; build(r);
 }
 function tabSystems() {
   const Y = S.sys;
@@ -1625,21 +1645,22 @@ function rayOf(src) {
   const d = new THREE.Vector3(0, 0, -1).transformDirection(vc.obj.matrixWorld); return { o, d };
 }
 function toolDown(src) {
-  if (hold.src !== null) return false;
-  if (collab.guest && S.tool !== 'camera') { toast('You are watching. Ask for control: Settings \u2192 Together \u2192 Request control'); return false; }
+  const tool = toolOf(src), busy = hold.src !== null;              // busy: the other hand holds something (one hold at a time)
+  if (busy && (hold.src === src || !['add', 'delete', 'zap', 'camera', 'cminus', 'cplus'].includes(tool))) { if (busy && hold.src !== src && (tool === 'hand' || tool === 'tweezers' || tool === 'wand')) toast('One hand at a time can hold - let go with the other hand first', 2500); return false; }
+  if (collab.guest && tool !== 'camera') { toast('You are watching. Ask for control: Settings \u2192 Together \u2192 Request control'); return false; }
   const { o, d } = rayOf(src);
-  if (thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
-  if (S.tool === 'camera') { shoot(src); return true; }
-  if (S.tool === 'wand') {
+  if (!busy && thermoHit(o, d)) { hold.src = src; hold.kind = 'thermo'; thermoDrag(o, d); pulse(src, 0.3, 20); return true; }
+  if (tool === 'camera') { shoot(src); return true; }
+  if (tool === 'wand') {
     if (!isMat() || !md.N || carry) return false;
     const p = pickAtom(o, d, 6); if (!p) { toast('Point the wand at the structure'); return true; }
     startWand(src, p.i); pulse(src, 0.6, 50); return true;
   }
-  if (S.tool === 'zap') { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; if (!doZap(src, o, d)) toast('Nothing in the cone - aim at the structure'); return true; }
-  if (S.tool === 'attach' || S.tool === 'bond') {
+  if (tool === 'zap') { if (!busy) { hold.src = src; hold.kind = 'zap'; hold.next = now() + 120; } if (!doZap(src, o, d)) toast('Nothing in the cone - aim at the structure'); return true; }
+  if (tool === 'attach' || tool === 'bond') {
     if (!ensureChem()) return false;
     const p = pickAtom(o, d); if (!p) return false;
-    if (S.tool === 'attach') {
+    if (tool === 'attach') {
       const r = toLocal(o, d).o, res = mat.chem.attach(p.i, S.cel, S.fillH, [r.x, r.y, r.z], true);
       if (res.err) { toast(res.err); pulse(src, 0.8, 60); return true; }
       toast(`Attached ${S.cel}${S.fillH && VALENCE[S.cel] > 1 ? 'H' + (VALENCE[S.cel] - 1 > 1 ? VALENCE[S.cel] - 1 : '') : ''} to ${SPECIES[mat.sp[p.i]].sym}`); pulse(src, 0.4, 30);
@@ -1652,16 +1673,16 @@ function toolDown(src) {
     if (S.cm.size && S.cp.size) contactsChanged();
     return true;
   }
-  if (S.tool === 'cminus' || S.tool === 'cplus') {
+  if (tool === 'cminus' || tool === 'cplus') {
     if (!isMat()) { toast('Contacts need a material: build graphene, graphite or benzene'); return false; }
     const p = pickAtom(o, d); if (!p) return false;
-    const w = S.tool === 'cminus' ? 'm' : 'p', set = w === 'm' ? S.cm : S.cp;
-    hold.src = src; hold.kind = 'ct'; hold.grab = { w, on: !set.has(p.i) };
-    setContact(p.i, w, hold.grab.on); pulse(src, 0.4, 25); return true;
+    const w = tool === 'cminus' ? 'm' : 'p', set = w === 'm' ? S.cm : S.cp;
+    const on_ = !set.has(p.i); if (!busy) { hold.src = src; hold.kind = 'ct'; hold.grab = { w, on: on_ }; }
+    setContact(p.i, w, on_); pulse(src, 0.4, 25); return true;
   }
-  if (S.tool === 'tweezers' || S.tool === 'hand') {
+  if (tool === 'tweezers' || tool === 'hand') {
     const p = pickAtom(o, d); if (!p) return false;
-    if (S.tool === 'hand') {
+    if (tool === 'hand') {
       // a loose piece or a separate object is picked up: it follows the hand (moved and turned, like the grip), at once - not dragged by
       // its centre of mass, which follows slowly. The main structure: the atom is pulled (out of it, if you pull hard).
       if (isMat() && !carry && md.model !== 'ff') { const fr = mat.fragmentMask(p.i); if (movesWhole(p.i, fr)) { startCarry(src, p.i, true); hold.src = src; hold.kind = 'carry'; tutEvent('grab'); pulse(src, 0.5, 40); return true; } }
@@ -1676,11 +1697,11 @@ function toolDown(src) {
     hold.src = src; hold.kind = 'tw'; hold.grab = { i: p.i, dist: p.t * p.s, off: [ref[0] - r0.x, ref[1] - r0.y, ref[2] - r0.z] };
     md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom'; pulse(src, 0.5, 40); return true;
   }
-  if (S.tool === 'add' && src !== 'mouse' && S.vr && isMat() && addFromHand(src)) return true;          // VR: let go of the atom in the hand
-  if (S.tool === 'add' || S.tool === 'delete') {
-    hold.src = src; hold.kind = S.tool === 'add' ? 'add' : 'del'; hold.next = now() + 380;
-    if (S.tool === 'add' ? doAdd(src, o, d) : doDel(src, o, d)) return true;
-    hold.src = null; hold.kind = null; toast(S.tool === 'add' ? 'Click on or just next to the structure to add an atom' : 'Click directly on an atom to delete it'); return false;
+  if (tool === 'add' && src !== 'mouse' && S.vr && isMat() && addFromHand(src)) return true;          // VR: let go of the atom in the hand
+  if (tool === 'add' || tool === 'delete') {
+    if (!busy) { hold.src = src; hold.kind = tool === 'add' ? 'add' : 'del'; hold.next = now() + 380; }
+    if (tool === 'add' ? doAdd(src, o, d) : doDel(src, o, d)) return true;
+    if (!busy) { hold.src = null; hold.kind = null; } toast(tool === 'add' ? 'Click on or just next to the structure to add an atom' : 'Click directly on an atom to delete it'); return false;
   }
   return false;
 }
@@ -1759,10 +1780,14 @@ function grabAt(src, o, d, p, mode) {
   }
   md.ext.i = p.i; md.ext.mode = frag ? 'frag' : grp ? 'group' : 'atom'; tutEvent('grab');
 }
+// An atom the Hand lets go of settles where it was left: its velocity is damped for 40 steps. Pressed by the hand into the substrate
+// or against a neighbour, it would otherwise shoot off with the stored energy (km/s) and tear the bond it just made.
+const SETTLE = { i: -1, n: 0 };
+function settleStep() { if (SETTLE.n <= 0) return; SETTLE.n--; const i = SETTLE.i; if (i < 0 || i >= md.N) { SETTLE.n = 0; return; } md.vx[i] *= 0.8; md.vy[i] *= 0.8; md.vz[i] *= 0.8; }
 function toolUp(src) {
   if (carry && carry.wand && carry.src === src) stopCarry();
   if (hold.src !== src) return;
-  if (hold.kind === 'tw') { md.ext.i = -1; md.ext.kk = 0; md.ext.cap = 0; md.ext.anchor = null; }
+  if (hold.kind === 'tw') { if (md.ext.mode === 'atom' && md.ext.i >= 0) { SETTLE.i = md.ext.i; SETTLE.n = 40; } md.ext.i = -1; md.ext.kk = 0; md.ext.cap = 0; md.ext.anchor = null; }
   if (hold.kind === 'carry' && carry && carry.src === src) stopCarry();
   hold.byGrip = false;
   hold.src = null; hold.kind = null; hold.grab = null;
@@ -1775,6 +1800,7 @@ function toolUpdate() {
     const r = toLocal(w, d), DM = dims(), per = perAxis(), off = hold.grab.off || [0, 0, 0];
     const cl = (v, k) => per[k] || !isMat() ? clamp(v, 0, DM[k]) : clamp(v, -DM[k], 2 * DM[k]);
     md.ext.x = cl(r.o.x + off[0], 0); md.ext.y = cl(r.o.y + off[1], 1); md.ext.z = cl(r.o.z + off[2], 2); md.ext.i = hold.grab.i;
+    if (isMat() && mat.sub && md.ext.mode === 'atom') { const fl = mat.sub.wTop + 2.9; if (mat.sub.axis === 'z') md.ext.z = Math.max(md.ext.z, fl); else md.ext.y = Math.max(md.ext.y, fl); }     // the hand cannot press an atom into the substrate (it would shoot off when let go)
     if (hold.src !== 'mouse') pulse(hold.src, 0.08 + 0.5 * md.extForce, 30);
   } else if (hold.kind === 'thermo') {
     thermoDrag(o, d);
@@ -2086,7 +2112,7 @@ const vrc = [0, 1].map((i) => {
   obj.addEventListener('selectstart', () => {
     if (S.cal && !(vc.hit && vc.hit.ui && (vc.hitObj === uiMesh || vc.hitObj === modalMesh))) { calPoint(i); return; }     // touching the table edge (the menu panel still works)
     if (vc.hit && vc.hit.bar && !vc.pg) { startPanelDrag(vc, vc.hit); pulse(i, 0.3, 30); return; }          // a panel's handle bar: drag the panel
-    if (vc.hit) { if (vc.hit.ui) { vc.hit.ui.press(i); vc.uiHeld = vc.hit.ui; } return; }
+    if (vc.hit) { if (vc.hit.ui) { S.uiSrc = i; vc.hit.ui.press(i); vc.uiHeld = vc.hit.ui; } return; }
     toolDown(i);
   });
   obj.addEventListener('selectend', () => { if (vc.pg && vc.pg.ray) vc.pg = null; if (vc.uiHeld) { vc.uiHeld.release(i); vc.uiHeld = null; } toolUp(i); });
@@ -2159,9 +2185,9 @@ function renderInto(rt) {
   scene.background = bg0;
   for (const o of hidden) o.visible = true;
 }
-function camPreviewSrc() { const v = vrc.find((c) => c.src && c.hand === 'right') || vrc.find((c) => c.src); return v ? v.i : null; }
+function camPreviewSrc() { const v = vrc.find((c) => c.src && toolOf(c.i) === 'camera'); return v ? v.i : null; }
 function updateCamPreview(t) {                            // the live picture on the back of the VR camera, a few times a second
-  if (!S.vr || S.tool !== 'camera' || t - CAM.lastPreview < (S.quality === 'low' ? 200 : 90)) return;
+  if (!S.vr || !toolHeld('camera') || t - CAM.lastPreview < (S.quality === 'low' ? 200 : 90)) return;
   const s = camPreviewSrc(); if (s === null) return; CAM.lastPreview = t; camPose(s); renderInto(CAM.preview);
 }
 function stamp() { const d = new Date(), p = (v) => String(v).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
@@ -2221,13 +2247,13 @@ const CURSORS = { camera: 'zoom-in', hand: 'grab', tweezers: 'grab', add: 'copy'
 let lastCursor = '';
 function updateToolShapes() {
   const elCol = (isMat() && SPECIES[SP[S.cel]]) ? SPECIES[SP[S.cel]].color : 0x88a0c0;
-  for (const vc of vrc) { if (!vc.tools) continue; for (const k in vc.tools.H) { const g = vc.tools.H[k], on = k === S.tool && !(vc.hit && vc.hit.ui) && !(k === 'add' && vc.ghostOn); g.visible = on; if (on && g.userData.atom) g.userData.atom.material.color.setHex(S.tool === 'add' && !isMat() ? new THREE.Color(ELEMENTS[S.el] ? ELEMENTS[S.el].color : 0x88a0c0).getHex() : elCol); } }
+  for (const vc of vrc) { if (!vc.tools) continue; for (const k in vc.tools.H) { const g = vc.tools.H[k], on = k === toolOf(vc.i) && !(vc.hit && vc.hit.ui) && !(k === 'add' && vc.ghostOn); g.visible = on; if (on && g.userData.atom) g.userData.atom.material.color.setHex(S.tool === 'add' && !isMat() ? new THREE.Color(ELEMENTS[S.el] ? ELEMENTS[S.el].color : 0x88a0c0).getHex() : elCol); } }
   const cur = hold.src === 'mouse' && (S.tool === 'tweezers' || S.tool === 'hand') ? 'grabbing' : (CURSORS[S.tool] || 'default');
   if (cur !== lastCursor) { renderer.domElement.style.cursor = cur; lastCursor = cur; }
 }
 function handPose(vc, gp, dt) {
   const t = gp && gp.buttons[0] ? gp.buttons[0].value : 0, g = gp && gp.buttons[1] ? gp.buttons[1].value : 0;
-  const handGrab = hold.src === vc.i && ((hold.kind === 'tw' && S.tool === 'hand') || hold.kind === 'carry'), tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab || vc.sheet;
+  const handGrab = hold.src === vc.i && ((hold.kind === 'tw' && toolOf(vc.i) === 'hand') || hold.kind === 'carry'), tw = hold.src === vc.i && hold.kind === 'tw' && !handGrab, ui_ = !!(vc.hit && vc.hit.ui), fist = vc.sq || vc.pg || handGrab || vc.sheet;
   const want = fist ? { index: 0.95, thumb: 0.8, others: 1 } : tw ? { index: 0.6, thumb: 0.9, others: 0.7 } : ui_ ? { index: 0.08 + 0.25 * t, thumb: 0.6, others: 0.9 } : { index: 0.1 + 0.8 * t, thumb: 0.15 + 0.6 * t, others: Math.max(0.25, g) };
   const a = Math.min(1, dt * 14), P = vc.hand3.pose; for (const k in want) P[k] += (want[k] - P[k]) * a; vc.hand3.apply();
 }
@@ -2304,6 +2330,7 @@ function carryRemap(i, l) {
 const cM = new THREE.Matrix4(), cV = new THREE.Vector3();
 function updateCarry() {
   if (!carry) return;
+  if (isMat() && mat.carry && mat.N > carry.N) carry.N = mat.N;       // an atom added by the other hand: the piece stays in the hand
   if (!isMat() || mat.N !== carry.N || !mat.carry) { stopCarry(); return; }
   if (carry.wand) { updateWand(); return; }
   if (carry.src === 'mouse') mouseHand.position.copy(mouseRay.origin).addScaledVector(mouseRay.direction, mouseHand.userData.dist);
@@ -2453,7 +2480,7 @@ function addHost(L, el) {                                         // the atom th
 }
 function updateGhost(vc) {                                        // every frame: where the atom in this hand is, what it would bond to
   const G = vc.ghost; if (!G) return;
-  const on = S.vr && S.tool === 'add' && isMat() && md.model !== 'ff' && !!vc.src && !(vc.hit && vc.hit.ui) && !vc.hit?.bar && hold.src !== vc.i && !vc.sq && !vc.sheet && !vc.pg && !(carry && carry.src === vc.i) && !S.cal;
+  const on = S.vr && toolOf(vc.i) === 'add' && isMat() && md.model !== 'ff' && !!vc.src && !(vc.hit && vc.hit.ui) && !vc.hit?.bar && hold.src !== vc.i && !vc.sq && !vc.sheet && !vc.pg && !(carry && carry.src === vc.i) && !S.cal;
   vc.ghostOn = on; G.g.visible = on; G.line.visible = false; if (!on) { G.host = -1; return; }
   const el = addEl(), sp = SPECIES[SP[el]], sc = simRoot.scale.x, rad = Math.max(S.atomR, 0.25) * sc * 1.15;
   if (G.el !== el + S.lang) { G.el = el + S.lang; G.ball.material.color.setHex(sp ? sp.color : 0x88a0c0); G.tag.material.map = tagTex(el); G.tag.material.needsUpdate = true; }
@@ -2520,9 +2547,9 @@ function vrInput(dt) {
       vc.dot.visible = true; vc.dot.position.copy(h.point);
     } else { vc.dot.visible = false; ui.leave(vc.i); tbar.leave(vc.i); ptab.leave(vc.i); }
     HOVER.delete(vc.i);
-    if (!hits.length && md.N && S.tool !== 'camera') { const p = pickAtom(o, d); if (p) { HOVER.set(vc.i, p.i); if (S.walk) len = Math.max(0.3, p.t * p.s); } }
+    if (!hits.length && md.N && toolOf(vc.i) !== 'camera') { const p = pickAtom(o, d); if (p) { HOVER.set(vc.i, p.i); if (S.walk) len = Math.max(0.3, p.t * p.s); } }
     vc.laser.scale.z = len; handPose(vc, vc.src.gamepad, dt); updateGhost(vc);
-    vc.cone.visible = S.tool === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
+    vc.cone.visible = toolOf(vc.i) === 'zap'; if (vc.cone.visible) { const s = Math.tan(S.zapDeg * Math.PI / 180); vc.cone.scale.set(s, s, 1); }
     vc.laser.material.color.set(vc.hit ? 0xffffff : 0x4ae3e1);
 
     const gp = vc.src.gamepad;
@@ -2530,14 +2557,14 @@ function vrInput(dt) {
       locomotion(vc, gp, dt);
       const ay = Math.abs(gp.axes[3] || 0) > 0.2 ? gp.axes[3] : 0;
       const btn = [!!(gp.buttons[4] && gp.buttons[4].pressed), !!(gp.buttons[5] && gp.buttons[5].pressed), !!(gp.buttons[3] && gp.buttons[3].pressed)];
-      if (btn[0] && !vc.prev[0]) { S.tool = S.tool === 'tweezers' ? 'add' : S.tool === 'add' ? 'delete' : 'tweezers'; toast('Tool: ' + S.tool); }
+      if (btn[0] && !vc.prev[0]) { const h = handOf(vc.i) || 'right', t = S.htool[h]; S.htool[h] = t === 'tweezers' ? 'add' : t === 'add' ? 'delete' : 'tweezers'; toast('Tool: ' + S.htool[h]); tbar.dirty = true; }
       if (btn[1] && !vc.prev[1]) setPaused(!S.paused);
       // (the thumbstick click no longer recentres: pushing the stick hard to change the temperature or reel an atom clicked it by accident.
       //  Only the headset's own recentre - holding the Meta button - moves the table; Settings keeps a Recenter button.)
       vc.prev = btn;
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * (S.walk ? 9 : 0.9), 0.12, S.walk ? 40 : 3.5);
-        else if (vc.hand === 'right' && S.tool === 'add' && vc.ghostOn) ADD.reach = clamp(ADD.reach - ay * dt * 0.5, 0.04, 1.2);     // the atom in the hand: nearer / farther
+        else if (vc.hand === 'right' && toolOf(vc.i) === 'add' && vc.ghostOn) ADD.reach = clamp(ADD.reach - ay * dt * 0.5, 0.04, 1.2);     // the atom in the hand: nearer / farther
         else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
       }
     }
@@ -2561,7 +2588,7 @@ function frame() {
   if (!S.paused && md.N && !md.exploded && !collab.guest && !CO.handing) {
     const budget = S.vr ? 4.5 : 9, t0 = now(); let n = 0;
     updateJoin();
-    while (n < S.speed && now() - t0 < budget) { md.run(1); tableWallStep(); n++; }
+    while (n < S.speed && now() - t0 < budget) { md.run(1); tableWallStep(); settleStep(); n++; }
     holdSpin(dt);                                                   // a piece held with the Hand stops turning
     if (isMat() && mat.fused && mat.fused !== lastFused) { lastFused = mat.fused; toast('Joined: the two pieces are one object now', 2500); for (const v of vrc) if (v.src) pulse(v.i, 0.7, 60); }
     S.sps = S.sps * 0.9 + 0.1 * (n / Math.max(dt, 1e-3));
@@ -3027,4 +3054,4 @@ build(B, { quiet: true });
 md.run(300);
 renderer.setAnimationLoop(frame);
 window.__mdlab = { TR, plotData, get U() { return U; }, modal, recenter, labSide, offerControl, requestControl, takeBack, releaseControl, acceptPending, declinePending, collab, avatars, CO, enterWalk, exitWalk, toggleWalk, nano, WI, labFar, pickAtom, mouseRay, get carry() { return carry; }, startCarry, stopCarry, HOVER, addBlock, applySubstrate, subAtoms, shoot, CAM, printMesh, setLevel, TOOLDEF, TB_LEVEL, setQuality, atoms, controls, setLangUI, THERMO, thermoDrag, loadSystem, saveCurrent, loadSaved, readSaved, tbar, ptab, tbMesh, ptMesh, LOCO, vign, dolly, TASKS, get md() { return md; }, mat, lj, isMat, S, B, H, build, ui, renderer, camera, scene, simRoot, vrc, applyTask, toolDown, toolUp, hold, enterVR,
-  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable, GB, gbDome, setPaused, RAMP };
+  TR, applyTheme, setTableHeight, contactsAtEnds, requestTransport, placePanels, uiMesh, plotMesh, deskTop, enterAR, arRefit, startCal, calPoint, TB, AR, bench, desk, ring, xrState, get room() { return room; }, inner, scanText, ADD, addFromHand, addHost, mainGroup, movesWhole, spinOff, stopSpin, holdSpin, get grabRef() { return grabRef; }, PANEL_BARS, tbList, TW, keepAboveTable, GB, gbDome, setPaused, RAMP, toolOf, toolHeld, toolDown, toolUp, get hold() { return hold; }, vrc, fmtT };

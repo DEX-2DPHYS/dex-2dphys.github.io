@@ -84,7 +84,7 @@ export class Mat {
   get density() { return this.N; }
   get periodicAny() { return this.per[0] || this.per[1] || this.per[2]; }
 
-  clear() { this.objects = false; this.join = null; this.sub = null; this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
+  clear() { this.carry = null; this.objects = false; this.join = null; this.sub = null; this.sheet = false; this.N = 0; this.time = 0; this.step = 0; this.exploded = false; this.bonds = []; this.angles = []; this.oops = []; this.listDirty = true; this.ext.i = -1; this.resetRDF(); }
 
   /* Objects. A building block (mergeFrom) keeps its own group; from then on the groups are OBJECTS: two atoms of different objects
      (each of at least 4 atoms) never bond on their own - they feel each other through van der Waals only, so a block that drifts

@@ -66,7 +66,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('... and the flake is still the main structure (pull an atom out of it), though it is the smaller one', !(await ev(() => { const L = window.__mdlab; return L.movesWhole(0, L.mat.fragmentMask(0)); })));
 
   // pick the block up with the Hand and move it 8 cm up: it follows, the flake stays
-  await ev(() => { window.__mdlab.S.tool = 'hand'; });
+  await ev(() => { const S_ = window.__mdlab.S; S_.htool.left = S_.htool.right = 'hand'; });
   const gB = st.g[1], gF = st.g[0];
   const blk0 = await comW(gB), fl0 = await comW(gF), a0 = await W(B0 - Math.floor(nBlock / 2));
   await pointDownAt(a0, 0.2); await wait(300);
@@ -84,7 +84,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await btn('right', 'trigger', 0); await wait(300);
 
   // start again with a plain flake for the atom in the hand
-  await ev(() => { const L = window.__mdlab; L.build(L.S.lastBuild || L.B, { quiet: true }); L.S.tool = 'add'; L.S.cel = 'C'; L.S.paused = false; }); await wait(800);
+  await ev(() => { const L = window.__mdlab; L.build(L.S.lastBuild || L.B, { quiet: true }); L.S.htool.left = 'hand'; L.S.htool.right = 'add'; L.S.cel = 'C'; L.S.paused = false; }); await wait(800);
   await ev(() => { const L = window.__mdlab; L.recenter(); }); await wait(300);
   // an edge atom of the flake (furthest from the centre, in the sheet) and the direction outward
   const edge = await ev(() => { const L = window.__mdlab, md = L.md, V = L.camera.position.constructor; L.inner.updateWorldMatrix(true, false);
@@ -110,7 +110,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const drift = Math.hypot(fl2.x[0] - fl.x[0], fl2.x[1] - fl.x[1], fl2.x[2] - fl.x[2]);
   ok('trigger there: a floating atom, staying where it was let go', fl.N === nPre + 1 && fl.v < 1e-3 && drift < 0.5 && fl2.nb > 3, `drift ${drift.toFixed(2)} A in 1 s, nearest atom ${fl2.nb.toFixed(1)} A`);
   // the Hand takes it to the flake edge, where it bonds
-  await ev(() => { window.__mdlab.S.tool = 'hand'; });
+  await ev(() => { const S_ = window.__mdlab.S; S_.htool.left = S_.htool.right = 'hand'; });
   const fw = await W(fl.i); await pointDownAt(fw, 0.15); await wait(300);
   await btn('right', 'trigger', 1); await wait(300);
   const edge2 = await ev((skip, added) => { const L = window.__mdlab, md = L.md, V = L.camera.position.constructor; L.inner.updateWorldMatrix(true, false);
@@ -122,6 +122,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let held = null; for (let k = 0; k < 10 && !(held && held.piece > 10); k++) { await wait(500); held = await ev((i) => { const L = window.__mdlab, md = L.md; let nb = 99; for (let k = 0; k < md.N; k++) if (k !== i) nb = Math.min(nb, Math.hypot(md.x[k] - md.x[i], md.y[k] - md.y[i], md.z[k] - md.z[i])); return { nb, piece: L.mat.fragmentMask(i).n, N: md.N }; }, fl.i); }     // (hold until it bonds: headless runs few MD steps a second)
   await btn('right', 'trigger', 0); await wait(1500);
   const end = await ev((i) => { const L = window.__mdlab, md = L.md; let nb = 99; for (let k = 0; k < md.N; k++) if (k !== i) nb = Math.min(nb, Math.hypot(md.x[k] - md.x[i], md.y[k] - md.y[i], md.z[k] - md.z[i])); return { nb, piece: L.mat.fragmentMask(i).n, N: md.N }; }, fl.i);
+  // a tool per hand: the left holds something (the one hold), the right still adds an atom; a second grab is refused
+  await ev(() => { const S_ = window.__mdlab.S; S_.htool.left = 'hand'; S_.htool.right = 'add'; });
+  const iL = await ev(() => window.__mdlab.vrc.findIndex((c) => c.hand === 'left')), iR = await ev(() => window.__mdlab.vrc.findIndex((c) => c.hand === 'right'));
+  ok('each hand has its own tool', await ev((a, b) => window.__mdlab.toolOf(a) === 'hand' && window.__mdlab.toolOf(b) === 'add', iL, iR));
+  await ghostTo(far);
+  const two = await ev((a, b) => { const L = window.__mdlab, h = L.hold, n0 = L.md.N; h.src = a; h.kind = 'thermo';
+    const added = L.toolDown(b), n1 = L.md.N, kept = h.src === a; L.S.htool.right = 'hand'; const grab = L.toolDown(b), kept2 = h.src === a;
+    h.src = null; h.kind = null; L.S.htool.right = 'add'; return { added, n0, n1, kept, grab, kept2 }; }, iL, iR);
+  ok('while the left hand holds, the right hand adds an atom; a second grab is refused', two.added && two.n1 === two.n0 + 1 && two.kept && !two.grab && two.kept2, JSON.stringify(two));
+  ok('the toolbar: tools | controls, Stop spin and Recenter, no Colder / Warmer', await ev(() => { const l = window.__mdlab.tbList(), i = l.indexOf('|'); return i > 0 && l.indexOf('camera') < i && l.indexOf('run') > i && l.includes('stopspin') && l.includes('recenter') && !l.includes('cool') && !l.includes('warm'); }));
   ok('the Hand brings the floating atom to the edge: it bonds there', held.piece > 10 && end.nb < 1.75 && end.piece > 10, `nearest atom ${end.nb.toFixed(2)} A, its piece ${end.piece} of ${end.N} atoms`);
   ok('the VR toolbar: the element button is the atom tool; no Add, Attach or Bond', await ev(() => { const l = window.__mdlab.tbList(); return l.includes('element') && !l.includes('add') && !l.includes('attach') && !l.includes('bond'); }));
 

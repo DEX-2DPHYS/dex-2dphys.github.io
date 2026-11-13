@@ -73,8 +73,9 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
 ## Glovebox and pause (2026-11-12; `src/glovebox.js`)
 
 - **Glovebox.** A nearly invisible hemisphere stands on the worktop, centred under the experiment (a faint fresnel rim and a ring on the
-  table; it glows a little where atoms hit it). Every atom that reaches it bounces back with a slight damping: the normal velocity flips and
-  keeps 90 % of its size (a bounce takes 19 % of the normal kinetic energy, none of the tangential), so a hot or torn structure calms down
+  table; it glows a little where atoms hit it). Every atom that reaches it bounces back, strongly damped: the normal velocity flips and keeps
+  40 % of its size, the tangential keeps 70 % (a bounce takes 84 % of the normal kinetic energy and half the tangential; 2026-11-13, was 90 % / 100 %:
+  a stray atom bounced for a long time), so a hot or torn structure calms down
   instead of scattering over the room. The hands go through it: it is never hit by the pointer, and atoms held in a hand (Hand pull, a
   carried piece, a tweezers layer) are free to leave. Let go outside, they slide home at most 0.05 A a step (~30 A/s) instead of jumping.
   It is checked after every MD step, like the table. RUN tab: **Glovebox** on/off (on by default) and **Glovebox size** (40-250 %).
@@ -91,7 +92,7 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
 
 - **Only the headset recentres.** The thumbstick click no longer recentres (it fired by accident while pushing the stick for the temperature
   or to reel an atom); no controller button moves the table. Holding the Meta button (the headset's own recentre, a reference-space
-  `reset`) does, and Settings keeps *Recenter table*. In VR the toolbar has **Stop spin** where Recenter was; the desktop toolbar has both.
+  `reset`) does, and Settings keeps *Recenter table*. Both toolbars have **Stop spin** and **Recenter** (since 2026-11-13 Recenter is back on the VR toolbar).
 - **Both grips = scale, always.** The second grip turns whatever the first grip was doing (carrying a piece, moving a panel) into the
   two-hand gesture: spread the hands to scale, twist to turn, about the point between them. Letting go of either grip ends it - the other
   hand does not start dragging the experiment. A hidden panel (the plots below Researcher level) no longer catches the ray.
@@ -102,6 +103,27 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
   atoms held fixed, and periodic sheets, are left alone.
 - **Moving panels.** Each panel (menu, plots, toolbar, periodic table) has a handle bar with six grip dots on its top edge: trigger on it and
   drag - the panel follows the ray at the same distance and keeps facing you. Grip anywhere on a panel still moves it with the hand.
+
+## A tool per hand, and the toolbar in two sections (2026-11-13)
+
+- **Each hand has its own tool** (VR). Both start as the Hand. A toolbar or panel press gives the tool to the hand that pressed it
+  (`S.uiSrc`); the trigger uses that hand's tool (`toolOf(src)`). So one hand can always stay a Hand: hold a flake in the left and
+  add atoms to it, zap or photograph it with the right. On the toolbar a tool is lit while either hand has it, with an **L** / **R**
+  badge (Danish **V** / **H**) for the hand. `S.tool` is an accessor: it reads and sets the tool of the hand using the panels (the mouse
+  on the desktop, `S.deskTool`), so the panel code needs no hand of its own. The desktop has one tool, as before.
+- **One hold at a time.** The simulation has one pulled atom / carried piece. While one hand holds something, the other can still add,
+  delete, zap, shoot and mark contacts (one-shot, no repeat); a second grab is refused with a short message. A carried piece stays in
+  the hand when the other hand adds an atom (the new atom is not part of the piece).
+- **Toolbar: tools | controls.** Left: Hand, Add (the element button, now labelled Add / Tilføj; its icon shows the element), Delete,
+  Zap, Bring, Camera (Researcher: also Tweezers, H fill, the contacts). A divider. Right: Pause, Stop spin, Recenter, Walk, Together,
+  Guide (Kid: Start again instead of Together). **Colder / Warmer are gone**: the thermometer on the table, the right stick and the RUN
+  tab set the temperature. The tutorial keeps big Warmer / Colder buttons in its own panel, and steps 5-6 also count the thermometer.
+- **Recenter is on the VR toolbar again** (newcomers rarely know the Meta button); no other controller button recentres.
+- **Kids: Celsius.** At Kid level every temperature is shown in C (thermometer, bar, slider) and they start at **20 C (293 K)**; the
+  thermometer steps 5 C. The kid panel has a temperature slider (C) and a big Run/Pause instead of Colder / Warmer.
+- **An atom let go by the Hand settles** where it was left (its velocity is damped for 40 steps), and the Hand cannot press an atom into
+  the substrate (its target stays 2.9 A above the top layer). Before, an atom pushed into the substrate and let go shot off at ~10 km/s
+  and tore the bond it had just made.
 
 ## Objects and the atom in the hand (2026-11-12)
 

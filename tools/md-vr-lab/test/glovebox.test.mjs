@@ -22,14 +22,14 @@ const ke = (m) => { let s = 0; for (let i = 0; i < m.N; i++) s += m.vx[i] ** 2 +
   const k1 = ke(m);
   assert.ok(rmax < 20 - 0.3 + 0.25, `an atom left the box: r = ${rmax.toFixed(2)}`);
   assert.ok(hits > 500, `few bounces: ${hits}`);
-  assert.ok(k1 < k0 && k1 > 0.02 * k0, `energy ${k0.toFixed(1)} -> ${k1.toFixed(1)}`);
+  assert.ok(k1 < 0.1 * k0, `energy ${k0.toFixed(1)} -> ${k1.toFixed(1)}`);
   console.log(`hot gas: ${hits} bounces, kinetic energy ${k0.toFixed(0)} -> ${k1.toFixed(0)}, furthest atom ${rmax.toFixed(2)} A of ${20 - 0.3}`);
 }
-// 2. one bounce: the normal velocity flips and keeps GLOVE.e of its size, the tangential is kept
+// 2. one bounce: the normal velocity flips and keeps GLOVE.e of its size, the tangential keeps GLOVE.et
 {
   const m = gas(1, 1, 0); m.x[0] = 10.01; m.y[0] = 0; m.z[0] = 0; m.vx[0] = 2; m.vy[0] = 0; m.vz[0] = 1;
   assert.equal(gloveStep(m, { cx: 0, cy: 0, cz: 0, R: 10.3, rad: 0.3 }, null), 1);
-  assert.ok(Math.abs(m.vx[0] + 2 * GLOVE.e) < 1e-12 && m.vz[0] === 1 && m.x[0] <= 10 + 1e-12);
+  assert.ok(Math.abs(m.vx[0] + 2 * GLOVE.e) < 1e-12 && Math.abs(m.vz[0] - GLOVE.et) < 1e-12 && m.x[0] <= 10 + 1e-12);
 }
 // 3. held atoms are free to leave; released far outside, they slide home at GLOVE.push per step, never jump
 {

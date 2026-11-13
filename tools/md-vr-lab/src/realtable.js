@@ -124,7 +124,7 @@ export const TABLE_DA = {
   'Room scan: nothing shared (allow spatial data when asked, or run Space Setup)': 'Rumscanning: intet delt (tillad rumdata, når du bliver spurgt, eller kør Space Setup)',
   'Room scan - surfaces: {1}; volumes: {2}': 'Rumscanning - flader: {1}; rumfang: {2}',
   // controls (2026-11-12): stop spin, panels
-  'Stop spin': 'Stop rotation',
+  'Stop spin': 'Stop spin',
   'STOP SPIN - every loose piece stops turning; the atoms keep their thermal motion (holding a piece with the Hand stops it too)': 'STOP ROTATION - alle løse stykker holder op med at dreje; atomerne beholder deres termiske bevægelse (at holde et stykke med Hånden stopper det også)',
   'Spinning stopped (1 piece)': 'Rotationen er stoppet (1 stykke)',
   'Spinning stopped ({1} pieces)': 'Rotationen er stoppet ({1} stykker)',
