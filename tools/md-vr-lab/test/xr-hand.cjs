@@ -122,6 +122,23 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let held = null; for (let k = 0; k < 10 && !(held && held.piece > 10); k++) { await wait(500); held = await ev((i) => { const L = window.__mdlab, md = L.md; let nb = 99; for (let k = 0; k < md.N; k++) if (k !== i) nb = Math.min(nb, Math.hypot(md.x[k] - md.x[i], md.y[k] - md.y[i], md.z[k] - md.z[i])); return { nb, piece: L.mat.fragmentMask(i).n, N: md.N }; }, fl.i); }     // (hold until it bonds: headless runs few MD steps a second)
   await btn('right', 'trigger', 0); await wait(1500);
   const end = await ev((i) => { const L = window.__mdlab, md = L.md; let nb = 99; for (let k = 0; k < md.N; k++) if (k !== i) nb = Math.min(nb, Math.hypot(md.x[k] - md.x[i], md.y[k] - md.y[i], md.z[k] - md.z[i])); return { nb, piece: L.mat.fragmentMask(i).n, N: md.N }; }, fl.i);
+  // paused: the Hand picks up even the main structure whole and moves it rigidly with the hand; it stays where it is put
+  await ev(() => { const L = window.__mdlab; L.S.htool.right = 'hand'; L.setPaused(true); }); await wait(400);
+  const shape = () => ev(() => { const md = window.__mdlab.md, d = []; for (const [i, j] of [[0, 1], [0, 5], [3, 40], [10, 100]]) d.push(Math.hypot(md.x[i] - md.x[j], md.y[i] - md.y[j], md.z[i] - md.z[j])); return d; });
+  const s0 = await shape(), m0 = await comW(await ev(() => window.__mdlab.mat.grp[0])), a0p = await W(0);
+  await pointDownAt(a0p, 0.2); await wait(300);
+  await btn('right', 'trigger', 1); await wait(400);
+  await ev(() => { const c = window.__dev.controllers.right; c.position.set(c.position.x + 0.05, c.position.y + 0.06, c.position.z); }); await wait(800);
+  const m1 = await comW(await ev(() => window.__mdlab.mat.grp[0])), s1 = await shape();
+  await btn('right', 'trigger', 0); await wait(800);
+  const m2 = await comW(await ev(() => window.__mdlab.mat.grp[0])), st2 = await ev(() => { const L = window.__mdlab, md = L.md; let v = 0; for (let i = 0; i < md.N; i++) v = Math.max(v, Math.abs(md.vx[i]) + Math.abs(md.vy[i]) + Math.abs(md.vz[i])); return { v, paused: L.S.paused, carry: !!L.carry }; });
+  const mv = [m1[0] - m0[0], m1[1] - m0[1], m1[2] - m0[2]], dShape = Math.max(...s1.map((v, k) => Math.abs(v - s0[k]))), pdrift = Math.hypot(m2[0] - m1[0], m2[1] - m1[1], m2[2] - m1[2]);
+  ok('paused: the Hand picks up the main flake whole and moves it with the hand, rigidly', Math.abs(mv[0] - 0.05) < 0.01 && Math.abs(mv[1] - 0.06) < 0.015 && dShape < 1e-6, `moved (${mv.map((v) => (v * 100).toFixed(1)).join(', ')}) cm for a hand move of (5, 6, 0) cm; shape change ${dShape.toExponential(1)} A`);
+  ok("... let go, it stays where it was put, at rest, still paused", pdrift < 1e-6 && st2.v === 0 && st2.paused && !st2.carry, `drift ${pdrift.toExponential(1)} m, ${JSON.stringify(st2)}`);
+  // 1 K is reachable: thermometer at the bottom, the stick, Run
+  const lowT = await ev(() => { const L = window.__mdlab; L.setPaused(false); const T0 = L.S.TsetK; L.THERMO.g.updateWorldMatrix(true, true); const V = L.camera.position.constructor, b = new V(); L.THERMO.bottom.getWorldPosition(b);
+    const o = new V(b.x, b.y - 0.05, b.z + 0.5), d = new V(0, -0.05, -0.5).normalize(); L.thermoDrag(o, d); const t1 = L.S.TsetK; L.S.TsetK = T0; return t1; });
+  ok('the thermometer goes down to 1 K', lowT === 1, `bottom of the thermometer: ${lowT} K`);
   // a tool per hand: the left holds something (the one hold), the right still adds an atom; a second grab is refused
   await ev(() => { const S_ = window.__mdlab.S; S_.htool.left = 'hand'; S_.htool.right = 'add'; });
   const iL = await ev(() => window.__mdlab.vrc.findIndex((c) => c.hand === 'left')), iR = await ev(() => window.__mdlab.vrc.findIndex((c) => c.hand === 'right'));

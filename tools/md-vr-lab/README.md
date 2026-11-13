@@ -87,6 +87,14 @@ experiment with the grips cannot push it into the table either (`keepAboveTable`
   steps instead of 40 TU), because the strain left in the frozen structure turns into heat within a few steps and only a tight thermostat
   holds it to the ramp. Headless (slow) check: 82, 68, 115, 185, 251 K at 0.5-4.5 s for 300 K. With the thermostat off, Run starts from rest
   with no ramp. Toolbar, panel button, space bar and B/Y all do this (`setPaused`); *Step x20* only steps.
+- **Moving crystals while paused** (2026-11-13). Paused, the Hand (trigger) and the grip on an atom pick up the **whole** piece the atom
+  belongs to, the main structure too, and move it rigidly with the hand: it is placed directly (`placePaused`, the MD does not run), at
+  rest, lifted so it never goes into the table or the substrate (2.9 A above its top layer). Let go, it stays exactly there. Run computes
+  fresh forces and warms up over the 5 s ramp, so pieces put close together settle. Test: `xr-hand` (moved 5.0 / 6.0 cm for a 5 / 6 cm
+  hand move, shape change 4e-15 A).
+- **Down to 1 K** (2026-11-13). The temperature range is 1-3000 K (Lennard-Jones 1-600 K). The temperature sliders are logarithmic like
+  the thermometer, so 1-10 K has as much room as 300-3000 K; below 20 K the thermometer steps 1 K, above 5 K (kids: 5 C). The right
+  stick changes the temperature by a factor per second (as quick from 3 to 30 K as from 300 to 3000 K).
 
 ## Controls (2026-11-12)
 

@@ -257,7 +257,8 @@ const THERMO = { g: new THREE.Group(), H: 0.34, y0: 0.06, shownT: 0, lastLabel: 
   T.label = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.06), new THREE.MeshBasicMaterial({ map: T.tex, transparent: true, toneMapped: false })); T.label.position.set(0, T.y0 + T.H + 0.07, 0); g.add(T.label);
   g.position.set(0.56, 0.9, -0.72); g.rotation.y = -0.35; desk.add(g);
 }
-const tRange = () => (isMat() ? [10, 3000] : [3, 600]);
+const tRange = () => (isMat() ? [1, 3000] : [1, 600]);                // down to 1 K (logarithmic thermometer and sliders)
+const roundT = (K) => (K < 20 ? Math.max(1, Math.round(K)) : S.level === 'kid' ? Math.round((K - 273.15) / 5) * 5 + 273.15 : Math.round(K / 5) * 5);
 const KID_T = 293.15;                                                  // kids: 20 C to start with, and every temperature in C
 const fmtT = (K) => (S.level === 'kid' ? `${Math.round(K - 273.15)} \u00B0C` : `${K.toFixed(0)} K`);
 const tFrac = (T) => { const [a, b] = tRange(); return clamp(Math.log(Math.max(T, a) / a) / Math.log(b / a), 0, 1); };
@@ -267,7 +268,7 @@ function thermoDrag(o, d) {
   const b = THERMO.bottom.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(d.x, 0, d.z); if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
   const den = n.dot(d); if (Math.abs(den) < 1e-4) return;
   const t = n.dot(b.clone().sub(o)) / den, y = o.y + d.y * t, f = clamp((y - b.y) / THERMO.H, 0, 1), [lo, hi] = tRange();
-  const K = lo * Math.pow(hi / lo, f); S.TsetK = S.level === 'kid' ? Math.round((K - 273.15) / 5) * 5 + 273.15 : Math.round(K / (isMat() ? 5 : 1)) * (isMat() ? 5 : 1); S.thermo = true; ui.dirty = true;
+  const K = lo * Math.pow(hi / lo, f); S.TsetK = isMat() || S.level === 'kid' ? roundT(K) : Math.max(1, Math.round(K)); S.thermo = true; ui.dirty = true;
 }
 function updateThermo(t) {
   const T = THERMO; T.g.visible = S.thermoOn; if (!S.thermoOn) return;
@@ -885,7 +886,7 @@ function selectTool(v) { S.tool = v; S.bondA = -1; ui.dirty = true; tbar.dirty =
 /* ---------- levels: Kid, Adult (non-expert), Researcher. Same simulation; the level only decides what is shown and how.
    Tools are pictograms with a colour per kind: teal = grab, green = build, red/orange = remove, blue/red = electrodes. ---------- */
 const famCol = (e) => (FAMILY[FAM_OF[e] || 'unknown'] || ['', '#cccccc'])[1];
-const nudgeT = (f) => { if (collab.guest) { toast('You are watching. Ask for control: Settings \u2192 Together'); return; }  const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(Math.round(S.TsetK * f / 5) * 5, lo, hi); ui.dirty = true; tbar.dirty = true; tutEvent(f > 1 ? 'warm' : 'cool'); };
+const nudgeT = (f) => { if (collab.guest) { toast('You are watching. Ask for control: Settings \u2192 Together'); return; }  const [lo, hi] = tRange(); S.thermo = true; S.TsetK = clamp(roundT(S.TsetK * f), lo, hi); ui.dirty = true; tbar.dirty = true; tutEvent(f > 1 ? 'warm' : 'cool'); };
 const TOOLDEF = {
   camera: { l: 'Camera', icon: ICONS.camera, tint: '#b48cff', on: () => toolHeld('camera'), act: () => selectTool('camera') },
   hand: { l: 'Hand', icon: ICONS.hand, tint: '#f2b880', on: () => toolHeld('hand'), act: () => selectTool('hand') },
@@ -1047,7 +1048,7 @@ function drawKid() {
   ui.begin(); ui.hdrR = 52; ui.header('ATOMIC WORKBENCH', md.N ? `${md.name} \u00B7 ${md.N} atoms` : 'empty'); helpBtn();
   tempBar(70); ui.space(2);
   systemCards(KID_SYS, 170); ui.space(6);
-  { const c0 = S.TsetK - 273.15, c = ui.slider('kidT', 'Temperature', c0, -260, 1500, (v) => `${v.toFixed(0)} \u00B0C`, { step: 5, h: 76 }); if (c !== c0) { S.TsetK = c + 273.15; S.thermo = true; } }
+  { const c0 = S.TsetK - 273.15, c = ui.slider('kidT', 'Temperature', c0, -272, 1500, (v) => `${v.toFixed(0)} \u00B0C`, { step: 5, h: 76 }); if (c !== c0) { S.TsetK = c + 273.15; S.thermo = true; } }
   { const d = TOOLDEF.run; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 110 })) { d.act(); tbar.dirty = true; } }
   ui.row(3);
   for (const k of ['hand', 'add', 'zap']) { const d = TOOLDEF[k]; if (ui.button('', { icon: iconOf(d), tint: d.tint, active: d.on(), h: 150 })) { d.act(); tbar.dirty = true; } }
@@ -1070,7 +1071,7 @@ function adultRun() {
   if (ui.button('Start again', { h: 62 })) { if (S.lastBuild) build(S.lastBuild, { keepColor: true }); }
 
   S.thermo = ui.toggle('Keep the temperature', S.thermo);
-  const [lo, hi] = tRange(); S.TsetK = ui.slider('aT', 'Temperature', S.TsetK, lo, hi, (v) => `${v.toFixed(0)} K`, { step: 5, h: 64 });
+  const [lo, hi] = tRange(); S.TsetK = ui.slider('aT', 'Temperature', S.TsetK, lo, hi, (v) => `${v.toFixed(0)} K`, { step: 1, log: true, h: 64 });
   ui.paragraph('Heat makes the atoms shake. Very hot: bonds break. Cold: everything freezes still.', { size: 22, color: COL.muted });
   gloveRow();
 }
@@ -1292,7 +1293,10 @@ function setPaused(p) {
   if (p) {
     rampEnd(); const n = md.N; md.vx.fill(0, 0, n); md.vy.fill(0, 0, n); md.vz.fill(0, 0, n); if (md.KE !== undefined) md.KE = 0;
     toast('Paused: every atom stopped', 2000);
-  } else if (S.thermo && md.N) {
+  } else {
+    if (isMat() && md.N) { mat.listDirty = true; mat.computeForces(); }   // pieces may have been moved while paused: fresh forces for the first step
+  }
+  if (!p && S.thermo && md.N) {
     RAMP.on = true; RAMP.t0 = now(); RAMP.md = md; RAMP.tau = md.tauT; md.tauT = Math.max(20 * md.dt, md.tauT / 40);
     toast(`Warming up to ${fmtT(S.TsetK)} over 5 s`, 2500);
   }
@@ -1314,8 +1318,8 @@ function tabRun() {
   if (ui.button('Rebuild', { h: 62, danger: md.exploded })) { if (S.lastBuild) { build(S.lastBuild, { keepColor: true }); } }
   ui.space(2);
   S.thermo = ui.toggle(S.thermo ? 'Thermostat ON  (constant T)' : 'Thermostat OFF  (energy conserved)', S.thermo);
-  if (mt) { S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 10, 3000, (v) => `${v.toFixed(0)} K`, { step: 10, h: 66 }); gloveRow(); }
-  else S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 3, 600, (v) => `${v.toFixed(0)} K  (T* ${(v / ELEMENTS[S.el].epsK).toFixed(2)})`, { step: 1, h: 66 });
+  if (mt) { S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 1, 3000, (v) => `${v.toFixed(0)} K`, { step: 1, log: true, h: 66 }); gloveRow(); }
+  else S.TsetK = ui.slider('Tset', 'Target temperature', S.TsetK, 1, 600, (v) => `${v.toFixed(0)} K  (T* ${(v / ELEMENTS[S.el].epsK).toFixed(2)})`, { step: 1, log: true, h: 66 });
   if (!mt) {
     const rho = md.density, nr = ui.slider('vol', 'Density \u03C1*  (squeeze / expand the box)', rho, 0.02, 1.4, (v) => `${v.toFixed(3)}   L = ${U.nm(Math.cbrt(md.N / v)).toFixed(2)} nm`, { log: true, h: 66 });
     if (nr !== rho && md.N) md.setBox(Math.cbrt(md.N / nr));
@@ -1685,7 +1689,8 @@ function toolDown(src) {
     if (tool === 'hand') {
       // a loose piece or a separate object is picked up: it follows the hand (moved and turned, like the grip), at once - not dragged by
       // its centre of mass, which follows slowly. The main structure: the atom is pulled (out of it, if you pull hard).
-      if (isMat() && !carry && md.model !== 'ff') { const fr = mat.fragmentMask(p.i); if (movesWhole(p.i, fr)) { startCarry(src, p.i, true); hold.src = src; hold.kind = 'carry'; tutEvent('grab'); pulse(src, 0.5, 40); return true; } }
+      if (isMat() && !carry && md.model !== 'ff') { const fr = mat.fragmentMask(p.i); if (S.paused || movesWhole(p.i, fr)) { startCarry(src, p.i, true);     // (paused: any piece, the main structure too, is picked up whole)
+        hold.src = src; hold.kind = 'carry'; tutEvent('grab'); pulse(src, 0.5, 40); return true; } }
       grabAt(src, o, d, p, 'hand'); pulse(src, 0.5, 40); return true;
     }
     // the spring pulls a reference point (the atom, or the centre of mass of its layer / molecule) so nothing jumps on grab
@@ -2338,6 +2343,22 @@ function updateCarry() {
   cM.copy(inner.matrixWorld).invert().multiply(carryObj(carry.src).matrixWorld).multiply(carry.M0);         // box -> hand(now) -> box
   const p = mat.carry.p, p0 = carry.p0, m = carry.mask;
   for (let i = 0; i < carry.N; i++) if (m[i]) { cV.set(p0[3 * i], p0[3 * i + 1], p0[3 * i + 2]).applyMatrix4(cM); p[3 * i] = cV.x; p[3 * i + 1] = cV.y; p[3 * i + 2] = cV.z; }
+  if (S.paused && !collab.guest) placePaused(m, p);
+}
+/* Paused, the MD does not run, so a carried piece is placed directly: it goes rigidly exactly where the hand puts it, at rest, never into the
+   table or the substrate (it is lifted by what its lowest atom lacks). Run then warms it up over 5 s, so pieces put close together settle. */
+function placePaused(m, p) {
+  const N = carry.N, sb = mat.sub, k = sb ? (sb.axis === 'z' ? 2 : 1) : -1; let lift = 0, liftT = 0;
+  for (let i = 0; i < N; i++) if (m[i]) {
+    if (sb) lift = Math.max(lift, sb.wTop + 2.9 - p[3 * i + k]);
+    if (TW.ok) liftT = Math.max(liftT, S.atomR - (TW.nx * p[3 * i] + TW.ny * p[3 * i + 1] + TW.nz * p[3 * i + 2] - TW.nd));
+  }
+  for (let i = 0; i < N; i++) if (m[i]) {
+    md.x[i] = p[3 * i] + (liftT > 0 ? TW.nx * liftT : 0); md.y[i] = p[3 * i + 1] + (liftT > 0 ? TW.ny * liftT : 0); md.z[i] = p[3 * i + 2] + (liftT > 0 ? TW.nz * liftT : 0);
+    if (lift > 0) { if (k === 2) md.z[i] += lift; else md.y[i] += lift; }
+    md.vx[i] = 0; md.vy[i] = 0; md.vz[i] = 0;
+  }
+  mat.listDirty = true;
 }
 const pgM = new THREE.Matrix4(), pgS = new THREE.Vector3();
 function updatePanelGrabs() {
@@ -2565,7 +2586,7 @@ function vrInput(dt) {
       if (ay) {
         if (hold.src === vc.i && hold.grab) hold.grab.dist = clamp(hold.grab.dist - ay * dt * (S.walk ? 9 : 0.9), 0.12, S.walk ? 40 : 3.5);
         else if (vc.hand === 'right' && toolOf(vc.i) === 'add' && vc.ghostOn) ADD.reach = clamp(ADD.reach - ay * dt * 0.5, 0.04, 1.2);     // the atom in the hand: nearer / farther
-        else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK - ay * dt * (isMat() ? 250 : 45), isMat() ? 10 : 3, isMat() ? 3000 : 600); }
+        else if (vc.hand === 'right') { if (S.thermo) S.TsetK = clamp(S.TsetK * Math.exp(-ay * dt * 1.2), 1, isMat() ? 3000 : 600); }      // (the stick: a factor per second - as quick from 3 to 30 K as from 300 to 3000 K)
       }
     }
   }
@@ -2949,7 +2970,7 @@ function collabTick(dt, t) {
   if (!collab.guest) {
     if (t - CO.sigT > 500) { CO.sigT = t; if (structSig() !== CO.sig) sendStruct(); const us = uiSigNow(); if (us !== CO.uiSig) { CO.uiSig = us; collab.send('ui', { cm: [...S.cm], cp: [...S.cp], bias: S.bias, gamma: S.gamma }); } }
     const ok = CO.seq - CO.acked < 3 || t - CO.ackT > 2500;                                           // stop-and-go: do not pile snapshots up behind a slow link
-    if (t - CO.snapT > 100 && md.N && isMat() && CO.sig && !CO.handing && ok && (!S.paused || t - CO.snapT > 1000)) { CO.snapT = t; if (CO.seq - CO.acked >= 3) CO.acked = CO.seq; sendSnap(t); }
+    if (t - CO.snapT > 100 && md.N && isMat() && CO.sig && !CO.handing && ok && (!S.paused || carry || t - CO.snapT > 1000)) { CO.snapT = t; if (CO.seq - CO.acked >= 3) CO.acked = CO.seq; sendSnap(t); }
     if (t - CO.plotT > 1000 && md.N) { CO.plotT = t; sendPlots(); }
   } else if (CO.snaps.length && md.N === CO.snaps[CO.snaps.length - 1].N) {                           // guest: the host's atoms, a little behind, interpolated - or carried on by their velocities when a packet is late
     const rt = t - clamp(CO.avg * 2.2 + 40, 120, 450), S1 = CO.snaps, L = S1[S1.length - 1], N = md.N; let A = S1[0], B_ = L;
