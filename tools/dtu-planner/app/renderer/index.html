@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:">
+<title>DTU Planner</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="titlebar">
+  <div class="brand"><img src="../assets/icon.png" alt=""><span>DTU Planner</span></div>
+  <div class="tb-group no-drag">
+    <div class="edsel" id="edsel"></div>
+  </div>
+  <div class="seg no-drag" id="views">
+    <button data-view="map" title="Map from centre (Ctrl+1)"></button>
+    <button data-view="tree" title="Tree from left (Ctrl+2)"></button>
+    <button data-view="outline" title="Outline (Ctrl+3)"></button>
+    <button data-view="matrix" title="Urgent × Critical matrix (Ctrl+4)"></button>
+    <button data-view="calendar" title="Calendar (Ctrl+5)"></button>
+  </div>
+  <div class="search no-drag"><span id="searchIc"></span><input id="search" placeholder="Search  (Ctrl+F)" spellcheck="false"><span id="searchCount"></span></div>
+  <div class="tb-spacer"></div>
+  <div class="tb-group no-drag" id="tools"></div>
+  <div id="savestate" class="no-drag" title=""></div>
+</header>
+<div id="banner" hidden></div>
+<div id="updatebar" hidden>A newer version of DTU Planner is ready. <button id="upgo">Restart now</button><button id="uplater">Later</button><span class="hint">Everything is saved first.</span></div>
+<main id="main">
+  <section id="stage">
+    <div id="mapwrap" class="view">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg">
+        <g id="vp"><g id="edges"></g><g id="links"></g><g id="nodes"></g></g>
+      </svg>
+      <div id="crumbs"></div>
+      <div id="zoomctl"></div>
+    </div>
+    <div id="outline" class="view" tabindex="-1"></div>
+    <div id="matrix" class="view" tabindex="-1"></div>
+    <div id="calendar" class="view" tabindex="-1"></div>
+    <div id="wheeltip" hidden></div>
+    <div id="dropghost" hidden></div>
+  </section>
+  <div id="lensgrip" title="Drag to resize"></div>
+  <section id="lens" tabindex="-1"></section>
+  <aside id="inspector"></aside>
+</main>
+<footer id="statusbar"></footer>
+<div id="modal" hidden></div>
+<div id="toasts"></div>
+<div id="ctxmenu" hidden></div>
+
+<script src="../shared/model.js"></script>
+<script src="icons.js"></script>
+<script src="app.js"></script>
+<script src="map.js"></script>
+<script src="outline.js"></script>
+<script src="matrix.js"></script>
+<script src="calendar.js"></script>
+<script src="inspector.js"></script>
+<script src="dialogs.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>

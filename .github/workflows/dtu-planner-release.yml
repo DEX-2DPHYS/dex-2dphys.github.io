@@ -1,0 +1,119 @@
+# Builds DTU Planner (Electron, Windows) from tools/dtu-planner/app and publishes it.
+#
+# Push a tag dtu-planner-v<version> (matching "version" in tools/dtu-planner/app/package.json) to:
+#   1. publish the versioned release dtu-planner-v<version> with the installer and the portable .exe
+#      (--latest=false: the repository's "latest release" stays DSW's, whose download links rely on it);
+#   2. refresh the rolling pre-release "dtu-planner": stable names DTUPlanner-setup.exe /
+#      DTUPlanner-portable.exe for the download page, and latest.json, which installed copies read
+#      to update themselves (version, download URL, SHA-512).
+# Run it from the Actions tab (Run workflow) to only build and keep the files as a workflow artifact.
+
+name: DTU Planner release
+
+on:
+  push:
+    tags: ['dtu-planner-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dtu-planner-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: tools/dtu-planner/app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check version
+        id: v
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "dtu-planner-v$v") {
+            throw "tag $env:GITHUB_REF_NAME does not match package.json version $v"
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Build installer and portable exe
+        run: |
+          npm pkg set devDependencies.electron=45.4.1 devDependencies.electron-builder=26.18.0
+          npm install --no-audit --no-fund
+          npx electron-builder --win portable nsis --x64 --publish never
+          Get-ChildItem dist -Filter *.exe | Format-Table Name, Length
+
+      - name: Checksums and latest.json
+        run: |
+          $v = '${{ steps.v.outputs.version }}'
+          $repo = '${{ github.repository }}'
+          function Get-Sha512([string]$f) {
+            $s = [IO.File]::OpenRead((Resolve-Path $f))
+            try { [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($s)) } finally { $s.Dispose() }
+          }
+          $setup = "dist/DTUPlanner-$v-setup.exe"
+          $portable = "dist/DTUPlanner-$v-portable.exe"
+          $base = "https://github.com/$repo/releases/download/dtu-planner-v$v"
+          $latest = [ordered]@{
+            version   = $v
+            published = (Get-Date).ToUniversalTime().ToString('o')
+            page      = 'https://dex-2dphys.github.io/tools/dtu-planner/'
+            setup     = [ordered]@{ url = "$base/DTUPlanner-$v-setup.exe"; sha512 = (Get-Sha512 $setup); size = (Get-Item $setup).Length }
+            portable  = [ordered]@{ url = "$base/DTUPlanner-$v-portable.exe"; sha512 = (Get-Sha512 $portable); size = (Get-Item $portable).Length }
+          }
+          [IO.File]::WriteAllText((Join-Path $PWD 'dist/latest.json'), ($latest | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
+          Copy-Item $setup dist/DTUPlanner-setup.exe
+          Copy-Item $portable dist/DTUPlanner-portable.exe
+          Get-Content dist/latest.json
+
+      - name: Keep the build (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dtu-planner-${{ steps.v.outputs.version }}
+          path: |
+            tools/dtu-planner/app/dist/DTUPlanner-*-setup.exe
+            tools/dtu-planner/app/dist/DTUPlanner-*-portable.exe
+            tools/dtu-planner/app/dist/latest.json
+
+      - name: Publish releases
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ steps.v.outputs.version }}'
+          $notes = @"
+          DTU Planner $v for Windows 10/11 (64-bit).
+
+          - **DTUPlanner-$v-setup.exe**: installs for your user (no admin) and updates itself.
+          - **DTUPlanner-$v-portable.exe**: runs without installing; tells you when a new version is out.
+
+          The programs are not code-signed, so Windows shows "Windows protected your PC" the first time: click **More info** and then **Run anyway**.
+
+          Download page: https://dex-2dphys.github.io/tools/dtu-planner/ · MIT licence
+          "@
+          gh release create "dtu-planner-v$v" "dist/DTUPlanner-$v-setup.exe" "dist/DTUPlanner-$v-portable.exe" --title "DTU Planner $v" --notes $notes --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'creating the versioned release failed' }
+
+          # rolling pre-release with stable names; the installer goes up before latest.json, so an
+          # installed copy never sees a version whose files are not there yet
+          gh release view dtu-planner *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create dtu-planner --prerelease --latest=false --target '${{ github.sha }}' --title 'DTU Planner (current version)' --notes 'Always the current DTU Planner. Download page: https://dex-2dphys.github.io/tools/dtu-planner/'
+            if ($LASTEXITCODE -ne 0) { throw 'creating the rolling release failed' }
+          }
+          gh release upload dtu-planner dist/DTUPlanner-setup.exe dist/DTUPlanner-portable.exe --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'uploading the programs failed' }
+          gh release upload dtu-planner dist/latest.json --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'uploading latest.json failed' }
+          gh release edit dtu-planner --notes "Always the current DTU Planner (now $v). Download page: https://dex-2dphys.github.io/tools/dtu-planner/ - installed copies read latest.json here to update themselves."
+          $global:LASTEXITCODE = 0

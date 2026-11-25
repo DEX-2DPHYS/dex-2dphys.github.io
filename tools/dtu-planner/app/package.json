@@ -1,0 +1,18 @@
+{
+  "name": "dtu-planner",
+  "productName": "DTU Planner",
+  "version": "0.2.0",
+  "description": "Planning tree for projects, tasks, people and deadlines",
+  "main": "main/main.js",
+  "author": "Peter Bøggild",
+  "license": "MIT",
+  "private": true,
+  "build": {
+    "appId": "dk.dtu.dtuplanner",
+    "productName": "DTU Planner",
+    "files": ["main/**", "renderer/**", "shared/**", "assets/icon.png", "assets/icon.ico", "assets/tray.png", "package.json"],
+    "win": { "target": ["portable", "nsis"], "icon": "assets/icon.png" },
+    "portable": { "artifactName": "DTUPlanner-${version}-portable.exe" },
+    "nsis": { "artifactName": "DTUPlanner-${version}-setup.exe", "oneClick": true, "perMachine": false }
+  }
+}

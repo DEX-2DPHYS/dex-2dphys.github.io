@@ -1,0 +1,13 @@
+{
+  "slug": "dtu-planner",
+  "name": "DTU Planner",
+  "description": "A planning tree for work at DTU: teaching, research, projects, duties and people in one mind map. Deadlines raise urgency as they approach, timelines track the steps before them, an Urgent × Critical matrix shows what comes first, and a calendar puts it all on one page with Danish holidays and DTU periods. Editions per month or term, a journal of every save, notifications and a morning summary. Free and open source (MIT); the installed version updates itself.",
+  "status": "live",
+  "url": "tools/dtu-planner/",
+  "icon": "chart",
+  "tags": [
+    "app",
+    "native"
+  ],
+  "note": "Windows desktop app: download the installer (not code-signed, so Windows asks once: More info, Run anyway)."
+}
