@@ -284,3 +284,39 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   body.calmode .calnav { margin: 2px 0; }
   body.calmode #tabs { --tabh: 46px; }
 }
+
+/* calendar as month columns (as on the PC) */
+.calz.ccols { gap: 0; background: var(--panel); border-radius: 12px; overflow: hidden; }
+.ccols .cmon { display: flex; flex-direction: column; border-left: 1px solid var(--line); min-width: 0; }
+.ccols .cmon:first-child { border-left: 0; }
+.ccols .cmh { text-align: center; font-weight: 700; font-size: 1.15em; padding: 4px 0; background: var(--panel2); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.ccols .cmh small { font-weight: 450; font-size: .8em; color: var(--faint); }
+.ccols .cbody { position: relative; }
+.ccols .cdays { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.ccols .cday { flex: 1; position: relative; display: flex; align-items: center; gap: 2px; padding: 0 3px; border-bottom: 1px solid var(--line2); min-height: 0; cursor: pointer; }
+.ccols .cday.none { background: repeating-linear-gradient(135deg, var(--panel2) 0 4px, var(--panel) 4px 8px); cursor: default; }
+.ccols .cday.wd0, .ccols .cday.wd6 { background: color-mix(in srgb, var(--text) 6%, var(--panel)); }
+.ccols .cday.holiday { background: color-mix(in srgb, var(--u3) 12%, var(--panel)); }
+.ccols .cday.holiday .cwl, .ccols .cday.holiday .cdn { color: var(--u3); font-weight: 700; }
+.ccols .cday.off { background: color-mix(in srgb, var(--u3) 6%, var(--panel)); }
+.ccols .cday.off .cdn { color: var(--u3); }
+.ccols .cday.today { box-shadow: inset 0 0 0 2px var(--accent); z-index: 1; }
+.ccols .cday.today .cdn { color: var(--accent); font-weight: 750; }
+.ccols .cwl { width: .95em; color: var(--faint); font-size: .9em; flex: none; }
+.ccols .cdn { width: 1.35em; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+.ccols .chn { position: absolute; left: 3.6em; right: 1.6em; font-size: .8em; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.ccols .cwk { position: absolute; right: 5px; top: 0; font-size: .72em; color: var(--faint); pointer-events: none; }
+.ccols .csems { position: absolute; top: 0; bottom: 0; right: 0; width: 3px; pointer-events: none; }
+.ccols .csem { position: absolute; left: 0; right: 0; background: color-mix(in srgb, #5b8def 55%, transparent); }
+.ccols .csem.exam { background: color-mix(in srgb, #8a6fdf 65%, transparent); }
+.ccols .cevs { position: absolute; top: 0; bottom: 0; left: 2.75em; right: 4px; pointer-events: none; }
+.ccols .cev { position: absolute; pointer-events: auto; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 2px; font-size: .9em; line-height: 1.1; cursor: pointer; z-index: 2; }
+.ccols .cev span { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow-wrap: break-word; }
+.ccols .cev.k-period { background: var(--c); color: var(--fg); font-weight: 650; }
+.ccols .cev.k-deadline { background: color-mix(in srgb, var(--c) 20%, var(--panel)); border-left: 3px solid var(--c); color: var(--text); justify-content: flex-start; text-align: left; font-weight: 600; }
+.ccols .cev.k-deadline span, .ccols .cev.k-step span, .ccols .cev.short span { -webkit-line-clamp: 1; display: block; white-space: nowrap; text-overflow: ellipsis; }
+.ccols .cev.k-step { background: var(--panel); border: 1px dashed var(--c); color: var(--muted); justify-content: flex-start; font-size: .82em; }
+.ccols .cev.u2 { box-shadow: inset 0 0 0 1.5px var(--u2); } .ccols .cev.u3 { box-shadow: inset 0 0 0 1.5px var(--u3); }
+.ccols .cev.o { color: var(--u3); } .ccols .cev.k-deadline.o { border-left-color: var(--u3); }
+.ccols .cev.ct { border-top-left-radius: 0; border-top-right-radius: 0; }
+.ccols .cev.cb { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }

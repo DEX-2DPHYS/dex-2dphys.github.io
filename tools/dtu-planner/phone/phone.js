@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.5';
+  const VERSION = '1.6';
 
   // ---------- small helpers ----------
   const LS = {
@@ -458,56 +458,71 @@
     for (const p of periods) { let l = laneEnd.findIndex(x => x < p.start); if (l < 0) { l = laneEnd.length; laneEnd.push(''); } laneEnd[l] = p.end; p.lane = l; }
     return { byDay, periods };
   }
+  const MON = ['Januar', 'Februar', 'Marts', 'April', 'Maj', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'December'];
+  const WDL = ['S', 'M', 'T', 'O', 'T', 'F', 'L'];   // søn … lør, as in the PC calendar
+  /** Side-by-side lanes for overlapping items within one month (clusters share the width) — as on the PC. */
+  function calLanes(list) {
+    const order = { period: 0, deadline: 1, step: 2 };
+    list.sort((p, q) => p.a - q.a || (q.b - q.a) - (p.b - p.a) || order[p.kind] - order[q.kind] || p.title.localeCompare(q.title));
+    let cluster = [], cEnd = -1, ends = [];
+    const flush = () => { for (const it of cluster) it.n = ends.length; cluster = []; ends = []; };
+    for (const it of list) {
+      if (it.a > cEnd && cluster.length) flush();
+      let lane = ends.findIndex(e => e < it.a);
+      if (lane < 0) { lane = ends.length; ends.push(it.b); } else ends[lane] = it.b;
+      it.lane = lane; cluster.push(it); cEnd = Math.max(cEnd, it.b);
+    }
+    flush();
+    return list;
+  }
+  const fgOn = (hex) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return '#fff'; const v = parseInt(m[1], 16); return (0.299 * ((v >> 16) & 255) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) > 165 ? '#1c2127' : '#fff'; };
   function calHtml() {
-    const land = landscape(), n = land ? 6 : 2, perRow = land ? 3 : 1, z = st.calZoom;
+    const land = landscape(), n = land ? 6 : 2, z = st.calZoom;
     const months = Array.from({ length: n }, (_, i) => monthAdd(st.calStart, i));
     const v = $('#view');
     const availW = Math.max(280, (v.clientWidth || window.innerWidth) - 30);
-    const monthW = (availW * z - (perRow - 1) * 10) / perRow;
-    const wkW = Math.max(14, Math.round(monthW * 0.055));
-    const cellW = (monthW - wkW) / 7;
-    const labels = cellW >= 54;
-    const availH = (v.clientHeight || window.innerHeight) - 110;
-    const rh = Math.round(land ? Math.max(cellW * 0.62, Math.min(cellW * 0.9, (availH / 2 - 22) / 7 * z)) : Math.max(cellW * 1.08, labels ? 64 : 0));
-    const fs = Math.max(8, Math.min(14, cellW * 0.24));
+    const colW = availW * z / n;
+    // fit the 31 days to the screen height at zoom 1 (never smaller than readable), taller when zoomed
+    const fitH = Math.max(200, (v.clientHeight || window.innerHeight) - (land ? 130 : 185));
+    const rowH = Math.max(land ? 11 : 15, fitH / 31) * z;   // zoom grows both ways, like a real zoom
+    const fs = Math.max(7.5, Math.min(13, rowH * 0.62, colW * 0.075 + 4));
     const first = months[0] + '-01', last = M.addDays(monthAdd(months[n - 1], 1) + '-01', -1);
-    const from = M.addDays(first, -7), to = M.addDays(last, 7);
-    const { byDay, periods } = calItems(from, to);
-    const sems = (st.tree.settings.semesters || []).filter(p => p && p.start && p.end && p.end >= from && p.start <= to);
+    const { byDay, periods } = calItems(first, last);
+    const items = periods.map(p => ({ id: p.id, kind: 'period', s: p.start, e: p.end, title: p.title, color: p.color, cls: p.cls, done: p.done }));
+    for (const [day, list] of byDay) for (const it of list) if (!it.done) items.push({ id: it.id, kind: it.kind, s: day, e: day, title: it.title, color: it.color, cls: it.cls });
+    const sems = (st.tree.settings.semesters || []).filter(p => p && p.start && p.end && p.end >= first && p.start <= last);
     const today = M.todayStr();
-    const lanes = Math.min(3, Math.max(0, ...periods.map(p => p.lane + 1)));
-    const month = (ym) => {
-      const [y, m] = ym.split('-').map(Number);
-      const d1 = ym + '-01';
-      let day = M.addDays(d1, -((new Date(y, m - 1, 1).getDay() + 6) % 7));   // Monday on or before the 1st
-      let h = `<div class="cm"><div class="cmh">${E(monthName(ym))}</div><div class="cg" style="grid-template-columns:${wkW}px repeat(7,minmax(0,1fr));grid-template-rows:auto;grid-auto-rows:${rh}px"><span class="wh"></span>${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<span class="dh">${x}</span>`).join('')}`;
-      for (let w = 0; w < 6; w++) {
-        if (w >= 4 && day.slice(0, 7) !== ym) break;
-        h += `<span class="wk">${M.isoWeek(day)}</span>`;
-        for (let k = 0; k < 7; k++, day = M.addDays(day, 1)) {
-          const out = day.slice(0, 7) !== ym;
-          const dk = M.dkDay(day);
-          const sem = sems.find(p => day >= p.start && day <= p.end);
-          const cls = ['cd', k >= 5 ? 'we' : '', out ? 'out' : '', day === today ? 'today' : '', dk && (dk.kind === 'holiday' || dk.kind === 'off') ? 'hol' : ''].filter(Boolean).join(' ');
-          let inner = `<span class="dnum">${+day.slice(8)}</span>`;
-          if (sem && !out) inner += `<i class="sem ${sem.kind === 'exam' ? 'exam' : 'teach'}"></i>`;
-          if (!out) {
-            const ps = periods.filter(p => day >= p.start && day <= p.end && p.lane < 3);
-            if (ps.length) inner += `<span class="pl">${ps.map(p => `<i class="pb${day === p.start || k === 0 ? ' s' : ''}${day === p.end || k === 6 ? ' e' : ''}${p.done ? ' dn' : ''}" style="background:${p.color};top:${p.lane * (labels ? 15 : 5)}px">${labels && (day === p.start || k === 0) ? E(p.title) : ''}</i>`).join('')}</span>`;
-            const its = byDay.get(day) || [];
-            if (its.length) {
-              inner += labels
-                ? `<span class="lbs" style="margin-top:${lanes * 15}px">${its.slice(0, 3).map(it => `<span class="lb ${it.cls}" style="--c:${it.color}">${E(it.title)}</span>`).join('')}${its.length > 3 ? `<span class="more">+${its.length - 3}</span>` : ''}</span>`
-                : `<span class="dots">${its.slice(0, 4).map(it => `<i class="dt ${it.cls}" style="--c:${it.color}"></i>`).join('')}${its.length > 4 ? '<b>+</b>' : ''}</span>`;
-            }
-          }
-          h += `<div class="${cls}" data-day="${day}">${inner}</div>`;
-        }
+    const dayNum = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+    let h = '';
+    for (const ym of months) {
+      const [y, m] = ym.split('-').map(Number), days = dayNum(ym), mFirst = ym + '-01', mLast = ym + '-' + String(days).padStart(2, '0');
+      let rows = '';
+      for (let d = 1; d <= 31; d++) {
+        if (d > days) { rows += '<div class="cday none"></div>'; continue; }
+        const iso = ym + '-' + String(d).padStart(2, '0');
+        const dow = new Date(y, m - 1, d).getDay();
+        const dk = M.dkDay(iso);
+        const cls = ['cday', 'wd' + dow, dk ? dk.kind : '', iso === today ? 'today' : ''].filter(Boolean).join(' ');
+        rows += `<div class="${cls}" data-day="${iso}"><span class="cwl">${WDL[dow]}</span><span class="cdn">${d}</span>${dk && colW > 120 ? `<span class="chn">${E(dk.name)}</span>` : ''}${dow === 1 ? `<span class="cwk">${M.isoWeek(iso)}</span>` : ''}</div>`;
       }
-      return h + '</div></div>';
-    };
-    const head = `<div class="calnav"><button class="hb" data-cal="prev" aria-label="Previous month">${I('back')}</button><b>${E(monthName(months[0], true))} – ${E(monthName(months[n - 1], true))}</b><button class="hb" data-cal="next" aria-label="Next month">${I('chev')}</button><button class="lnk" data-cal="today">Today</button><span class="zm"><button data-cal="zout" aria-label="Zoom out" ${z <= 1 ? 'disabled' : ''}>−</button><button data-cal="zin" aria-label="Zoom in" ${z >= 4 ? 'disabled' : ''}>+</button></span></div>`;
-    return head + `<div class="calscroll"><div class="calz" style="width:${Math.round(availW * z)}px;font-size:${fs.toFixed(1)}px;grid-template-columns:repeat(${perRow},1fr)">${months.map(month).join('')}</div></div>`;
+      let sem = '';
+      for (const p of sems) {
+        if (p.end < mFirst || p.start > mLast) continue;
+        const a0 = (p.start < mFirst ? 1 : +p.start.slice(8)) - 1, b0 = (p.end > mLast ? days : +p.end.slice(8)) - 1;
+        sem += `<i class="csem ${p.kind === 'exam' ? 'exam' : 'teach'}" style="top:${(a0 / 31 * 100).toFixed(3)}%;height:${((b0 - a0 + 1) / 31 * 100).toFixed(3)}%"></i>`;
+      }
+      const mine = [];
+      for (const it of items) { if (it.e < mFirst || it.s > mLast) continue; mine.push(Object.assign({}, it, { a: (it.s < mFirst ? 1 : +it.s.slice(8)) - 1, b: (it.e > mLast ? days : +it.e.slice(8)) - 1, ct: it.s < mFirst, cb: it.e > mLast })); }
+      let ev = '';
+      for (const it of calLanes(mine)) {
+        const top = it.a / 31 * 100, ht = (it.b - it.a + 1) / 31 * 100, left = it.lane / it.n * 100, w = 100 / it.n;
+        const label = it.kind === 'deadline' ? '⚑ ' + it.title : it.title;
+        ev += `<div class="cev k-${it.kind} ${it.b - it.a < 2 ? 'short' : ''} ${it.cls || ''} ${it.ct ? 'ct' : ''} ${it.cb ? 'cb' : ''}" data-open="${E(it.id)}" style="top:calc(${top.toFixed(3)}% + 1px);height:calc(${ht.toFixed(3)}% - 2px);left:calc(${left.toFixed(3)}% + 1px);width:calc(${w.toFixed(3)}% - 2px);--c:${it.color};--fg:${fgOn(it.color)}"><span>${E(label)}</span></div>`;
+      }
+      h += `<div class="cmon"><div class="cmh">${MON[m - 1]} <small>${y}</small></div><div class="cbody" style="height:${Math.round(rowH * 31)}px"><div class="cdays">${rows}</div>${sem ? `<div class="csems">${sem}</div>` : ''}<div class="cevs">${ev}</div></div></div>`;
+    }
+    const head = `<div class="calnav"><button class="hb" data-cal="prev" aria-label="Previous month">${I('back')}</button><b>${E(MON[+months[0].slice(5) - 1].slice(0, 3) + ' ' + months[0].slice(0, 4))} – ${E(MON[+months[n - 1].slice(5) - 1].slice(0, 3) + ' ' + months[n - 1].slice(0, 4))}</b><button class="hb" data-cal="next" aria-label="Next month">${I('chev')}</button><button class="lnk" data-cal="today">Today</button><span class="zm"><button data-cal="zout" aria-label="Zoom out" ${z <= 1 ? 'disabled' : ''}>−</button><button data-cal="zin" aria-label="Zoom in" ${z >= 4 ? 'disabled' : ''}>+</button></span></div>`;
+    return head + `<div class="calscroll"><div class="calz ccols" style="width:${Math.round(availW * z)}px;font-size:${fs.toFixed(1)}px;grid-template-columns:repeat(${n},minmax(0,1fr))">${h}</div></div>`;
   }
   function dayList(day) {
     const e = ed(), { byDay, periods } = calItems(day, day);
