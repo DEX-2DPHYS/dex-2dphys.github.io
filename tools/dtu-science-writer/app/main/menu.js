@@ -88,8 +88,8 @@ function buildMenu() {
     { label: '&View', submenu: [
       { id: 'preview', label: 'Page preview', type: 'checkbox', checked: (ctx.config.user || {}).preview !== false, accelerator: 'F8', click: send('preview'), registerAccelerator: false },
       { id: 'pageBreaks', label: 'Page breaks in the text', type: 'checkbox', checked: !!(ctx.config.user || {}).pageBreaks, click: send('pageBreaks') },
-      { label: 'Comments', click: send('toggleComments') },
-      { label: 'Resolved comments', click: send('showResolved') },
+      { id: 'comments', label: 'Comments and changes beside the page', type: 'checkbox', checked: true, click: send('toggleComments') },
+      { id: 'showResolved', label: 'Resolved comments', type: 'checkbox', checked: false, click: send('showResolved') },
       { type: 'separator' },
       // page zoom (ui/zoom.js); Ctrl + mouse wheel over the page does the same
       { label: 'Zoom in', click: send('zoomIn') }, { label: 'Zoom out', click: send('zoomOut') },

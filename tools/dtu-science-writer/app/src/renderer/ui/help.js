@@ -39,6 +39,7 @@ export const GUIDE = [
   ]],
   ['Working with others', [
     ['Comments', 'Select text (or click an equation), <kbd>Ctrl+Alt+M</kbd>, type, <kbd>Ctrl+Enter</kbd>. Reply and resolve on the card beside the page.'],
+    ['Hide the margin', '<b>Hide</b> at the top of the comment margin (or View → Comments and changes beside the page) gives the page its full width. Click the count at the bottom of the window to show it again.'],
     ['Track changes', '<b>Track</b> (<kbd>Ctrl+Shift+T</kbd>): from then on what you type, delete or move is a suggestion in your colour. Each has a card with ✓ Accept and ✗ Reject. Review menu: next change <kbd>F7</kbd>, accept or reject all, show the final or the original text.'],
     ['On a shared drive', 'The first to open a paper edits it; the others get it read-only and can still comment. A save never overwrites someone else’s newer version.'],
     ['Co-authors in Word', '<b>Word</b> exports a real Word file: equations, numbered captions, cross-references, comments, tracked changes. File → <b>Import Word document…</b> brings their version back, with their comments and tracked changes.'],

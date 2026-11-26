@@ -88,12 +88,13 @@ jobs:
           }
           [IO.File]::WriteAllText((Join-Path $PWD 'dist/latest.json'), ($latest | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
           # sign it (main/update.js refuses an unsigned or altered latest.json): Ed25519 over version + the two checksums
-          if ($env:DTUSW_UPDATE_KEY) {
-            node -e "const c=require('crypto'),fs=require('fs'),u=require('./main/update.js');const j=JSON.parse(fs.readFileSync('dist/latest.json','utf8'));j.sig=c.sign(null,Buffer.from(u.signedText(j)),c.createPrivateKey(process.env.DTUSW_UPDATE_KEY)).toString('base64');if(u.refuseUpdate(j))throw new Error('signature check failed: '+u.refuseUpdate(j));fs.writeFileSync('dist/latest.json',JSON.stringify(j,null,2));console.log('latest.json signed')"
-            if ($LASTEXITCODE -ne 0) { throw 'signing latest.json failed' }
-          } else {
+          node tools/sign-latest.js dist/latest.json
+          if ($LASTEXITCODE -eq 2) {
             Write-Warning 'Secret DTUSW_UPDATE_KEY is not set: latest.json is NOT signed, so installed copies will not update themselves from this release.'
+          } elseif ($LASTEXITCODE -ne 0) {
+            throw 'signing latest.json failed: see the lines above (the key itself is never shown)'
           }
+          $global:LASTEXITCODE = 0
           Copy-Item $setup dist/DTUScienceWriter-setup.exe
           Copy-Item $portable dist/DTUScienceWriter-portable.exe
           Get-Content dist/latest.json

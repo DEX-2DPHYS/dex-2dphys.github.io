@@ -3,7 +3,7 @@
 import { anchoredThreads } from '../../core/comments.js';
 import { addComment, updateThread, setCommentUi, commentUi } from '../editor/comments.js';
 import { reply, setResolved, saveText } from '../doc/sharedcomments.js';
-import { app, $, onChange, onLoad, onReadOnly, registerCommands, toast } from '../context.js';
+import { app, api, $, onChange, onLoad, onReadOnly, registerCommands, toast } from '../context.js';
 import { ensureUserName } from './settings.js';
 import { changesOf, describeChange } from '../../core/track.js';
 import { resolve, selectChange } from '../editor/track.js';
@@ -119,6 +119,7 @@ function changeCard(view, c) {
   return card;
 }
 
+let menuSent = '';
 let frame = 0;
 function schedule() { cancelAnimationFrame(frame); frame = requestAnimationFrame(render); }
 
@@ -134,6 +135,10 @@ function render() {
   $('#st-comments').textContent = all.length ? (all.length - resolvedCount) + ' open comment' + (all.length - resolvedCount === 1 ? '' : 's') + (resolvedCount ? ', ' + resolvedCount + ' resolved' : '') : '';
   const btn = document.querySelector('[data-cmd="comment"]');
   if (btn) btn.classList.toggle('on', !!ui.active);
+  const sig = ui.hidden + '/' + ui.showResolved;
+  if (sig !== menuSent) { menuSent = sig; api.viewState({ comments: !ui.hidden, showResolved: !!ui.showResolved }); }
+  // hidden: the counts in the status bar say what is there, and bring the margin back when clicked
+  for (const id of ['#st-comments', '#st-changes']) { const el = $(id); if (el) { el.classList.toggle('st-link', !!ui.hidden && !!el.textContent); el.title = ui.hidden && el.textContent ? 'Show the comments and changes beside the page' : ''; } }
   if (ui.hidden) { pane.replaceChildren(); return; }
 
   const head = el('div', 'cmt-pane-head');
@@ -143,6 +148,11 @@ function render() {
   cb.onchange = () => setCommentUi(view, { showResolved: cb.checked });
   lab.append(cb, document.createTextNode(' show resolved (' + resolvedCount + ')'));
   head.append(lab);
+  // the same as View → Comments
+  const hide = el('button', 'cmt-hide', 'Hide ✕');
+  hide.title = 'Hide the comments and changes (View → Comments, or click the count at the bottom, shows them again)';
+  hide.onclick = () => setCommentUi(view, { hidden: true });
+  head.append(hide);
   // comments and tracked changes together, in the order of the text
   const cards = [...shown.map(x => ({ x, node: card(view, x.thread, ui) })), ...changes.map(c => ({ x: c, node: changeCard(view, c) }))].sort((a, b) => a.x.from - b.x.from);
   pane.replaceChildren(head, ...cards.map(c => c.node));
@@ -180,3 +190,8 @@ onChange(schedule);
 onLoad(schedule);
 onReadOnly(schedule);
 window.addEventListener('resize', schedule);
+// the counts in the status bar show the margin again when it is hidden
+document.addEventListener('click', (e) => {
+  const el = e.target.closest && e.target.closest('#st-comments, #st-changes');
+  if (el && app.view && commentUi(app.view.state).hidden) setCommentUi(app.view, { hidden: false });
+});

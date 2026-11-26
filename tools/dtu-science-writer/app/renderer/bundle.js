@@ -79955,8 +79955,23 @@ Waals I Si Ge GaAs`.split(/\s+/));
       dlg.hidden = true;
       input.onkeydown = null;
       input.oninput = null;
+      dlg.onmousedown = null;
+      dlg.onkeydown = null;
       view.focus();
     };
+    dlg.onmousedown = (e) => {
+      if (e.target === dlg) {
+        e.preventDefault();
+        close3();
+      }
+    };
+    dlg.onkeydown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close3();
+      }
+    };
+    $("#refpick-close").onclick = close3;
     const choose = (i2) => {
       const it2 = shown[i2];
       close3();
@@ -83211,6 +83226,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     ]],
     ["Working with others", [
       ["Comments", "Select text (or click an equation), <kbd>Ctrl+Alt+M</kbd>, type, <kbd>Ctrl+Enter</kbd>. Reply and resolve on the card beside the page."],
+      ["Hide the margin", "<b>Hide</b> at the top of the comment margin (or View \u2192 Comments and changes beside the page) gives the page its full width. Click the count at the bottom of the window to show it again."],
       ["Track changes", "<b>Track</b> (<kbd>Ctrl+Shift+T</kbd>): from then on what you type, delete or move is a suggestion in your colour. Each has a card with \u2713 Accept and \u2717 Reject. Review menu: next change <kbd>F7</kbd>, accept or reject all, show the final or the original text."],
       ["On a shared drive", "The first to open a paper edits it; the others get it read-only and can still comment. A save never overwrites someone else\u2019s newer version."],
       ["Co-authors in Word", "<b>Word</b> exports a real Word file: equations, numbered captions, cross-references, comments, tracked changes. File \u2192 <b>Import Word document\u2026</b> brings their version back, with their comments and tracked changes."],
@@ -84782,6 +84798,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     return card2;
   }
+  var menuSent = "";
   var frame = 0;
   function schedule() {
     cancelAnimationFrame(frame);
@@ -84799,6 +84816,18 @@ Waals I Si Ge GaAs`.split(/\s+/));
     $("#st-comments").textContent = all.length ? all.length - resolvedCount + " open comment" + (all.length - resolvedCount === 1 ? "" : "s") + (resolvedCount ? ", " + resolvedCount + " resolved" : "") : "";
     const btn = document.querySelector('[data-cmd="comment"]');
     if (btn) btn.classList.toggle("on", !!ui3.active);
+    const sig = ui3.hidden + "/" + ui3.showResolved;
+    if (sig !== menuSent) {
+      menuSent = sig;
+      api.viewState({ comments: !ui3.hidden, showResolved: !!ui3.showResolved });
+    }
+    for (const id2 of ["#st-comments", "#st-changes"]) {
+      const el3 = $(id2);
+      if (el3) {
+        el3.classList.toggle("st-link", !!ui3.hidden && !!el3.textContent);
+        el3.title = ui3.hidden && el3.textContent ? "Show the comments and changes beside the page" : "";
+      }
+    }
     if (ui3.hidden) {
       pane.replaceChildren();
       return;
@@ -84812,6 +84841,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     cb2.onchange = () => setCommentUi(view, { showResolved: cb2.checked });
     lab.append(cb2, document.createTextNode(" show resolved (" + resolvedCount + ")"));
     head.append(lab);
+    const hide2 = el2("button", "cmt-hide", "Hide \u2715");
+    hide2.title = "Hide the comments and changes (View \u2192 Comments, or click the count at the bottom, shows them again)";
+    hide2.onclick = () => setCommentUi(view, { hidden: true });
+    head.append(hide2);
     const cards = [...shown.map((x3) => ({ x: x3, node: card(view, x3.thread, ui3) })), ...changes.map((c) => ({ x: c, node: changeCard(view, c) }))].sort((a, b) => a.x.from - b.x.from);
     pane.replaceChildren(head, ...cards.map((c) => c.node));
     const paneTop = pane.getBoundingClientRect().top;
@@ -84849,6 +84882,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
   onLoad(schedule);
   onReadOnly(schedule);
   window.addEventListener("resize", schedule);
+  document.addEventListener("click", (e) => {
+    const el3 = e.target.closest && e.target.closest("#st-comments, #st-changes");
+    if (el3 && app.view && commentUi(app.view.state).hidden) setCommentUi(app.view, { hidden: false });
+  });
 
   // src/renderer/ui/updatebar.js
   function wireUpdateBar() {

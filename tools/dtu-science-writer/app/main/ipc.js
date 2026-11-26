@@ -29,6 +29,7 @@ function registerIpc() {
   on('view:state', (_e, s) => {                          // keep the View menu ticks in step with the page
     const m = Menu.getApplicationMenu(), it = m && m.getMenuItemById('preview');
     if (it && s && typeof s.preview === 'boolean') it.checked = s.preview;
+    for (const k of ['comments', 'showResolved']) { const it2 = m && m.getMenuItemById(k); if (it2 && s && typeof s[k] === 'boolean') it2.checked = s[k]; }
     const pb = m && m.getMenuItemById('pageBreaks');
     if (pb && s && typeof s.pageBreaks === 'boolean') pb.checked = s.pageBreaks;
     const tk = m && m.getMenuItemById('tracking');

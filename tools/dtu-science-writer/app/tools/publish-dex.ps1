@@ -22,7 +22,7 @@ foreach ($d in 'main', 'renderer', 'assets', 'vendor', 'src') {
   if ($LASTEXITCODE -ge 8) { throw "robocopy failed for $d ($LASTEXITCODE)" }
 }
 New-Item -ItemType Directory (Join-Path $dst 'tools') -Force | Out-Null
-foreach ($f in 'build.js', 'core-entry.js', 'setup.ps1', 'build-exe.ps1', 'publish-dex.ps1', 'check-symbols.js', 'make-ico.js', 'icon.typ') { Copy-Item (Join-Path $src "tools\$f") (Join-Path $dst 'tools') -Force }
+foreach ($f in 'build.js', 'core-entry.js', 'setup.ps1', 'build-exe.ps1', 'publish-dex.ps1', 'check-symbols.js', 'make-ico.js', 'icon.typ', 'sign-latest.js') { Copy-Item (Join-Path $src "tools\$f") (Join-Path $dst 'tools') -Force }
 foreach ($f in 'package.json', 'LICENSE', 'README.md', 'DESIGN.md') { Copy-Item (Join-Path $src $f) (Join-Path $dst $f) -Force }
 $wf = Join-Path $Dex '.github\workflows'
 New-Item -ItemType Directory $wf -Force | Out-Null

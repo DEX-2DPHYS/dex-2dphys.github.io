@@ -26,7 +26,11 @@ export function openRefPicker() {
     });
     if (!shown.length) list.innerHTML = '<li class="none">Nothing to refer to yet — add a section, figure or numbered equation first.</li>';
   };
-  const close = () => { dlg.hidden = true; input.onkeydown = null; input.oninput = null; view.focus(); };
+  const close = () => { dlg.hidden = true; input.onkeydown = null; input.oninput = null; dlg.onmousedown = null; dlg.onkeydown = null; view.focus(); };
+  // a click outside the box, the Close button, or Esc wherever the focus is: closed without inserting anything
+  dlg.onmousedown = (e) => { if (e.target === dlg) { e.preventDefault(); close(); } };
+  dlg.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+  $('#refpick-close').onclick = close;
   const choose = (i) => {
     const it = shown[i];
     close();
