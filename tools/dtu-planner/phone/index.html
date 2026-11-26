@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DTU Planner</title>
+<meta name="description" content="DTU Planner on the phone: read your planning tree, suggest changes and send notes, photos and voice memos for approval on the PC.">
+<meta name="theme-color" content="#3a74f0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DTU Planner">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="phone.css">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="ttl"><b>DTU Planner</b><small id="sub"></small></div>
+    <button class="hb" id="bsearch" aria-label="Search"></button>
+    <button class="hb" id="bsync" aria-label="Update"></button>
+    <button class="hb" id="bmenu" aria-label="Settings"></button>
+  </header>
+  <div id="searchbar" hidden><input id="q" type="search" placeholder="Search tasks, notes, people" autocomplete="off" autocorrect="off" spellcheck="false"><button id="qx">Cancel</button></div>
+  <main id="view"></main>
+  <nav id="tabs">
+    <button data-tab="due"></button>
+    <button data-tab="tree"></button>
+    <button data-tab="add" class="add" aria-label="Note, photo or voice memo"></button>
+    <button data-tab="people"></button>
+    <button data-tab="sent"></button>
+  </nav>
+</div>
+<section id="sheet" hidden></section>
+<div id="modal" hidden></div>
+<div id="toast" hidden></div>
+<input id="photoin" type="file" accept="image/*" capture="environment" hidden>
+<input id="photolib" type="file" accept="image/*" hidden>
+<script src="model.js"></script>
+<script src="phone.js"></script>
+</body>
+</html>
