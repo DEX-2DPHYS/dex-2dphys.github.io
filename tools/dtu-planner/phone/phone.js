@@ -233,6 +233,12 @@
       const entries = (await B.list('/tree')).filter(e => e['.tag'] === 'file');
       const revs = Object.fromEntries(entries.map(e => [e.name, e.rev]));
       st.noTree = !revs['edition.json'];
+      // Dropbox creates the app folder (Apps › DTU Planner) only when the app first writes something; the PC
+      // looks for that folder, so say hello once — this makes the folder appear on the PC.
+      if (st.noTree && !LS.get('hello', false)) {
+        await B.upload('/phone.json', new Blob([JSON.stringify({ type: 'dtuplanner-phone', device: device(), connected: new Date().toISOString(), version: VERSION }, null, 1)], { type: 'application/json' }));
+        LS.set('hello', true);
+      }
       const cur = (st.tree && st.tree.revs) || {};
       if (!st.noTree && TREE_FILES.some(n => revs[n] !== cur[n])) {
         const got = await Promise.all(TREE_FILES.map(n => revs[n] ? B.download('/tree/' + n).then(t => JSON.parse(t)) : Promise.resolve(null)));
@@ -823,7 +829,7 @@
       case 'login': try { await Dbx.login(false); } catch (e) { toast(e.message); } break;
       case 'logincode': try { await Dbx.login(true); } catch (e) { toast(e.message); } break;
       case 'codeok': try { await Dbx.finishLogin($('#lcode').value); toast('Connected'); render(); sync(); } catch (e) { toast(e.message); } break;
-      case 'logout': Dbx.logout(); LS.del('tree'); LS.del('pending'); LS.del('done'); st.tree = null; st.pending = new Map(); st.done = []; closeModal(); render(); break;
+      case 'logout': Dbx.logout(); LS.del('hello'); LS.del('tree'); LS.del('pending'); LS.del('done'); st.tree = null; st.pending = new Map(); st.done = []; closeModal(); render(); break;
     }
   });
   document.addEventListener('change', (ev) => {
