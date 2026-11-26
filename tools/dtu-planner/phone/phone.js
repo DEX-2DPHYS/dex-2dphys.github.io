@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.6';
+  const VERSION = '1.7';
 
   // ---------- small helpers ----------
   const LS = {
@@ -479,6 +479,8 @@
   function calHtml() {
     const land = landscape(), n = land ? 6 : 2, z = st.calZoom;
     const months = Array.from({ length: n }, (_, i) => monthAdd(st.calStart, i));
+    const swipe = z === 1;
+    const shown = swipe ? [monthAdd(st.calStart, -1)].concat(months, [monthAdd(st.calStart, n)]) : months;
     const v = $('#view');
     const availW = Math.max(280, (v.clientWidth || window.innerWidth) - 30);
     const colW = availW * z / n;
@@ -486,7 +488,7 @@
     const fitH = Math.max(200, (v.clientHeight || window.innerHeight) - (land ? 130 : 185));
     const rowH = Math.max(land ? 11 : 15, fitH / 31) * z;   // zoom grows both ways, like a real zoom
     const fs = Math.max(7.5, Math.min(13, rowH * 0.62, colW * 0.075 + 4));
-    const first = months[0] + '-01', last = M.addDays(monthAdd(months[n - 1], 1) + '-01', -1);
+    const first = shown[0] + '-01', last = M.addDays(monthAdd(shown[shown.length - 1], 1) + '-01', -1);
     const { byDay, periods } = calItems(first, last);
     const items = periods.map(p => ({ id: p.id, kind: 'period', s: p.start, e: p.end, title: p.title, color: p.color, cls: p.cls, done: p.done }));
     for (const [day, list] of byDay) for (const it of list) if (!it.done) items.push({ id: it.id, kind: it.kind, s: day, e: day, title: it.title, color: it.color, cls: it.cls });
@@ -494,7 +496,7 @@
     const today = M.todayStr();
     const dayNum = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); };
     let h = '';
-    for (const ym of months) {
+    for (const ym of shown) {
       const [y, m] = ym.split('-').map(Number), days = dayNum(ym), mFirst = ym + '-01', mLast = ym + '-' + String(days).padStart(2, '0');
       let rows = '';
       for (let d = 1; d <= 31; d++) {
@@ -522,7 +524,7 @@
       h += `<div class="cmon"><div class="cmh">${MON[m - 1]} <small>${y}</small></div><div class="cbody" style="height:${Math.round(rowH * 31)}px"><div class="cdays">${rows}</div>${sem ? `<div class="csems">${sem}</div>` : ''}<div class="cevs">${ev}</div></div></div>`;
     }
     const head = `<div class="calnav"><button class="hb" data-cal="prev" aria-label="Previous month">${I('back')}</button><b>${E(MON[+months[0].slice(5) - 1].slice(0, 3) + ' ' + months[0].slice(0, 4))} – ${E(MON[+months[n - 1].slice(5) - 1].slice(0, 3) + ' ' + months[n - 1].slice(0, 4))}</b><button class="hb" data-cal="next" aria-label="Next month">${I('chev')}</button><button class="lnk" data-cal="today">Today</button><span class="zm"><button data-cal="zout" aria-label="Zoom out" ${z <= 1 ? 'disabled' : ''}>−</button><button data-cal="zin" aria-label="Zoom in" ${z >= 4 ? 'disabled' : ''}>+</button></span></div>`;
-    return head + `<div class="calscroll"><div class="calz ccols" style="width:${Math.round(availW * z)}px;font-size:${fs.toFixed(1)}px;grid-template-columns:repeat(${n},minmax(0,1fr))">${h}</div></div>`;
+    return head + `<div class="calscroll${swipe ? ' swipe' : ''}"${swipe ? ' style="width:' + Math.round(colW * n) + 'px"' : ''}><div class="calz ccols" data-colw="${colW.toFixed(2)}" style="width:${Math.round(colW * shown.length)}px;font-size:${fs.toFixed(1)}px;grid-template-columns:repeat(${shown.length},minmax(0,1fr))${swipe ? ';transform:translateX(' + (-colW).toFixed(2) + 'px)' : ''}">${h}</div></div>`;
   }
   function dayList(day) {
     const e = ed(), { byDay, periods } = calItems(day, day);
@@ -569,6 +571,43 @@
       const cz = $('.calz'); if (cz) cz.style.transform = '';
     });
     for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => { if (e.target.closest && e.target.closest('.calscroll')) e.preventDefault(); }, { passive: false });
+  })();
+  // one finger, sideways: the columns follow the finger; let go past a quarter month (or flick) = next / previous month
+  (function swipe() {
+    let g = null;
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) { if (g) { g.cancel = true; } return; }
+      const sc = e.target.closest && e.target.closest('.calscroll.swipe');
+      if (!sc) return;
+      const cz = sc.querySelector('.calz');
+      g = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, t0: Date.now(), dir: null, dx: 0, cz, colW: +cz.dataset.colw };
+      cz.style.transition = 'none';
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (!g || g.cancel) return;
+      const dx = e.touches[0].clientX - g.x0, dy = e.touches[0].clientY - g.y0;
+      if (!g.dir) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; g.dir = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y'; }
+      if (g.dir !== 'x') return;
+      e.preventDefault();
+      g.dx = Math.max(-g.colW * 1.1, Math.min(g.colW * 1.1, dx));
+      g.cz.style.transform = 'translateX(' + (-g.colW + g.dx) + 'px)';
+    }, { passive: false });
+    const end = () => {
+      if (!g) return;
+      const q = g; g = null;
+      if (q.dir !== 'x') return;
+      const v = q.dx / Math.max(1, Date.now() - q.t0);   // px per ms
+      const k = q.cancel ? 0 : (q.dx < -q.colW * 0.25 || v < -0.45) ? 1 : (q.dx > q.colW * 0.25 || v > 0.45) ? -1 : 0;
+      q.cz.style.transition = 'transform .22s cubic-bezier(.2,.7,.2,1)';
+      q.cz.style.transform = 'translateX(' + (-q.colW - k * q.colW) + 'px)';
+      if (!k) return;
+      let done = false;
+      const after = () => { if (done) return; done = true; st.calStart = monthAdd(st.calStart, k); renderView(); };
+      q.cz.addEventListener('transitionend', after, { once: true });
+      setTimeout(after, 300);   // in case transitionend does not come
+    };
+    document.addEventListener('touchend', end);
+    document.addEventListener('touchcancel', end);
   })();
   let resizeT = null, lastLand = landscape();
   window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (document.body.classList.contains('calmode')) { const land = landscape(); if (land !== lastLand) { lastLand = land; $('#view').scrollTop = 0; } renderView(); } }, 150); });

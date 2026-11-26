@@ -320,3 +320,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .ccols .cev.o { color: var(--u3); } .ccols .cev.k-deadline.o { border-left-color: var(--u3); }
 .ccols .cev.ct { border-top-left-radius: 0; border-top-right-radius: 0; }
 .ccols .cev.cb { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+/* swipe: the extra month on each side stays out of sight */
+.calscroll.swipe { overflow: hidden; touch-action: pan-y; margin: 0; padding: 0; border-radius: 12px; }
+.calscroll.swipe .calz.ccols { border-radius: 0; }
+.calz.ccols { will-change: transform; }
