@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.1';
+  const VERSION = '1.2';
 
   // ---------- small helpers ----------
   const LS = {
@@ -243,8 +243,14 @@
       st.noTree = !revs['edition.json'];
       // Dropbox creates the app folder (Apps › DTU Planner) only when the app first writes something; the PC
       // looks for that folder, so say hello once — this makes the folder appear on the PC.
-      if (st.noTree && !LS.get('hello', false)) {
-        await B.upload('/phone.json', new Blob([JSON.stringify({ type: 'dtuplanner-phone', device: device(), connected: new Date().toISOString(), version: VERSION }, null, 1)], { type: 'application/json' }));
+      if (st.noTree) {
+        // what the app can see in its folder — shown on the waiting screen, so a problem can be seen from the phone
+        let root = (await B.list('')).map(e => e.name + (e['.tag'] === 'folder' ? '/' : ''));
+        if (!root.includes('phone.json')) {
+          await B.upload('/phone.json', new Blob([JSON.stringify({ type: 'dtuplanner-phone', device: device(), connected: new Date().toISOString(), version: VERSION }, null, 1)], { type: 'application/json' }));
+          root = (await B.list('')).map(e => e.name + (e['.tag'] === 'folder' ? '/' : ''));
+        }
+        st.rootSeen = root;
         LS.set('hello', true);
       }
       const cur = (st.tree && st.tree.revs) || {};
@@ -368,7 +374,7 @@
     if (st.tab === 'sent') { keepScroll(() => { v.innerHTML = sentHtml(); }); return; }
     if (!st.tree) {
       v.innerHTML = `<div class="empty">${st.noTree
-        ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2>${st.error && st.error !== 'offline' ? `<p class="bad">${E(st.error)}</p>` : ''}<p>Open DTU Planner on your PC (restart it if it was open). Within a minute or two it finds the folder Dropbox › Apps › DTU Planner and puts a copy of your tree there; then tap ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p>`
+        ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2>${st.error && st.error !== 'offline' ? `<p class="bad">${E(st.error)}</p>` : ''}<p>Open DTU Planner on your PC (restart it if it was open). Within a minute or two it finds the folder Dropbox › Apps › DTU Planner and puts a copy of your tree there; then tap ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p><p class="diag">Version ${VERSION} · checked ${E(fmtWhen(st.lastSync) || 'not yet')}<br>In your Dropbox folder Apps › DTU Planner: ${E((st.rootSeen || []).join(', ') || '(nothing yet)')}</p>`
         : `<span class="spinner"></span><p>Loading your tree…</p>`}</div>`;
       return;
     }
