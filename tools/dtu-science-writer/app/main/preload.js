@@ -1,0 +1,39 @@
+'use strict';
+const { contextBridge, ipcRenderer } = require('electron');
+
+const inv = (ch) => (...a) => ipcRenderer.invoke(ch, ...a);
+
+contextBridge.exposeInMainWorld('dsw', {
+  boot: inv('boot'),
+  setTitle: (t) => ipcRenderer.send('title', t),
+  setDirty: (d) => ipcRenderer.send('dirty', d),
+  openDialog: inv('dialog:open'),
+  saveDialog: inv('dialog:save'),
+  pickImage: inv('dialog:image'),
+  pickWord: inv('dialog:word'),
+  readFile: inv('file:read'),
+  writeFile: inv('file:write'),
+  addRecent: (p) => ipcRenderer.send('recent:add', p),
+  compile: inv('typst:compile'),
+  onMenu: (cb) => ipcRenderer.on('menu', (_e, name) => cb(name)),
+  onOpenPath: (cb) => ipcRenderer.on('open-path', (_e, p) => cb(p)),
+  onCloseRequest: (cb) => ipcRenderer.on('close-request', () => cb()),
+  closeAnswer: (ok) => ipcRenderer.send('close-answer', ok),
+  onUpdate: (cb) => ipcRenderer.on('app:update', (_e, info) => cb(info)),
+  restart: () => ipcRenderer.send('app:restart'),
+  checkUpdate: inv('app:checkUpdate'),
+  affilLibrary: inv('affil:library'),
+  settings: inv('settings'),
+  docOpen: inv('doc:open'),
+  docSave: inv('doc:save'),
+  docClose: inv('doc:close'),
+  docRecheck: inv('doc:recheck'),
+  onDocEvent: (cb) => ipcRenderer.on('doc:event', (_e, ev) => cb(ev)),
+  backupsList: inv('backups:list'),
+  backupsRead: inv('backups:read'),
+  recovery: inv('recovery'),
+  refs: inv('refs'),
+  setSpellLanguage: (code) => ipcRenderer.send('spell:lang', code),
+  sharedComments: inv('comments:shared'),
+  viewState: (s) => ipcRenderer.send('view:state', s),
+});

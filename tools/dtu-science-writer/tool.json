@@ -1,0 +1,13 @@
+{
+  "slug": "dtu-science-writer",
+  "name": "DTU Science Writer",
+  "description": "Write scientific papers without codes: what you see is the paper, and the page preview beside it is the exact PDF. Equations, numbered figures and tables, cross-references, citations in the journal’s style (Zotero, DOI, arXiv), comments and track changes, and the Supporting Information as a second tab. Real Word files out and in, with equations, captions, comments and revisions, and LaTeX for Overleaf. Free and open source (MIT); the installed version updates itself.",
+  "status": "live",
+  "url": "tools/dtu-science-writer/",
+  "icon": "book",
+  "tags": [
+    "app",
+    "native"
+  ],
+  "note": "Windows desktop app: download the installer (not code-signed, so Windows asks once: More info, Run anyway)."
+}

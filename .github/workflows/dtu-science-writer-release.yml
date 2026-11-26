@@ -1,0 +1,142 @@
+# Builds DTU Science Writer (Electron, Windows) from tools/dtu-science-writer/app and publishes it.
+# (Source of this file: DTU Science Writer/tools/dex/; tools/publish-dex.ps1 copies it to .github/workflows/.)
+#
+# Push a tag dtu-science-writer-v<version> (matching "version" in tools/dtu-science-writer/app/package.json) to:
+#   1. publish the versioned release dtu-science-writer-v<version> with the installer and the portable .exe
+#      (--latest=false: the repository's "latest release" stays DSW's, whose download links rely on it);
+#   2. refresh the rolling pre-release "dtu-science-writer": stable names DTUScienceWriter-setup.exe /
+#      DTUScienceWriter-portable.exe for the download page, and latest.json, which installed copies read
+#      to update themselves (version, download URL, SHA-512).
+# Run it from the Actions tab (Run workflow) to only build and keep the files as a workflow artifact.
+
+name: DTU Science Writer release
+
+on:
+  push:
+    tags: ['dtu-science-writer-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dtu-science-writer-release
+  cancel-in-progress: false
+
+env:
+  TYPST_VERSION: '0.15.1'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: tools/dtu-science-writer/app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check version
+        id: v
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "dtu-science-writer-v$v") {
+            throw "tag $env:GITHUB_REF_NAME does not match package.json version $v"
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Typst (layout engine, pinned)
+        run: |
+          New-Item -ItemType Directory vendor-bin -Force | Out-Null
+          Invoke-WebRequest "https://github.com/typst/typst/releases/download/v$env:TYPST_VERSION/typst-x86_64-pc-windows-msvc.zip" -OutFile typst.zip
+          Expand-Archive typst.zip -DestinationPath typst-zip -Force
+          Move-Item typst-zip/typst-x86_64-pc-windows-msvc/typst.exe vendor-bin/typst.exe -Force
+          Remove-Item -Recurse -Force typst-zip, typst.zip
+          ./vendor-bin/typst.exe --version
+
+      - name: Build installer and portable exe
+        run: |
+          # renderer/bundle.js is committed (built with tools/build.js); the app has no runtime node_modules
+          npm pkg set devDependencies.electron=45.4.1 devDependencies.electron-builder=26.18.0
+          npm install --no-audit --no-fund
+          npx electron-builder --win portable nsis --x64 --publish never
+          Get-ChildItem dist -Filter *.exe | Format-Table Name, Length
+
+      - name: Checksums and latest.json
+        env:
+          DTUSW_UPDATE_KEY: ${{ secrets.DTUSW_UPDATE_KEY }}
+        run: |
+          $v = '${{ steps.v.outputs.version }}'
+          $repo = '${{ github.repository }}'
+          function Get-Sha512([string]$f) {
+            $s = [IO.File]::OpenRead((Resolve-Path $f))
+            try { [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($s)) } finally { $s.Dispose() }
+          }
+          $setup = "dist/DTUScienceWriter-$v-setup.exe"
+          $portable = "dist/DTUScienceWriter-$v-portable.exe"
+          $base = "https://github.com/$repo/releases/download/dtu-science-writer-v$v"
+          $latest = [ordered]@{
+            version   = $v
+            published = (Get-Date).ToUniversalTime().ToString('o')
+            page      = 'https://dex-2dphys.github.io/tools/dtu-science-writer/'
+            setup     = [ordered]@{ url = "$base/DTUScienceWriter-$v-setup.exe"; sha512 = (Get-Sha512 $setup); size = (Get-Item $setup).Length }
+            portable  = [ordered]@{ url = "$base/DTUScienceWriter-$v-portable.exe"; sha512 = (Get-Sha512 $portable); size = (Get-Item $portable).Length }
+          }
+          [IO.File]::WriteAllText((Join-Path $PWD 'dist/latest.json'), ($latest | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
+          # sign it (main/update.js refuses an unsigned or altered latest.json): Ed25519 over version + the two checksums
+          if ($env:DTUSW_UPDATE_KEY) {
+            node -e "const c=require('crypto'),fs=require('fs'),u=require('./main/update.js');const j=JSON.parse(fs.readFileSync('dist/latest.json','utf8'));j.sig=c.sign(null,Buffer.from(u.signedText(j)),c.createPrivateKey(process.env.DTUSW_UPDATE_KEY)).toString('base64');if(u.refuseUpdate(j))throw new Error('signature check failed: '+u.refuseUpdate(j));fs.writeFileSync('dist/latest.json',JSON.stringify(j,null,2));console.log('latest.json signed')"
+            if ($LASTEXITCODE -ne 0) { throw 'signing latest.json failed' }
+          } else {
+            Write-Warning 'Secret DTUSW_UPDATE_KEY is not set: latest.json is NOT signed, so installed copies will not update themselves from this release.'
+          }
+          Copy-Item $setup dist/DTUScienceWriter-setup.exe
+          Copy-Item $portable dist/DTUScienceWriter-portable.exe
+          Get-Content dist/latest.json
+
+      - name: Keep the build (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dtu-science-writer-${{ steps.v.outputs.version }}
+          path: |
+            tools/dtu-science-writer/app/dist/DTUScienceWriter-*-setup.exe
+            tools/dtu-science-writer/app/dist/DTUScienceWriter-*-portable.exe
+            tools/dtu-science-writer/app/dist/latest.json
+
+      - name: Publish releases
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ steps.v.outputs.version }}'
+          $notes = @"
+          DTU Science Writer $v for Windows 10/11 (64-bit).
+
+          - **DTUScienceWriter-$v-setup.exe**: installs for your user (no admin), opens .dtusw files and updates itself.
+          - **DTUScienceWriter-$v-portable.exe**: runs without installing; tells you when a new version is out.
+
+          The programs are not code-signed, so Windows shows "Windows protected your PC" the first time: click **More info** and then **Run anyway**.
+
+          Download page: https://dex-2dphys.github.io/tools/dtu-science-writer/ · MIT licence
+          "@
+          gh release create "dtu-science-writer-v$v" "dist/DTUScienceWriter-$v-setup.exe" "dist/DTUScienceWriter-$v-portable.exe" --title "DTU Science Writer $v" --notes $notes --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'creating the versioned release failed' }
+
+          # rolling pre-release with stable names; the installer goes up before latest.json, so an
+          # installed copy never sees a version whose files are not there yet
+          gh release view dtu-science-writer *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create dtu-science-writer --prerelease --latest=false --target '${{ github.sha }}' --title 'DTU Science Writer (current version)' --notes 'Always the current DTU Science Writer. Download page: https://dex-2dphys.github.io/tools/dtu-science-writer/'
+            if ($LASTEXITCODE -ne 0) { throw 'creating the rolling release failed' }
+          }
+          gh release upload dtu-science-writer dist/DTUScienceWriter-setup.exe dist/DTUScienceWriter-portable.exe --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'uploading the programs failed' }
+          gh release upload dtu-science-writer dist/latest.json --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'uploading latest.json failed' }
+          gh release edit dtu-science-writer --notes "Always the current DTU Science Writer (now $v). Download page: https://dex-2dphys.github.io/tools/dtu-science-writer/ - installed copies read latest.json here to update themselves."
+          $global:LASTEXITCODE = 0

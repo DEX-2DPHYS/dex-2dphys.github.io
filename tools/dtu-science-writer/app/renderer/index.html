@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; media-src 'self' blob:">
+<title>DTU Science Writer</title>
+<link rel="stylesheet" href="mathlive/mathlive-fonts.css">
+<link rel="stylesheet" href="mathlive/mathlive-static.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="toolbar">
+  <div class="grp">
+    <button data-cmd="new" title="New document (Ctrl+N)">New</button>
+    <button data-cmd="open" title="Open (Ctrl+O)">Open</button>
+    <button data-cmd="save" title="Save (Ctrl+S)">Save</button>
+  </div>
+  <div class="grp">
+    <button data-cmd="undo" title="Undo (Ctrl+Z)" class="ico">↶</button>
+    <button data-cmd="redo" title="Redo (Ctrl+Y)" class="ico">↷</button>
+  </div>
+  <div class="grp">
+    <select id="tb-style" title="Paragraph style">
+      <option value="p">Body text</option>
+      <option value="h1">Heading 1</option>
+      <option value="h2">Heading 2</option>
+      <option value="h3">Heading 3</option>
+      <option value="h4">Heading 4</option>
+      <option value="" hidden>—</option>
+    </select>
+    <button data-cmd="numbered" title="Numbered heading / equation on or off">#</button>
+  </div>
+  <div class="grp">
+    <button data-cmd="bold" title="Bold (Ctrl+B)" class="ico"><b>B</b></button>
+    <button data-cmd="italic" title="Italic (Ctrl+I)" class="ico"><i>I</i></button>
+    <button data-cmd="underline" title="Underline (Ctrl+U)" class="ico"><u>U</u></button>
+    <button data-cmd="sup" title="Superscript (Ctrl+Shift+=)" class="ico">x²</button>
+    <button data-cmd="sub" title="Subscript (Ctrl+=)" class="ico">x₂</button>
+  </div>
+  <div class="grp">
+    <button data-cmd="bullets" title="Bulleted list" class="ico">•≡</button>
+    <button data-cmd="numbers" title="Numbered list" class="ico">1≡</button>
+  </div>
+  <div class="grp">
+    <button data-cmd="inlineMath" title="Math in the text (Ctrl+M, or type $…$)">∑ in text</button>
+    <button data-cmd="equation" title="Display equation (Ctrl+Shift+M)">Equation</button>
+    <button data-cmd="keyboard" title="Math keyboard (while editing an equation)" class="ico">⌨</button>
+    <button data-cmd="figure" title="Insert a figure from a file (or paste / drop an image)">Figure</button>
+    <button data-cmd="table" title="Insert a table (or paste one from Excel / Word)">Table</button>
+    <button data-cmd="ref" title="Cross-reference to a section, figure or equation (Ctrl+R)">Reference</button>
+    <button data-cmd="cite" title="Cite a paper: your references, Zotero, a DOI/arXiv number or BibTeX (Ctrl+Alt+C)">Cite</button>
+    <button data-cmd="comment" title="Comment on the selected text or equation (Ctrl+Alt+M)">Comment</button>
+    <button data-cmd="track" title="Track changes: record edits as suggestions to accept or reject (Ctrl+Shift+T)">Track</button>
+  </div>
+  <div class="grp">
+    <button data-cmd="style" title="Document style: font, sizes, heading formatting and colours">Style</button>
+  </div>
+  <div class="grp right">
+    <span class="zoombox" title="Zoom (Ctrl + mouse wheel over the page; Ctrl+0 = 100 %)"><button data-cmd="zoomOut" class="ico">−</button><input id="tb-zoom" value="100 %" spellcheck="false"><button data-cmd="zoomIn" class="ico">+</button></span>
+    <button data-cmd="preview" title="Show/hide the page preview (F8)">Pages</button>
+    <button data-cmd="exportPdf" title="Export PDF">PDF</button>
+    <button data-cmd="exportDocx" title="Export Word document">Word</button>
+    <button data-cmd="guide" title="Guide: what the program does and how (F1)" class="ico">?</button>
+  </div>
+</header>
+<div id="lockbar" hidden><span id="locktext"></span><button id="lockcopy">Save a copy…</button></div>
+<div id="updatebar" hidden><span id="uptext"></span><button id="upgo">Restart now</button><button id="uplater">Later</button></div>
+<div id="ctxbar"></div>
+
+<main id="main">
+  <section id="editor-scroll">
+    <div id="page"></div>
+    <div id="cmtpane"></div>
+  </section>
+  <div id="pv-split" title="Drag to change the width of the print view; double-click for the default"></div>
+  <aside id="preview">
+    <div id="pv-head"><span id="pv-status">—</span><button data-cmd="preview" class="pv-hide" title="Hide the page preview (F8, or Pages in the toolbar)">Hide ✕</button></div>
+    <pre id="pv-error" hidden></pre>
+    <div id="pv-pages"></div>
+  </aside>
+</main>
+
+<footer id="status">
+  <span id="st-words"></span>
+  <span id="st-pages"></span>
+  <span id="st-comments"></span>
+  <span id="st-changes"></span>
+  <span class="hint">Ctrl+M math · Ctrl+Shift+M equation · Ctrl+R reference · type $x^2$ for math</span>
+</footer>
+
+<div id="refpick" hidden>
+  <div class="box">
+    <input id="refpick-filter" placeholder="Refer to… (type to filter)" autocomplete="off">
+    <ul id="refpick-list"></ul>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="bundle.js"></script>
+</body>
+</html>
