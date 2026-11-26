@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.0';
+  const VERSION = '1.1';
 
   // ---------- small helpers ----------
   const LS = {
@@ -104,6 +104,12 @@
       LS.set('auth', a);
       return a.access;
     },
+    async fail(r, what) {
+      let t = ''; try { t = await r.text(); } catch (_) {}
+      if (/missing_scope|required_scope/i.test(t)) throw new Error('Dropbox has not given this app all its permissions yet — Settings (⚙) › Log out, then connect again.');
+      if (/invalid_access_token|expired_access_token/i.test(t)) throw new Error('The Dropbox login has expired — connect again.');
+      throw new Error(what + ' failed (' + r.status + (t ? ': ' + t.slice(0, 120) : '') + ')');
+    },
     async call(url, opts, retried) {
       const t = await this.token();
       const o = Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + t }, opts.headers || {}) });
@@ -114,7 +120,7 @@
     async rpc(ep, arg) {
       const r = await this.call('https://api.dropboxapi.com/2/' + ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(arg) });
       if (r.status === 409) { const j = await r.json().catch(() => ({})); if (/not_found/.test(j.error_summary || '')) throw new NotFound(arg.path); throw new Error(j.error_summary || 'Dropbox error'); }
-      if (!r.ok) throw new Error('Dropbox ' + ep + ' ' + r.status);
+      if (!r.ok) await this.fail(r, 'Dropbox ' + ep);
       return r.json();
     },
     async list(p) {
@@ -128,12 +134,12 @@
     async download(p, as) {
       const r = await this.call('https://content.dropboxapi.com/2/files/download', { method: 'POST', headers: { 'Dropbox-API-Arg': asciiJson({ path: p }) } });
       if (r.status === 409) throw new NotFound(p);
-      if (!r.ok) throw new Error('Dropbox download ' + r.status);
+      if (!r.ok) await this.fail(r, 'Dropbox download');
       return as === 'blob' ? r.blob() : r.text();
     },
     async upload(p, body) {
       const r = await this.call('https://content.dropboxapi.com/2/files/upload', { method: 'POST', headers: { 'Dropbox-API-Arg': asciiJson({ path: p, mode: 'overwrite', autorename: false, mute: true }), 'Content-Type': 'application/octet-stream' }, body });
-      if (!r.ok) throw new Error('Dropbox upload ' + r.status);
+      if (!r.ok) await this.fail(r, 'Dropbox upload');
     },
     async remove(p) { await this.rpc('files/delete_v2', { path: p }); },
   };
@@ -164,6 +170,8 @@
     stack: [],                            // open task pages: node id or 'req:<id>'
     open: new Set(LS.get('open', [])),    // expanded nodes in the tree
     showDone: LS.get('showDone', false),
+    dueMode: LS.get('dueMode', 'now'),     // Due tab: 'now' (what needs attention) or 'ahead' (everything dated, by week)
+    aheadDays: LS.get('aheadDays', 30),
     syncing: false, flushing: false, error: null, noTree: false,
     lastSync: LS.get('lastSync', null),
     q: '',
@@ -360,7 +368,7 @@
     if (st.tab === 'sent') { keepScroll(() => { v.innerHTML = sentHtml(); }); return; }
     if (!st.tree) {
       v.innerHTML = `<div class="empty">${st.noTree
-        ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2><p>Open DTU Planner on your PC. It finds the folder Dropbox › Apps › DTU Planner by itself and puts a copy of your tree there; then pull ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p>`
+        ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2>${st.error && st.error !== 'offline' ? `<p class="bad">${E(st.error)}</p>` : ''}<p>Open DTU Planner on your PC (restart it if it was open). Within a minute or two it finds the folder Dropbox › Apps › DTU Planner and puts a copy of your tree there; then tap ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p>`
         : `<span class="spinner"></span><p>Loading your tree…</p>`}</div>`;
       return;
     }
@@ -393,7 +401,62 @@
     return `<div class="row ghost" data-open="req:${E(r.id)}" style="${indent != null ? '--ind:' + indent : ''}"><span class="fold sp"></span><span class="kicon">${I('plus')}</span><span class="tt"><b>${E(r.title)}</b><small>suggested · ${r._local ? 'not sent yet' : 'waiting for approval'}${kids.length ? ' · ' + kids.length + ' below' : ''}</small></span>${r.deadline ? `<span class="due">${E(fmtDate(r.deadline))}</span>` : ''}</div>`;
   }
 
+  function dueSwitch() {
+    return `<div class="seg seg2"><button data-due="now" class="${st.dueMode !== 'ahead' ? 'on' : ''}">Now</button><button data-due="ahead" class="${st.dueMode === 'ahead' ? 'on' : ''}">Ahead</button></div>`;
+  }
+  const mondayOf = (ds) => { const [y, m, d] = ds.split('-').map(Number); const t = new Date(y, m - 1, d); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return M.todayStr(t); };
+  const wd = (ds) => { const [y, m, d] = ds.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short' }); };
+  /** Everything with a date in the coming days (deadlines, periods, timeline steps), by week, coloured by urgency. */
+  function aheadHtml() {
+    const e = ed(), days = st.aheadDays, O = overlay();
+    const items = [];
+    for (const [id, d] of der()) {
+      const n = e.nodes[id];
+      if (!n || n.kind === 'root' || n.kind === 'info' || d.done) continue;
+      if (n.deadline && !(d.end && d.ended)) {
+        const dd = M.daysUntil(n.deadline);
+        if (dd <= days) items.push({ id, date: n.deadline, days: dd, cls: dueCls(d), d, kind: d.end ? 'period' : 'deadline' });
+      }
+      for (const sp of n.timeline || []) {
+        if (sp.done || !sp.date) continue;
+        const pr = O.step.get(id + ':' + sp.id);
+        if (pr && pr.done) continue;
+        const dd = M.daysUntil(sp.date);
+        if (dd <= days) items.push({ id, step: sp, date: sp.date, days: dd, cls: dd < 0 ? 'o' : dd <= M.FINAL_DAYS ? 'u3' : dd <= 7 ? 'u2' : '', d, kind: 'step' });
+      }
+    }
+    items.sort((a, b) => a.date.localeCompare(b.date) || (a.kind === 'step') - (b.kind === 'step'));
+    const thisMon = mondayOf(M.todayStr()), nextMon = M.addDays(thisMon, 7);
+    const groups = new Map();
+    for (const it of items) {
+      let key;
+      if (it.days < 0 && it.kind !== 'period') key = '0|Overdue';
+      else { const mon = it.days < 0 ? thisMon : mondayOf(it.date); const sun = M.addDays(mon, 6); key = '1' + mon + '|' + (mon === thisMon ? 'This week' : mon === nextMon ? 'Next week' : 'Week ' + M.isoWeek(mon) + ' · ' + fmtDate(mon) + ' – ' + fmtDate(sun)); }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(it);
+    }
+    const chipTxt = (it) => it.kind === 'period' && it.d.now ? 'now' : it.days < 0 ? (-it.days) + 'd late' : it.days === 0 ? 'today' : it.days === 1 ? 'tomorrow' : wd(it.date) + ' ' + fmtDate(it.date);
+    const row = (it) => {
+      const n = e.nodes[it.id];
+      const icon = it.kind === 'step' ? I('steps') : it.kind === 'period' ? I('due') : ring(it.d.progress, !!O.stage.get(it.id));
+      const t = it.kind === 'step' ? M.stepTitle(it.step) : title(n);
+      const sub = it.kind === 'step' ? 'step towards ' + title(n) : it.kind === 'period' ? fmtDate(n.deadline) + ' – ' + fmtDate(it.d.end) + (pathOf(it.id) ? ' · ' + pathOf(it.id) : '') : pathOf(it.id);
+      const flag = (it.d.crit || 0) >= 3 ? '<span class="crit" title="critical">!</span>' : '';
+      return `<div class="row" data-open="${E(it.id)}"><span class="cbar" style="background:${cat(it.d.cat).color}"></span><span class="kicon">${icon}</span><span class="tt"><b>${flag}${E(t)}</b><small>${E(sub)}</small></span><span class="due ${it.cls}">${E(chipTxt(it))}</span></div>`;
+    };
+    let h = `<div class="chips">${[[14, '2 weeks'], [30, 'Month'], [90, '3 months']].map(([v, l]) => `<button data-range="${v}" class="${st.aheadDays === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    h += `<p class="legend"><span class="due u2">urgent</span><span class="due u3">very urgent</span><span class="due o">overdue</span><span class="crit">!</span> critical</p>`;
+    for (const [key, list] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) h += `<h3>${E(key.split('|')[1])}<span>${list.length}</span></h3><div class="card">${list.map(row).join('')}</div>`;
+    if (!items.length) h += `<div class="empty">${I('check', 'big')}<p>Nothing dated in the next ${days} days.</p></div>`;
+    // urgent by hand, but no date anywhere
+    const undated = [];
+    for (const [id, d] of der()) { const n = e.nodes[id]; if (n && !n.kind && !d.done && !d.deadline && (n.urg || 0) >= 2) undated.push(id); }
+    if (undated.length) h += `<h3>Marked urgent, no date<span>${undated.length}</span></h3><div class="card">${undated.map(id => rowHtml(id, { path: true, O })).join('')}</div>`;
+    return h;
+  }
+
   function dueHtml() {
+    if (st.dueMode === 'ahead') return dueSwitch() + aheadHtml();
     const e = ed(), s = st.tree.settings;
     const items = M.dueItems(e, s);
     const over = items.filter(i => i.overdue), week = items.filter(i => !i.overdue && i.days <= 7), later = items.filter(i => !i.overdue && i.days > 7);
@@ -409,7 +472,7 @@
     let open = 0, tasks = 0;
     for (const d of der().values()) if (d.leaf) { tasks++; if (!d.done) open++; }
     const h = sec('Overdue', over, itemRow) + sec('Due within 7 days', week, itemRow) + sec('Urgent &amp; critical', hot, id => rowHtml(id, { path: true, O })) + sec('Coming up', later, itemRow);
-    return `<div class="sum"><div><b>${over.length}</b><span>overdue</span></div><div><b>${week.length}</b><span>this week</span></div><div><b>${open}</b><span>open of ${tasks}</span></div></div>` + (h || `<div class="empty">${I('check', 'big')}<p>Nothing overdue or coming up soon.</p></div>`);
+    return dueSwitch() + `<div class="sum"><div><b>${over.length}</b><span>overdue</span></div><div><b>${week.length}</b><span>this week</span></div><div><b>${open}</b><span>open of ${tasks}</span></div></div>` + (h || `<div class="empty">${I('check', 'big')}<p>Nothing overdue or coming up soon.</p></div>`);
   }
 
   function treeHtml() {
@@ -795,6 +858,10 @@
       if (want !== !!s.done) await send({ kind: 'step', node: id, step: s.id, done: want, base: { done: !!s.done, title: M.stepTitle(s), task: n.title } });
       renderSheet(); return;
     }
+    const dm = t.closest('[data-due]');
+    if (dm) { st.dueMode = dm.dataset.due; LS.set('dueMode', st.dueMode); renderView(); $('#view').scrollTop = 0; return; }
+    const rg = t.closest('[data-range]');
+    if (rg) { st.aheadDays = +rg.dataset.range; LS.set('aheadDays', st.aheadDays); renderView(); return; }
     const op = t.closest('[data-open]');
     if (op && !t.closest('.fold')) { openNode(op.dataset.open); return; }
     const cap = t.closest('[data-cap]');
