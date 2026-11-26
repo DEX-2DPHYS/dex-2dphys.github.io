@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.2';
+  const VERSION = '1.3';
 
   // ---------- small helpers ----------
   const LS = {
@@ -23,6 +23,14 @@
   const newId = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const device = () => /iPhone/.test(navigator.userAgent) ? 'iPhone' : /iPad/.test(navigator.userAgent) ? 'iPad' : /Android/.test(navigator.userAgent) ? 'Android phone' : 'Phone';
   class NotFound extends Error {}
+  async function tfetch(url, opts, what) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 25000);
+    try { return await fetch(url, Object.assign({}, opts, { signal: ctl.signal })); }
+    catch (e) { if (e.name === 'AbortError') throw new Error((what || 'Dropbox') + ' did not answer within 25 s'); throw new Error((what || 'Dropbox') + ': ' + (e.message || 'network error')); }
+    finally { clearTimeout(t); }
+  }
+  function step(txt) { st.step = txt; const el = document.querySelector('#diagstep'); if (el) el.textContent = txt; }
 
   const P = {   // icon paths (24×24, stroke)
     due: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2.5h6"/>',
@@ -97,7 +105,7 @@
       const a = LS.get('auth', null);
       if (!a) throw new Error('Not connected to Dropbox');
       if (Date.now() < a.exp - 60000) return a.access;
-      const r = await fetch('https://api.dropboxapi.com/oauth2/token', { method: 'POST', body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: a.refresh, client_id: this.key() }) });
+      const r = await tfetch('https://api.dropboxapi.com/oauth2/token', { method: 'POST', body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: a.refresh, client_id: this.key() }) }, 'Dropbox login refresh');
       if (!r.ok) { if (r.status === 400 || r.status === 401) { LS.del('auth'); render(); } throw new Error('The Dropbox login has expired — connect again.'); }
       const j = await r.json();
       a.access = j.access_token; a.exp = Date.now() + (j.expires_in || 14400) * 1000;
@@ -113,7 +121,7 @@
     async call(url, opts, retried) {
       const t = await this.token();
       const o = Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + t }, opts.headers || {}) });
-      const r = await fetch(url, o);
+      const r = await tfetch(url, o, 'Dropbox (' + (st.step || url.split('/2/')[1] || 'request') + ')');
       if (r.status === 401 && !retried) { const a = LS.get('auth', null); if (a) { a.exp = 0; LS.set('auth', a); } return this.call(url, opts, true); }
       return r;
     },
@@ -237,7 +245,9 @@
     if (st.syncing) return;
     st.syncing = true; renderTop();
     try {
+      step('sending queued items');
       await flush();
+      step('reading the tree folder');
       const entries = (await B.list('/tree')).filter(e => e['.tag'] === 'file');
       const revs = Object.fromEntries(entries.map(e => [e.name, e.rev]));
       st.noTree = !revs['edition.json'];
@@ -245,8 +255,10 @@
       // looks for that folder, so say hello once — this makes the folder appear on the PC.
       if (st.noTree) {
         // what the app can see in its folder — shown on the waiting screen, so a problem can be seen from the phone
+        step('reading the app folder');
         let root = (await B.list('')).map(e => e.name + (e['.tag'] === 'folder' ? '/' : ''));
         if (!root.includes('phone.json')) {
+          step('writing phone.json');
           await B.upload('/phone.json', new Blob([JSON.stringify({ type: 'dtuplanner-phone', device: device(), connected: new Date().toISOString(), version: VERSION }, null, 1)], { type: 'application/json' }));
           root = (await B.list('')).map(e => e.name + (e['.tag'] === 'folder' ? '/' : ''));
         }
@@ -255,6 +267,7 @@
       }
       const cur = (st.tree && st.tree.revs) || {};
       if (!st.noTree && TREE_FILES.some(n => revs[n] !== cur[n])) {
+        step('downloading the tree');
         const got = await Promise.all(TREE_FILES.map(n => revs[n] ? B.download('/tree/' + n).then(t => JSON.parse(t)) : Promise.resolve(null)));
         const [e, settings, people, info] = got;
         M.validate(e);
@@ -262,11 +275,13 @@
         st.der = null;
         LS.set('tree', st.tree);
       }
+      step('reading requests');
       const reqs = (await B.list('/requests')).filter(e => e['.tag'] === 'file' && e.name.endsWith('.json'));
       const names = new Set(reqs.map(e => e.name));
       for (const k of [...st.pending.keys()]) if (!names.has(k)) st.pending.delete(k);
       for (const e of reqs) if (!st.pending.has(e.name)) { try { st.pending.set(e.name, JSON.parse(await B.download('/requests/' + e.name))); } catch (_) {} }
       LS.set('pending', [...st.pending]);
+      step('reading handled requests');
       const done = (await B.list('/requests/done')).filter(e => e['.tag'] === 'file' && e.name.endsWith('.json'))
         .sort((a, b) => String(b.server_modified).localeCompare(String(a.server_modified))).slice(0, 25);
       const known = new Map(st.done.map(d => [d.name, d]));
@@ -285,6 +300,7 @@
       if (manual) toast(st.error === 'offline' ? 'No network — showing the last copy' : 'Could not update: ' + e.message);
     } finally {
       st.syncing = false;
+      if (st.error) st.step = 'stopped while ' + (st.step || 'starting'); else st.step = 'done';
       render();
     }
   }
@@ -374,7 +390,7 @@
     if (st.tab === 'sent') { keepScroll(() => { v.innerHTML = sentHtml(); }); return; }
     if (!st.tree) {
       v.innerHTML = `<div class="empty">${st.noTree
-        ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2>${st.error && st.error !== 'offline' ? `<p class="bad">${E(st.error)}</p>` : ''}<p>Open DTU Planner on your PC (restart it if it was open). Within a minute or two it finds the folder Dropbox › Apps › DTU Planner and puts a copy of your tree there; then tap ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p><p class="diag">Version ${VERSION} · checked ${E(fmtWhen(st.lastSync) || 'not yet')}<br>In your Dropbox folder Apps › DTU Planner: ${E((st.rootSeen || []).join(', ') || '(nothing yet)')}</p>`
+        ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2>${st.error && st.error !== 'offline' ? `<p class="bad">${E(st.error)}</p>` : ''}<p>Open DTU Planner on your PC (restart it if it was open). Within a minute or two it finds the folder Dropbox › Apps › DTU Planner and puts a copy of your tree there; then tap ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p><p class="diag">Version ${VERSION} · checked ${E(fmtWhen(st.lastSync) || 'not yet')}<br>Step: <span id="diagstep">${E(st.step || '—')}</span><br>In your Dropbox folder Apps › DTU Planner: ${E((st.rootSeen || []).join(', ') || '(nothing yet)')}</p>`
         : `<span class="spinner"></span><p>Loading your tree…</p>`}</div>`;
       return;
     }
