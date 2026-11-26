@@ -235,3 +235,52 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .crit { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--u3); color: #fff; font-size: 11px; font-weight: 800; margin-right: 5px; vertical-align: 1px; }
 .empty .bad { color: var(--u3); font-weight: 600; }
 .diag { font-size: 12px; color: var(--faint); margin-top: 18px; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+
+/* Due › Calendar */
+.seg.seg3 { grid-template-columns: repeat(3, 1fr); margin: 10px 0 0; }
+.calnav { display: flex; align-items: center; gap: 2px; margin: 8px 0 4px; }
+.calnav b { flex: 1; text-align: center; font-size: 15px; }
+.calnav .zm { display: flex; gap: 4px; margin-left: 6px; }
+.calnav .zm button { width: 34px; height: 34px; border-radius: 10px; background: var(--panel); color: var(--accent); font-size: 20px; font-weight: 600; }
+.calnav .zm button:disabled { opacity: .35; }
+.calscroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; margin: 0 -4px; padding: 0 4px 10px; }
+.calz { display: grid; gap: 10px; transform-origin: 0 0; }
+.calz > .cm { overflow: hidden; }
+.cm { background: var(--panel); border-radius: 12px; padding: 6px 4px 4px; min-width: 0; }
+.cmh { font-weight: 650; font-size: 1.15em; padding: 0 4px 4px; }
+.cg { display: grid; }
+.cg .dh { text-align: center; font-size: .8em; color: var(--faint); font-weight: 600; align-self: end; }
+.cg .wh { }
+.cg .wk { font-size: .72em; color: var(--faint); text-align: center; padding-top: 3px; border-top: 1px solid var(--line2); }
+.cd { position: relative; border-top: 1px solid var(--line2); border-left: 1px solid var(--line2); padding: 1px 2px; overflow: hidden; min-width: 0; cursor: pointer; }
+.cd.we { background: color-mix(in srgb, var(--panel2) 70%, transparent); }
+.cd.out { opacity: .35; }
+.cd .dnum { font-size: .9em; font-weight: 550; display: inline-block; min-width: 1.5em; text-align: center; border-radius: 6px; line-height: 1.4; position: relative; z-index: 2; }
+.cd.hol .dnum { color: var(--u3); }
+.cd.today .dnum { background: var(--accent); color: #fff; }
+.cd .sem { position: absolute; left: 0; right: 0; top: 0; height: 2px; }
+.cd .sem.teach { background: #5b8def; } .cd .sem.exam { background: #8a6fdf; }
+.cd .pl { position: absolute; left: 0; right: 0; top: 1.45em; }
+.cd .pb { position: absolute; left: 0; right: 0; height: 4px; opacity: .85; font-style: normal; color: #fff; font-size: .72em; line-height: 13px; white-space: nowrap; overflow: hidden; padding-left: 3px; }
+.cd .pb.s { left: 2px; border-top-left-radius: 3px; border-bottom-left-radius: 3px; }
+.cd .pb.e { right: 2px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; }
+.cd .pb.dn { opacity: .3; }
+.cd .dots { position: absolute; left: 2px; right: 2px; bottom: 3px; display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.cd .dt { width: 7px; height: 7px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1.5px var(--panel); }
+.cd .dt.u2 { box-shadow: 0 0 0 1.5px var(--u2); } .cd .dt.u3 { box-shadow: 0 0 0 1.5px var(--u3); } .cd .dt.o { box-shadow: 0 0 0 2px var(--u3); }
+.cd .dt.dn { opacity: .3; }
+.cd .dots b { font-size: .7em; color: var(--muted); line-height: 7px; }
+.cd .lbs { display: flex; flex-direction: column; gap: 1px; position: relative; z-index: 1; }
+.cd .lb { font-size: .74em; line-height: 1.25; padding: 0 2px 0 3px; border-left: 2.5px solid var(--c); border-radius: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: color-mix(in srgb, var(--c) 12%, transparent); }
+.cd .lb.u2 { background: var(--u2bg); color: var(--u2fg); } .cd .lb.u3 { background: var(--u3bg); color: var(--u3fg); } .cd .lb.o { background: var(--u3); color: #fff; }
+.cd .lb.dn { opacity: .4; text-decoration: line-through; }
+.cd .more { font-size: .7em; color: var(--muted); }
+/* landscape: room for six months */
+@media (orientation: landscape) {
+  body.calmode #top { display: none; }
+  body.calmode #view { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  body.calmode .seg.seg3 { max-width: 420px; margin: 6px auto 0; }
+  body.calmode .seg.seg3 button { padding: 6px 2px; }
+  body.calmode .calnav { margin: 2px 0; }
+  body.calmode #tabs { --tabh: 46px; }
+}

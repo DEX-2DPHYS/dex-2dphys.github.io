@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.4';
+  const VERSION = '1.5';
 
   // ---------- small helpers ----------
   const LS = {
@@ -180,6 +180,8 @@
     showDone: LS.get('showDone', false),
     dueMode: LS.get('dueMode', 'now'),     // Due tab: 'now' (what needs attention) or 'ahead' (everything dated, by week)
     aheadDays: LS.get('aheadDays', 30),
+    calStart: M.todayStr().slice(0, 7),   // first month shown in the calendar
+    calZoom: LS.get('calZoom', 1),
     syncing: false, flushing: false, error: null, noTree: false,
     lastSync: LS.get('lastSync', null),
     q: '',
@@ -385,6 +387,7 @@
 
   function renderView() {
     const v = $('#view');
+    document.body.classList.toggle('calmode', B.ready() && !!st.tree && st.tab === 'due' && st.dueMode === 'cal' && !st.q);
     if (!B.ready()) { v.innerHTML = loginHtml(); return; }
     if (st.tab === 'add') { v.innerHTML = captureHtml(); return; }
     if (st.tab === 'sent') { keepScroll(() => { v.innerHTML = sentHtml(); }); return; }
@@ -425,8 +428,139 @@
     return `<div class="row ghost" data-open="req:${E(r.id)}" style="${indent != null ? '--ind:' + indent : ''}"><span class="fold sp"></span><span class="kicon">${I('plus')}</span><span class="tt"><b>${E(r.title)}</b><small>suggested · ${r._local ? 'not sent yet' : 'waiting for approval'}${kids.length ? ' · ' + kids.length + ' below' : ''}</small></span>${r.deadline ? `<span class="due">${E(fmtDate(r.deadline))}</span>` : ''}</div>`;
   }
 
+  // ---------- calendar ----------
+  const landscape = () => window.innerWidth > window.innerHeight;
+  const monthAdd = (ym, k) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + k, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const monthName = (ym, short) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', short ? { month: 'short', year: 'numeric' } : { month: 'long', year: 'numeric' }); };
+  /** Deadlines, periods and open timeline steps by date, for the days from..to. */
+  function calItems(from, to) {
+    const e = ed(), byDay = new Map(), periods = [];
+    const add = (day, it) => { if (!byDay.has(day)) byDay.set(day, []); byDay.get(day).push(it); };
+    for (const [id, d] of der()) {
+      const n = e.nodes[id];
+      if (!n || n.kind === 'root' || n.kind === 'info' || !n.deadline) continue;
+      const color = cat(d.cat).color;
+      if (d.end) { if (d.end >= from && n.deadline <= to) periods.push({ id, start: n.deadline, end: d.end, color, title: title(n), done: d.done, cls: d.now ? 'u2' : dueCls(d) }); continue; }
+      if (n.deadline >= from && n.deadline <= to) add(n.deadline, { id, kind: 'deadline', title: title(n), color, cls: d.done ? 'dn' : dueCls(d), done: d.done });
+    }
+    for (const [id, d] of der()) {
+      const n = e.nodes[id];
+      if (!n || !n.timeline || d.done || n.kind === 'info') continue;
+      for (const sp of n.timeline) {
+        if (!sp.date || sp.date < from || sp.date > to) continue;
+        const dd = M.daysUntil(sp.date);
+        add(sp.date, { id, kind: 'step', title: M.stepTitle(sp) + ' — ' + title(n), color: cat(d.cat).color, cls: sp.done ? 'dn' : dd < 0 ? 'o' : dd <= M.FINAL_DAYS ? 'u3' : dd <= 7 ? 'u2' : '', done: sp.done });
+      }
+    }
+    // a fixed lane per period, so its bar runs straight across the days
+    periods.sort((a, b) => a.start.localeCompare(b.start) || b.end.localeCompare(a.end));
+    const laneEnd = [];
+    for (const p of periods) { let l = laneEnd.findIndex(x => x < p.start); if (l < 0) { l = laneEnd.length; laneEnd.push(''); } laneEnd[l] = p.end; p.lane = l; }
+    return { byDay, periods };
+  }
+  function calHtml() {
+    const land = landscape(), n = land ? 6 : 2, perRow = land ? 3 : 1, z = st.calZoom;
+    const months = Array.from({ length: n }, (_, i) => monthAdd(st.calStart, i));
+    const v = $('#view');
+    const availW = Math.max(280, (v.clientWidth || window.innerWidth) - 30);
+    const monthW = (availW * z - (perRow - 1) * 10) / perRow;
+    const wkW = Math.max(14, Math.round(monthW * 0.055));
+    const cellW = (monthW - wkW) / 7;
+    const labels = cellW >= 54;
+    const availH = (v.clientHeight || window.innerHeight) - 110;
+    const rh = Math.round(land ? Math.max(cellW * 0.62, Math.min(cellW * 0.9, (availH / 2 - 22) / 7 * z)) : Math.max(cellW * 1.08, labels ? 64 : 0));
+    const fs = Math.max(8, Math.min(14, cellW * 0.24));
+    const first = months[0] + '-01', last = M.addDays(monthAdd(months[n - 1], 1) + '-01', -1);
+    const from = M.addDays(first, -7), to = M.addDays(last, 7);
+    const { byDay, periods } = calItems(from, to);
+    const sems = (st.tree.settings.semesters || []).filter(p => p && p.start && p.end && p.end >= from && p.start <= to);
+    const today = M.todayStr();
+    const lanes = Math.min(3, Math.max(0, ...periods.map(p => p.lane + 1)));
+    const month = (ym) => {
+      const [y, m] = ym.split('-').map(Number);
+      const d1 = ym + '-01';
+      let day = M.addDays(d1, -((new Date(y, m - 1, 1).getDay() + 6) % 7));   // Monday on or before the 1st
+      let h = `<div class="cm"><div class="cmh">${E(monthName(ym))}</div><div class="cg" style="grid-template-columns:${wkW}px repeat(7,minmax(0,1fr));grid-template-rows:auto;grid-auto-rows:${rh}px"><span class="wh"></span>${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<span class="dh">${x}</span>`).join('')}`;
+      for (let w = 0; w < 6; w++) {
+        if (w >= 4 && day.slice(0, 7) !== ym) break;
+        h += `<span class="wk">${M.isoWeek(day)}</span>`;
+        for (let k = 0; k < 7; k++, day = M.addDays(day, 1)) {
+          const out = day.slice(0, 7) !== ym;
+          const dk = M.dkDay(day);
+          const sem = sems.find(p => day >= p.start && day <= p.end);
+          const cls = ['cd', k >= 5 ? 'we' : '', out ? 'out' : '', day === today ? 'today' : '', dk && (dk.kind === 'holiday' || dk.kind === 'off') ? 'hol' : ''].filter(Boolean).join(' ');
+          let inner = `<span class="dnum">${+day.slice(8)}</span>`;
+          if (sem && !out) inner += `<i class="sem ${sem.kind === 'exam' ? 'exam' : 'teach'}"></i>`;
+          if (!out) {
+            const ps = periods.filter(p => day >= p.start && day <= p.end && p.lane < 3);
+            if (ps.length) inner += `<span class="pl">${ps.map(p => `<i class="pb${day === p.start || k === 0 ? ' s' : ''}${day === p.end || k === 6 ? ' e' : ''}${p.done ? ' dn' : ''}" style="background:${p.color};top:${p.lane * (labels ? 15 : 5)}px">${labels && (day === p.start || k === 0) ? E(p.title) : ''}</i>`).join('')}</span>`;
+            const its = byDay.get(day) || [];
+            if (its.length) {
+              inner += labels
+                ? `<span class="lbs" style="margin-top:${lanes * 15}px">${its.slice(0, 3).map(it => `<span class="lb ${it.cls}" style="--c:${it.color}">${E(it.title)}</span>`).join('')}${its.length > 3 ? `<span class="more">+${its.length - 3}</span>` : ''}</span>`
+                : `<span class="dots">${its.slice(0, 4).map(it => `<i class="dt ${it.cls}" style="--c:${it.color}"></i>`).join('')}${its.length > 4 ? '<b>+</b>' : ''}</span>`;
+            }
+          }
+          h += `<div class="${cls}" data-day="${day}">${inner}</div>`;
+        }
+      }
+      return h + '</div></div>';
+    };
+    const head = `<div class="calnav"><button class="hb" data-cal="prev" aria-label="Previous month">${I('back')}</button><b>${E(monthName(months[0], true))} – ${E(monthName(months[n - 1], true))}</b><button class="hb" data-cal="next" aria-label="Next month">${I('chev')}</button><button class="lnk" data-cal="today">Today</button><span class="zm"><button data-cal="zout" aria-label="Zoom out" ${z <= 1 ? 'disabled' : ''}>−</button><button data-cal="zin" aria-label="Zoom in" ${z >= 4 ? 'disabled' : ''}>+</button></span></div>`;
+    return head + `<div class="calscroll"><div class="calz" style="width:${Math.round(availW * z)}px;font-size:${fs.toFixed(1)}px;grid-template-columns:repeat(${perRow},1fr)">${months.map(month).join('')}</div></div>`;
+  }
+  function dayList(day) {
+    const e = ed(), { byDay, periods } = calItems(day, day);
+    const its = byDay.get(day) || [], ps = periods.filter(p => day >= p.start && day <= p.end);
+    const dk = M.dkDay(day), sem = (st.tree.settings.semesters || []).find(p => p && day >= p.start && day <= p.end);
+    const [y, m, d] = day.split('-').map(Number);
+    const head = new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + ' · week ' + M.isoWeek(day);
+    const row = (it) => `<div class="row" data-open="${E(it.id)}"><span class="cbar" style="background:${it.color}"></span><span class="kicon">${I(it.kind === 'step' ? 'steps' : it.kind === 'period' ? 'due' : 'clock')}</span><span class="tt"><b>${E(it.title)}</b><small>${it.kind === 'period' ? E(fmtDate(it.start) + ' – ' + fmtDate(it.end)) : it.kind === 'step' ? 'timeline step' : 'deadline'}${it.done ? ' · done' : ''}</small></span>${it.cls && it.cls !== 'dn' ? `<span class="due ${it.cls}">${it.cls === 'o' ? 'late' : 'urgent'}</span>` : ''}</div>`;
+    const list = ps.map(p => Object.assign({ kind: 'period' }, p)).concat(its);
+    modal(`<div class="mh"><span></span><b>${E(head)}</b><button class="lnk strong" data-act="mclose">Done</button></div><div class="mb">
+      ${dk ? `<p class="hint">${E(dk.name)}</p>` : ''}${sem ? `<p class="hint">DTU: ${E(sem.label)}</p>` : ''}
+      <div class="card">${list.map(row).join('') || '<div class="none">Nothing on this day</div>'}</div></div>`);
+  }
+  function calZoomTo(z, cx, cy) {
+    const v = $('#view'), sc = $('.calscroll');
+    const z0 = st.calZoom; z = Math.max(1, Math.min(4, Math.round(z * 100) / 100));
+    if (z === z0) return;
+    const fx = sc ? (sc.scrollLeft + (cx == null ? sc.clientWidth / 2 : cx)) / z0 : 0, fy = (v.scrollTop + (cy == null ? v.clientHeight / 2 : cy)) / z0;
+    st.calZoom = z; LS.set('calZoom', z);
+    renderView();
+    const sc2 = $('.calscroll');
+    if (sc2) sc2.scrollLeft = fx * z - (cx == null ? sc2.clientWidth / 2 : cx);
+    v.scrollTop = fy * z - (cy == null ? v.clientHeight / 2 : cy);
+  }
+  // two-finger pinch on the calendar (touch events: iPhone and Android); the page itself does not zoom
+  (function pinch() {
+    let p = null;
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 2 || !e.target.closest('.calscroll')) return;
+      const r = $('#view').getBoundingClientRect(), sr = $('.calscroll').getBoundingClientRect();
+      p = { d0: dist(e.touches), z0: st.calZoom, cx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - sr.left, cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top, s: 1 };
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      if (!p || e.touches.length !== 2) return;
+      e.preventDefault();
+      p.s = Math.max(1 / p.z0, Math.min(4 / p.z0, dist(e.touches) / p.d0));
+      const cz = $('.calz'); if (cz) { cz.style.transformOrigin = (p.cx + $('.calscroll').scrollLeft) + 'px ' + (p.cy + $('#view').scrollTop - $('.calscroll').offsetTop) + 'px'; cz.style.transform = 'scale(' + p.s + ')'; }
+    }, { passive: false });
+    document.addEventListener('touchend', () => {
+      if (!p) return;
+      const q = p; p = null;
+      calZoomTo(q.z0 * q.s, q.cx, q.cy);
+      const cz = $('.calz'); if (cz) cz.style.transform = '';
+    });
+    for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => { if (e.target.closest && e.target.closest('.calscroll')) e.preventDefault(); }, { passive: false });
+  })();
+  let resizeT = null, lastLand = landscape();
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (document.body.classList.contains('calmode')) { const land = landscape(); if (land !== lastLand) { lastLand = land; $('#view').scrollTop = 0; } renderView(); } }, 150); });
+
   function dueSwitch() {
-    return `<div class="seg seg2"><button data-due="now" class="${st.dueMode !== 'ahead' ? 'on' : ''}">Now</button><button data-due="ahead" class="${st.dueMode === 'ahead' ? 'on' : ''}">Ahead</button></div>`;
+    const b = (k, t) => `<button data-due="${k}" class="${(st.dueMode || 'now') === k ? 'on' : ''}">${t}</button>`;
+    return `<div class="seg seg3">${b('now', 'Now')}${b('ahead', 'Ahead')}${b('cal', 'Calendar')}</div>`;
   }
   const mondayOf = (ds) => { const [y, m, d] = ds.split('-').map(Number); const t = new Date(y, m - 1, d); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return M.todayStr(t); };
   const wd = (ds) => { const [y, m, d] = ds.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short' }); };
@@ -481,6 +615,7 @@
 
   function dueHtml() {
     if (st.dueMode === 'ahead') return dueSwitch() + aheadHtml();
+    if (st.dueMode === 'cal') return dueSwitch() + calHtml();
     const e = ed(), s = st.tree.settings;
     const items = M.dueItems(e, s);
     const over = items.filter(i => i.overdue), week = items.filter(i => !i.overdue && i.days <= 7), later = items.filter(i => !i.overdue && i.days > 7);
@@ -882,12 +1017,24 @@
       if (want !== !!s.done) await send({ kind: 'step', node: id, step: s.id, done: want, base: { done: !!s.done, title: M.stepTitle(s), task: n.title } });
       renderSheet(); return;
     }
+    const cb = t.closest('[data-cal]');
+    if (cb) {
+      const k = cb.dataset.cal;
+      if (k === 'prev') st.calStart = monthAdd(st.calStart, -1);
+      else if (k === 'next') st.calStart = monthAdd(st.calStart, 1);
+      else if (k === 'today') st.calStart = M.todayStr().slice(0, 7);
+      else if (k === 'zin') return calZoomTo(st.calZoom * 1.5);
+      else if (k === 'zout') return calZoomTo(st.calZoom / 1.5);
+      renderView(); return;
+    }
+    const cday = t.closest('[data-day]');
+    if (cday) { dayList(cday.dataset.day); return; }
     const dm = t.closest('[data-due]');
     if (dm) { st.dueMode = dm.dataset.due; LS.set('dueMode', st.dueMode); renderView(); $('#view').scrollTop = 0; return; }
     const rg = t.closest('[data-range]');
     if (rg) { st.aheadDays = +rg.dataset.range; LS.set('aheadDays', st.aheadDays); renderView(); return; }
     const op = t.closest('[data-open]');
-    if (op && !t.closest('.fold')) { openNode(op.dataset.open); return; }
+    if (op && !t.closest('.fold')) { if (op.closest('.mdl')) closeModal(); openNode(op.dataset.open); return; }
     const cap = t.closest('[data-cap]');
     if (cap) {
       const k = cap.dataset.cap;
