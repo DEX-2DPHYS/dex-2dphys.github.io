@@ -1,6 +1,6 @@
 /* DTU Planner phone app — offline shell. Network first (so updates arrive), the cached copy when offline.
    Dropbox requests are not touched. */
-const CACHE = 'dtuplanner-phone-v5';
+const CACHE = 'dtuplanner-phone-v6';
 const SHELL = ['./', 'index.html', 'phone.css', 'phone.js', 'model.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {

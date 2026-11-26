@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.3';
+  const VERSION = '1.4';
 
   // ---------- small helpers ----------
   const LS = {
@@ -391,7 +391,9 @@
     if (!st.tree) {
       v.innerHTML = `<div class="empty">${st.noTree
         ? `${I('tree', 'big')}<h2>Connected — waiting for the PC</h2>${st.error && st.error !== 'offline' ? `<p class="bad">${E(st.error)}</p>` : ''}<p>Open DTU Planner on your PC (restart it if it was open). Within a minute or two it finds the folder Dropbox › Apps › DTU Planner and puts a copy of your tree there; then tap ↻ here.</p><p class="hint">You can already send notes, photos and voice memos with the + button.</p><p class="diag">Version ${VERSION} · checked ${E(fmtWhen(st.lastSync) || 'not yet')}<br>Step: <span id="diagstep">${E(st.step || '—')}</span><br>In your Dropbox folder Apps › DTU Planner: ${E((st.rootSeen || []).join(', ') || '(nothing yet)')}</p>`
-        : `<span class="spinner"></span><p>Loading your tree…</p>`}</div>`;
+        : st.error && st.error !== 'offline'
+          ? `${I('x', 'big')}<h2>Could not reach your Dropbox folder</h2><p class="bad">${E(st.error)}</p><p>Tap ↻ to try again. If it keeps failing: Settings (⚙) › Log out, then connect again.</p><p class="diag">Version ${VERSION}<br>Step: <span id="diagstep">${E(st.step || '—')}</span></p>`
+          : `<span class="spinner"></span><p>${st.error === 'offline' ? 'No network — waiting…' : 'Loading your tree…'}</p><p class="diag">Version ${VERSION}<br>Step: <span id="diagstep">${E(st.step || 'starting')}</span></p>`}</div>`;
       return;
     }
     if (st.q) { keepScroll(() => { v.innerHTML = searchHtml(st.q); }); return; }
