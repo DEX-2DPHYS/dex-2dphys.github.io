@@ -29,6 +29,7 @@ Design and plan: [DESIGN.md](DESIGN.md) (source of truth). Status: **phase 1 (pr
 ## Using it
 | Action | How |
 |---|---|
+| New document | New / Ctrl+N: pick a template — Article (default), Lecture notes, Thesis, Report, Notes, Proposal, Blank (`src/core/templates.js`). File → Save as template… stores the open document in `<settings folder>\templates\`; New lists them under "Your templates" (× deletes). The last choice is preselected |
 | Math in the text | Ctrl+M, or type `$x^2$` |
 | Display equation | Ctrl+Shift+M; Enter or Esc leaves the editor; `#` button toggles numbering |
 | Figure | Figure button, or paste / drop an image; drag a corner to resize (5 % steps, one undo step); the context row under the toolbar sets *Top of page*, *Bottom of page*, *Here*, *Wrap left/right* and width |
@@ -72,6 +73,7 @@ Files are `.dtusw` (a zip: `manifest.json`, `document.json`, `media/`).
 - `node tests/si-core.js` and `tests\run.cmd tests\si.js` — Supplementary Information: numbering, the split into two documents, export, tabs.
 - `node tests/track-core.js` (engine + 400 random edit sequences), `tests\run.cmd tests\track.js` (in the app), `node tests/track-word.js` (Word's own Accept All / Reject All against ours) — track changes.
 - `tests\run.cmd tests\step9.js` (page breaks, guide, tutorial) and `tests\run.cmd tests\hardening.js` (what a hostile page or document could try, with the path rules on).
+- `tests\run.cmd tests\templates.js` — every template typesets and exports; the New chooser; Save as template, reopen, delete.
 - `tests\run.cmd tests\phase1.js` — sample paper in the app: preview, PDF, Word, save + reopen round trip.
 - `tests\run.cmd tests\editing.js` — real key events: math editor, `$…$`, equations, Ctrl+R picker, figure bar, undo.
 - `tests\run.cmd tests\titleblock.js` — left title block, authors dialog, affiliation library and formats, heading numbering styles (I / a / none / level 4).

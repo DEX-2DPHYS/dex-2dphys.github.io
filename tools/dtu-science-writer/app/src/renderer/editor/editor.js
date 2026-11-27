@@ -22,18 +22,12 @@ import { trackPlugin, trackDispatch } from './track.js';
 import { pageViewPlugin } from './pageview.js';
 import { siHeaderPlugin } from './siheader.js';
 import { migrateAuthorsJson } from '../../core/authors.js';
+import { templateDoc, DEFAULT_TEMPLATE } from '../../core/templates.js';
 
 export { schema };
 
-export const NEW_DOC = {
-  type: 'doc', content: [
-    { type: 'title' },
-    { type: 'authors', attrs: { list: [], affils: [] } },
-    { type: 'abstract', content: [{ type: 'paragraph' }] },
-    { type: 'heading', attrs: { level: 1, numbered: true }, content: [{ type: 'text', text: 'Introduction' }] },
-    { type: 'paragraph' },
-  ],
-};
+// the Article template (core/templates.js): what a fresh start opens on
+export const NEW_DOC = templateDoc(DEFAULT_TEMPLATE);
 
 const M = schema.marks, N = schema.nodes;
 

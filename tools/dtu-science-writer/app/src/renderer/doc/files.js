@@ -6,6 +6,8 @@ import { packDocument, unpackDocument, EXT } from '../../core/fileformat.js';
 import { clearMedia } from '../../core/media.js';
 import { app, api, $, fileName, baseName, isDirty, emit, toast } from '../context.js';
 import { askSave } from '../ui/asksave.js';
+import { chooseTemplate } from '../ui/templatedialog.js';
+import { templateDoc } from '../../core/templates.js';
 
 /** Show a document (JSON) in the editor. Media must already be in the media store. */
 export function loadDocument(json, path, { readOnly = false, owner = null } = {}) {
@@ -37,13 +39,30 @@ export async function confirmDiscard() {
   return true;
 }
 
-export async function newDocument() {
-  if (!(await confirmDiscard())) return;
+/** File → New…: choice = a built-in template id ('article', 'thesis', …), { builtin: id }, { user: name }, or nothing
+    to ask (ui/templatedialog.js; unattended test runs get the article, as before). */
+export async function newDocument(choice) {
+  if (choice === undefined || choice === null) choice = app.info && app.info.test ? { builtin: 'article' } : await chooseTemplate();
+  if (!choice) return false;
+  if (typeof choice === 'string') choice = { builtin: choice };
+  let bytes = null;
+  if (choice.user) {
+    try { bytes = await api.templates('read', choice.user); } catch (e) { toast('Could not read the template “' + choice.user + '”: ' + e.message, 'error'); return false; }
+  }
+  if (!(await confirmDiscard())) return false;
   await api.docClose();
-  clearMedia();
   app.created = null;
-  loadDocument(NEW_DOC, null);
+  if (bytes) {
+    try {
+      const { json } = await unpackDocument(bytes);     // loads the template's figures into the media store
+      loadDocument(json, null);
+    } catch (e) { toast('The template “' + choice.user + '” could not be opened: ' + e.message, 'error'); clearMedia(); loadDocument(NEW_DOC, null); }
+  } else {
+    clearMedia();
+    loadDocument(choice.builtin ? templateDoc(choice.builtin) : NEW_DOC, null);
+  }
   app.view.focus();
+  return true;
 }
 
 export async function openPath(path) {

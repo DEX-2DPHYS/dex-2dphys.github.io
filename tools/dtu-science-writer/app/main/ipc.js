@@ -151,6 +151,28 @@ function registerIpc() {
     return null;
   });
 
+  /* the user's own templates (File → Save as template…): .dtusw files in the settings folder, addressed by name only,
+     so the page can never read or write anywhere else through this call */
+  h('templates', (op, a, b) => {
+    const dir = path.join(app.getPath('userData'), 'templates');
+    const clean = (s) => String(s == null ? '' : s).replace(/[\\/:*?"<>|\x00-\x1f]/g, '-').replace(/\s+/g, ' ').trim().replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 80);
+    const fileOf = (name) => { const n = clean(name); if (!n) throw refuse('This template name'); return path.join(dir, n + '.' + ctx.EXT); };
+    if (op === 'list') {
+      let names = [];
+      try { names = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.' + ctx.EXT) && !f.startsWith('.')); } catch (_) { /* none yet */ }
+      return names.map(f => ({ name: f.slice(0, -(ctx.EXT.length + 1)), modified: fs.statSync(path.join(dir, f)).mtimeMs }))
+        .sort((x, y) => x.name.localeCompare(y.name));
+    }
+    if (op === 'clean') return clean(a);
+    if (op === 'read') return new Uint8Array(fs.readFileSync(fileOf(a)));
+    if (op === 'save') {
+      if (!(b instanceof Uint8Array) || b.length > 300e6) throw refuse('This template');
+      try { atomicWrite(fileOf(a), Buffer.from(b)); return { ok: true, name: clean(a) }; } catch (e) { return { error: writeError(e) }; }
+    }
+    if (op === 'remove') { try { fs.unlinkSync(fileOf(a)); return { ok: true }; } catch (e) { return { error: e.message }; } }
+    return null;
+  });
+
   h('affil:library', async (op, data) => {
     const file = path.join(app.getPath('userData'), 'affiliations.json');
     const jsonFilter = [{ name: 'Affiliation library', extensions: ['json'] }];

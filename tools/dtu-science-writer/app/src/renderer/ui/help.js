@@ -7,7 +7,8 @@ import { app, runCommand } from '../context.js';
 export const GUIDE = [
   ['Start here', [
     ['What it is', 'A writing program for scientific papers. What you see is the paper: no codes. The page preview on the right is the exact PDF.'],
-    ['A new paper', '<b>New</b>, then type the title, click the author line to add authors and affiliations, and write. Headings: the style box in the toolbar, or <kbd>Ctrl+Alt+1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>.'],
+    ['Templates', '<b>New</b> (<kbd>Ctrl+N</kbd>) asks what to start from: article, lecture notes, thesis, report, notes, proposal or a blank page. File → <b>Save as template…</b> keeps the open document — style, text and figures — as a template of your own; New offers it under “Your templates” (hover a card and click × to delete it).'],
+    ['A new paper', '<b>New</b>, pick Article, then type the title, click the author line to add authors and affiliations, and write. Headings: the style box in the toolbar, or <kbd>Ctrl+Alt+1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>.'],
     ['Practise', 'Help → <b>Tutorial</b> opens a short document that asks you to try each thing once.'],
     ['Files', 'One file per paper, <code>name.dtusw</code>: text, figures, references, comments and changes are all inside it.'],
   ]],

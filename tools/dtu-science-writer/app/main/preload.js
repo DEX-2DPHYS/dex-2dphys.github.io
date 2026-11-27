@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('dsw', {
   restart: () => ipcRenderer.send('app:restart'),
   checkUpdate: inv('app:checkUpdate'),
   affilLibrary: inv('affil:library'),
+  templates: inv('templates'),
   settings: inv('settings'),
   docOpen: inv('doc:open'),
   docSave: inv('doc:save'),

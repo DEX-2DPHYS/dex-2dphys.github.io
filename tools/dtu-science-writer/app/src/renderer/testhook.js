@@ -21,6 +21,7 @@ import { changesOf } from '../core/track.js';
 import { siPath } from './doc/export.js';
 import { convertXrefs } from './ui/convertrefs.js';
 import { offerRecovery, openBackups } from './ui/restore.js';
+import { chooseTemplate, saveAsTemplate } from './ui/templatedialog.js';
 
 window.DSW = {
   app, COMMANDS: commands, preview, commentsKey,
@@ -51,4 +52,5 @@ window.DSW = {
   importWordFile: async (p) => importWord({ name: p.split(/[\\/]/).pop(), bytes: await api.readFile(p) }),
   labels: () => [...numberingKey.getState(app.view.state).nums.byId.entries()].map(([id, i]) => [id, i.ref]),
   pm: { TextSelection, NodeSelection, CellSelection },
+  chooseTemplate, saveAsTemplate,
 };

@@ -28,6 +28,7 @@ import { insertBibliography } from '../editor/citations.js';
 import { insertFootnote, insertOutline, insertPageBreak, toggleAppendix } from '../editor/structure.js';
 import { clearMedia } from '../../core/media.js';
 import { buildSample } from '../sample.js';
+import { saveAsTemplate } from './templatedialog.js';
 
 /** Editor command -> toolbar command (runs on the current state, then gives the focus back). */
 const run = (c) => () => { c(app.view.state, app.view.dispatch, app.view); app.view.focus(); };
@@ -69,7 +70,7 @@ async function openSample() {
 }
 
 registerCommands({
-  new: newDocument, open: openDialog, save: () => save(false), saveAs: () => save(true),
+  new: (choice) => newDocument(choice), open: openDialog, saveTemplate: () => saveAsTemplate(), save: () => save(false), saveAs: () => save(true),
   exportPdf: () => exportPdf(), exportDocx: () => exportDocx(), exportLatex: () => exportLatex(),
   undo: run(cmd.undo), redo: run(cmd.redo),
   bold: run(cmd.bold), italic: run(cmd.italic), underline: run(cmd.underline), sup: run(cmd.sup), sub: run(cmd.sub),

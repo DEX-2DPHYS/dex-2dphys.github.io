@@ -11,12 +11,13 @@ function buildMenu() {
   const recent = (ctx.config.recent || []).filter(p => fs.existsSync(p)).slice(0, 10);
   const tpl = [
     { label: '&File', submenu: [
-      { label: 'New', accelerator: 'CmdOrCtrl+N', click: send('new') },
+      { label: 'New…', accelerator: 'CmdOrCtrl+N', click: send('new') },
       { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: send('open') },
       { label: 'Open recent', enabled: recent.length > 0, submenu: recent.map(p => ({ label: p, click: () => ctx.win && ctx.win.webContents.send('open-path', p) })) },
       { type: 'separator' },
       { label: 'Save', accelerator: 'CmdOrCtrl+S', click: send('save') },
       { label: 'Save as…', accelerator: 'CmdOrCtrl+Shift+S', click: send('saveAs') },
+      { label: 'Save as template…', click: send('saveTemplate') },
       { label: 'Backups of this document…', click: send('backups') },
       { type: 'separator' },
       { label: 'Export PDF…', accelerator: 'CmdOrCtrl+E', click: send('exportPdf') },
