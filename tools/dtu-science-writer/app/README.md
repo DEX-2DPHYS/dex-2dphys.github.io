@@ -42,7 +42,7 @@ Design and plan: [DESIGN.md](DESIGN.md) (source of truth). Status: **phase 1 (pr
 | Authors | click the author block (👤 ✎): names, affiliations (tick per author), corresponding author + e-mail; affiliations from / to the library |
 | Style | font pair, body size, title alignment, size/bold/italic/colour/numbering per heading level (1 · i · I · a · A · none), affiliation format |
 | Journal style | Format → Journal style… (or Choose journal… in the Style dialog): pick from ~40 journals (numbering, “Fig.”/“Figure”, line spacing, line numbers, reference style in one undo step), or any journal’s reference style from the CSL repository / a .csl file, stored in the document |
-| Supporting Information | Insert → Supporting Information adds the SI as a second tab of the same document (figures, tables, equations and sections numbered S1, S2, …; references between manuscript and SI stay live). PDF and Word export write `name` and `name-SI`. File → Import Word document as Supporting Information… brings an existing SI in |
+| Supplementary Information | Insert → Supplementary Information adds the SI as a second tab of the same document (figures, tables, equations and sections numbered S1, S2, …; references between manuscript and SI stay live). PDF and Word export write `name` and `name-SI`. File → Import Word document as Supplementary Information… brings an existing SI in. The SI starts with its name (click to change it), then the paper's title and authors; untick "Same title and authors as the paper" to type its own |
 | Zotero | Format → Add references to Zotero library sends the complete, verified references (collection named after the paper); incomplete or typed ones are listed, not sent |
 | Headings | style box, Ctrl+Alt+1/2/3, or type `# ` / `## ` at the start of a line |
 | Lists | buttons, or type `- ` / `1. ` |
@@ -69,7 +69,7 @@ Files are `.dtusw` (a zip: `manifest.json`, `document.json`, `media/`).
   — opens the file in Word, counts equations/fields, checks that refreshing fields changes nothing, exports PDF pages.
 - `tests\run.cmd tests\wordimport.js` — a document with everything → Word → import, compared block by block; `node tests/ommlin-core.js` — equations LaTeX → Word → LaTeX; `node tests/wordimport-real.js` — a manuscript made by Word itself (needs Word and PowerShell 7).
 - `node tests/realdocs.js` — two real manuscripts (read in place, skipped when absent); `node tests/journal-core.js` and `tests\run.cmd tests\journal.js` — journal styles.
-- `node tests/si-core.js` and `tests\run.cmd tests\si.js` — Supporting Information: numbering, the split into two documents, export, tabs.
+- `node tests/si-core.js` and `tests\run.cmd tests\si.js` — Supplementary Information: numbering, the split into two documents, export, tabs.
 - `node tests/track-core.js` (engine + 400 random edit sequences), `tests\run.cmd tests\track.js` (in the app), `node tests/track-word.js` (Word's own Accept All / Reject All against ours) — track changes.
 - `tests\run.cmd tests\step9.js` (page breaks, guide, tutorial) and `tests\run.cmd tests\hardening.js` (what a hostile page or document could try, with the path rules on).
 - `tests\run.cmd tests\phase1.js` — sample paper in the app: preview, PDF, Word, save + reopen round trip.

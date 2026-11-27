@@ -447,7 +447,7 @@ compare per-document fingerprints (same discipline as DTU Planner).
 - Tests: `tests/journal-core.js` (36: list, every style, stored style, layout compiled by Typst and pdfLaTeX and
   written to Word), `tests/journal.js` (22, in the app with a stand-in style repository).
 
-### 10.1 Supporting Information (step 7b, 2026-11-26)
+### 10.1 Supplementary Information (step 7b, 2026-11-26)
 
 Nearly every paper has an SI, and the main text points into it all the time ("Fig. S3"). So the SI is **the second part
 of the same document**, shown as a second tab — not a second file.
@@ -459,19 +459,26 @@ of the same document**, shown as a second tab — not a second file.
   contents / lists of figures are per part.
 - Cross-references between the parts are live in the editor ("Fig. S2" in the manuscript follows the SI).
 - `core/parts.js` `splitParts(doc)` → two complete documents for preview and export: the manuscript, and the SI with
-  title "Supporting Information: <paper title>", the same authors and `attrs.part = 'si'`. A reference that crosses
+  its header (below) and `attrs.part = 'si'`. A reference that crosses
   into the other part becomes its text ("Fig. S3"): the other file cannot be linked to. The writers, given the whole
   document, write the manuscript.
+- Header of the SI (2026-11-26, the user's rule): its name, then title, authors and affiliations as on the paper.
+  `supplement.attrs`: `title` (the name, default "Supplementary Information", editable — also the tab's text),
+  `lock` (default true: title and authors follow the manuscript), `freeTitle`, `freeAuthors` (used when not locked;
+  empty = left out). `splitParts` passes them on as `doc.attrs.partLabel` / `partAuthors`; PDF, Word (style
+  `PartLabel`, skipped by the reader) and LaTeX write the name above the title. In the editor the header is a widget
+  at the top of the SI tab (`editor/siheader.js`): name field, tick box "Same title and authors as the paper",
+  and either the paper's header (read only) or two lines to type. Header edits are not tracked changes.
 - Each part has its own citation numbering and reference list (as the two files have): `formatReferences(doc, style,
   part)`.
-- Editor: tabs "Manuscript | Supporting Information" in the context row (`ui/parttabs.js`), there once the paper has
-  an SI (Insert → Supporting Information). A tab shows one part (CSS hides the other); the preview shows the part of
+- Editor: tabs "Manuscript | Supplementary Information" in the context row (`ui/parttabs.js`), there once the paper has
+  an SI (Insert → Supplementary Information). A tab shows one part (CSS hides the other); the preview shows the part of
   the tab; the tab follows the cursor (a clicked reference, a comment, Ctrl+End). Block commands work one level
-  deeper inside the SI (`blockDepth` in editor/mathview.js). Format → Remove Supporting Information….
+  deeper inside the SI (`blockDepth` in editor/mathview.js). Format → Remove Supplementary Information….
 - Export: PDF and Word write `name.pdf` + `name-SI.pdf` (`.docx` likewise, also for "Always save a Word copy");
   LaTeX puts `main.tex` and `si.tex` in one project. In Word the "S" is text inside the caption bookmark and the
   counter a SEQ field, headings use an "S%1" list: refreshing fields in Word keeps S1 (checked in Word).
-- File → Import Word document as Supporting Information…: the Word file becomes the SI; its title block is dropped,
+- File → Import Word document as Supplementary Information…: the Word file becomes the SI; its title block is dropped,
   its ids are renamed so none collides, its references join the library.
 - References through a list: a reference shows only its number after a typed label *and* after earlier references of
   the list ("Figs. 2a and 3", "Table S1, S2") — `nextContext` / `REF_MARK` in numbering.js, used by the editor and
@@ -544,7 +551,7 @@ edit is not carried out but recorded as a suggestion by its author, to accept or
 - **Guide** (F1, the ? in the toolbar, Help → Guide): what the program does and how, by topic, with search
   (`ui/help.js`; the text is data, `GUIDE` — a new feature gets its lines there in the same change).
 - **Tutorial** (Help → Tutorial): a short paper to practise in, with a "Try it" in every section; it already holds an
-  equation, a figure, a table, a citation, a comment, two tracked changes and a Supporting Information tab
+  equation, a figure, a table, a citation, a comment, two tracked changes and a Supplementary Information tab
   (`tutorial.js`). Closing it asks nothing.
 - Test: `tests/step9.js` (22).
 
@@ -621,7 +628,7 @@ Done so far: phase 1, tables, figure resizing, document style, authors/affiliati
 | 5 | LaTeX: paste LaTeX into text; LaTeX export (.tex + .bib + figures, publisher classes) | one LaTeX mapping, both directions | Opus |
 | 6 ✔ | Word import: text, OMML, figures, tables, captions/xrefs → live items, comments; import report; MathType strategy (done 2026-11-26, §8.1) | needs all node types above | **Fable** |
 | 8 ✔ | Track changes: text, paragraphs, figures / equations / tables as units, accept / reject, views, author colours, Word revisions out and in (done 2026-11-26, §10.2) | builds on comments + import | **Fable** |
-| 7b ✔ | Supporting Information as the second part of the document: tabs, S numbering, live cross-references, two-file export, Word import as SI (done 2026-11-26, §10.1) | changes the model before track changes, which then covers it | Opus |
+| 7b ✔ | Supplementary Information as the second part of the document: tabs, S numbering, live cross-references, two-file export, Word import as SI (done 2026-11-26, §10.1) | changes the model before track changes, which then covers it | Opus |
 | 7 ✔ | Journal styles: layout (spacing, line numbers, "Figure"), ~40 journals, any reference style from the CSL repository stored in the document (done 2026-11-26, §10; .dotx export not done) | reuses the reference engine | Opus |
 | 9 ✔ | Page breaks in the text; guide + tutorial; hardening; published on DEX (done 2026-11-26, §10.3, §10.4). Not done: Mac build, code signing | polish on a finished model | Fable |
 

@@ -1,4 +1,4 @@
-/* The two parts of a paper as two tabs: Manuscript | Supporting Information (core/parts.js).
+/* The two parts of a paper as two tabs: Manuscript | Supplementary Information (core/parts.js).
    They are one document; a tab shows one part and hides the other, and the page preview shows the part of the tab.
    The tab follows the cursor: a click on a reference to "Fig. S2", a comment in the other part, Ctrl+End — wherever
    the selection lands, that part is shown. The tabs sit in the context row and appear once the paper has an SI. */
@@ -22,7 +22,11 @@ function paint() {
   page.classList.toggle('part-si', has && currentPart() === 'si');
   if (bar) {
     bar.hidden = !has;
-    for (const b of bar.querySelectorAll('button')) b.classList.toggle('on', b.dataset.part === currentPart());
+    const sup = supplementOf(app.view.state.doc);
+    for (const b of bar.querySelectorAll('button')) {
+      b.classList.toggle('on', b.dataset.part === currentPart());
+      if (b.dataset.part === 'si' && sup && b.textContent !== sup.node.attrs.title) b.textContent = sup.node.attrs.title;     // the tab carries its name
+    }
   }
 }
 
@@ -48,7 +52,7 @@ export function showPart(part, { moveCursor = true } = {}) {
   view.focus();
 }
 
-/** Insert → Supporting Information: go to it, or start one (a first section and an empty paragraph). */
+/** Insert → Supplementary Information: go to it, or start one (a first section and an empty paragraph). */
 export function insertSupplement() {
   const view = app.view;
   if (supplementOf(view.state.doc)) { showPart('si'); return true; }
@@ -58,16 +62,16 @@ export function insertSupplement() {
   const tr = view.state.tr.insert(at, node);
   view.dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 2)));
   showPart('si', { moveCursor: false });
-  toast('Supporting Information added: figures, tables, equations and sections in it are numbered S1, S2, … It is exported as its own PDF and Word file.');
+  toast('Supplementary Information added: figures, tables, equations and sections in it are numbered S1, S2, … It is exported as its own PDF and Word file.');
   return true;
 }
 
-/** Format → Remove Supporting Information… (one undo step brings it back). */
+/** Format → Remove Supplementary Information… (one undo step brings it back). */
 export function removeSupplement() {
   const view = app.view;
   const sup = supplementOf(view.state.doc);
-  if (!sup) { toast('This document has no Supporting Information.'); return false; }
-  if (sup.node.textContent.trim() && !window.confirm('Remove the Supporting Information from this document?\n\nReferences to its figures and tables will show “??”. Ctrl+Z brings it back.')) return false;
+  if (!sup) { toast('This document has no Supplementary Information.'); return false; }
+  if (sup.node.textContent.trim() && !window.confirm('Remove the Supplementary Information from this document?\n\nReferences to its figures and tables will show “??”. Ctrl+Z brings it back.')) return false;
   showPart('main');
   view.dispatch(view.state.tr.delete(sup.pos, sup.pos + sup.node.nodeSize));
   paint();
@@ -78,7 +82,7 @@ export function wirePartTabs() {
   bar = document.createElement('div');
   bar.className = 'parttabs';
   bar.hidden = true;
-  bar.innerHTML = PARTS.map(([k, label]) => '<button data-part="' + k + '" title="' + (k === 'si' ? 'The Supporting Information of this paper (numbered S1, S2, …; its own PDF and Word file)' : 'The manuscript') + '">' + label + '</button>').join('');
+  bar.innerHTML = PARTS.map(([k, label]) => '<button data-part="' + k + '" title="' + (k === 'si' ? 'The Supplementary Information of this paper (numbered S1, S2, …; its own PDF and Word file)' : 'The manuscript') + '">' + label + '</button>').join('');
   bar.onmousedown = (e) => e.preventDefault();          // keep the focus in the document
   bar.onclick = (e) => { const b = e.target.closest('button'); if (b) showPart(b.dataset.part); };
   $('#ctxbar').prepend(bar);
@@ -91,7 +95,7 @@ export function wirePartTabs() {
     const here = partAt(doc, app.view.state.selection.from);
     state.sel[here] = app.view.state.selection.from;
     if (here !== currentPart()) showPart(here, { moveCursor: false });
-    else if (tr.docChanged && !$('#page').classList.contains('has-si')) paint();
+    else if (tr.docChanged && (!$('#page').classList.contains('has-si') || bar.querySelector('button[data-part=si]').textContent !== sup.node.attrs.title)) paint();
   });
   paint();
 }

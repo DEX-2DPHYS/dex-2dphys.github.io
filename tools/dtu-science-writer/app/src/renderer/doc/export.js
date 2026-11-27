@@ -9,7 +9,7 @@ import { app, api, baseName, toast, onSaved } from '../context.js';
 import { mediaPayload } from './preview.js';
 import { splitParts } from '../../core/parts.js';
 
-/** "paper.pdf" -> "paper-SI.pdf": the Supporting Information goes next to the manuscript. */
+/** "paper.pdf" -> "paper-SI.pdf": the Supplementary Information goes next to the manuscript. */
 export const siPath = (p) => p.replace(/(\.[^.\\/]+)?$/, (ext) => '-SI' + ext);
 
 export async function exportPdf(pathArg) {
@@ -22,7 +22,7 @@ export async function exportPdf(pathArg) {
   if (si) {
     siFile = siPath(path);
     const r2 = await api.compile({ source: docToTypst(si).source, media: mediaPayload(), format: 'pdf', out: siFile });
-    if (r2.error) { toast('The manuscript was exported, the Supporting Information failed: ' + r2.error, 'error'); return path; }
+    if (r2.error) { toast('The manuscript was exported, the Supplementary Information failed: ' + r2.error, 'error'); return path; }
   }
   if (!pathArg) toast('Exported ' + path.split(/[\\/]/).pop() + (siFile ? ' and ' + siFile.split(/[\\/]/).pop() : ''));
   return path;
@@ -70,7 +70,7 @@ export async function exportDocx(pathArg) {
   if (si) {
     siFile = siPath(path);
     const r2 = await api.writeFile(siFile, (await docxBytes(si)).bytes);
-    if (r2 && r2.error) { toast('The manuscript was exported, the Supporting Information failed: ' + r2.error, 'error'); return path; }
+    if (r2 && r2.error) { toast('The manuscript was exported, the Supplementary Information failed: ' + r2.error, 'error'); return path; }
   }
   if (!pathArg) toast('Exported ' + path.split(/[\\/]/).pop() + (siFile ? ' and ' + siFile.split(/[\\/]/).pop() : '') + (problems.length ? ' — ' + problems.length + ' problem(s), see the preview status' : ''));
   return path;
@@ -117,9 +117,9 @@ export async function exportLatex(pathArg) {
   zip.file('references.bib', bib);
   const figures = [...mainFigures];
   if (si) {
-    // the Supporting Information: its own file in the same project (Overleaf: set it as the main file to compile it)
+    // the Supplementary Information: its own file in the same project (Overleaf: set it as the main file to compile it)
     const s = docToLatex(si, {});
-    zip.file('si.tex', s.tex.replace(/^% Exported by DTU Science Writer\.[^\n]*\n/, '% Supporting Information, exported by DTU Science Writer. Compile with pdfLaTeX (twice).\n'));
+    zip.file('si.tex', s.tex.replace(/^% Exported by DTU Science Writer\.[^\n]*\n/, '% Supplementary Information, exported by DTU Science Writer. Compile with pdfLaTeX (twice).\n'));
     for (const f of s.figures) if (!figures.some(x => x.name === f.name)) figures.push(f);
     problems.push(...s.problems);
   }

@@ -45,11 +45,12 @@ export const GUIDE = [
     ['Co-authors in Word', '<b>Word</b> exports a real Word file: equations, numbered captions, cross-references, comments, tracked changes. File → <b>Import Word document…</b> brings their version back, with their comments and tracked changes.'],
     ['Co-authors in LaTeX', 'File → Export LaTeX (for Overleaf): one zip to upload.'],
   ]],
-  ['Supporting Information', [
-    ['Add it', 'Insert → <b>Supporting Information</b>: a second tab in the same paper. Its figures, tables, equations and sections are numbered S1, S2, …'],
-    ['Refer across', 'A reference from the manuscript to “Fig. S2” is live: it follows when the SI changes.'],
+  ['Supplementary Information', [
+    ['Add it', 'Insert → <b>Supplementary Information</b>: a second tab in the same paper. Its figures, tables, equations and sections are numbered S1, S2, …'],
+    ['Name and header', 'The part starts with its name — click it to change it (Supplementary Material, Supporting Information, …) — then the paper’s title and authors. Untick <b>Same title and authors as the paper</b> to type a title and an author line of its own; an empty line is left out.'],
+    ['Refer across','A reference from the manuscript to “Fig. S2” is live: it follows when the SI changes.'],
     ['Export', 'PDF and Word write two files: <code>name</code> and <code>name-SI</code>.'],
-    ['From Word', 'File → Import Word document as Supporting Information…'],
+    ['From Word', 'File → Import Word document as Supplementary Information… — or File → Import Word document…, which asks whether the file goes into the open paper as its Supplementary Information or becomes a new document. The manuscript is not touched.'],
   ]],
   ['From a Word manuscript', [
     ['Import', 'File → Import Word document…: a new paper here; the Word file is not changed. A report lists what arrived and what to check.'],

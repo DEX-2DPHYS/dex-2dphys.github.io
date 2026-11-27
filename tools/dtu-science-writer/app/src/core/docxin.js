@@ -59,6 +59,7 @@ export async function docxToDocument(bytes, opts = {}) {
       const m = /^heading\s*(\d)$/.exec(s.name) || /^heading(\d)$/.exec(s.id.toLowerCase());
       if (m) return { kind: 'heading', level: Math.min(4, Math.max(1, +m[1])) };
     }
+    if (is(/^part ?label$/)) return { kind: 'partlabel' };
     if (is(/^title$/)) return { kind: 'title' };
     if (is(/^subtitle$/)) return { kind: 'p' };
     if (is(/^caption$/)) return { kind: 'caption' };
@@ -553,6 +554,7 @@ export async function docxToDocument(bytes, opts = {}) {
     }
     if (wasOpen || ctx.inBlockField) { if (!stillOpen) ctx.inBlockField = false; return; }      // the rest of a TOC / bibliography field
     if (sk.kind === 'toc') return;
+    if (sk.kind === 'partlabel') { report.partLabel = plainText(nodes).trim(); return; }        // "Supplementary Information" above the title
     for (const tb of para.textboxes) { note('textbox', 'a text box'); for (const tp of findAll(tb, 'w:p')) await paragraph(tp); }
     if (para.pageBreak && !plainText(nodes).trim() && !para.images.length) { addBlock({ type: 'page_break' }); return; }
     const txt = plainText(nodes);

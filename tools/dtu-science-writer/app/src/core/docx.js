@@ -600,11 +600,13 @@ class Writer {
 
   body() {
     const out = [];
+    // a supplementary document: its name above the title (its own style, so the import does not take it for the title)
+    if (this.doc.attrs.partLabel) out.push(this.p('PartLabel', run(this.doc.attrs.partLabel)));
     this.doc.forEach((n, offset) => {
       this.pos = offset;
       switch (n.type.name) {
         case 'title': if (n.content.size) out.push(this.p('Title', this.inline(n))); this.prevTextPara = null; break;
-        case 'authors': out.push(this.authors(n)); break;
+        case 'authors': out.push(this.doc.attrs.partAuthors ? this.p('Authors', run(this.doc.attrs.partAuthors), '<w:spacing w:after="360"/>') : this.authors(n)); break;
         case 'abstract': {
           let first = true;
           n.forEach((pp) => { out.push(this.p('Abstract', (first ? run('Abstract. ', ['bold']) : '') + this.inline(pp))); first = false; });
@@ -660,6 +662,7 @@ function stylesXml(stl) {
     + '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr><w:jc w:val="both"/></w:pPr></w:style>'
     + head(1) + head(2) + head(3) + head(4)
     + st('Title', 'Title', '<w:jc w:val="' + jcT + '"/><w:spacing w:after="160"/>', levelR('title'), '<w:basedOn w:val="Normal"/><w:next w:val="Authors"/>')
+    + st('PartLabel', 'Part Label', '<w:jc w:val="' + jcT + '"/><w:spacing w:after="120"/>', '<w:b/><w:color w:val="505050"/><w:sz w:val="' + hp(stl.size + stl.title.delta - 3) + '"/>', '<w:basedOn w:val="Normal"/><w:next w:val="Title"/>')
     + st('Authors', 'Authors', '<w:jc w:val="' + jcT + '"/><w:spacing w:after="80"/>', '<w:sz w:val="' + hp(stl.size + 0.5) + '"/>', '<w:basedOn w:val="Normal"/>')
     + st('Affiliation', 'Affiliation', '<w:jc w:val="' + jcT + '"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>', '<w:sz w:val="' + hp(stl.size - 1.5) + '"/>', '<w:basedOn w:val="Normal"/>')
     + st('Abstract', 'Abstract', '<w:ind w:left="567" w:right="567"/><w:spacing w:after="240"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>')

@@ -2,7 +2,7 @@
    1. Citations typed as "[1]", "[2]–[4]", superscript numbers or "(refs. 3, 4)" with a typed reference list become
       real citations and the automatic reference list. Each typed entry is looked up (Crossref, verified against the
       text: main/refs.js matchText); an entry that cannot be verified is kept word for word as a reference of its own,
-      so nothing is lost. The manuscript and the Supporting Information are done one after the other: each has its own
+      so nothing is lost. The manuscript and the Supplementary Information are done one after the other: each has its own
       list and numbers.
    2. Cross-references typed as "Fig. 2a", "Figs. 1 and 3", "Table S1", "Eq. (4)" become live references to the
       figure, table, equation or section with that number (core/typedxrefs.js).
@@ -22,7 +22,7 @@ async function convertPart(view, part, quiet) {
   const keyOf = new Map();
   let verified = 0;
   const kept = [];
-  const where = part === 'si' ? ' (Supporting Information)' : '';
+  const where = part === 'si' ? ' (Supplementary Information)' : '';
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
     if (!quiet) toast('Looking up reference ' + (i + 1) + ' of ' + entries.length + where + ' …');

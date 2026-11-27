@@ -20,6 +20,7 @@ import { structureNodeViews, insertPageBreak } from './structure.js';
 import { latexPastePlugin } from './latexpaste.js';
 import { trackPlugin, trackDispatch } from './track.js';
 import { pageViewPlugin } from './pageview.js';
+import { siHeaderPlugin } from './siheader.js';
 import { migrateAuthorsJson } from '../../core/authors.js';
 
 export { schema };
@@ -104,7 +105,7 @@ export function createState(json) {
       buildInputRules(schema),
       tableKeymap, keymap(keys()), keymap(baseKeymap),
       history(), dropCursor({ color: '#1f6feb' }), gapCursor(),
-      idPlugin, trailingParagraph, numberingPlugin, figureBarPlugin(), figureAnnotationsPlugin, imageDropPlugin(), latexPastePlugin, ...tablePlugins(), commentsPlugin, citationsPlugin, trackPlugin, pageViewPlugin,
+      idPlugin, trailingParagraph, numberingPlugin, figureBarPlugin(), figureAnnotationsPlugin, imageDropPlugin(), latexPastePlugin, ...tablePlugins(), commentsPlugin, citationsPlugin, trackPlugin, pageViewPlugin, siHeaderPlugin,
     ],
   });
   const fixes = missingIds(state.doc);

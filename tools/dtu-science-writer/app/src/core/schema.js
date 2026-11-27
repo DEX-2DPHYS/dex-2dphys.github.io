@@ -17,9 +17,9 @@ const trackMark = (tag, cls) => ({ attrs: { id: {}, author: { default: '' }, ini
 export const nodes = {
   // attrs.style: document style (fonts, sizes, heading formatting) — see style.js
   // attrs.comments: comment threads { [id]: thread } — see comments.js; anchors are `comment` marks and equation.comments
-  // part: 'main', or 'si' for the Supporting Information exported on its own (parts.js); the editor's document holds
+  // part: 'main', or 'si' for the Supplementary Information exported on its own (parts.js); the editor's document holds
   // both, the SI as the optional last node 'supplement'
-  doc: { content: 'title authors abstract? block+ supplement?', attrs: { style: { default: null }, comments: { default: {} }, references: { default: {} }, part: { default: 'main' }, tracking: { default: false } } },   // tracking: track changes is on (track.js)   // references: key -> CSL item (references.js)
+  doc: { content: 'title authors abstract? block+ supplement?', attrs: { style: { default: null }, comments: { default: {} }, references: { default: {} }, part: { default: 'main' }, tracking: { default: false }, partLabel: { default: '' }, partAuthors: { default: null } } },   // partLabel / partAuthors: the header of a supplementary document (parts.js)   // tracking: track changes is on (track.js)   // references: key -> CSL item (references.js)
 
   title: {
     content: 'inline*', marks: 'italic sub sup ins del', defining: true,
@@ -41,12 +41,14 @@ export const nodes = {
     toDOM: () => ['section', { class: 'abstract' }, 0],
   },
 
-  /* Supporting Information: the second part of the paper (its own tab in the editor, its own PDF / Word file).
+  /* Supplementary Information: the second part of the paper (its own tab in the editor, its own PDF / Word file).
      Figures, tables, equations and sections in it are numbered S1, S2, … (numbering.js). */
   supplement: {
     content: 'block+', defining: true, isolating: true,
-    attrs: { title: { default: 'Supporting Information' } },
-    parseDOM: [{ tag: 'section.supplement', getAttrs: (d) => ({ title: d.getAttribute('data-title') || 'Supporting Information' }) }],
+    // title: the name of the part. lock: its header is the paper's own title and authors (the standard); not locked:
+    // freeTitle / freeAuthors are typed for it (an empty one is left out)
+    attrs: { title: { default: 'Supplementary Information' }, lock: { default: true }, freeTitle: { default: '' }, freeAuthors: { default: '' } },
+    parseDOM: [{ tag: 'section.supplement', getAttrs: (d) => ({ title: d.getAttribute('data-title') || 'Supplementary Information' }) }],
     toDOM: (n) => ['section', { class: 'supplement', 'data-title': n.attrs.title }, 0],
   },
 

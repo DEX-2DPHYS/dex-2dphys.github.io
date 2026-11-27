@@ -1,6 +1,6 @@
 /* Help → Tutorial: a short paper to practise in. Each section explains one thing in a sentence and asks you to try it
    ("Try it: …"). It already holds what there is to look at: an equation, a figure, a table, a citation, a comment
-   and two tracked changes by "A colleague", and a Supporting Information tab. Nothing is saved unless you save it. */
+   and two tracked changes by "A colleague", and a Supplementary Information tab. Nothing is saved unless you save it. */
 import { addImage, imageSize } from '../core/media.js';
 
 async function plot() {
@@ -81,13 +81,13 @@ export async function buildTutorial() {
 
       H('tut-6', 'For co-authors and for the journal'),
       P(T('The PDF button writes the paper as the preview shows it. The Word button writes a real Word file — equations, numbered captions, references, comments and tracked changes included — and File → Import Word document… brings a co-author’s version back. File → Export LaTeX makes a project for Overleaf.')),
-      P(T('The second tab above the page is the Supporting Information of this paper: its figures and sections are numbered S1, S2, … and it is exported as a file of its own. A reference to it from here, such as '), X('tut-sfig'), T(', stays right when it changes.')),
-      TRY(T('click the “Supporting Information” tab, look, and come back. Then press F1 for the guide.')),
+      P(T('The second tab above the page is the Supplementary Information of this paper: its figures and sections are numbered S1, S2, … and it is exported as a file of its own. A reference to it from here, such as '), X('tut-sfig'), T(', stays right when it changes.')),
+      TRY(T('click the “Supplementary Information” tab, look, and come back. Then press F1 for the guide.')),
       { type: 'bibliography', attrs: { title: 'References' } },
-      { type: 'supplement', attrs: { title: 'Supporting Information' }, content: [
+      { type: 'supplement', attrs: { title: 'Supplementary Information' }, content: [
         H('tut-s1', 'Additional data'),
-        P(T('This is the Supporting Information. It is part of the same file, so references between the two parts stay right; it prints as its own document.')),
-        { type: 'figure', attrs: { id: 'tut-sfig', placement: 'here', pos: 'top', side: 'right', width: 0.45, comments: [], annotations: [] }, content: [{ type: 'image', attrs: { src: name, w: size.w, h: size.h } }, { type: 'caption', content: [T('The same data again, as a figure of the Supporting Information.')] }] },
+        P(T('This is the Supplementary Information. It is part of the same file, so references between the two parts stay right; it prints as its own document.')),
+        { type: 'figure', attrs: { id: 'tut-sfig', placement: 'here', pos: 'top', side: 'right', width: 0.45, comments: [], annotations: [] }, content: [{ type: 'image', attrs: { src: name, w: size.w, h: size.h } }, { type: 'caption', content: [T('The same data again, as a figure of the Supplementary Information.')] }] },
         P(T('Back to the manuscript: the first tab.')),
       ] },
     ],

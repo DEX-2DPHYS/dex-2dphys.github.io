@@ -240,7 +240,7 @@ function blocks(doc, ctx) {
 /* ---------- preamble ---------- */
 const BABEL = { 'en-GB': 'british', 'en-US': 'american', 'da-DK': 'danish', 'de-DE': 'ngerman' };
 
-/** The Supporting Information on its own: S1, S1.1, Fig. S1, Table S1, Eq. (S1). */
+/** The Supplementary Information on its own: S1, S1.1, Fig. S1, Table S1, Eq. (S1). */
 function SI_NUMBERING(st) {
   const lines = ['\\renewcommand{\\thefigure}{S\\arabic{figure}}', '\\renewcommand{\\thetable}{S\\arabic{table}}', '\\renewcommand{\\theequation}{S\\arabic{equation}}'];
   if (st.h1.num === 'none') lines.push('\\setcounter{secnumdepth}{0}');
@@ -266,7 +266,10 @@ function titleBlock(doc, ctx) {
     if (n.type.name === 'title') title = inline(n, ctx);
     if (n.type.name === 'authors') fa = formatAuthors(n.attrs, ctx.style.affil);
   });
-  const lines = ['\\title{' + title + '}'];
+  // a supplementary document: its name above the title; a free author line instead of the author block
+  const label = doc.attrs.partLabel ? '{\\large\\bfseries ' + texText(doc.attrs.partLabel) + '}' + (title ? '\\\\[0.8em] ' : '') : '';
+  const lines = ['\\title{' + label + title + '}'];
+  if (doc.attrs.partAuthors) { lines.push('\\author{' + texText(doc.attrs.partAuthors) + '}', '\\date{}'); return lines.join('\n'); }
   for (const a of fa.authors) {
     const marks = [a.marks, a.corresponding ? '*' : ''].filter(Boolean).join(',');
     lines.push('\\author' + (marks ? '[' + texText(marks) + ']' : '') + '{' + texText(a.name) + '}');

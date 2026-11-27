@@ -560,7 +560,7 @@ body.splitting #preview img { pointer-events: none; }
 #ctxbar .parttabs button.on { background: #fff; border-color: var(--line); color: #000; font-weight: 600; position: relative; top: 1px; }
 #page.part-main .ProseMirror > section.supplement { display: none; }
 #page.part-si .ProseMirror > :not(section.supplement) { display: none; }
-.ProseMirror section.supplement::before { content: attr(data-title); display: block; font-size: var(--title-size); font-weight: var(--title-weight); color: var(--title-color); text-align: var(--title-align, left); line-height: 1.2; margin: 0 0 1em; padding-bottom: .35em; border-bottom: 1px solid #ddd; }
+/* (the heading of the supplementary part is drawn by editor/siheader.js) */
 
 /* Track changes (core/track.js, editor/track.js): each author in a colour (--tc) */
 .ProseMirror ins.tc-ins { color: var(--tc); text-decoration: underline; text-decoration-color: var(--tc); text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -617,3 +617,15 @@ header [data-cmd="track"].on { background: #fdeaea; border-color: #e5b5b5; color
 #refpick .rp-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--line); background: #fbfaf8; font: 12px var(--ui); color: var(--muted); }
 #refpick .rp-foot button { font: inherit; padding: 3px 12px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); cursor: pointer; }
 #refpick .rp-foot button:hover { background: #f0eee9; }
+
+/* header of the Supplementary Information (editor/siheader.js) */
+.ProseMirror .si-head { margin: 0 0 1.4em; padding-bottom: .9em; border-bottom: 1px solid #ddd; text-align: var(--title-align, left); text-indent: 0; user-select: none; }
+.ProseMirror .si-head input.si-name, .ProseMirror .si-head input.si-free { display: block; width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 4px; background: transparent; font-family: inherit; color: inherit; text-align: inherit; padding: 1px 4px; margin-left: -5px; }
+.ProseMirror .si-head input:hover { border-color: #d9d6cf; }
+.ProseMirror .si-head input:focus { border-color: #9bb7e0; background: #fff; outline: none; }
+.ProseMirror .si-head input.si-name { font-size: calc(var(--title-size) - 3pt); font-weight: 700; color: #505050; }
+.ProseMirror .si-head .si-lock { display: inline-flex; align-items: center; gap: 5px; margin: .15em 0 .6em; font: 12px var(--ui); color: var(--muted); cursor: pointer; }
+.ProseMirror .si-head .si-title { font-size: var(--title-size); font-weight: var(--title-weight); font-style: var(--title-style); color: var(--title-color); line-height: 1.2; margin: 0 0 .45em; }
+.ProseMirror .si-head input.si-title { margin-bottom: .3em; }
+.ProseMirror .si-head .si-authors { font-size: 1.05em; }
+.ProseMirror .si-head .si-affil { font-size: .86em; line-height: 1.35; color: #222; }

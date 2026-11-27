@@ -356,6 +356,9 @@ export function docToTypst(doc, opts = {}) {
   if (ctx.cites.needsList) body += '\n\n' + bibliography(null, ctx);     // cited but no list placed: it goes at the end
   for (const k of ctx.cites.refs.missing) ctx.problems.push({ kind: 'citation', target: k, message: 'citation of a reference not in the library' });
   if (ctx.cites.refs.error) ctx.problems.push({ kind: 'citation', message: ctx.cites.refs.error });
+  // a supplementary document: its name above the title, and (free header) a plain author line under it
+  if (doc.attrs.partAuthors) ctx.header.push('#align(' + style.titleAlign + ', block(below: 1.2em, text(size: 1.05em)[' + escText(doc.attrs.partAuthors) + ']))');
+  if (doc.attrs.partLabel) ctx.header.unshift('#align(' + style.titleAlign + ', block(below: 0.7em, text(size: ' + (levelSize(style, 'title') - 3) + 'pt, weight: "bold", fill: luma(80))[' + escText(doc.attrs.partLabel) + ']))');
   const header = ctx.header.length ? '#place(top, float: true, clearance: 1.8em, block(width: 100%)[\n' + ctx.header.join('\n') + '\n])\n\n' : '';
   let blockOf = null;
   if (opts.positions) {

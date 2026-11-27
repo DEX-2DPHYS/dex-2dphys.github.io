@@ -152,7 +152,7 @@ export const mathNodeViews = {
 
 const HEADER = new Set(['title', 'authors', 'abstract']);
 
-/** The depth at which the blocks of the part around $pos sit: 1 in the manuscript, 2 in the Supporting Information. */
+/** The depth at which the blocks of the part around $pos sit: 1 in the manuscript, 2 in the Supplementary Information. */
 export function blockDepth($pos) {
   return $pos.depth >= 1 && $pos.node(1).type.name === 'supplement' ? 2 : 1;
 }
@@ -164,7 +164,7 @@ export function blockInsertPos(state, split) {
   const { $from } = state.selection;
   const doc = state.doc;
   if ($from.depth === 0) return $from.pos;
-  // inside the Supporting Information the blocks are one level down: the same rules, one level deeper
+  // inside the Supplementary Information the blocks are one level down: the same rules, one level deeper
   const d = blockDepth($from);
   if (d === 2) {
     const blk = $from.node(2);

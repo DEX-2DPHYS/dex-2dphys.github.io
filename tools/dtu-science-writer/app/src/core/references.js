@@ -276,11 +276,11 @@ export function forFormatting(it) {
   }
   return out;
 }
-// a few results kept: the manuscript and its Supporting Information are formatted separately, on every keystroke
+// a few results kept: the manuscript and its Supplementary Information are formatted separately, on every keystroke
 let cache = [];
 
 /** Citations of a document in order: [{ pos, items: [{id, locator}], mode }].
-    part 'main' / 'si': only those outside / inside the Supporting Information (each part has its own numbering and
+    part 'main' / 'si': only those outside / inside the Supplementary Information (each part has its own numbering and
     list, as in the two exported files); no part: all of them. */
 export function citationsOf(doc, part) {
   const out = [];

@@ -14,7 +14,35 @@ const LABEL = { headings: 'headings', paragraphs: 'paragraphs', equations: 'disp
   listItems: 'list items', footnotes: 'footnotes', comments: 'comment threads', citations: 'citations', references: 'references in the library', xrefs: 'cross-references', changes: 'tracked changes to review' };
 
 /** Import a Word file. file: { name, bytes } (from the dialog, or given by a test). Returns the report, or null. */
+/** With a paper open, File → Import Word document… first asks where the Word file should go: into this paper as its
+    Supplementary Information (the manuscript stays as it is), or into a new document. Resolves 'si' | 'new' | 'cancel'. */
+export function askImportTarget() {
+  return new Promise((resolve) => {
+    let dlg = document.querySelector('#importdlg');
+    if (!dlg) { dlg = document.createElement('div'); dlg.id = 'importdlg'; dlg.className = 'dlg'; document.body.appendChild(dlg); }
+    const has = !!supplementOf(app.view.state.doc);
+    dlg.innerHTML = '<div class="box" role="dialog" aria-labelledby="importdlg-title">'
+      + '<h3 id="importdlg-title">Import a Word document</h3>'
+      + '<p class="msg">Where should it go?</p>'
+      + '<p class="msg"><b>Into this paper</b>: the Word file becomes the Supplementary Information, as the second tab' + (has ? ' (replacing the one that is there)' : '') + '. The manuscript is not touched.<br>'
+      + '<b>New document</b>: the Word file becomes a paper of its own; this one is closed.</p>'
+      + '<div class="buttons"><button data-r="cancel">Cancel</button><span class="grow"></span>'
+      + '<button data-r="si">Into this paper, as Supplementary Information</button><button data-r="new" class="primary">New document</button></div></div>';
+    const done = (r) => { dlg.hidden = true; dlg.onclick = dlg.onkeydown = null; if (r === 'cancel') app.view.focus(); resolve(r); };
+    dlg.onclick = (e) => { if (e.target === dlg) return done('cancel'); const r = e.target.dataset && e.target.dataset.r; if (r) done(r); };
+    dlg.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); done('cancel'); } };
+    dlg.hidden = false;
+    dlg.querySelector('[data-r="new"]').focus();
+  });
+}
+
 export async function importWord(file) {
+  // a paper is open: the Word file may be meant as its Supplementary Information, not as a replacement
+  if (!file && !app.readOnly && app.view.state.doc.textContent.trim()) {
+    const where = await askImportTarget();
+    if (where === 'cancel') return null;
+    if (where === 'si') return importWordSI();
+  }
   if (!(await confirmDiscard())) return null;
   const f = file || await api.pickWord();
   if (!f) return null;
@@ -41,7 +69,7 @@ export async function importWord(file) {
 }
 
 /**
- * File → Import Word document as Supporting Information…: the Word file becomes the SI of the open paper (replacing
+ * File → Import Word document as Supplementary Information…: the Word file becomes the SI of the open paper (replacing
  * an SI that is there, after asking). Its title block is left out — the SI is headed by the paper's own title and
  * authors. Its figures, sections and comments get ids of their own, and its references join the paper's library.
  * One undo step. file: { name, bytes } (from the dialog, or given by a test). Returns the report, or null.
@@ -50,7 +78,7 @@ export async function importWordSI(file) {
   const view = app.view;
   if (app.readOnly) { toast('The document is read-only.', 'error'); return null; }
   const old = supplementOf(view.state.doc);
-  if (old && old.node.textContent.trim() && !window.confirm('Replace the Supporting Information of this document with the Word file?\n\nCtrl+Z brings the present one back.')) return null;
+  if (old && old.node.textContent.trim() && !window.confirm('Replace the Supplementary Information of this document with the Word file?\n\nCtrl+Z brings the present one back.')) return null;
   const f = file || await api.pickWord();
   if (!f) return null;
   let result;
@@ -96,8 +124,8 @@ export async function importWordSI(file) {
   for (const [id, th] of Object.entries((json.attrs && json.attrs.comments) || {})) { const k = fresh(id); threads[k] = { ...th, id: k }; }
 
   let node;
-  try { node = view.state.schema.nodeFromJSON({ type: 'supplement', attrs: { title: old ? old.node.attrs.title : 'Supporting Information' }, content: blocks }); node.check(); }
-  catch (e) { toast('The Word file could not be used as Supporting Information: ' + e.message, 'error'); return null; }
+  try { node = view.state.schema.nodeFromJSON({ type: 'supplement', attrs: { ...(old ? old.node.attrs : {}), title: (old && old.node.attrs.title) || report.partLabel || 'Supplementary Information' }, content: blocks }); node.check(); }
+  catch (e) { toast('The Word file could not be used as Supplementary Information: ' + e.message, 'error'); return null; }
   const now = supplementOf(view.state.doc);
   let tr = view.state.tr.setDocAttribute('references', merged.library).setDocAttribute('comments', threads);
   tr = now ? tr.replaceWith(now.pos, now.pos + now.node.nodeSize, node) : tr.insert(tr.doc.content.size, node);
@@ -113,7 +141,7 @@ function showReport(name, report, opts = {}) {
   const typed = !!findTypedReferences(app.view.state.doc, opts.si ? 'si' : 'main').list || findTypedXrefs(app.view.state.doc).length > 0;
   const counts = Object.entries(LABEL).filter(([k]) => report.counts[k]).map(([k, l]) => '<li><b>' + report.counts[k] + '</b> ' + l + '</li>').join('');
   dlg.innerHTML = '<div class="box"><h3>Imported ' + esc(name) + '</h3>'
-    + '<p class="msg">' + (opts.si ? 'It is now the Supporting Information of this paper (the second tab) — the Word file is unchanged. Its figures, tables and equations are numbered S1, S2, …' : 'It is a new document — the Word file is unchanged. Save it to keep it.') + '</p>'
+    + '<p class="msg">' + (opts.si ? 'It is now the Supplementary Information of this paper (the second tab) — the Word file is unchanged. Its figures, tables and equations are numbered S1, S2, …' : 'It is a new document — the Word file is unchanged. Save it to keep it.') + '</p>'
     + '<ul class="imp-counts">' + counts + '</ul>'
     + ((opts.si ? report.notes.filter(n => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).length
       ? '<h4>To check</h4><ul class="imp-notes">' + (opts.si ? report.notes.filter(n => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).map(n => '<li>' + esc(n) + '</li>').join('') + '</ul>'

@@ -1,4 +1,4 @@
-/* The two parts of a paper: the manuscript and its Supporting Information (SI).
+/* The two parts of a paper: the manuscript and its Supplementary Information (SI).
    In the editor they are one document — the SI is the optional last node `supplement` — so cross-references between
    them are live ("Fig. S3" in the main text follows the SI), the reference library is shared, and one file holds both.
    Journals want two files: splitParts() gives two complete documents. A reference that crosses from one part into the
@@ -9,7 +9,7 @@ import { computeNumbers, refText, nextContext, supplementOf } from './numbering.
 
 export { supplementOf };
 export const hasSupplement = (doc) => !!supplementOf(doc);
-export const PARTS = [['main', 'Manuscript'], ['si', 'Supporting Information']];
+export const PARTS = [['main', 'Manuscript'], ['si', 'Supplementary Information']];
 
 /** Which part a document position is in: 'main' or 'si'. */
 export function partAt(doc, pos) {
@@ -19,7 +19,7 @@ export function partAt(doc, pos) {
 
 /**
  * { main, si } — two documents for export / preview; si is null when there is no SI.
- * main: the document without the SI. si: title "<SI title>: <paper title>", the same authors, the SI's blocks
+ * main: the document without the SI. si: the name of the part, the paper's title and authors (or its own), its blocks
  * (attrs.part = 'si', which numbers them S1, S2, … on their own).
  */
 export function splitParts(doc) {
@@ -53,11 +53,17 @@ export function splitParts(doc) {
 
   const siKids = [];
   sup.node.forEach(n => siKids.push(freeze(n, mainIds)));
-  const titleText = head.title ? head.title.textContent.trim() : '';
-  const siTitle = schema.nodes.title.create(null, titleText
-    ? [schema.text(sup.node.attrs.title + ': '), ...children(head.title)]
-    : [schema.text(sup.node.attrs.title)]);
-  const si = schema.nodes.doc.create({ ...doc.attrs, part: 'si' }, [siTitle, head.authors || schema.nodes.authors.create(), ...siKids]);
+  /* its header: the name of the part on the first line (attrs.partLabel, written by the three writers above the
+     title), then — locked, the standard — the paper's own title and authors; or the title and author line typed
+     for it (attrs.partAuthors: a plain line instead of the structured author block; '' = none). */
+  const a = sup.node.attrs;
+  const locked = a.lock !== false;
+  const free = String(a.freeTitle || '').trim();
+  const siTitle = locked ? (head.title ? head.title.copy(head.title.content) : schema.nodes.title.create())
+    : schema.nodes.title.create(null, free ? [schema.text(free)] : []);
+  const siAuthors = locked && head.authors ? head.authors : schema.nodes.authors.create();
+  const si = schema.nodes.doc.create({ ...doc.attrs, part: 'si', partLabel: a.title || 'Supplementary Information', partAuthors: locked ? null : String(a.freeAuthors || '').trim() },
+    [siTitle, siAuthors, ...siKids]);
   return { main, si };
 }
 const children = (node) => { const out = []; node.forEach(c => out.push(c)); return out; };

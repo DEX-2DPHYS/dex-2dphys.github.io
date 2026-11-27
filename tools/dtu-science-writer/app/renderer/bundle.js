@@ -20,9 +20,9 @@
   };
   var __copyProps = (to2, from2, except, desc) => {
     if (from2 && typeof from2 === "object" || typeof from2 === "function") {
-      for (let key of __getOwnPropNames(from2))
-        if (!__hasOwnProp.call(to2, key) && key !== except)
-          __defProp(to2, key, { get: () => from2[key], enumerable: !(desc = __getOwnPropDesc(from2, key)) || desc.enumerable });
+      for (let key2 of __getOwnPropNames(from2))
+        if (!__hasOwnProp.call(to2, key2) && key2 !== except)
+          __defProp(to2, key2, { get: () => from2[key2], enumerable: !(desc = __getOwnPropDesc(from2, key2)) || desc.enumerable });
     }
     return to2;
   };
@@ -2810,41 +2810,41 @@
                 break;
               }
             }
-            var key = mm2[1];
+            var key2 = mm2[1];
             var val2 = mm2[2].replace(/^\s+/, "").replace(/\s+$/, "");
-            if (key === "type") {
+            if (key2 === "type") {
               Item2.type = val2;
               lines[i2] = "";
-            } else if (CSL2.DATE_VARIABLES.indexOf(key.replace(/^alt-/, "")) > -1) {
-              if (!Item2[key] || allowDateOverride) {
-                Item2[key] = CSL2.DateParser.parseDateToArray(val2);
-                if (!validFieldsForType || validFieldsForType[key] && this.isDateString(val2)) {
+            } else if (CSL2.DATE_VARIABLES.indexOf(key2.replace(/^alt-/, "")) > -1) {
+              if (!Item2[key2] || allowDateOverride) {
+                Item2[key2] = CSL2.DateParser.parseDateToArray(val2);
+                if (!validFieldsForType || validFieldsForType[key2] && this.isDateString(val2)) {
                   lines[i2] = "";
                 }
               }
-            } else if (!Item2[key]) {
-              if (CSL2.NAME_VARIABLES.indexOf(key.replace(/^alt-/, "")) > -1) {
-                if (!names[key]) {
-                  names[key] = [];
+            } else if (!Item2[key2]) {
+              if (CSL2.NAME_VARIABLES.indexOf(key2.replace(/^alt-/, "")) > -1) {
+                if (!names[key2]) {
+                  names[key2] = [];
                 }
                 var lst = val2.split(/\s*\|\|\s*/);
                 if (lst.length === 1) {
-                  names[key].push({ literal: lst[0] });
+                  names[key2].push({ literal: lst[0] });
                 } else if (lst.length === 2) {
                   var name = { family: lst[0], given: lst[1] };
                   CSL2.parseParticles(name);
-                  names[key].push(name);
+                  names[key2].push(name);
                 }
               } else {
-                Item2[key] = val2;
+                Item2[key2] = val2;
               }
-              if (!validFieldsForType || validFieldsForType[key]) {
+              if (!validFieldsForType || validFieldsForType[key2]) {
                 lines[i2] = "";
               }
             }
           }
-          for (var key in names) {
-            Item2[key] = names[key];
+          for (var key2 in names) {
+            Item2[key2] = names[key2];
           }
           if (validFieldsForType) {
             if (lines[offset2].trim()) {
@@ -3233,15 +3233,15 @@
                 }
               }
               if (lang) {
-                for (var key in vals) {
-                  if (!Item2.multi._keys[key]) {
-                    Item2.multi._keys[key] = {};
+                for (var key2 in vals) {
+                  if (!Item2.multi._keys[key2]) {
+                    Item2.multi._keys[key2] = {};
                   }
-                  Item2.multi._keys[key][lang] = vals[key];
+                  Item2.multi._keys[key2][lang] = vals[key2];
                 }
               } else {
-                for (var key in vals) {
-                  Item2[key] = vals[key];
+                for (var key2 in vals) {
+                  Item2[key2] = vals[key2];
                 }
               }
             }
@@ -3804,10 +3804,10 @@
           tagName = "title";
         }
         var ret = "";
-        var children2 = myjson.children;
-        for (var i2 = 0, ilen = children2.length; i2 < ilen; i2++) {
-          if (children2[i2].name === "info") {
-            var grandkids = children2[i2].children;
+        var children = myjson.children;
+        for (var i2 = 0, ilen = children.length; i2 < ilen; i2++) {
+          if (children[i2].name === "info") {
+            var grandkids = children[i2].children;
             for (var j2 = 0, jlen = grandkids.length; j2 < jlen; j2++) {
               if (grandkids[j2].name === tagName) {
                 ret = grandkids[j2].children[0];
@@ -3927,14 +3927,14 @@
           var clone2 = {};
         }
         if ("object" === typeof clone2 && "undefined" === typeof clone2.length) {
-          for (var key in myjson) {
-            if ("string" === typeof myjson[key]) {
-              clone2[key] = myjson[key];
-            } else if ("object" === typeof myjson[key]) {
-              if ("undefined" === typeof myjson[key].length) {
-                clone2[key] = this.nodeCopy(myjson[key], {});
+          for (var key2 in myjson) {
+            if ("string" === typeof myjson[key2]) {
+              clone2[key2] = myjson[key2];
+            } else if ("object" === typeof myjson[key2]) {
+              if ("undefined" === typeof myjson[key2].length) {
+                clone2[key2] = this.nodeCopy(myjson[key2], {});
               } else {
-                clone2[key] = this.nodeCopy(myjson[key], []);
+                clone2[key2] = this.nodeCopy(myjson[key2], []);
               }
             }
           }
@@ -4071,8 +4071,8 @@
           var insertPos = -1;
           for (var i2 = 0, ilen = myjson.children.length; i2 < ilen; i2 += 1) {
             if (myjson.children[i2].name == "name") {
-              for (var key in myjson.children[i2].attrs) {
-                attributes[key] = myjson.children[i2].attrs[key];
+              for (var key2 in myjson.children[i2].attrs) {
+                attributes[key2] = myjson.children[i2].attrs[key2];
               }
               attributes.delimiter = myjson.children[i2].attrs.delimiter;
               attributes.and = myjson.children[i2].attrs.and;
@@ -4081,8 +4081,8 @@
                 if (myjson.children[i2].children[k].attrs.name !== "family") {
                   continue;
                 }
-                for (var key in myjson.children[i2].children[k].attrs) {
-                  attributes[key] = myjson.children[i2].children[k].attrs[key];
+                for (var key2 in myjson.children[i2].children[k].attrs) {
+                  attributes[key2] = myjson.children[i2].children[k].attrs[key2];
                 }
               }
             }
@@ -4387,13 +4387,13 @@
         return text2;
       };
       CSL2.XmlDOM.prototype.children = function(myxml) {
-        var children2, pos, len, ret;
+        var children, pos, len, ret;
         if (myxml) {
           ret = [];
-          children2 = myxml.childNodes;
-          for (pos = 0, len = children2.length; pos < len; pos += 1) {
-            if (children2[pos].nodeName != "#text") {
-              ret.push(children2[pos]);
+          children = myxml.childNodes;
+          for (pos = 0, len = children.length; pos < len; pos += 1) {
+            if (children[pos].nodeName != "#text") {
+              ret.push(children[pos]);
             }
           }
           return ret;
@@ -4406,7 +4406,7 @@
         return ret;
       };
       CSL2.XmlDOM.prototype.attributes = function(myxml) {
-        var ret, attrs, attr2, key, xml, pos, len;
+        var ret, attrs, attr2, key2, xml, pos, len;
         ret = new Object();
         if (myxml && this.hasAttributes(myxml)) {
           attrs = myxml.attributes;
@@ -4921,7 +4921,7 @@
         }
       };
       CSL2.XmlToToken = function(state2, tokentype, explicitTarget, var_stack) {
-        var name, txt, attrfuncs, attributes, decorations4, token, key, target;
+        var name, txt, attrfuncs, attributes, decorations4, token, key2, target;
         name = state2.cslXml.nodename(this);
         if (state2.build.skip && state2.build.skip !== name) {
           return;
@@ -4941,20 +4941,20 @@
         decorations4 = CSL2.setDecorations.call(this, state2, attributes);
         token = new CSL2.Token(name, tokentype);
         if (tokentype !== CSL2.END || name === "if" || name === "else-if" || name === "layout") {
-          for (var key in attributes) {
-            if (attributes.hasOwnProperty(key)) {
-              if (tokentype === CSL2.END && key !== "@language" && key !== "@locale") {
+          for (var key2 in attributes) {
+            if (attributes.hasOwnProperty(key2)) {
+              if (tokentype === CSL2.END && key2 !== "@language" && key2 !== "@locale") {
                 continue;
               }
-              if (attributes.hasOwnProperty(key)) {
-                if (CSL2.Attributes[key]) {
+              if (attributes.hasOwnProperty(key2)) {
+                if (CSL2.Attributes[key2]) {
                   try {
-                    CSL2.Attributes[key].call(token, state2, "" + attributes[key]);
+                    CSL2.Attributes[key2].call(token, state2, "" + attributes[key2]);
                   } catch (e) {
-                    CSL2.error(key + " attribute: " + e);
+                    CSL2.error(key2 + " attribute: " + e);
                   }
                 } else {
-                  CSL2.debug('warning: undefined attribute "' + key + '" in style');
+                  CSL2.debug('warning: undefined attribute "' + key2 + '" in style');
                 }
               }
             }
@@ -4985,9 +4985,9 @@
         ];
         var epochYearByName = {};
         for (var i2 = 0, ilen = epochPairs.length; i2 < ilen; i2++) {
-          var key = epochPairs[i2][0];
+          var key2 = epochPairs[i2][0];
           var val2 = epochPairs[i2][1];
-          epochYearByName[key] = val2;
+          epochYearByName[key2] = val2;
         }
         var epochMatchStrings = [];
         var epochMap = {};
@@ -5457,14 +5457,14 @@
         if (this.opt.development_extensions.csl_reverse_lookup_support) {
           this.build.cslNodeId = 0;
           this.setCslNodeIds = function(myxml, nodename) {
-            var children2 = this.cslXml.children(myxml);
+            var children = this.cslXml.children(myxml);
             this.cslXml.setAttribute(myxml, "cslid", this.build.cslNodeId);
             this.opt.nodenames.push(nodename);
             this.build.cslNodeId += 1;
-            for (var i3 = 0, ilen = this.cslXml.numberofnodes(children2); i3 < ilen; i3 += 1) {
-              nodename = this.cslXml.nodename(children2[i3]);
+            for (var i3 = 0, ilen = this.cslXml.numberofnodes(children); i3 < ilen; i3 += 1) {
+              nodename = this.cslXml.nodename(children[i3]);
               if (nodename) {
-                this.setCslNodeIds(children2[i3], nodename);
+                this.setCslNodeIds(children[i3], nodename);
               }
             }
           };
@@ -5813,10 +5813,10 @@
           if (Item2.multi) {
             if (Item2.multi._keys) {
               for (var field2 in Item2.multi._keys) {
-                for (var key in Item2.multi._keys[field2]) {
-                  if (key !== key.toLowerCase()) {
-                    Item2.multi._keys[field2][key.toLowerCase()] = Item2.multi._keys[field2][key];
-                    delete Item2.multi._keys[field2][key];
+                for (var key2 in Item2.multi._keys[field2]) {
+                  if (key2 !== key2.toLowerCase()) {
+                    Item2.multi._keys[field2][key2.toLowerCase()] = Item2.multi._keys[field2][key2];
+                    delete Item2.multi._keys[field2][key2];
                   }
                 }
               }
@@ -5834,10 +5834,10 @@
                 var creator = Item2[ctype][j2];
                 if (creator.multi) {
                   if (creator.multi._key) {
-                    for (var key in creator.multi._key) {
-                      if (key !== key.toLowerCase()) {
-                        creator.multi._key[key.toLowerCase()] = creator.multi._key[key];
-                        delete creator.multi._key[key];
+                    for (var key2 in creator.multi._key) {
+                      if (key2 !== key2.toLowerCase()) {
+                        creator.multi._key[key2.toLowerCase()] = creator.multi._key[key2];
+                        delete creator.multi._key[key2];
                       }
                     }
                   }
@@ -5879,16 +5879,16 @@
         if (this.opt.development_extensions.field_hack && Item2.note) {
           CSL2.parseNoteFieldHacks(Item2, false, this.opt.development_extensions.allow_field_hack_date_override);
         }
-        for (var key in Item2) {
-          if (CSL2.DATE_VARIABLES.indexOf(key.replace(/^alt-/, "")) > -1) {
-            var dateobj = Item2[key];
+        for (var key2 in Item2) {
+          if (CSL2.DATE_VARIABLES.indexOf(key2.replace(/^alt-/, "")) > -1) {
+            var dateobj = Item2[key2];
             if (dateobj) {
               if (this.opt.development_extensions.raw_date_parsing) {
                 if (dateobj.raw && (!dateobj["date-parts"] || dateobj["date-parts"].length === 0)) {
                   dateobj = this.fun.dateparser.parseDateToObject(dateobj.raw);
                 }
               }
-              Item2[key] = this.dateParseArray(dateobj);
+              Item2[key2] = this.dateParseArray(dateobj);
             }
           }
         }
@@ -5941,9 +5941,9 @@
             ];
             if (Item2.multi && Item2.multi._keys && Item2.multi._keys.authority) {
               Item2.authority[0].multi._key = {};
-              for (var key in Item2.multi._keys.authority) {
-                Item2.authority[0].multi._key[key] = {
-                  literal: Item2.multi._keys.authority[key]
+              for (var key2 in Item2.multi._keys.authority) {
+                Item2.authority[0].multi._key[key2] = {
+                  literal: Item2.multi._keys.authority[key2]
                 };
               }
             }
@@ -6001,8 +6001,8 @@
         }
         if (this.registry.refhash[id2]) {
           if (JSON.stringify(this.registry.refhash[id2]) != JSON.stringify(Item2)) {
-            for (var key in this.registry.refhash[id2]) {
-              delete this.registry.refhash[id2][key];
+            for (var key2 in this.registry.refhash[id2]) {
+              delete this.registry.refhash[id2][key2];
             }
             this.tmp.taintedItemIDs[Item2.id] = true;
             Object.assign(this.registry.refhash[id2], Item2);
@@ -6179,14 +6179,14 @@
         return decorations4;
       };
       CSL2.setDecorations = function(state2, attributes) {
-        var ret, key, pos;
+        var ret, key2, pos;
         ret = [];
         for (pos in CSL2.FORMAT_KEY_SEQUENCE) {
           if (true) {
-            var key = CSL2.FORMAT_KEY_SEQUENCE[pos];
-            if (attributes[key]) {
-              ret.push([key, attributes[key]]);
-              delete attributes[key];
+            var key2 = CSL2.FORMAT_KEY_SEQUENCE[pos];
+            if (attributes[key2]) {
+              ret.push([key2, attributes[key2]]);
+              delete attributes[key2];
             }
           }
         }
@@ -6426,8 +6426,8 @@
       CSL2.Engine.prototype.setLangPrefsForCites = function(obj, conv3) {
         var opt = this.opt["cite-lang-prefs"];
         if (!conv3) {
-          conv3 = function(key) {
-            return key.toLowerCase();
+          conv3 = function(key2) {
+            return key2.toLowerCase();
           };
         }
         var segments2 = ["Persons", "Institutions", "Titles", "Journals", "Publishers", "Places"];
@@ -6525,7 +6525,7 @@
         return ret;
       };
       CSL2.Output.Queue.prototype.mergeTokenStrings = function(base2, modifier) {
-        var base_token, modifier_token, ret, key;
+        var base_token, modifier_token, ret, key2;
         base_token = this.formats.value()[base2];
         modifier_token = this.formats.value()[modifier];
         ret = base_token;
@@ -6535,15 +6535,15 @@
             base_token.decorations = [];
           }
           ret = new CSL2.Token(base2, CSL2.SINGLETON);
-          var key = "";
-          for (var key in base_token.strings) {
-            if (base_token.strings.hasOwnProperty(key)) {
-              ret.strings[key] = base_token.strings[key];
+          var key2 = "";
+          for (var key2 in base_token.strings) {
+            if (base_token.strings.hasOwnProperty(key2)) {
+              ret.strings[key2] = base_token.strings[key2];
             }
           }
-          for (var key in modifier_token.strings) {
-            if (modifier_token.strings.hasOwnProperty(key)) {
-              ret.strings[key] = modifier_token.strings[key];
+          for (var key2 in modifier_token.strings) {
+            if (modifier_token.strings.hasOwnProperty(key2)) {
+              ret.strings[key2] = modifier_token.strings[key2];
             }
           }
           ret.decorations = base_token.decorations.concat(modifier_token.decorations);
@@ -7101,25 +7101,25 @@
         var SWAP_OUT = {};
         var PUNCT = {};
         var PUNCT_OR_SPACE = {};
-        for (var key in LtoR_MAP) {
-          PUNCT[key] = true;
-          PUNCT_OR_SPACE[key] = true;
-          if (!NO_SWAP_IN[key]) {
-            SWAP_IN[key] = true;
+        for (var key2 in LtoR_MAP) {
+          PUNCT[key2] = true;
+          PUNCT_OR_SPACE[key2] = true;
+          if (!NO_SWAP_IN[key2]) {
+            SWAP_IN[key2] = true;
           }
-          if (!NO_SWAP_OUT[key]) {
-            SWAP_OUT[key] = true;
+          if (!NO_SWAP_OUT[key2]) {
+            SWAP_OUT[key2] = true;
           }
         }
         PUNCT_OR_SPACE[" "] = true;
         PUNCT_OR_SPACE["\xA0"] = true;
         var RtoL_MAP = {};
-        for (var key in LtoR_MAP) {
-          for (var subkey in LtoR_MAP[key]) {
+        for (var key2 in LtoR_MAP) {
+          for (var subkey in LtoR_MAP[key2]) {
             if (!RtoL_MAP[subkey]) {
               RtoL_MAP[subkey] = {};
             }
-            RtoL_MAP[subkey][key] = LtoR_MAP[key][subkey];
+            RtoL_MAP[subkey][key2] = LtoR_MAP[key2][subkey];
           }
         }
         function blobIsNumber(blob) {
@@ -7837,7 +7837,7 @@
         return this.processCitationCluster(citation2, citationsPre, [])[1];
       };
       CSL2.Engine.prototype.processCitationCluster = function(citation2, citationsPre, citationsPost, flag) {
-        var c, preCitation, postCitation, i2, ilen, j2, jlen, k, klen, n, nlen, key, Item2, item, noteCitations, textCitations, m, citationsInNote;
+        var c, preCitation, postCitation, i2, ilen, j2, jlen, k, klen, n, nlen, key2, Item2, item, noteCitations, textCitations, m, citationsInNote;
         this.debug = false;
         this.tmp.loadedItemIDs = {};
         this.tmp.citation_errors = [];
@@ -7887,8 +7887,8 @@
         var rerunAkeys = {};
         for (var i2 = 0, ilen = citation2.citationItems.length; i2 < ilen; i2 += 1) {
           item = {};
-          for (var key in citation2.citationItems[i2]) {
-            item[key] = citation2.citationItems[i2][key];
+          for (var key2 in citation2.citationItems[i2]) {
+            item[key2] = citation2.citationItems[i2][key2];
           }
           Item2 = this.retrieveItem("" + item.id);
           if (Item2.id) {
@@ -8305,9 +8305,9 @@
             sortedItems.sort(this.citation.srt.compareCompositeKeys);
           }
         }
-        for (var key in this.tmp.taintedItemIDs) {
-          if (this.tmp.taintedItemIDs.hasOwnProperty(key)) {
-            citations = this.registry.citationreg.citationsByItemId[key];
+        for (var key2 in this.tmp.taintedItemIDs) {
+          if (this.tmp.taintedItemIDs.hasOwnProperty(key2)) {
+            citations = this.registry.citationreg.citationsByItemId[key2];
             if (citations) {
               for (var i2 = 0, ilen = citations.length; i2 < ilen; i2 += 1) {
                 this.tmp.taintedCitationIDs[citations[i2].citationID] = true;
@@ -8345,9 +8345,9 @@
           if (this.debug) {
             CSL2.debug("****** end final update *********");
           }
-          for (var key in oldAmbigs) {
-            if (oldAmbigs.hasOwnProperty(key)) {
-              this.registry.registry[key].disambig = oldAmbigs[key];
+          for (var key2 in oldAmbigs) {
+            if (oldAmbigs.hasOwnProperty(key2)) {
+              this.registry.registry[key2].disambig = oldAmbigs[key2];
             }
           }
           if (this.debug) {
@@ -8358,11 +8358,11 @@
             this.disambiguate.run(rerunAkey, citation2);
           }
           var obj;
-          for (var key in this.tmp.taintedCitationIDs) {
-            if (key == citation2.citationID) {
+          for (var key2 in this.tmp.taintedCitationIDs) {
+            if (key2 == citation2.citationID) {
               continue;
             }
-            var mycitation = this.registry.citationreg.citationById[key];
+            var mycitation = this.registry.citationreg.citationById[key2];
             if (!mycitation.properties.unsorted) {
               for (var i2 = 0, ilen = mycitation.sortedItems.length; i2 < ilen; i2 += 1) {
                 mycitation.sortedItems[i2][1].sortkeys = CSL2.getSortKeys.call(this, mycitation.sortedItems[i2][0], "citation_sort");
@@ -8435,8 +8435,8 @@
         len = rawList.length;
         for (pos = 0; pos < len; pos += 1) {
           item = {};
-          for (var key in rawList[pos]) {
-            item[key] = rawList[pos][key];
+          for (var key2 in rawList[pos]) {
+            item[key2] = rawList[pos][key2];
           }
           Item2 = this.retrieveItem("" + item.id);
           if (this.opt.development_extensions.locator_label_parse) {
@@ -9527,8 +9527,8 @@
           if ("undefined" == typeof idList.length) {
             idHash = idList;
             idList = [];
-            for (var key in idHash) {
-              idList.push(key);
+            for (var key2 in idHash) {
+              idList.push(key2);
             }
           } else if ("number" == typeof idList.length) {
             idHash = {};
@@ -9679,8 +9679,8 @@
         }
         var hasCslOrdinals101 = myxml.getNodesByName(locale, "term", "ordinal").length;
         if (hasCslOrdinals101) {
-          for (var key in this.locale[lang_out].ord.keys) {
-            delete this.locale[lang_out].terms[key];
+          for (var key2 in this.locale[lang_out].ord.keys) {
+            delete this.locale[lang_out].terms[key2];
           }
           this.locale[lang_out].ord = { "1.0.1": false, keys: {} };
         }
@@ -10040,9 +10040,9 @@
               }
               state3.output.startTag("date", this);
               if (this.variables[0] === "issued" && (Item2.type === "legal_case" || Item2.type === "legislation") && state3.opt.disable_duplicate_year_suppression.indexOf(Item2.country) === -1 && !state3.tmp.extension && "" + Item2["collection-number"] === "" + state3.tmp.date_object.year && this.dateparts.length === 1 && this.dateparts[0] === "year") {
-                for (var key in state3.tmp.date_object) {
-                  if (state3.tmp.date_object.hasOwnProperty(key)) {
-                    if (key.slice(0, 4) === "year") {
+                for (var key2 in state3.tmp.date_object) {
+                  if (state3.tmp.date_object.hasOwnProperty(key2)) {
+                    if (key2.slice(0, 4) === "year") {
                       state3.tmp.issued_date = {};
                       var lst = state3.output.current.mystack.slice(-2)[0].blobs;
                       state3.tmp.issued_date.list = lst;
@@ -11002,8 +11002,8 @@
                 if (!year_suffix) {
                   year_suffix = 0;
                 }
-                var key = CSL2.Util.padding("" + year_suffix);
-                state3[state3.tmp.area].keys.push(key);
+                var key2 = CSL2.Util.padding("" + year_suffix);
+                state3[state3.tmp.area].keys.push(key2);
               };
               end_key.execs.push(func);
             }
@@ -11301,39 +11301,39 @@
                     state3.opt.lang = gotlang;
                   }
                 }
-                for (var key in newItem) {
-                  if (["id", "type", "language", "multi"].indexOf(key) === -1 && key.slice(0, 4) !== "alt-") {
-                    if (newItem.multi && newItem.multi._keys[key]) {
+                for (var key2 in newItem) {
+                  if (["id", "type", "language", "multi"].indexOf(key2) === -1 && key2.slice(0, 4) !== "alt-") {
+                    if (newItem.multi && newItem.multi._keys[key2]) {
                       var deleteme = true;
-                      for (var lang in newItem.multi._keys[key]) {
+                      for (var lang in newItem.multi._keys[key2]) {
                         if (langspec.bare === lang.replace(/^([a-zA-Z]+).*/, "$1")) {
                           deleteme = false;
                           break;
                         }
                       }
                       if (deleteme) {
-                        delete newItem[key];
+                        delete newItem[key2];
                       }
                     } else {
-                      delete newItem[key];
+                      delete newItem[key2];
                     }
                   }
                 }
-                for (var key in newItem) {
-                  if (key.slice(0, 4) === "alt-") {
-                    newItem[key.slice(4)] = newItem[key];
+                for (var key2 in newItem) {
+                  if (key2.slice(0, 4) === "alt-") {
+                    newItem[key2.slice(4)] = newItem[key2];
                     state3.tmp.abort_alternative = false;
                   } else {
                     if (newItem.multi && newItem.multi._keys) {
-                      if (!newItem["alt-" + key] && newItem.multi._keys[key]) {
-                        if (newItem.multi._keys[key][langspec.best]) {
-                          newItem[key] = newItem.multi._keys[key][langspec.best];
+                      if (!newItem["alt-" + key2] && newItem.multi._keys[key2]) {
+                        if (newItem.multi._keys[key2][langspec.best]) {
+                          newItem[key2] = newItem.multi._keys[key2][langspec.best];
                           state3.tmp.abort_alternative = false;
-                        } else if (newItem.multi._keys[key][langspec.base]) {
-                          newItem[key] = newItem.multi._keys[key][langspec.base];
+                        } else if (newItem.multi._keys[key2][langspec.base]) {
+                          newItem[key2] = newItem.multi._keys[key2][langspec.base];
                           state3.tmp.abort_alternative = false;
-                        } else if (newItem.multi._keys[key][langspec.bare]) {
-                          newItem[key] = newItem.multi._keys[key][langspec.bare];
+                        } else if (newItem.multi._keys[key2][langspec.bare]) {
+                          newItem[key2] = newItem.multi._keys[key2][langspec.bare];
                           state3.tmp.abort_alternative = false;
                         }
                       }
@@ -12322,23 +12322,23 @@
           }
         }
       };
-      CSL2.NameOutput.prototype._imposeNameConstraints = function(lst, count, key, pos) {
-        var display_names = lst[key];
+      CSL2.NameOutput.prototype._imposeNameConstraints = function(lst, count, key2, pos) {
+        var display_names = lst[key2];
         var discretionary_names_length = this.state.tmp["et-al-min"];
         if (this.state.tmp.suppress_decorations) {
           if (this.state.tmp.disambig_request && this.state.tmp.disambig_request.names[pos]) {
             discretionary_names_length = this.state.tmp.disambig_request.names[pos];
-          } else if (count[key] >= this.etal_min) {
+          } else if (count[key2] >= this.etal_min) {
             discretionary_names_length = this.etal_use_first;
           }
         } else {
           if (this.state.tmp.disambig_request && this.state.tmp.disambig_request.names[pos] > this.etal_use_first) {
-            if (count[key] < this.etal_min) {
-              discretionary_names_length = count[key];
+            if (count[key2] < this.etal_min) {
+              discretionary_names_length = count[key2];
             } else {
               discretionary_names_length = this.state.tmp.disambig_request.names[pos];
             }
-          } else if (count[key] >= this.etal_min) {
+          } else if (count[key2] >= this.etal_min) {
             discretionary_names_length = this.etal_use_first;
           }
           if (this.etal_use_last && discretionary_names_length > this.etal_min - 2) {
@@ -12346,18 +12346,18 @@
           }
         }
         var sane = this.etal_min >= this.etal_use_first;
-        var overlength = count[key] > discretionary_names_length;
-        if (discretionary_names_length > count[key]) {
+        var overlength = count[key2] > discretionary_names_length;
+        if (discretionary_names_length > count[key2]) {
           discretionary_names_length = display_names.length;
         }
         if (sane && overlength) {
           if (this.etal_use_last) {
-            lst[key] = display_names.slice(0, discretionary_names_length).concat(display_names.slice(-1));
+            lst[key2] = display_names.slice(0, discretionary_names_length).concat(display_names.slice(-1));
           } else {
-            lst[key] = display_names.slice(0, discretionary_names_length);
+            lst[key2] = display_names.slice(0, discretionary_names_length);
           }
         }
-        this.state.tmp.disambig_settings.names[pos] = lst[key].length;
+        this.state.tmp.disambig_settings.names[pos] = lst[key2].length;
         this.state.disambiguate.padBase(this.state.tmp.disambig_settings);
       };
       CSL2.NameOutput.prototype.disambigNames = function() {
@@ -13812,10 +13812,10 @@
           }
           if (this.tokentype === CSL2.END) {
             for (var i2 = 0, ilen = 3; i2 < ilen; i2 += 1) {
-              var key = ["family", "given", "et-al"][i2];
-              this[key] = state2.build[key];
+              var key2 = ["family", "given", "et-al"][i2];
+              this[key2] = state2.build[key2];
               if (state2.build.names_level === 1) {
-                state2.build[key] = void 0;
+                state2.build[key2] = void 0;
               }
             }
             this.label = state2.build.name_label[state2.build.name_label.length - 1];
@@ -13852,8 +13852,8 @@
                 }
               }
               for (var i3 = 0, ilen2 = 3; i3 < ilen2; i3 += 1) {
-                var key2 = ["family", "given"][i3];
-                state3.nameOutput[key2] = this[key2];
+                var key3 = ["family", "given"][i3];
+                state3.nameOutput[key3] = this[key3];
               }
               state3.nameOutput["with"] = this["with"];
               var mywith = "with";
@@ -14686,11 +14686,11 @@
                   break;
                 }
                 if (Item2[variable]) {
-                  for (var key in Item2[variable]) {
-                    if (this.dateparts.indexOf(key) === -1 && "literal" !== key) {
+                  for (var key2 in Item2[variable]) {
+                    if (this.dateparts.indexOf(key2) === -1 && "literal" !== key2) {
                       continue;
                     }
-                    if (Item2[variable][key]) {
+                    if (Item2[variable][key2]) {
                       output = true;
                       break;
                     }
@@ -14773,8 +14773,8 @@
                 if ("number" === typeof myitem[variable] || "string" === typeof myitem[variable]) {
                   return true;
                 } else if ("object" === typeof myitem[variable]) {
-                  for (var key in myitem[variable]) {
-                    if (myitem[variable][key]) {
+                  for (var key2 in myitem[variable]) {
+                    if (myitem[variable][key2]) {
                       return true;
                     }
                   }
@@ -16473,14 +16473,14 @@
         this.tokentype = tokentype;
       };
       CSL2.Util.cloneToken = function(token) {
-        var newtok, key, pos, len;
+        var newtok, key2, pos, len;
         if ("string" === typeof token) {
           return token;
         }
         newtok = new CSL2.Token(token.name, token.tokentype);
-        for (var key in token.strings) {
-          if (token.strings.hasOwnProperty(key)) {
-            newtok.strings[key] = token.strings[key];
+        for (var key2 in token.strings) {
+          if (token.strings.hasOwnProperty(key2)) {
+            newtok.strings[key2] = token.strings[key2];
           }
         }
         if (token.decorations) {
@@ -16509,13 +16509,13 @@
         this.disambiguate = 0;
       };
       CSL2.Blob = function(str2, token, levelname) {
-        var len, pos, key;
+        var len, pos, key2;
         this.levelname = levelname;
         if (token) {
           this.strings = { "prefix": "", "suffix": "" };
-          for (var key in token.strings) {
-            if (token.strings.hasOwnProperty(key)) {
-              this.strings[key] = token.strings[key];
+          for (var key2 in token.strings) {
+            if (token.strings.hasOwnProperty(key2)) {
+              this.strings[key2] = token.strings[key2];
             }
           }
           this.decorations = [];
@@ -16637,7 +16637,7 @@
         return false;
       };
       CSL2.Util.fixDateNode = function(parent, pos, node) {
-        var form, variable, datexml, subnode, partname, attr2, val2, prefix, suffix, children2, subchildren, display, cslid;
+        var form, variable, datexml, subnode, partname, attr2, val2, prefix, suffix, children, subchildren, display, cslid;
         var lingo = this.cslXml.getAttributeValue(node, "lingo");
         var default_locale = this.cslXml.getAttributeValue(node, "default-locale");
         this.build.date_key = true;
@@ -16673,9 +16673,9 @@
         if (display) {
           this.cslXml.setAttribute(datexml, "display", display);
         }
-        children2 = this.cslXml.children(datexml);
-        for (var key in children2) {
-          subnode = children2[key];
+        children = this.cslXml.children(datexml);
+        for (var key2 in children) {
+          subnode = children[key2];
           if ("date-part" === this.cslXml.nodename(subnode)) {
             partname = this.cslXml.getAttributeValue(subnode, "name");
             if (default_locale) {
@@ -16683,9 +16683,9 @@
             }
           }
         }
-        children2 = this.cslXml.children(node);
-        for (var key in children2) {
-          subnode = children2[key];
+        children = this.cslXml.children(node);
+        for (var key2 in children) {
+          subnode = children[key2];
           if ("date-part" === this.cslXml.nodename(subnode)) {
             partname = this.cslXml.getAttributeValue(subnode, "name");
             subchildren = this.cslXml.attributes(subnode);
@@ -17612,13 +17612,13 @@
       CSL2.Util.Suffixator.prototype.format = function(N2) {
         var X2;
         N2 += 1;
-        var key = "";
+        var key2 = "";
         do {
           X2 = N2 % 26 === 0 ? 26 : N2 % 26;
-          var key = this.slist[X2 - 1] + key;
+          var key2 = this.slist[X2 - 1] + key2;
           N2 = (N2 - X2) / 26;
         } while (N2 !== 0);
-        return key;
+        return key2;
       };
       CSL2.Engine.prototype.processNumber = function(node, ItemObject, variable) {
         var val2;
@@ -18597,9 +18597,9 @@
           var openers = [];
           var keys3 = Object.keys(_nestingData);
           for (var i2 = 0, l = keys3.length; i2 < l; i2++) {
-            var key = keys3[i2];
+            var key2 = keys3[i2];
             if (_nestingData[opener].type !== "quote" || !_nestingData[opener]) {
-              openers.push(key);
+              openers.push(key2);
             }
           }
           var ret = _nestingData[opener];
@@ -18612,8 +18612,8 @@
           var ret = {};
           var keys3 = Object.keys(_nestingData);
           for (var i2 = 0, l = keys3.length; i2 < l; i2++) {
-            var key = keys3[i2];
-            ret[key] = _getNestingOpenerParams(key);
+            var key2 = keys3[i2];
+            ret[key2] = _getNestingOpenerParams(key2);
           }
           return ret;
         })();
@@ -19879,8 +19879,8 @@
             this.myhash[itemIDs[i2]] = true;
           }
         } else {
-          for (var key in this.uncited) {
-            itemIDs.push(key);
+          for (var key2 in this.uncited) {
+            itemIDs.push(key2);
           }
           var myhash = {};
           for (i2 = itemIDs.length - 1; i2 > -1; i2 += -1) {
@@ -19911,23 +19911,23 @@
         this.dodeletes(this.myhash);
       };
       CSL2.Registry.prototype.dodeletes = function(myhash) {
-        var otheritems, key, ambig, pos, len, items, kkey, mypos, id2;
+        var otheritems, key2, ambig, pos, len, items, kkey, mypos, id2;
         if ("string" === typeof myhash) {
-          var key = myhash;
+          var key2 = myhash;
           myhash = {};
-          myhash[key] = true;
+          myhash[key2] = true;
         }
-        for (var key in this.registry) {
-          if (!myhash[key]) {
-            if (this.uncited[key]) {
+        for (var key2 in this.registry) {
+          if (!myhash[key2]) {
+            if (this.uncited[key2]) {
               continue;
             }
-            otheritems = this.namereg.delitems(key);
+            otheritems = this.namereg.delitems(key2);
             for (kkey in otheritems) {
               this.refreshes[kkey] = true;
             }
-            ambig = this.registry[key].ambig;
-            mypos = this.ambigcites[ambig].indexOf(key);
+            ambig = this.registry[key2].ambig;
+            mypos = this.ambigcites[ambig].indexOf(key2);
             if (mypos > -1) {
               items = this.ambigcites[ambig].slice();
               this.ambigcites[ambig] = items.slice(0, mypos).concat(items.slice(mypos + 1, items.length));
@@ -19938,40 +19938,40 @@
               id2 = "" + this.ambigcites[ambig][pos];
               this.refreshes[id2] = true;
             }
-            if (this.registry[key].siblings) {
-              if (this.registry[key].siblings.length == 1) {
-                var loneSiblingID = this.registry[key].siblings[0];
+            if (this.registry[key2].siblings) {
+              if (this.registry[key2].siblings.length == 1) {
+                var loneSiblingID = this.registry[key2].siblings[0];
                 if (this.registry[loneSiblingID].siblings) {
                   this.registry[loneSiblingID].siblings.pop();
                   this.registry[loneSiblingID].master = true;
                 }
-              } else if (this.registry[key].siblings.length > 1) {
-                var removeIDs = [key];
-                if (this.registry[key].master) {
-                  var newmasterID = this.registry[key].siblings[0];
+              } else if (this.registry[key2].siblings.length > 1) {
+                var removeIDs = [key2];
+                if (this.registry[key2].master) {
+                  var newmasterID = this.registry[key2].siblings[0];
                   var newmaster = this.registry[newmasterID];
                   newmaster.master = true;
                   removeIDs.push(newmasterID);
                 }
                 var buffer = [];
-                for (var k = this.registry[key].siblings.length - 1; k > -1; k += -1) {
-                  var siblingID = this.registry[key].siblings.pop();
+                for (var k = this.registry[key2].siblings.length - 1; k > -1; k += -1) {
+                  var siblingID = this.registry[key2].siblings.pop();
                   if (removeIDs.indexOf(siblingID) === -1) {
                     buffer.push(siblingID);
                   }
                 }
                 for (var k = buffer.length - 1; k > -1; k += -1) {
-                  this.registry[key].siblings.push(buffer[k]);
+                  this.registry[key2].siblings.push(buffer[k]);
                 }
               }
             }
             for (var i2 = this.reflist.length - 1; i2 > -1; i2--) {
-              if (this.reflist[i2].id === key) {
+              if (this.reflist[i2].id === key2) {
                 this.reflist = this.reflist.slice(0, i2).concat(this.reflist.slice(i2 + 1));
               }
             }
-            delete this.registry[key];
-            delete this.refhash[key];
+            delete this.registry[key2];
+            delete this.refhash[key2];
             this.return_data.bibchange = true;
           }
         }
@@ -20039,20 +20039,20 @@
         }
       };
       CSL2.Registry.prototype.dorefreshes = function() {
-        var key, regtoken, Item2, akey, abase;
-        for (var key in this.refreshes) {
-          regtoken = this.registry[key];
+        var key2, regtoken, Item2, akey, abase;
+        for (var key2 in this.refreshes) {
+          regtoken = this.registry[key2];
           if (!regtoken) {
             continue;
           }
           regtoken.sortkeys = void 0;
-          Item2 = this.state.refetchItem(key);
+          Item2 = this.state.refetchItem(key2);
           var akey = regtoken.ambig;
           if ("undefined" === typeof akey) {
             this.state.tmp.disambig_settings = false;
             akey = CSL2.getAmbiguousCite.call(this.state, Item2);
             abase = CSL2.getAmbigConfig.call(this.state);
-            this.registerAmbigToken(akey, key, abase);
+            this.registerAmbigToken(akey, key2, abase);
           }
           for (var akkey in this.ambigresets) {
             if (this.ambigresets[akkey] === 1) {
@@ -20065,12 +20065,12 @@
               this.registerAmbigToken(akey, loneKey, abase);
             }
           }
-          this.state.tmp.taintedItemIDs[key] = true;
+          this.state.tmp.taintedItemIDs[key2] = true;
           this.ambigsTouched[akey] = true;
           if (!Item2.legislation_id) {
             this.akeys[akey] = true;
           }
-          this.touched[key] = true;
+          this.touched[key2] = true;
         }
       };
       CSL2.Registry.prototype.setdisambigs = function() {
@@ -20101,11 +20101,11 @@
         }
       };
       CSL2.Registry.prototype.setsortkeys = function() {
-        var key;
+        var key2;
         for (var i2 = 0, ilen = this.mylist.length; i2 < ilen; i2 += 1) {
-          var key = this.mylist[i2];
-          if (this.touched[key] || this.state.tmp.taintedItemIDs[key] || !this.registry[key].sortkeys) {
-            this.registry[key].sortkeys = CSL2.getSortKeys.call(this.state, this.state.retrieveItem(key), "bibliography_sort");
+          var key2 = this.mylist[i2];
+          if (this.touched[key2] || this.state.tmp.taintedItemIDs[key2] || !this.registry[key2].sortkeys) {
+            this.registry[key2].sortkeys = CSL2.getSortKeys.call(this.state, this.state.retrieveItem(key2), "bibliography_sort");
           }
         }
       };
@@ -20145,10 +20145,10 @@
               this.reflist_inserts.push(Item2);
             }
           }
-          for (var key in this.state.tmp.taintedItemIDs) {
-            if (this.registry[key] && !this.registry[key].newItem) {
+          for (var key2 in this.state.tmp.taintedItemIDs) {
+            if (this.registry[key2] && !this.registry[key2].newItem) {
               for (var i2 = this.reflist.length - 1; i2 > -1; i2--) {
-                if (this.reflist[i2].id === key) {
+                if (this.reflist[i2].id === key2) {
                   this.reflist_inserts.push(this.reflist[i2]);
                   this.reflist = this.reflist.slice(0, i2).concat(this.reflist.slice(i2 + 1));
                 }
@@ -20372,10 +20372,10 @@
             }
             for (fullkey in this.nameind[id2]) {
               if (this.nameind[id2].hasOwnProperty(fullkey)) {
-                var key = fullkey.split("::");
-                pkey = key[0];
-                ikey = key[1];
-                skey = key[2];
+                var key2 = fullkey.split("::");
+                pkey = key2[0];
+                ikey = key2[1];
+                skey = key2[2];
                 if ("undefined" === typeof this.namereg[pkey]) {
                   continue;
                 }
@@ -21530,27 +21530,27 @@
   }
   OrderedMap.prototype = {
     constructor: OrderedMap,
-    find: function(key) {
+    find: function(key2) {
       for (var i2 = 0; i2 < this.content.length; i2 += 2)
-        if (this.content[i2] === key) return i2;
+        if (this.content[i2] === key2) return i2;
       return -1;
     },
     // :: (string) → ?any
     // Retrieve the value stored under `key`, or return undefined when
     // no such key exists.
-    get: function(key) {
-      var found2 = this.find(key);
+    get: function(key2) {
+      var found2 = this.find(key2);
       return found2 == -1 ? void 0 : this.content[found2 + 1];
     },
     // :: (string, any, ?string) → OrderedMap
     // Create a new map by replacing the value of `key` with a new
     // value, or adding a binding to the end of the map. If `newKey` is
     // given, the key of the binding will be replaced with that key.
-    update: function(key, value, newKey) {
-      var self2 = newKey && newKey != key ? this.remove(newKey) : this;
-      var found2 = self2.find(key), content = self2.content.slice();
+    update: function(key2, value, newKey) {
+      var self2 = newKey && newKey != key2 ? this.remove(newKey) : this;
+      var found2 = self2.find(key2), content = self2.content.slice();
       if (found2 == -1) {
-        content.push(newKey || key, value);
+        content.push(newKey || key2, value);
       } else {
         content[found2 + 1] = value;
         if (newKey) content[found2] = newKey;
@@ -21559,8 +21559,8 @@
     },
     // :: (string) → OrderedMap
     // Return a map with the given key removed, if it existed.
-    remove: function(key) {
-      var found2 = this.find(key);
+    remove: function(key2) {
+      var found2 = this.find(key2);
       if (found2 == -1) return this;
       var content = this.content.slice();
       content.splice(found2, 2);
@@ -21568,23 +21568,23 @@
     },
     // :: (string, any) → OrderedMap
     // Add a new key to the start of the map.
-    addToStart: function(key, value) {
-      return new OrderedMap([key, value].concat(this.remove(key).content));
+    addToStart: function(key2, value) {
+      return new OrderedMap([key2, value].concat(this.remove(key2).content));
     },
     // :: (string, any) → OrderedMap
     // Add a new key to the end of the map.
-    addToEnd: function(key, value) {
-      var content = this.remove(key).content.slice();
-      content.push(key, value);
+    addToEnd: function(key2, value) {
+      var content = this.remove(key2).content.slice();
+      content.push(key2, value);
       return new OrderedMap(content);
     },
     // :: (string, string, any) → OrderedMap
     // Add a key after the given key. If `place` is not found, the new
     // key is added to the end.
-    addBefore: function(place, key, value) {
-      var without = this.remove(key), content = without.content.slice();
+    addBefore: function(place, key2, value) {
+      var without = this.remove(key2), content = without.content.slice();
       var found2 = without.find(place);
-      content.splice(found2 == -1 ? content.length : found2, 0, key, value);
+      content.splice(found2 == -1 ? content.length : found2, 0, key2, value);
       return new OrderedMap(content);
     },
     // :: ((key: string, value: any))
@@ -21624,8 +21624,8 @@
     // Turn ordered map into a plain object.
     toObject: function() {
       var result = {};
-      this.forEach(function(key, value) {
-        result[key] = value;
+      this.forEach(function(key2, value) {
+        result[key2] = value;
       });
       return result;
     },
@@ -27365,15 +27365,15 @@
     Store a metadata property in this transaction, keyed either by
     name or by plugin.
     */
-    setMeta(key, value) {
-      this.meta[typeof key == "string" ? key : key.key] = value;
+    setMeta(key2, value) {
+      this.meta[typeof key2 == "string" ? key2 : key2.key] = value;
       return this;
     }
     /**
     Retrieve a metadata property for a given name or plugin.
     */
-    getMeta(key) {
-      return this.meta[typeof key == "string" ? key : key.key];
+    getMeta(key2) {
+      return this.meta[typeof key2 == "string" ? key2 : key2.key];
     }
     /**
     Returns true if this transaction doesn't contain any metadata,
@@ -27824,11 +27824,11 @@
     if (range.focusNode != range.anchorNode || range.focusOffset != range.anchorOffset)
       sel.extend(range.focusNode, range.focusOffset);
   }
-  function keyEvent(keyCode, key) {
+  function keyEvent(keyCode, key2) {
     let event = document.createEvent("Event");
     event.initEvent("keydown", true, true);
     event.keyCode = keyCode;
-    event.key = event.code = key;
+    event.key = event.code = key2;
     return event;
   }
   function deepActiveElement(doc3) {
@@ -28370,9 +28370,9 @@
     return cachedResult = dir == "up" || dir == "down" ? endOfTextblockVertical(view, state2, dir) : endOfTextblockHorizontal(view, state2, dir);
   }
   var ViewDesc = class {
-    constructor(parent, children2, dom, contentDOM) {
+    constructor(parent, children, dom, contentDOM) {
       this.parent = parent;
-      this.children = children2;
+      this.children = children;
       this.dom = dom;
       this.contentDOM = contentDOM;
       this.damage = 0;
@@ -31642,9 +31642,9 @@
     /**
     @internal
     */
-    constructor(local, children2) {
+    constructor(local, children) {
       this.local = local.length ? local : none;
-      this.children = children2.length ? children2 : none;
+      this.children = children.length ? children : none;
     }
     /**
     Create a set of decorations, using the structure of the given
@@ -31727,19 +31727,19 @@
       return this.addInner(doc3, decorations4, 0);
     }
     addInner(doc3, decorations4, offset2) {
-      let children2, childIndex = 0;
+      let children, childIndex = 0;
       doc3.forEach((childNode, childOffset) => {
         let baseOffset = childOffset + offset2, found2;
         if (!(found2 = takeSpansForNode(decorations4, childNode, baseOffset)))
           return;
-        if (!children2)
-          children2 = this.children.slice();
-        while (childIndex < children2.length && children2[childIndex] < childOffset)
+        if (!children)
+          children = this.children.slice();
+        while (childIndex < children.length && children[childIndex] < childOffset)
           childIndex += 3;
-        if (children2[childIndex] == childOffset)
-          children2[childIndex + 2] = children2[childIndex + 2].addInner(childNode, found2, baseOffset + 1);
+        if (children[childIndex] == childOffset)
+          children[childIndex + 2] = children[childIndex + 2].addInner(childNode, found2, baseOffset + 1);
         else
-          children2.splice(childIndex, 0, childOffset, childOffset + childNode.nodeSize, buildTree(found2, childNode, baseOffset + 1, noSpec));
+          children.splice(childIndex, 0, childOffset, childOffset + childNode.nodeSize, buildTree(found2, childNode, baseOffset + 1, noSpec));
         childIndex += 3;
       });
       let local = moveSpans(childIndex ? withoutNulls(decorations4) : decorations4, -offset2).sort(byPos);
@@ -31749,7 +31749,7 @@
           if (!local[i2].type.valid(doc3, local[i2], cur))
             local.splice(i2--, 1);
       }
-      return new _DecorationSet(local.length ? this.local.concat(local).sort(byPos) : this.local, children2 || this.children);
+      return new _DecorationSet(local.length ? this.local.concat(local).sort(byPos) : this.local, children || this.children);
     }
     /**
     Create a new set that contains the decorations in this set, minus
@@ -31761,10 +31761,10 @@
       return this.removeInner(decorations4, 0);
     }
     removeInner(decorations4, offset2) {
-      let children2 = this.children, local = this.local;
-      for (let i2 = 0; i2 < children2.length; i2 += 3) {
+      let children = this.children, local = this.local;
+      for (let i2 = 0; i2 < children.length; i2 += 3) {
         let found2;
-        let from2 = children2[i2] + offset2, to2 = children2[i2 + 1] + offset2;
+        let from2 = children[i2] + offset2, to2 = children[i2 + 1] + offset2;
         for (let j2 = 0, span; j2 < decorations4.length; j2++)
           if (span = decorations4[j2]) {
             if (span.from > from2 && span.to < to2) {
@@ -31774,13 +31774,13 @@
           }
         if (!found2)
           continue;
-        if (children2 == this.children)
-          children2 = this.children.slice();
-        let removed = children2[i2 + 2].removeInner(found2, from2 + 1);
+        if (children == this.children)
+          children = this.children.slice();
+        let removed = children[i2 + 2].removeInner(found2, from2 + 1);
         if (removed != empty) {
-          children2[i2 + 2] = removed;
+          children[i2 + 2] = removed;
         } else {
-          children2.splice(i2, 3);
+          children.splice(i2, 3);
           i2 -= 3;
         }
       }
@@ -31795,9 +31795,9 @@
               }
           }
       }
-      if (children2 == this.children && local == this.local)
+      if (children == this.children && local == this.local)
         return this;
-      return local.length || children2.length ? new _DecorationSet(local, children2) : empty;
+      return local.length || children.length ? new _DecorationSet(local, children) : empty;
     }
     forChild(offset2, node) {
       if (this == empty)
@@ -31944,21 +31944,21 @@
     }
   };
   function mapChildren(oldChildren, newLocal, mapping, node, offset2, oldOffset, options) {
-    let children2 = oldChildren.slice();
+    let children = oldChildren.slice();
     for (let i2 = 0, baseOffset = oldOffset; i2 < mapping.maps.length; i2++) {
       let moved = 0;
       mapping.maps[i2].forEach((oldStart, oldEnd, newStart, newEnd) => {
         let dSize = newEnd - newStart - (oldEnd - oldStart);
-        for (let i3 = 0; i3 < children2.length; i3 += 3) {
-          let end = children2[i3 + 1];
+        for (let i3 = 0; i3 < children.length; i3 += 3) {
+          let end = children[i3 + 1];
           if (end < 0 || oldStart > end + baseOffset - moved)
             continue;
-          let start = children2[i3] + baseOffset - moved;
+          let start = children[i3] + baseOffset - moved;
           if (oldEnd >= start) {
-            children2[i3 + 1] = oldStart <= start ? -2 : -1;
+            children[i3 + 1] = oldStart <= start ? -2 : -1;
           } else if (oldStart >= baseOffset && dSize) {
-            children2[i3] += dSize;
-            children2[i3 + 1] += dSize;
+            children[i3] += dSize;
+            children[i3 + 1] += dSize;
           }
         }
         moved += dSize;
@@ -31966,11 +31966,11 @@
       baseOffset = mapping.maps[i2].map(baseOffset, -1);
     }
     let mustRebuild = false;
-    for (let i2 = 0; i2 < children2.length; i2 += 3)
-      if (children2[i2 + 1] < 0) {
-        if (children2[i2 + 1] == -2) {
+    for (let i2 = 0; i2 < children.length; i2 += 3)
+      if (children[i2 + 1] < 0) {
+        if (children[i2 + 1] == -2) {
           mustRebuild = true;
-          children2[i2 + 1] = -1;
+          children[i2 + 1] = -1;
           continue;
         }
         let from2 = mapping.map(oldChildren[i2] + oldOffset), fromLocal = from2 - offset2;
@@ -31982,13 +31982,13 @@
         let { index, offset: childOffset } = node.content.findIndex(fromLocal);
         let childNode = node.maybeChild(index);
         if (childNode && childOffset == fromLocal && childOffset + childNode.nodeSize == toLocal) {
-          let mapped = children2[i2 + 2].mapInner(mapping, childNode, from2 + 1, oldChildren[i2] + oldOffset + 1, options);
+          let mapped = children[i2 + 2].mapInner(mapping, childNode, from2 + 1, oldChildren[i2] + oldOffset + 1, options);
           if (mapped != empty) {
-            children2[i2] = fromLocal;
-            children2[i2 + 1] = toLocal;
-            children2[i2 + 2] = mapped;
+            children[i2] = fromLocal;
+            children[i2 + 1] = toLocal;
+            children[i2 + 2] = mapped;
           } else {
-            children2[i2 + 1] = -2;
+            children[i2 + 1] = -2;
             mustRebuild = true;
           }
         } else {
@@ -31996,22 +31996,22 @@
         }
       }
     if (mustRebuild) {
-      let decorations4 = mapAndGatherRemainingDecorations(children2, oldChildren, newLocal, mapping, offset2, oldOffset, options);
+      let decorations4 = mapAndGatherRemainingDecorations(children, oldChildren, newLocal, mapping, offset2, oldOffset, options);
       let built = buildTree(decorations4, node, 0, options);
       newLocal = built.local;
-      for (let i2 = 0; i2 < children2.length; i2 += 3)
-        if (children2[i2 + 1] < 0) {
-          children2.splice(i2, 3);
+      for (let i2 = 0; i2 < children.length; i2 += 3)
+        if (children[i2 + 1] < 0) {
+          children.splice(i2, 3);
           i2 -= 3;
         }
       for (let i2 = 0, j2 = 0; i2 < built.children.length; i2 += 3) {
         let from2 = built.children[i2];
-        while (j2 < children2.length && children2[j2] < from2)
+        while (j2 < children.length && children[j2] < from2)
           j2 += 3;
-        children2.splice(j2, 0, built.children[i2], built.children[i2 + 1], built.children[i2 + 2]);
+        children.splice(j2, 0, built.children[i2], built.children[i2 + 1], built.children[i2 + 2]);
       }
     }
-    return new DecorationSet(newLocal.sort(byPos), children2);
+    return new DecorationSet(newLocal.sort(byPos), children);
   }
   function moveSpans(spans, offset2) {
     if (!offset2 || !spans.length)
@@ -32023,7 +32023,7 @@
     }
     return result;
   }
-  function mapAndGatherRemainingDecorations(children2, oldChildren, decorations4, mapping, offset2, oldOffset, options) {
+  function mapAndGatherRemainingDecorations(children, oldChildren, decorations4, mapping, offset2, oldOffset, options) {
     function gather(set, oldOffset2) {
       for (let i2 = 0; i2 < set.local.length; i2++) {
         let mapped = set.local[i2].map(mapping, offset2, oldOffset2);
@@ -32035,9 +32035,9 @@
       for (let i2 = 0; i2 < set.children.length; i2 += 3)
         gather(set.children[i2 + 2], set.children[i2] + oldOffset2 + 1);
     }
-    for (let i2 = 0; i2 < children2.length; i2 += 3)
-      if (children2[i2 + 1] == -1)
-        gather(children2[i2 + 2], oldChildren[i2] + oldOffset + 1);
+    for (let i2 = 0; i2 < children.length; i2 += 3)
+      if (children[i2 + 1] == -1)
+        gather(children[i2 + 2], oldChildren[i2] + oldOffset + 1);
     return decorations4;
   }
   function takeSpansForNode(spans, node, offset2) {
@@ -32060,14 +32060,14 @@
     return result;
   }
   function buildTree(spans, node, offset2, options) {
-    let children2 = [], hasNulls = false;
+    let children = [], hasNulls = false;
     node.forEach((childNode, localStart) => {
       let found2 = takeSpansForNode(spans, childNode, localStart + offset2);
       if (found2) {
         hasNulls = true;
         let subtree = buildTree(found2, childNode, offset2 + localStart + 1, options);
         if (subtree != empty)
-          children2.push(localStart, localStart + childNode.nodeSize, subtree);
+          children.push(localStart, localStart + childNode.nodeSize, subtree);
       }
     });
     let locals = moveSpans(hasNulls ? withoutNulls(spans) : spans, -offset2).sort(byPos);
@@ -32080,7 +32080,7 @@
           locals.splice(i2--, 1);
         }
     }
-    return locals.length || children2.length ? new DecorationSet(locals, children2) : empty;
+    return locals.length || children.length ? new DecorationSet(locals, children) : empty;
   }
   function byPos(a, b) {
     return a.from - b.from || a.to - b.to;
@@ -34411,8 +34411,8 @@
     "Ctrl-a": selectTextblockStart,
     "Ctrl-e": selectTextblockEnd
   };
-  for (let key in pcBaseKeymap)
-    macBaseKeymap[key] = pcBaseKeymap[key];
+  for (let key2 in pcBaseKeymap)
+    macBaseKeymap[key2] = pcBaseKeymap[key2];
   var mac4 = typeof navigator != "undefined" ? /Mac|iP(hone|[oa]d)/.test(navigator.platform) : typeof os != "undefined" && os.platform ? os.platform() == "darwin" : false;
   var baseKeymap = mac4 ? macBaseKeymap : pcBaseKeymap;
 
@@ -35343,21 +35343,21 @@
   var addToCache;
   if (typeof WeakMap != "undefined") {
     let cache2 = /* @__PURE__ */ new WeakMap();
-    readFromCache = (key) => cache2.get(key);
-    addToCache = (key, value) => {
-      cache2.set(key, value);
+    readFromCache = (key2) => cache2.get(key2);
+    addToCache = (key2, value) => {
+      cache2.set(key2, value);
       return value;
     };
   } else {
     const cache2 = [];
     const cacheSize = 10;
     let cachePos = 0;
-    readFromCache = (key) => {
-      for (let i2 = 0; i2 < cache2.length; i2 += 2) if (cache2[i2] == key) return cache2[i2 + 1];
+    readFromCache = (key2) => {
+      for (let i2 = 0; i2 < cache2.length; i2 += 2) if (cache2[i2] == key2) return cache2[i2 + 1];
     };
-    addToCache = (key, value) => {
+    addToCache = (key2, value) => {
       if (cachePos == cacheSize) cachePos = 0;
-      cache2[cachePos++] = key;
+      cache2[cachePos++] = key2;
       return cache2[cachePos++] = value;
     };
   }
@@ -36906,8 +36906,8 @@
     if (height > map2.height) {
       const cells = [];
       for (let i2 = 0, start$1 = (map2.height - 1) * map2.width; i2 < Math.max(map2.width, width); i2++) {
-        const header2 = i2 >= map2.width ? false : table.nodeAt(map2.map[start$1 + i2]).type == types.header_cell;
-        cells.push(header2 ? emptyHead || (emptyHead = types.header_cell.createAndFill()) : empty2 || (empty2 = types.cell.createAndFill()));
+        const header3 = i2 >= map2.width ? false : table.nodeAt(map2.map[start$1 + i2]).type == types.header_cell;
+        cells.push(header3 ? emptyHead || (emptyHead = types.header_cell.createAndFill()) : empty2 || (empty2 = types.cell.createAndFill()));
       }
       const emptyRow = types.row.create(null, Fragment.from(cells)), rows = [];
       for (let i2 = map2.height; i2 < height; i2++) rows.push(emptyRow);
@@ -37456,10 +37456,10 @@
   var nodes = {
     // attrs.style: document style (fonts, sizes, heading formatting) — see style.js
     // attrs.comments: comment threads { [id]: thread } — see comments.js; anchors are `comment` marks and equation.comments
-    // part: 'main', or 'si' for the Supporting Information exported on its own (parts.js); the editor's document holds
+    // part: 'main', or 'si' for the Supplementary Information exported on its own (parts.js); the editor's document holds
     // both, the SI as the optional last node 'supplement'
-    doc: { content: "title authors abstract? block+ supplement?", attrs: { style: { default: null }, comments: { default: {} }, references: { default: {} }, part: { default: "main" }, tracking: { default: false } } },
-    // tracking: track changes is on (track.js)   // references: key -> CSL item (references.js)
+    doc: { content: "title authors abstract? block+ supplement?", attrs: { style: { default: null }, comments: { default: {} }, references: { default: {} }, part: { default: "main" }, tracking: { default: false }, partLabel: { default: "" }, partAuthors: { default: null } } },
+    // partLabel / partAuthors: the header of a supplementary document (parts.js)   // tracking: track changes is on (track.js)   // references: key -> CSL item (references.js)
     title: {
       content: "inline*",
       marks: "italic sub sup ins del",
@@ -37490,14 +37490,16 @@
       parseDOM: [{ tag: "section.abstract" }],
       toDOM: () => ["section", { class: "abstract" }, 0]
     },
-    /* Supporting Information: the second part of the paper (its own tab in the editor, its own PDF / Word file).
+    /* Supplementary Information: the second part of the paper (its own tab in the editor, its own PDF / Word file).
        Figures, tables, equations and sections in it are numbered S1, S2, … (numbering.js). */
     supplement: {
       content: "block+",
       defining: true,
       isolating: true,
-      attrs: { title: { default: "Supporting Information" } },
-      parseDOM: [{ tag: "section.supplement", getAttrs: (d) => ({ title: d.getAttribute("data-title") || "Supporting Information" }) }],
+      // title: the name of the part. lock: its header is the paper's own title and authors (the standard); not locked:
+      // freeTitle / freeAuthors are typed for it (an empty one is left out)
+      attrs: { title: { default: "Supplementary Information" }, lock: { default: true }, freeTitle: { default: "" }, freeAuthors: { default: "" } },
+      parseDOM: [{ tag: "section.supplement", getAttrs: (d) => ({ title: d.getAttribute("data-title") || "Supplementary Information" }) }],
       toDOM: (n) => ["section", { class: "supplement", "data-title": n.attrs.title }, 0]
     },
     /* The reference list (formatted by citeproc); placed where the author wants it. */
@@ -55495,9 +55497,9 @@ data-command='["setEnvironment","pmatrix"]'>
     ["tilde.op", "~"]
   ]);
   var reverseShorthandMap = /* @__PURE__ */ new Map();
-  for (const [key, value] of shorthandMap.entries()) {
+  for (const [key2, value] of shorthandMap.entries()) {
     if (value.length > 1) {
-      reverseShorthandMap.set(value, key);
+      reverseShorthandMap.set(value, key2);
     }
   }
   var TypstToken = class _TypstToken {
@@ -55828,8 +55830,8 @@ data-command='["setEnvironment","pmatrix"]'>
         }
       }
       if (this.options) {
-        for (const [key, value] of Object.entries(this.options)) {
-          queue.push(new TypstToken(3, `, ${key}: ${value.toString()}`));
+        for (const [key2, value] of Object.entries(this.options)) {
+          queue.push(new TypstToken(3, `, ${key2}: ${value.toString()}`));
         }
       }
       queue.push(TYPST_RIGHT_PARENTHESIS);
@@ -55962,8 +55964,8 @@ data-command='["setEnvironment","pmatrix"]'>
         env.insideFunctionDepth++;
         queue.push(TYPST_LEFT_PARENTHESIS);
         if (this.options) {
-          for (const [key, value] of Object.entries(this.options)) {
-            queue.push(new TypstToken(3, `${key}: ${value.toString()}, `));
+          for (const [key2, value] of Object.entries(this.options)) {
+            queue.push(new TypstToken(3, `${key2}: ${value.toString()}, `));
           }
         }
       }
@@ -56032,8 +56034,8 @@ data-command='["setEnvironment","pmatrix"]'>
       if (this.options) {
         const entries = Object.entries(this.options);
         for (let i2 = 0; i2 < entries.length; i2++) {
-          const [key, value] = entries[i2];
-          queue.push(new TypstToken(3, `${key}: ${value.toString()}`));
+          const [key2, value] = entries[i2];
+          queue.push(new TypstToken(3, `${key2}: ${value.toString()}`));
           if (i2 < entries.length - 1) {
             queue.push(new TypstToken(2, ","));
           }
@@ -57232,14 +57234,14 @@ data-command='["setEnvironment","pmatrix"]'>
     ["iff", "Longleftrightarrow"],
     ["implies", "Longrightarrow"]
   ]);
-  for (const [key, value] of map_from_official_docs) {
-    if (!symbolMap.has(key)) {
-      symbolMap.set(key, value);
+  for (const [key2, value] of map_from_official_docs) {
+    if (!symbolMap.has(key2)) {
+      symbolMap.set(key2, value);
     }
   }
   var reverseSymbolMap = /* @__PURE__ */ new Map();
-  for (const [key, value] of Array.from(symbolMap.entries()).reverse()) {
-    reverseSymbolMap.set(value, key);
+  for (const [key2, value] of Array.from(symbolMap.entries()).reverse()) {
+    reverseSymbolMap.set(value, key2);
   }
   var typst_to_tex_map = /* @__PURE__ */ new Map([
     ["top", "top"],
@@ -57251,12 +57253,12 @@ data-command='["setEnvironment","pmatrix"]'>
     ["infinity", "infty"],
     ["diff", "partial"]
   ]);
-  for (const [key, value] of typst_to_tex_map) {
-    reverseSymbolMap.set(key, value);
+  for (const [key2, value] of typst_to_tex_map) {
+    reverseSymbolMap.set(key2, value);
   }
-  for (const [key, value] of texAliasMap) {
-    if (!symbolMap.has(key)) {
-      symbolMap.set(key, symbolMap.get(value));
+  for (const [key2, value] of texAliasMap) {
+    if (!symbolMap.has(key2)) {
+      symbolMap.set(key2, symbolMap.get(value));
     }
   }
   var ConverterError = class extends Error {
@@ -57912,9 +57914,9 @@ data-command='["setEnvironment","pmatrix"]'>
     if (typeof options !== "object") {
       throw new Error("options must be an object");
     }
-    for (const key in opt) {
-      if (key in options) {
-        opt[key] = options[key];
+    for (const key2 in opt) {
+      if (key2 in options) {
+        opt[key2] = options[key2];
       }
     }
     const texTree = parseTex(tex, opt.customTexMacros);
@@ -57963,11 +57965,11 @@ data-command='["setEnvironment","pmatrix"]'>
     }
   };
   ParseError.prototype.__proto__ = Error.prototype;
-  var deflt = function(options, key, defaultIfUndefined) {
-    if (!Object.prototype.hasOwnProperty.call(options, key)) {
+  var deflt = function(options, key2, defaultIfUndefined) {
+    if (!Object.prototype.hasOwnProperty.call(options, key2)) {
       return defaultIfUndefined;
     }
-    const setting = options[key];
+    const setting = options[key2];
     return setting === void 0 ? defaultIfUndefined : setting;
   };
   var uppercase = /([A-Z])/g;
@@ -58036,9 +58038,9 @@ data-command='["setEnvironment","pmatrix"]'>
     if (macros2 == null || typeof macros2 !== "object") {
       return /* @__PURE__ */ Object.create(null);
     }
-    for (const key of FORBIDDEN_MACRO_KEYS) {
-      if (Object.prototype.hasOwnProperty.call(macros2, key)) {
-        delete macros2[key];
+    for (const key2 of FORBIDDEN_MACRO_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(macros2, key2)) {
+        delete macros2[key2];
       }
     }
     return Object.setPrototypeOf(macros2, null);
@@ -58132,8 +58134,8 @@ data-command='["setEnvironment","pmatrix"]'>
     return arg2.type === "ordgroup" ? arg2.body : [arg2];
   };
   var DocumentFragment = class {
-    constructor(children2) {
-      this.children = children2;
+    constructor(children) {
+      this.children = children;
       this.classes = [];
       this.style = {};
     }
@@ -58218,9 +58220,9 @@ data-command='["setEnvironment","pmatrix"]'>
     return markup;
   };
   var Span = class {
-    constructor(classes, children2, style) {
+    constructor(classes, children, style) {
       initNode.call(this, classes, style);
-      this.children = children2 || [];
+      this.children = children || [];
     }
     setAttribute(attribute, value) {
       this.attributes[attribute] = value;
@@ -58244,10 +58246,10 @@ data-command='["setEnvironment","pmatrix"]'>
     }
   };
   var AnchorNode = class {
-    constructor(href, classes, children2) {
+    constructor(href, classes, children) {
       this.href = href;
       this.classes = classes;
-      this.children = children2 || [];
+      this.children = children || [];
     }
     toNode() {
       const node = document.createElement("a");
@@ -58310,14 +58312,14 @@ data-command='["setEnvironment","pmatrix"]'>
       return markup;
     }
   };
-  function newDocumentFragment(children2) {
-    return new DocumentFragment(children2);
+  function newDocumentFragment(children) {
+    return new DocumentFragment(children);
   }
   var MathNode = class {
-    constructor(type, children2, classes, style) {
+    constructor(type, children, classes, style) {
       this.type = type;
       this.attributes = {};
-      this.children = children2 || [];
+      this.children = children || [];
       this.classes = classes || [];
       this.style = style || {};
       this.label = "";
@@ -59679,8 +59681,8 @@ data-command='["setEnvironment","pmatrix"]'>
         if (L2 > 0 && mtext.children[0].text.charAt(L2 - 1) === " ") {
           mtext.children[0].text = mtext.children[0].text.slice(0, -1) + "\xA0";
         }
-        for (const [key, value] of Object.entries(mrow.attributes)) {
-          mtext.attributes[key] = value;
+        for (const [key2, value] of Object.entries(mrow.attributes)) {
+          mtext.attributes[key2] = value;
         }
       }
     }
@@ -64821,10 +64823,10 @@ data-command='["setEnvironment","pmatrix"]'>
       }
     },
     mathmlBuilder: (group2) => {
-      const children2 = [];
+      const children = [];
       const delim3 = group2.delim === "." ? "" : group2.delim;
-      children2.push(makeText(delim3, group2.mode));
-      const node = new MathNode("mo", children2);
+      children.push(makeText(delim3, group2.mode));
+      const node = new MathNode("mo", children);
       if (group2.mclass === "mopen" || group2.mclass === "mclose") {
         node.setAttribute("fence", "true");
       } else {
@@ -66766,11 +66768,11 @@ data-command='["setEnvironment","pmatrix"]'>
     },
     mathmlBuilder: mathmlBuilder$3
   });
-  var buildGroup = (el3, style, noneNode) => {
-    if (!el3) {
+  var buildGroup = (el4, style, noneNode) => {
+    if (!el4) {
       return noneNode;
     }
-    const node = buildGroup$1(el3, style);
+    const node = buildGroup$1(el4, style);
     if (node.type === "mrow" && node.children.length === 0) {
       return noneNode;
     }
@@ -66826,7 +66828,7 @@ data-command='["setEnvironment","pmatrix"]'>
       const base2 = buildGroup$1(group2.base, style);
       const prescriptsNode = new MathNode("mprescripts");
       const noneNode = new MathNode("none");
-      let children2 = [];
+      let children = [];
       const preSub = buildGroup(group2.prescripts.sub, style, noneNode);
       const preSup = buildGroup(group2.prescripts.sup, style, noneNode);
       if (group2.isSideset) {
@@ -66836,11 +66838,11 @@ data-command='["setEnvironment","pmatrix"]'>
       if (group2.postscripts) {
         const postSub = buildGroup(group2.postscripts.sub, style, noneNode);
         const postSup = buildGroup(group2.postscripts.sup, style, noneNode);
-        children2 = [base2, postSub, postSup, prescriptsNode, preSub, preSup];
+        children = [base2, postSub, postSup, prescriptsNode, preSub, preSup];
       } else {
-        children2 = [base2, prescriptsNode, preSub, preSup];
+        children = [base2, prescriptsNode, preSub, preSup];
       }
-      return new MathNode("mmultiscripts", children2);
+      return new MathNode("mmultiscripts", children);
     }
   });
   defineFunction({
@@ -67869,14 +67871,14 @@ data-command='["setEnvironment","pmatrix"]'>
         appendSpace = appendApplyFunction && !group2.isFollowedByDelimiter;
         needsLeadingSpace = group2.base.needsLeadingSpace;
       }
-      const children2 = group2.stack && group2.base.body.length === 1 ? [buildGroup$1(group2.base.body[0], style)] : [buildGroup$1(group2.base, style)];
+      const children = group2.stack && group2.base.body.length === 1 ? [buildGroup$1(group2.base.body[0], style)] : [buildGroup$1(group2.base, style)];
       const childStyle = style.inSubOrSup();
       if (group2.sub) {
         const sub = buildGroup$1(group2.sub, childStyle);
         if (style.level === 3) {
           sub.setAttribute("scriptlevel", "2");
         }
-        children2.push(sub);
+        children.push(sub);
       }
       if (group2.sup) {
         const sup = buildGroup$1(group2.sup, childStyle);
@@ -67893,7 +67895,7 @@ data-command='["setEnvironment","pmatrix"]'>
             sup.classes.push("tml-lrg-pad");
           }
         }
-        children2.push(sup);
+        children.push(sup);
       }
       let nodeType;
       if (isBracket) {
@@ -67928,7 +67930,7 @@ data-command='["setEnvironment","pmatrix"]'>
           nodeType = "msubsup";
         }
       }
-      let node = new MathNode(nodeType, children2);
+      let node = new MathNode(nodeType, children);
       if (appendApplyFunction) {
         const operator = new MathNode("mo", [makeText("\u2061", "text")]);
         if (needsLeadingSpace) {
@@ -69340,8 +69342,8 @@ data-command='["setEnvironment","pmatrix"]'>
       this.expect("EOF");
       if (this.isPreamble) {
         const macros2 = /* @__PURE__ */ Object.create(null);
-        Object.entries(this.gullet.macros.current).forEach(([key, value]) => {
-          macros2[key] = value;
+        Object.entries(this.gullet.macros.current).forEach(([key2, value]) => {
+          macros2[key2] = value;
         });
         this.gullet.endGroup();
         return macros2;
@@ -70136,9 +70138,9 @@ data-command='["setEnvironment","pmatrix"]'>
         fontShape: this.fontShape,
         maxSize: this.maxSize
       };
-      for (const key in extension) {
-        if (Object.prototype.hasOwnProperty.call(extension, key)) {
-          data[key] = extension[key];
+      for (const key2 in extension) {
+        if (Object.prototype.hasOwnProperty.call(extension, key2)) {
+          data[key2] = extension[key2];
         }
       }
       return new _Style(data);
@@ -70382,15 +70384,15 @@ data-command='["setEnvironment","pmatrix"]'>
     { left: "\\ref{", right: "}", display: false },
     { left: "\\eqref{", right: "}", display: false }
   ];
-  var delimitersFromKey = (key) => {
-    if (key === "$" || key === "(") {
-      return firstDraftDelimiters[key];
-    } else if (key === "$+" || key === "(+") {
-      const firstDraft = firstDraftDelimiters[key.slice(0, 1)];
+  var delimitersFromKey = (key2) => {
+    if (key2 === "$" || key2 === "(") {
+      return firstDraftDelimiters[key2];
+    } else if (key2 === "$+" || key2 === "(+") {
+      const firstDraft = firstDraftDelimiters[key2.slice(0, 1)];
       return firstDraft.concat(amsDelimiters);
-    } else if (key === "ams") {
+    } else if (key2 === "ams") {
       return amsDelimiters;
-    } else if (key === "all") {
+    } else if (key2 === "all") {
       return firstDraftDelimiters["("].concat(firstDraftDelimiters["$"]).concat(amsDelimiters);
     } else {
       return defaultDelimiters;
@@ -70627,9 +70629,9 @@ data-command='["setEnvironment","pmatrix"]'>
       } else if (m[2]) {
         const attrs = {};
         for (const a of m[3].matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[a[1]] = decode(a[2] ?? a[3]);
-        const el3 = { name: m[2].replace(/^\w+:/, ""), attrs, children: [] };
-        top.children.push(el3);
-        if (!m[4]) stack.push(el3);
+        const el4 = { name: m[2].replace(/^\w+:/, ""), attrs, children: [] };
+        top.children.push(el4);
+        if (!m[4]) stack.push(el4);
       } else if (m[5] !== void 0) {
         if (m[5].trim() || top.name === "mtext") top.children.push({ text: decode(m[5]) });
       }
@@ -70638,8 +70640,8 @@ data-command='["setEnvironment","pmatrix"]'>
   }
   var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var attr = (s) => esc(s);
-  var textOf = (el3) => el3.text !== void 0 ? el3.text : el3.children.map(textOf).join("");
-  var elems = (el3) => el3.children.filter((c) => c.name);
+  var textOf = (el4) => el4.text !== void 0 ? el4.text : el4.children.map(textOf).join("");
+  var elems = (el4) => el4.children.filter((c) => c.name);
   function r(text2, sty, nor) {
     text2 = String(text2 || "").replace(/[︎️]/g, "");
     if (!text2) return "";
@@ -70661,18 +70663,18 @@ data-command='["setEnvironment","pmatrix"]'>
     const v = parseFloat(m[1]);
     return m[2] === "ex" ? v * 0.43 : m[2] === "pt" ? v / 10 : m[2] === "mu" ? v / 18 : v;
   }
-  var isFenceMo = (el3, form) => el3 && el3.name === "mo" && (el3.attrs.fence === "true" || el3.attrs.stretchy === "true") && (!form || el3.attrs.form === form);
-  var moText = (el3) => el3 && el3.name === "mo" ? textOf(el3) : null;
-  function core(el3) {
-    let e = el3;
+  var isFenceMo = (el4, form) => el4 && el4.name === "mo" && (el4.attrs.fence === "true" || el4.attrs.stretchy === "true") && (!form || el4.attrs.form === form);
+  var moText = (el4) => el4 && el4.name === "mo" ? textOf(el4) : null;
+  function core(el4) {
+    let e = el4;
     while (e && (e.name === "mrow" || e.name === "mstyle" || e.name === "mpadded") && elems(e).length === 1) e = elems(e)[0];
     return e;
   }
   function seq(list3) {
     let out = "";
     for (let i2 = 0; i2 < list3.length; i2++) {
-      const el3 = list3[i2];
-      const n = naryParts(el3);
+      const el4 = list3[i2];
+      const n = naryParts(el4);
       if (n) {
         let j2 = i2 + 1;
         const operand = [];
@@ -70681,23 +70683,23 @@ data-command='["setEnvironment","pmatrix"]'>
         i2 = j2 - 1;
         continue;
       }
-      out += conv(el3);
+      out += conv(el4);
     }
     return out;
   }
-  function naryParts(el3) {
-    el3 = core(el3);
-    if (!el3 || !el3.name) return null;
-    const k = elems(el3);
-    if (el3.name === "mo" && NARY.has(textOf(el3).trim())) return { chr: textOf(el3).trim(), sub: null, sup: null, loc: "subSup" };
-    if (["msub", "msup", "msubsup", "munder", "mover", "munderover"].includes(el3.name)) {
+  function naryParts(el4) {
+    el4 = core(el4);
+    if (!el4 || !el4.name) return null;
+    const k = elems(el4);
+    if (el4.name === "mo" && NARY.has(textOf(el4).trim())) return { chr: textOf(el4).trim(), sub: null, sup: null, loc: "subSup" };
+    if (["msub", "msup", "msubsup", "munder", "mover", "munderover"].includes(el4.name)) {
       const base2 = core(k[0]);
       if (base2 && base2.name === "mo" && NARY.has(textOf(base2).trim())) {
-        const under = el3.name === "munder" || el3.name === "munderover";
-        const loc = under || el3.name === "mover" ? "undOvr" : "subSup";
+        const under = el4.name === "munder" || el4.name === "munderover";
+        const loc = under || el4.name === "mover" ? "undOvr" : "subSup";
         let sub = null, sup = null;
-        if (el3.name === "msub" || el3.name === "munder") sub = k[1];
-        else if (el3.name === "msup" || el3.name === "mover") sup = k[1];
+        if (el4.name === "msub" || el4.name === "munder") sub = k[1];
+        else if (el4.name === "msup" || el4.name === "mover") sup = k[1];
         else {
           sub = k[1];
           sup = k[2];
@@ -70714,8 +70716,8 @@ data-command='["setEnvironment","pmatrix"]'>
   function delim(beg, end, inner2) {
     return '<m:d><m:dPr><m:begChr m:val="' + attr(beg) + '"/><m:endChr m:val="' + attr(end) + '"/>' + ctrl + "</m:dPr>" + wrap2("e", inner2) + "</m:d>";
   }
-  function rowContent(el3) {
-    const k = elems(el3);
+  function rowContent(el4) {
+    const k = elems(el4);
     if (k.length >= 2 && isFenceMo(k[0]) && isFenceMo(k[k.length - 1]) && k[0].attrs.form !== "postfix" && k[k.length - 1].attrs.form !== "prefix") {
       return delim(textOf(k[0]).trim(), textOf(k[k.length - 1]).trim(), seq(k.slice(1, -1)));
     }
@@ -70724,37 +70726,37 @@ data-command='["setEnvironment","pmatrix"]'>
     }
     return seq(k);
   }
-  function conv(el3) {
-    if (!el3) return "";
-    if (el3.text !== void 0) return r(el3.text);
-    const k = elems(el3);
-    const variant = el3.attrs.mathvariant;
-    switch (el3.name) {
+  function conv(el4) {
+    if (!el4) return "";
+    if (el4.text !== void 0) return r(el4.text);
+    const k = elems(el4);
+    const variant = el4.attrs.mathvariant;
+    switch (el4.name) {
       case "math":
       case "semantics":
       case "mstyle":
       case "mpadded":
       case "mrow":
-        return rowContent(el3);
+        return rowContent(el4);
       case "annotation":
       case "annotation-xml":
         return "";
       case "mi": {
-        const t39 = textOf(el3);
+        const t39 = textOf(el4);
         const upright = variant === "normal" || [...t39].length > 1;
         return r(t39, upright ? "p" : variant === "bold" ? "b" : variant === "bold-italic" ? "bi" : null);
       }
       case "mn":
-        return r(textOf(el3));
+        return r(textOf(el4));
       case "mo": {
-        const t39 = [...textOf(el3)].filter((c) => !INVISIBLE.has(c)).join("");
+        const t39 = [...textOf(el4)].filter((c) => !INVISIBLE.has(c)).join("");
         return r(t39, /^[A-Za-z]{2,}$/.test(t39) ? "p" : null);
       }
       case "mtext":
       case "ms":
-        return r(textOf(el3), "p", true);
+        return r(textOf(el4), "p", true);
       case "mspace":
-        return r(SPACE_CH(emWidth(el3.attrs.width)));
+        return r(SPACE_CH(emWidth(el4.attrs.width)));
       case "msub":
         return "<m:sSub><m:sSubPr>" + ctrl + "</m:sSubPr>" + wrap2("e", conv(k[0])) + wrap2("sub", conv(k[1])) + "</m:sSub>";
       case "msup":
@@ -70762,7 +70764,7 @@ data-command='["setEnvironment","pmatrix"]'>
       case "msubsup":
         return "<m:sSubSup><m:sSubSupPr>" + ctrl + "</m:sSubSupPr>" + wrap2("e", conv(k[0])) + wrap2("sub", conv(k[1])) + wrap2("sup", conv(k[2])) + "</m:sSubSup>";
       case "mfrac": {
-        const noBar = el3.attrs.linethickness !== void 0 && /^0(\.0*)?\D*$/.test(el3.attrs.linethickness);
+        const noBar = el4.attrs.linethickness !== void 0 && /^0(\.0*)?\D*$/.test(el4.attrs.linethickness);
         return "<m:f><m:fPr>" + (noBar ? '<m:type m:val="noBar"/>' : "") + ctrl + "</m:fPr>" + wrap2("num", conv(k[0])) + wrap2("den", conv(k[1])) + "</m:f>";
       }
       case "msqrt":
@@ -70771,7 +70773,7 @@ data-command='["setEnvironment","pmatrix"]'>
         return "<m:rad><m:radPr>" + ctrl + "</m:radPr>" + wrap2("deg", conv(k[1])) + wrap2("e", conv(k[0])) + "</m:rad>";
       case "mover":
       case "munder": {
-        const over = el3.name === "mover";
+        const over = el4.name === "mover";
         const mark = core(k[1]);
         const ch2 = mark && mark.name === "mo" ? textOf(mark).trim() : null;
         if (ch2 && BARS.has(ch2) && mark.attrs.stretchy !== "false") return '<m:bar><m:barPr><m:pos m:val="' + (over ? "top" : "bot") + '"/>' + ctrl + "</m:barPr>" + wrap2("e", conv(k[0])) + "</m:bar>";
@@ -70797,7 +70799,7 @@ data-command='["setEnvironment","pmatrix"]'>
         return '<m:m><m:mPr><m:mcs><m:mc><m:mcPr><m:count m:val="' + cols + '"/><m:mcJc m:val="' + jc2 + '"/></m:mcPr></m:mc></m:mcs>' + ctrl + "</m:mPr>" + mr2 + "</m:m>";
       }
       case "menclose": {
-        const n = el3.attrs.notation || "";
+        const n = el4.attrs.notation || "";
         if (/^top$/.test(n)) return '<m:bar><m:barPr><m:pos m:val="top"/>' + ctrl + "</m:barPr>" + wrap2("e", seq(k)) + "</m:bar>";
         if (/^bottom$/.test(n)) return '<m:bar><m:barPr><m:pos m:val="bot"/>' + ctrl + "</m:barPr>" + wrap2("e", seq(k)) + "</m:bar>";
         return "<m:borderBox><m:borderBoxPr>" + ctrl + "</m:borderBoxPr>" + wrap2("e", seq(k)) + "</m:borderBox>";
@@ -70805,7 +70807,7 @@ data-command='["setEnvironment","pmatrix"]'>
       case "mphantom":
         return '<m:phant><m:phantPr><m:show m:val="0"/>' + ctrl + "</m:phantPr>" + wrap2("e", seq(k)) + "</m:phant>";
       case "merror":
-        return r(textOf(el3), "p", true);
+        return r(textOf(el4), "p", true);
       default:
         return seq(k);
     }
@@ -71496,7 +71498,7 @@ data-command='["setEnvironment","pmatrix"]'>
     for (let d = $f2.depth; d > 0; d--) if ($f2.node(d).type.name === "table_figure") return { pos: $f2.before(d), node: $f2.node(d), depth: d };
     return null;
   }
-  function makeTable(schema2, rows, cols, header2 = true, data = null) {
+  function makeTable(schema2, rows, cols, header3 = true, data = null) {
     const N2 = schema2.nodes;
     const cell = (type, text2) => type.create(null, N2.paragraph.create(null, text2 ? schema2.text(text2) : null));
     const out = [];
@@ -71504,7 +71506,7 @@ data-command='["setEnvironment","pmatrix"]'>
       const cells = [];
       for (let c = 0; c < cols; c++) {
         const text2 = data && data[r2] ? (data[r2][c] || "").trim() : "";
-        cells.push(cell(header2 && r2 === 0 ? N2.table_header : N2.table_cell, text2));
+        cells.push(cell(header3 && r2 === 0 ? N2.table_header : N2.table_cell, text2));
       }
       out.push(N2.table_row.create(null, cells));
     }
@@ -71720,14 +71722,14 @@ data-command='["setEnvironment","pmatrix"]'>
             t39.textContent = title;
             g2.appendChild(t39);
           }
-          for (const [key, label4, tip] of items) {
+          for (const [key2, label4, tip] of items) {
             const b = document.createElement("button");
             b.textContent = label4;
             b.title = tip;
-            b.dataset.cmd = key;
-            if (key === "deleteTable") b.className = "danger";
+            b.dataset.cmd = key2;
+            if (key2 === "deleteTable") b.className = "danger";
             b.addEventListener("click", () => {
-              tableCmd[key](editorView.state, editorView.dispatch);
+              tableCmd[key2](editorView.state, editorView.dispatch);
               editorView.focus();
             });
             g2.appendChild(b);
@@ -75849,21 +75851,21 @@ Waals I Si Ge GaAs`.split(/\s+/));
     ["pnas", "PNAS", pnas_default]
   ];
   var AUTHOR_YEAR = /* @__PURE__ */ new Set(["apa", "harvard"]);
-  var storedCsl = (doc3, key) => {
+  var storedCsl = (doc3, key2) => {
     const st2 = doc3 && doc3.attrs && doc3.attrs.style;
-    return st2 && st2.csl && typeof st2.csl.xml === "string" && "csl:" + st2.csl.name === key ? st2.csl : null;
+    return st2 && st2.csl && typeof st2.csl.xml === "string" && "csl:" + st2.csl.name === key2 ? st2.csl : null;
   };
-  var xmlFor = (doc3, key) => {
-    const c = storedCsl(doc3, key);
-    return c ? c.xml : styleXml(key);
+  var xmlFor = (doc3, key2) => {
+    const c = storedCsl(doc3, key2);
+    return c ? c.xml : styleXml(key2);
   };
-  function isAuthorYear(doc3, key) {
-    const c = storedCsl(doc3, key);
-    return c ? /citation-format="author-date"/.test(c.xml) : AUTHOR_YEAR.has(key);
+  function isAuthorYear(doc3, key2) {
+    const c = storedCsl(doc3, key2);
+    return c ? /citation-format="author-date"/.test(c.xml) : AUTHOR_YEAR.has(key2);
   }
-  function citeStyleLabel(doc3, key) {
-    const c = storedCsl(doc3, key);
-    return c ? c.title || c.name : (STYLES.find((s) => s[0] === key) || STYLES[0])[1];
+  function citeStyleLabel(doc3, key2) {
+    const c = storedCsl(doc3, key2);
+    return c ? c.title || c.name : (STYLES.find((s) => s[0] === key2) || STYLES[0])[1];
   }
   function bundledKeyFor(cslName) {
     const hit = STYLES.find((s) => styleId(s[0]).split("/").pop() === cslName);
@@ -75882,8 +75884,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (!name) return null;
     return { name, title: tag("title") || name, parent: parent ? parent.split("/").pop() : "", authorYear: /citation-format="author-date"/.test(xml) };
   }
-  var styleXml = (key) => (STYLES.find((s) => s[0] === key) || STYLES[0])[2];
-  var styleId = (key, doc3) => storedCsl(doc3, key) ? ((/<id>([^<]+)<\/id>/.exec(storedCsl(doc3, key).xml) || [])[1] || "").trim() : ((/<id>([^<]+)<\/id>/.exec(styleXml(key)) || [])[1] || "").trim();
+  var styleXml = (key2) => (STYLES.find((s) => s[0] === key2) || STYLES[0])[2];
+  var styleId = (key2, doc3) => storedCsl(doc3, key2) ? ((/<id>([^<]+)<\/id>/.exec(storedCsl(doc3, key2).xml) || [])[1] || "").trim() : ((/<id>([^<]+)<\/id>/.exec(styleXml(key2)) || [])[1] || "").trim();
   var libraryOf = (doc3) => doc3.attrs && doc3.attrs.references || {};
   function incompleteReason(it2) {
     if (!it2 || it2.typed) return "kept as typed text (not verified)";
@@ -75941,10 +75943,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
         keys3.push(same.id);
         continue;
       }
-      const key = makeKey(it2, taken);
-      taken.add(key);
-      lib2[key] = { ...it2, id: key };
-      keys3.push(key);
+      const key2 = makeKey(it2, taken);
+      taken.add(key2);
+      lib2[key2] = { ...it2, id: key2 };
+      keys3.push(key2);
     }
     return { library: lib2, keys: keys3 };
   }
@@ -76199,8 +76201,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
 
   // src/renderer/editor/citations.js
   var refsKey = new PluginKey("references");
-  function fillSegments(el3, html) {
-    el3.textContent = "";
+  function fillSegments(el4, html) {
+    el4.textContent = "";
     const TAG = { italic: "i", bold: "b", sup: "sup", sub: "sub" };
     for (const s of htmlSegments(html)) {
       let node = document.createTextNode(s.text);
@@ -76210,7 +76212,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         w2.appendChild(node);
         node = w2;
       }
-      el3.appendChild(node);
+      el4.appendChild(node);
     }
   }
   function bibDom(dom, title, bib, auto) {
@@ -76560,9 +76562,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
       this.node = node;
       const d = decos && decos.find((x3) => x3.spec && x3.spec.outline);
       const entries = d ? d.spec.outline : [];
-      const key = node.attrs.kind + "|" + node.attrs.title + "|" + JSON.stringify(entries);
-      if (key === this.key) return true;
-      this.key = key;
+      const key2 = node.attrs.kind + "|" + node.attrs.title + "|" + JSON.stringify(entries);
+      if (key2 === this.key) return true;
+      this.key = key2;
       const kind = node.attrs.kind;
       this.dom.textContent = "";
       const h2 = this.dom.appendChild(document.createElement("div"));
@@ -77390,6 +77392,115 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (view) view.dispatch(view.state.tr.setMeta(pageKey, on2 ? {} : { data: null }));
   }
 
+  // src/renderer/editor/siheader.js
+  var key = new PluginKey("siheader");
+  var el2 = (tag, cls, text2) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text2 != null) e.textContent = text2;
+    return e;
+  };
+  function paperHeaderText(doc3) {
+    let title = "", names = "";
+    doc3.forEach((n) => {
+      if (n.type.name === "title") title = n.textContent;
+      if (n.type.name === "authors") names = formatAuthors(n.attrs, styleOf(doc3).affil).authors.map((a) => a.name).join(", ");
+    });
+    return { title, names };
+  }
+  function setAttrs(view, patch) {
+    const sup = supplementOf(view.state.doc);
+    if (!sup) return;
+    let tr2 = view.state.tr;
+    for (const [k, v] of Object.entries(patch)) tr2 = tr2.setNodeAttribute(sup.pos, k, v);
+    view.dispatch(tr2.setMeta("untracked", true));
+  }
+  function header(doc3, sup) {
+    return (view) => {
+      const a = sup.node.attrs;
+      const box = el2("div", "si-head");
+      box.contentEditable = "false";
+      const field2 = (cls, value, placeholder, title, commit) => {
+        const i2 = el2("input", cls);
+        i2.value = value || "";
+        i2.placeholder = placeholder;
+        i2.title = title;
+        i2.spellcheck = false;
+        i2.onchange = () => commit(i2.value.trim());
+        i2.onkeydown = (e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            i2.blur();
+          }
+          if (e.key === "Escape") {
+            i2.value = value || "";
+            i2.blur();
+          }
+        };
+        return i2;
+      };
+      box.append(field2("si-name", a.title, "Supplementary Information", "The name of this part: click to change it (Supplementary Information, Supporting Information, Supplementary Material, \u2026)", (v) => setAttrs(view, { title: v || "Supplementary Information" })));
+      const lab = el2("label", "si-lock");
+      const cb2 = el2("input");
+      cb2.type = "checkbox";
+      cb2.checked = a.lock !== false;
+      cb2.onchange = () => {
+        if (cb2.checked) return setAttrs(view, { lock: true });
+        const p = paperHeaderText(view.state.doc);
+        setAttrs(view, { lock: false, freeTitle: a.freeTitle || p.title, freeAuthors: a.freeAuthors || p.names });
+      };
+      lab.append(cb2, document.createTextNode(" Same title and authors as the paper"));
+      lab.title = "Ticked: the header follows the manuscript. Not ticked: type a title and an author line of its own (an empty line is left out).";
+      box.append(lab);
+      if (a.lock !== false) {
+        let title = "", fa2 = null;
+        doc3.forEach((n) => {
+          if (n.type.name === "title") title = n.textContent;
+          if (n.type.name === "authors") fa2 = formatAuthors(n.attrs, styleOf(doc3).affil);
+        });
+        box.append(el2("div", "si-title", title || "(the paper has no title yet)"));
+        if (fa2 && fa2.authors.length) {
+          const line = el2("div", "si-authors");
+          fa2.authors.forEach((au2, i2) => {
+            if (i2) line.append(", ");
+            line.append(au2.name);
+            const m = au2.marks + (au2.corresponding ? (au2.marks ? "," : "") + "*" : "");
+            if (m) line.append(el2("sup", null, m));
+          });
+          box.append(line);
+          for (const af2 of fa2.affils) {
+            const d = el2("div", "si-affil");
+            d.append(el2("sup", null, af2.mark), af2.text);
+            box.append(d);
+          }
+        }
+      } else {
+        box.append(field2("si-title si-free", a.freeTitle, "Title of the supplementary part (leave empty for none)", "The title printed under the name", (v) => setAttrs(view, { freeTitle: v })));
+        box.append(field2("si-authors si-free", a.freeAuthors, "Authors (leave empty for none)", "The author line printed under the title", (v) => setAttrs(view, { freeAuthors: v })));
+      }
+      return box;
+    };
+  }
+  function build3(doc3) {
+    const sup = supplementOf(doc3);
+    if (!sup) return DecorationSet.empty;
+    let paper = "";
+    doc3.forEach((n) => {
+      if (n.type.name === "title") paper += n.textContent;
+      if (n.type.name === "authors") paper += JSON.stringify(n.attrs);
+    });
+    const sig = JSON.stringify([sup.node.attrs.title, sup.node.attrs.lock, sup.node.attrs.freeTitle, sup.node.attrs.freeAuthors, paper, styleOf(doc3).affil]);
+    return DecorationSet.create(doc3, [Decoration.widget(sup.pos + 1, header(doc3, sup), { side: -1, key: "sihead-" + sig, stopEvent: () => true, ignoreSelection: true })]);
+  }
+  var siHeaderPlugin = new Plugin({
+    key,
+    state: { init: (_c2, state2) => build3(state2.doc), apply: (tr2, old, _o2, state2) => tr2.docChanged ? build3(state2.doc) : old },
+    props: { decorations(state2) {
+      return key.getState(state2);
+    } }
+  });
+
   // src/renderer/editor/editor.js
   var NEW_DOC = {
     type: "doc",
@@ -77509,7 +77620,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
         commentsPlugin,
         citationsPlugin,
         trackPlugin,
-        pageViewPlugin
+        pageViewPlugin,
+        siHeaderPlugin
       ]
     });
     const fixes = missingIds(state2.doc);
@@ -77667,7 +77779,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
 
   // src/core/parts.js
   var hasSupplement = (doc3) => !!supplementOf(doc3);
-  var PARTS = [["main", "Manuscript"], ["si", "Supporting Information"]];
+  var PARTS = [["main", "Manuscript"], ["si", "Supplementary Information"]];
   function partAt(doc3, pos) {
     const s = supplementOf(doc3);
     return s && pos > s.pos ? "si" : "main";
@@ -77701,16 +77813,17 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const main = schema.nodes.doc.create({ ...doc3.attrs, part: "main" }, mainKids);
     const siKids = [];
     sup.node.forEach((n) => siKids.push(freeze(n, mainIds)));
-    const titleText = head.title ? head.title.textContent.trim() : "";
-    const siTitle = schema.nodes.title.create(null, titleText ? [schema.text(sup.node.attrs.title + ": "), ...children(head.title)] : [schema.text(sup.node.attrs.title)]);
-    const si2 = schema.nodes.doc.create({ ...doc3.attrs, part: "si" }, [siTitle, head.authors || schema.nodes.authors.create(), ...siKids]);
+    const a = sup.node.attrs;
+    const locked = a.lock !== false;
+    const free = String(a.freeTitle || "").trim();
+    const siTitle = locked ? head.title ? head.title.copy(head.title.content) : schema.nodes.title.create() : schema.nodes.title.create(null, free ? [schema.text(free)] : []);
+    const siAuthors = locked && head.authors ? head.authors : schema.nodes.authors.create();
+    const si2 = schema.nodes.doc.create(
+      { ...doc3.attrs, part: "si", partLabel: a.title || "Supplementary Information", partAuthors: locked ? null : String(a.freeAuthors || "").trim() },
+      [siTitle, siAuthors, ...siKids]
+    );
     return { main, si: si2 };
   }
-  var children = (node) => {
-    const out = [];
-    node.forEach((c) => out.push(c));
-    return out;
-  };
   function partDoc(doc3, part) {
     const { main, si: si2 } = splitParts(doc3);
     return part === "si" && si2 ? si2 : main;
@@ -78064,7 +78177,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (ctx.cites.needsList) body += "\n\n" + bibliography(null, ctx);
     for (const k of ctx.cites.refs.missing) ctx.problems.push({ kind: "citation", target: k, message: "citation of a reference not in the library" });
     if (ctx.cites.refs.error) ctx.problems.push({ kind: "citation", message: ctx.cites.refs.error });
-    const header2 = ctx.header.length ? "#place(top, float: true, clearance: 1.8em, block(width: 100%)[\n" + ctx.header.join("\n") + "\n])\n\n" : "";
+    if (doc3.attrs.partAuthors) ctx.header.push("#align(" + style.titleAlign + ", block(below: 1.2em, text(size: 1.05em)[" + escText(doc3.attrs.partAuthors) + "]))");
+    if (doc3.attrs.partLabel) ctx.header.unshift("#align(" + style.titleAlign + ", block(below: 0.7em, text(size: " + (levelSize(style, "title") - 3) + 'pt, weight: "bold", fill: luma(80))[' + escText(doc3.attrs.partLabel) + "]))");
+    const header3 = ctx.header.length ? "#place(top, float: true, clearance: 1.8em, block(width: 100%)[\n" + ctx.header.join("\n") + "\n])\n\n" : "";
     let blockOf = null;
     if (opts.positions) {
       body += "\n\n#context [#metadata(query(<dswpos>).map(m => (m.value, m.location().page(), m.location().position().y.pt()))) <dswmap>]";
@@ -78077,7 +78192,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         p += n.nodeSize;
       });
     }
-    const source = preamble(style, doc3.attrs.part) + header2 + body + "\n";
+    const source = preamble(style, doc3.attrs.part) + header3 + body + "\n";
     return { source, problems: ctx.problems, blockOf };
   }
 
@@ -78346,7 +78461,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
     page.classList.toggle("part-si", has && currentPart() === "si");
     if (bar) {
       bar.hidden = !has;
-      for (const b of bar.querySelectorAll("button")) b.classList.toggle("on", b.dataset.part === currentPart());
+      const sup = supplementOf(app.view.state.doc);
+      for (const b of bar.querySelectorAll("button")) {
+        b.classList.toggle("on", b.dataset.part === currentPart());
+        if (b.dataset.part === "si" && sup && b.textContent !== sup.node.attrs.title) b.textContent = sup.node.attrs.title;
+      }
     }
   }
   function showPart(part, { moveCursor = true } = {}) {
@@ -78391,17 +78510,17 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const tr2 = view.state.tr.insert(at2, node);
     view.dispatch(tr2.setSelection(TextSelection.create(tr2.doc, at2 + 2)));
     showPart("si", { moveCursor: false });
-    toast("Supporting Information added: figures, tables, equations and sections in it are numbered S1, S2, \u2026 It is exported as its own PDF and Word file.");
+    toast("Supplementary Information added: figures, tables, equations and sections in it are numbered S1, S2, \u2026 It is exported as its own PDF and Word file.");
     return true;
   }
   function removeSupplement() {
     const view = app.view;
     const sup = supplementOf(view.state.doc);
     if (!sup) {
-      toast("This document has no Supporting Information.");
+      toast("This document has no Supplementary Information.");
       return false;
     }
-    if (sup.node.textContent.trim() && !window.confirm("Remove the Supporting Information from this document?\n\nReferences to its figures and tables will show \u201C??\u201D. Ctrl+Z brings it back.")) return false;
+    if (sup.node.textContent.trim() && !window.confirm("Remove the Supplementary Information from this document?\n\nReferences to its figures and tables will show \u201C??\u201D. Ctrl+Z brings it back.")) return false;
     showPart("main");
     view.dispatch(view.state.tr.delete(sup.pos, sup.pos + sup.node.nodeSize));
     paint();
@@ -78411,7 +78530,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     bar = document.createElement("div");
     bar.className = "parttabs";
     bar.hidden = true;
-    bar.innerHTML = PARTS.map(([k, label4]) => '<button data-part="' + k + '" title="' + (k === "si" ? "The Supporting Information of this paper (numbered S1, S2, \u2026; its own PDF and Word file)" : "The manuscript") + '">' + label4 + "</button>").join("");
+    bar.innerHTML = PARTS.map(([k, label4]) => '<button data-part="' + k + '" title="' + (k === "si" ? "The Supplementary Information of this paper (numbered S1, S2, \u2026; its own PDF and Word file)" : "The manuscript") + '">' + label4 + "</button>").join("");
     bar.onmousedown = (e) => e.preventDefault();
     bar.onclick = (e) => {
       const b = e.target.closest("button");
@@ -78437,7 +78556,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const here = partAt(doc3, app.view.state.selection.from);
       state.sel[here] = app.view.state.selection.from;
       if (here !== currentPart()) showPart(here, { moveCursor: false });
-      else if (tr2.docChanged && !$("#page").classList.contains("has-si")) paint();
+      else if (tr2.docChanged && (!$("#page").classList.contains("has-si") || bar.querySelector("button[data-part=si]").textContent !== sup.node.attrs.title)) paint();
     });
     paint();
   }
@@ -78456,19 +78575,19 @@ Waals I Si Ge GaAs`.split(/\s+/));
   }
   async function showZotero(dlg) {
     const st2 = await api.refs("zoteroStatus");
-    const el3 = dlg.querySelector(".zst");
-    if (el3) el3.textContent = st2 && st2.configured ? "connected: " + st2.username + (st2.canWrite ? " \u2014 can search, add and edit" : " \u2014 read only: allow write access for the key to add and edit") : "not connected (desktop Zotero is used when it runs)";
+    const el4 = dlg.querySelector(".zst");
+    if (el4) el4.textContent = st2 && st2.configured ? "connected: " + st2.username + (st2.canWrite ? " \u2014 can search, add and edit" : " \u2014 read only: allow write access for the key to add and edit") : "not connected (desktop Zotero is used when it runs)";
     const rm3 = dlg.querySelector('[data-act="zremove"]');
     if (rm3) rm3.hidden = !(st2 && st2.configured);
   }
   async function connectZotero(dlg) {
-    const input = dlg.querySelector('[data-k="zkey"]'), el3 = dlg.querySelector(".zst");
+    const input = dlg.querySelector('[data-k="zkey"]'), el4 = dlg.querySelector(".zst");
     if (!input.value.trim()) return;
-    el3.textContent = "checking the key\u2026";
+    el4.textContent = "checking the key\u2026";
     const r2 = await api.refs("zoteroSetKey", input.value.trim());
     input.value = "";
     if (r2 && r2.error) {
-      el3.textContent = r2.error;
+      el4.textContent = r2.error;
       return;
     }
     await showZotero(dlg);
@@ -79156,6 +79275,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     body() {
       const out = [];
+      if (this.doc.attrs.partLabel) out.push(this.p("PartLabel", run2(this.doc.attrs.partLabel)));
       this.doc.forEach((n, offset2) => {
         this.pos = offset2;
         switch (n.type.name) {
@@ -79164,7 +79284,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
             this.prevTextPara = null;
             break;
           case "authors":
-            out.push(this.authors(n));
+            out.push(this.doc.attrs.partAuthors ? this.p("Authors", run2(this.doc.attrs.partAuthors), '<w:spacing w:after="360"/>') : this.authors(n));
             break;
           case "abstract": {
             let first = true;
@@ -79239,7 +79359,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       levelR("h" + lvl),
       '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>'
     );
-    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + font + '" w:hAnsi="' + font + '" w:eastAsia="' + font + '" w:cs="' + font + '"/><w:sz w:val="' + body + '"/><w:szCs w:val="' + body + '"/><w:lang w:val="' + stl.lang + '"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="' + Math.round(264 * stl.spacing / (stl.spacing > 1 ? 1.1 : 1)) + '" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr><w:jc w:val="both"/></w:pPr></w:style>' + head(1) + head(2) + head(3) + head(4) + st2("Title", "Title", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="160"/>', levelR("title"), '<w:basedOn w:val="Normal"/><w:next w:val="Authors"/>') + st2("Authors", "Authors", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="80"/>', '<w:sz w:val="' + hp2(stl.size + 0.5) + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Affiliation", "Affiliation", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>', '<w:sz w:val="' + hp2(stl.size - 1.5) + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Abstract", "Abstract", '<w:ind w:left="567" w:right="567"/><w:spacing w:after="240"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Figure", "Figure", '<w:keepNext/><w:jc w:val="center"/><w:spacing w:before="120" w:after="80"/>', "", '<w:basedOn w:val="Normal"/>') + st2("Caption", "caption", '<w:jc w:val="both"/><w:spacing w:after="240"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("Equation", "Equation", '<w:spacing w:before="60" w:after="60"/><w:jc w:val="center"/>', "", '<w:basedOn w:val="Normal"/>') + st2("TableText", "Table Text", '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Bibliography", "Bibliography", '<w:ind w:left="425" w:hanging="425"/><w:spacing w:after="60" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("BibliographyNumbered", "Bibliography (numbered)", '<w:tabs><w:tab w:val="left" w:pos="567"/></w:tabs><w:ind w:left="567" w:hanging="567"/><w:spacing w:after="60" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("TOCHeading", "TOC Heading", '<w:keepNext/><w:spacing w:before="360" w:after="120"/><w:jc w:val="left"/>', levelR("h1"), '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TOC1", "toc 1", '<w:spacing w:before="60" w:after="20"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TOC2", "toc 2", '<w:spacing w:after="20"/><w:ind w:left="397"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TOC3", "toc 3", '<w:spacing w:after="20"/><w:ind w:left="794"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TableofFigures", "table of figures", '<w:spacing w:after="40"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("FootnoteText", "footnote text", '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="both"/>', '<w:sz w:val="' + hp2(stl.size - 2) + '"/><w:szCs w:val="' + hp2(stl.size - 2) + '"/>', '<w:basedOn w:val="Normal"/>') + '<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>' + st2("ListParagraph", "List Paragraph", '<w:spacing w:after="60"/><w:ind w:left="567"/>', "", '<w:basedOn w:val="Normal"/>') + '<w:style w:type="paragraph" w:styleId="Footer"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/></w:pPr></w:style>' + st2("CommentText", "annotation text", '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="20"/>', '<w:basedOn w:val="Normal"/>') + '<w:style w:type="character" w:styleId="CommentReference"><w:name w:val="annotation reference"/><w:rPr><w:sz w:val="16"/></w:rPr></w:style></w:styles>';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + font + '" w:hAnsi="' + font + '" w:eastAsia="' + font + '" w:cs="' + font + '"/><w:sz w:val="' + body + '"/><w:szCs w:val="' + body + '"/><w:lang w:val="' + stl.lang + '"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="' + Math.round(264 * stl.spacing / (stl.spacing > 1 ? 1.1 : 1)) + '" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:pPr><w:jc w:val="both"/></w:pPr></w:style>' + head(1) + head(2) + head(3) + head(4) + st2("Title", "Title", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="160"/>', levelR("title"), '<w:basedOn w:val="Normal"/><w:next w:val="Authors"/>') + st2("PartLabel", "Part Label", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="120"/>', '<w:b/><w:color w:val="505050"/><w:sz w:val="' + hp2(stl.size + stl.title.delta - 3) + '"/>', '<w:basedOn w:val="Normal"/><w:next w:val="Title"/>') + st2("Authors", "Authors", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="80"/>', '<w:sz w:val="' + hp2(stl.size + 0.5) + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Affiliation", "Affiliation", '<w:jc w:val="' + jcT + '"/><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>', '<w:sz w:val="' + hp2(stl.size - 1.5) + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Abstract", "Abstract", '<w:ind w:left="567" w:right="567"/><w:spacing w:after="240"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Figure", "Figure", '<w:keepNext/><w:jc w:val="center"/><w:spacing w:before="120" w:after="80"/>', "", '<w:basedOn w:val="Normal"/>') + st2("Caption", "caption", '<w:jc w:val="both"/><w:spacing w:after="240"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("Equation", "Equation", '<w:spacing w:before="60" w:after="60"/><w:jc w:val="center"/>', "", '<w:basedOn w:val="Normal"/>') + st2("TableText", "Table Text", '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("Bibliography", "Bibliography", '<w:ind w:left="425" w:hanging="425"/><w:spacing w:after="60" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("BibliographyNumbered", "Bibliography (numbered)", '<w:tabs><w:tab w:val="left" w:pos="567"/></w:tabs><w:ind w:left="567" w:hanging="567"/><w:spacing w:after="60" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="' + small + '"/>', '<w:basedOn w:val="Normal"/>') + st2("TOCHeading", "TOC Heading", '<w:keepNext/><w:spacing w:before="360" w:after="120"/><w:jc w:val="left"/>', levelR("h1"), '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TOC1", "toc 1", '<w:spacing w:before="60" w:after="20"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TOC2", "toc 2", '<w:spacing w:after="20"/><w:ind w:left="397"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TOC3", "toc 3", '<w:spacing w:after="20"/><w:ind w:left="794"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("TableofFigures", "table of figures", '<w:spacing w:after="40"/><w:jc w:val="left"/>', "", '<w:basedOn w:val="Normal"/><w:next w:val="Normal"/>') + st2("FootnoteText", "footnote text", '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="both"/>', '<w:sz w:val="' + hp2(stl.size - 2) + '"/><w:szCs w:val="' + hp2(stl.size - 2) + '"/>', '<w:basedOn w:val="Normal"/>') + '<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>' + st2("ListParagraph", "List Paragraph", '<w:spacing w:after="60"/><w:ind w:left="567"/>', "", '<w:basedOn w:val="Normal"/>') + '<w:style w:type="paragraph" w:styleId="Footer"><w:name w:val="footer"/><w:basedOn w:val="Normal"/><w:pPr><w:jc w:val="center"/></w:pPr></w:style>' + st2("CommentText", "annotation text", '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>', '<w:sz w:val="20"/>', '<w:basedOn w:val="Normal"/>') + '<w:style w:type="character" w:styleId="CommentReference"><w:name w:val="annotation reference"/><w:rPr><w:sz w:val="16"/></w:rPr></w:style></w:styles>';
   }
   var WORD_FMT = { "1": "decimal", i: "lowerRoman", I: "upperRoman", a: "lowerLetter", A: "upperLetter", none: "none" };
   function numberingXml(orderedStarts, stl, si2) {
@@ -79262,7 +79382,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
   var SETTINGS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><w:defaultTabStop w:val="709"/><w:characterSpacingControl w:val="doNotCompress"/><m:mathPr><m:mathFont m:val="Cambria Math"/><m:brkBin m:val="before"/><m:brkBinSub m:val="--"/><m:smallFrac m:val="0"/><m:dispDef/><m:lMargin m:val="0"/><m:rMargin m:val="0"/><m:defJc m:val="centerGroup"/><m:wrapIndent m:val="1440"/><m:intLim m:val="subSup"/><m:naryLim m:val="undOvr"/></m:mathPr><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>';
   var settingsXml = (hasFootnotes, tracking) => (hasFootnotes ? SETTINGS.replace("<w:characterSpacingControl", '<w:footnotePr><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr><w:characterSpacingControl') : SETTINGS).replace("<w:defaultTabStop", (tracking ? "<w:trackRevisions/>" : "") + "<w:defaultTabStop");
   function footnotesXml(list3) {
-    const sep = (type, id2, el3) => '<w:footnote w:type="' + type + '" w:id="' + id2 + '"><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><' + el3 + "/></w:r></w:p></w:footnote>";
+    const sep = (type, id2, el4) => '<w:footnote w:type="' + type + '" w:id="' + id2 + '"><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:r><' + el4 + "/></w:r></w:p></w:footnote>";
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:footnotes ' + NS + ">" + sep("separator", -1, "w:separator") + sep("continuationSeparator", 0, "w:continuationSeparator") + list3.map((f) => '<w:footnote w:id="' + f.id + '"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/></w:pPr><w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r><w:r><w:t xml:space="preserve"> </w:t></w:r>' + f.body + "</w:p></w:footnote>").join("") + "</w:footnotes>";
   }
   async function docToDocx(doc3, opts) {
@@ -79691,7 +79811,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (n.type.name === "title") title = inline(n, ctx);
       if (n.type.name === "authors") fa2 = formatAuthors(n.attrs, ctx.style.affil);
     });
-    const lines = ["\\title{" + title + "}"];
+    const label4 = doc3.attrs.partLabel ? "{\\large\\bfseries " + texText(doc3.attrs.partLabel) + "}" + (title ? "\\\\[0.8em] " : "") : "";
+    const lines = ["\\title{" + label4 + title + "}"];
+    if (doc3.attrs.partAuthors) {
+      lines.push("\\author{" + texText(doc3.attrs.partAuthors) + "}", "\\date{}");
+      return lines.join("\n");
+    }
     for (const a of fa2.authors) {
       const marks2 = [a.marks, a.corresponding ? "*" : ""].filter(Boolean).join(",");
       lines.push("\\author" + (marks2 ? "[" + texText(marks2) + "]" : "") + "{" + texText(a.name) + "}");
@@ -79787,7 +79912,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       siFile = siPath(path);
       const r2 = await api.compile({ source: docToTypst(si2).source, media: mediaPayload(), format: "pdf", out: siFile });
       if (r2.error) {
-        toast("The manuscript was exported, the Supporting Information failed: " + r2.error, "error");
+        toast("The manuscript was exported, the Supplementary Information failed: " + r2.error, "error");
         return path;
       }
     }
@@ -79850,7 +79975,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       siFile = siPath(path);
       const r2 = await api.writeFile(siFile, (await docxBytes(si2)).bytes);
       if (r2 && r2.error) {
-        toast("The manuscript was exported, the Supporting Information failed: " + r2.error, "error");
+        toast("The manuscript was exported, the Supplementary Information failed: " + r2.error, "error");
         return path;
       }
     }
@@ -79902,7 +80027,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const figures = [...mainFigures];
     if (si2) {
       const s = docToLatex(si2, {});
-      zip.file("si.tex", s.tex.replace(/^% Exported by DTU Science Writer\.[^\n]*\n/, "% Supporting Information, exported by DTU Science Writer. Compile with pdfLaTeX (twice).\n"));
+      zip.file("si.tex", s.tex.replace(/^% Exported by DTU Science Writer\.[^\n]*\n/, "% Supplementary Information, exported by DTU Science Writer. Compile with pdfLaTeX (twice).\n"));
       for (const f of s.figures) if (!figures.some((x3) => x3.name === f.name)) figures.push(f);
       problems.push(...s.problems);
     }
@@ -80246,7 +80371,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const num = lvl ? headingLabel(st2, SAMPLE_COUNTERS, lvl) : null;
         rows += '<tr data-level="' + k + '"><th>' + LEVEL_LABEL[k] + '</th><td><select data-f="delta">' + DELTAS.map((d) => opt(d, v.delta, (d ? "body +" + d : "body size") + " (" + (st2.size + d) + " pt)")).join("") + '</select></td><td><label><input type="checkbox" data-f="bold"' + (v.bold ? " checked" : "") + '> <b>B</b></label></td><td><label><input type="checkbox" data-f="italic"' + (v.italic ? " checked" : "") + "> <i>I</i></label></td><td>" + (lvl ? '<select data-f="num" title="Numbering">' + NUMBERINGS.map(([n, label4]) => opt(n, v.num, label4)).join("") + "</select>" : "") + '</td><td class="colors"><input type="color" data-f="color" value="' + v.color + '" title="Colour">' + SWATCHES.map(([c, n]) => '<button class="sw' + (c === v.color ? " on" : "") + '" data-color="' + c + '" title="' + n + '" style="background:' + c + '"></button>').join("") + '</td><td class="sample" style="font-family:' + FONTS[st2.font].css.replace(/"/g, "&quot;") + ";font-size:" + levelSize(st2, k) + "pt;font-weight:" + (v.bold ? 700 : 400) + ";font-style:" + (v.italic ? "italic" : "normal") + ";color:" + v.color + '">' + (lvl ? (num ? num + "&ensp;" : "") + "Results" : "Paper title") + "</td></tr>";
       }
-      dlg.innerHTML = '<div class="box"><h3>Document style</h3><div class="row"><span class="lab">Font</span>' + Object.entries(FONTS).map(([key, f]) => '<label class="fontopt"><input type="radio" name="font" value="' + key + '"' + (st2.font === key ? " checked" : "") + '> <span style="font-family:' + f.css.replace(/"/g, "&quot;") + '">' + f.label + "</span> <small>with " + f.mathLabel + " for equations</small></label>").join("") + '</div><div class="row"><span class="lab">Body text</span><select data-body="size">' + SIZES.map((s) => opt(s, st2.size, s + " pt")).join("") + '</select><span class="lab" style="margin-left:24px">Title block</span><label><input type="radio" name="talign" value="left"' + (st2.titleAlign === "left" ? " checked" : "") + '> left</label><label><input type="radio" name="talign" value="center"' + (st2.titleAlign === "center" ? " checked" : "") + '> centred</label></div><table class="levels"><thead><tr><th></th><th>Size</th><th></th><th></th><th>Numbering</th><th>Colour</th><th></th></tr></thead><tbody>' + rows + '</tbody></table><div class="row"><span class="lab">Affiliations</span><select data-affil="marker">' + AFFIL_MARKERS.map(([m, l]) => opt(m, st2.affil.marker, l)).join("") + '</select><select data-affil="fields">' + AFFIL_FIELDS.map(([f, l]) => opt(f, st2.affil.fields, l)).join("") + '</select></div><div class="row"><span class="lab">Journal</span><span class="jname">' + (journalById(st2.journal) ? "<b>" + journalById(st2.journal).name + "</b> <small>" + describeJournal(journalById(st2.journal)) + "</small>" : '<span class="muted">none chosen</span>') + '</span><button data-act="journal">Choose journal\u2026</button></div><div class="row"><span class="lab">Layout</span><label>Line spacing <select data-lay="spacing">' + SPACINGS.map(([v, l]) => opt(v, st2.spacing, l)).join("") + '</select></label><label><input type="checkbox" data-lay="lineNumbers"' + (st2.lineNumbers ? " checked" : "") + '> Line numbers <small>(PDF, Word, LaTeX)</small></label><label>Figures <select data-lay="figLabel">' + FIG_LABELS.map((v) => opt(v, st2.figLabel, "\u201C" + v + " 1\u201D")).join("") + '</select></label></div><div class="row"><span class="lab">Citations</span><select data-cite="style">' + STYLES.map(([k, l]) => opt(k, st2.cite, l)).join("") + (st2.csl ? opt("csl:" + st2.csl.name, st2.cite, citeStyleLabel(view.state.doc, "csl:" + st2.csl.name) + " (stored in the document)") : "") + '</select><span class="lab" style="margin-left:24px">Language</span><select data-lang="lang" title="Spell-check, hyphenation in the PDF, proofing language in Word">' + LANGS.map(([k, l]) => opt(k, st2.lang, l)).join("") + '</select></div><p class="note">Saved in this document; used in the editor, the PDF and the Word export. In Word, equations use Cambria Math (co-authors have it).</p><div class="buttons"><button data-act="reset">Reset to defaults</button><button data-act="close" class="primary">Close</button></div></div>';
+      dlg.innerHTML = '<div class="box"><h3>Document style</h3><div class="row"><span class="lab">Font</span>' + Object.entries(FONTS).map(([key2, f]) => '<label class="fontopt"><input type="radio" name="font" value="' + key2 + '"' + (st2.font === key2 ? " checked" : "") + '> <span style="font-family:' + f.css.replace(/"/g, "&quot;") + '">' + f.label + "</span> <small>with " + f.mathLabel + " for equations</small></label>").join("") + '</div><div class="row"><span class="lab">Body text</span><select data-body="size">' + SIZES.map((s) => opt(s, st2.size, s + " pt")).join("") + '</select><span class="lab" style="margin-left:24px">Title block</span><label><input type="radio" name="talign" value="left"' + (st2.titleAlign === "left" ? " checked" : "") + '> left</label><label><input type="radio" name="talign" value="center"' + (st2.titleAlign === "center" ? " checked" : "") + '> centred</label></div><table class="levels"><thead><tr><th></th><th>Size</th><th></th><th></th><th>Numbering</th><th>Colour</th><th></th></tr></thead><tbody>' + rows + '</tbody></table><div class="row"><span class="lab">Affiliations</span><select data-affil="marker">' + AFFIL_MARKERS.map(([m, l]) => opt(m, st2.affil.marker, l)).join("") + '</select><select data-affil="fields">' + AFFIL_FIELDS.map(([f, l]) => opt(f, st2.affil.fields, l)).join("") + '</select></div><div class="row"><span class="lab">Journal</span><span class="jname">' + (journalById(st2.journal) ? "<b>" + journalById(st2.journal).name + "</b> <small>" + describeJournal(journalById(st2.journal)) + "</small>" : '<span class="muted">none chosen</span>') + '</span><button data-act="journal">Choose journal\u2026</button></div><div class="row"><span class="lab">Layout</span><label>Line spacing <select data-lay="spacing">' + SPACINGS.map(([v, l]) => opt(v, st2.spacing, l)).join("") + '</select></label><label><input type="checkbox" data-lay="lineNumbers"' + (st2.lineNumbers ? " checked" : "") + '> Line numbers <small>(PDF, Word, LaTeX)</small></label><label>Figures <select data-lay="figLabel">' + FIG_LABELS.map((v) => opt(v, st2.figLabel, "\u201C" + v + " 1\u201D")).join("") + '</select></label></div><div class="row"><span class="lab">Citations</span><select data-cite="style">' + STYLES.map(([k, l]) => opt(k, st2.cite, l)).join("") + (st2.csl ? opt("csl:" + st2.csl.name, st2.cite, citeStyleLabel(view.state.doc, "csl:" + st2.csl.name) + " (stored in the document)") : "") + '</select><span class="lab" style="margin-left:24px">Language</span><select data-lang="lang" title="Spell-check, hyphenation in the PDF, proofing language in Word">' + LANGS.map(([k, l]) => opt(k, st2.lang, l)).join("") + '</select></div><p class="note">Saved in this document; used in the editor, the PDF and the Word export. In Word, equations use Cambria Math (co-authors have it).</p><div class="buttons"><button data-act="reset">Reset to defaults</button><button data-act="close" class="primary">Close</button></div></div>';
     };
     const update = (mutate) => {
       const st2 = JSON.parse(JSON.stringify(styleOf(view.state.doc)));
@@ -80255,54 +80380,54 @@ Waals I Si Ge GaAs`.split(/\s+/));
       render5();
     };
     dlg.onchange = (e) => {
-      const el3 = e.target;
-      if (el3.name === "font") return update((st2) => {
-        st2.font = el3.value;
+      const el4 = e.target;
+      if (el4.name === "font") return update((st2) => {
+        st2.font = el4.value;
       });
-      if (el3.name === "talign") return update((st2) => {
-        st2.titleAlign = el3.value;
+      if (el4.name === "talign") return update((st2) => {
+        st2.titleAlign = el4.value;
       });
-      if (el3.dataset.body === "size") return update((st2) => {
-        st2.size = +el3.value;
+      if (el4.dataset.body === "size") return update((st2) => {
+        st2.size = +el4.value;
       });
-      if (el3.dataset.affil) return update((st2) => {
-        st2.affil[el3.dataset.affil] = el3.value;
+      if (el4.dataset.affil) return update((st2) => {
+        st2.affil[el4.dataset.affil] = el4.value;
       });
-      if (el3.dataset.cite) return update((st2) => {
-        st2.cite = el3.value;
+      if (el4.dataset.cite) return update((st2) => {
+        st2.cite = el4.value;
         st2.journal = "";
       });
-      if (el3.dataset.lay === "spacing") return update((st2) => {
-        st2.spacing = +el3.value;
+      if (el4.dataset.lay === "spacing") return update((st2) => {
+        st2.spacing = +el4.value;
         st2.journal = "";
       });
-      if (el3.dataset.lay === "lineNumbers") return update((st2) => {
-        st2.lineNumbers = el3.checked;
+      if (el4.dataset.lay === "lineNumbers") return update((st2) => {
+        st2.lineNumbers = el4.checked;
         st2.journal = "";
       });
-      if (el3.dataset.lay === "figLabel") return update((st2) => {
-        st2.figLabel = el3.value;
+      if (el4.dataset.lay === "figLabel") return update((st2) => {
+        st2.figLabel = el4.value;
         st2.journal = "";
       });
-      if (el3.dataset.lang) return update((st2) => {
-        st2.lang = el3.value;
+      if (el4.dataset.lang) return update((st2) => {
+        st2.lang = el4.value;
       });
-      const tr2 = el3.closest("tr[data-level]");
+      const tr2 = el4.closest("tr[data-level]");
       if (!tr2) return;
-      const k = tr2.dataset.level, f = el3.dataset.f;
+      const k = tr2.dataset.level, f = el4.dataset.f;
       update((st2) => {
-        st2[k][f] = f === "delta" ? +el3.value : f === "color" || f === "num" ? el3.value : el3.checked;
+        st2[k][f] = f === "delta" ? +el4.value : f === "color" || f === "num" ? el4.value : el4.checked;
         if (f === "num") st2.journal = "";
       });
     };
     dlg.onclick = (e) => {
-      const el3 = e.target;
-      if (el3 === dlg || el3.dataset.act === "close") {
+      const el4 = e.target;
+      if (el4 === dlg || el4.dataset.act === "close") {
         dlg.hidden = true;
         view.focus();
         return;
       }
-      if (el3.dataset.act === "journal") {
+      if (el4.dataset.act === "journal") {
         dlg.hidden = true;
         openJournalDialog(view, () => {
           render5();
@@ -80310,13 +80435,13 @@ Waals I Si Ge GaAs`.split(/\s+/));
         });
         return;
       }
-      if (el3.dataset.act === "reset") return update((st2) => {
+      if (el4.dataset.act === "reset") return update((st2) => {
         Object.assign(st2, JSON.parse(JSON.stringify(DEFAULT_STYLE)));
       });
-      if (el3.dataset.color) {
-        const k = el3.closest("tr[data-level]").dataset.level;
+      if (el4.dataset.color) {
+        const k = el4.closest("tr[data-level]").dataset.level;
         update((st2) => {
-          st2[k].color = el3.dataset.color;
+          st2[k].color = el4.dataset.color;
         });
       }
     };
@@ -80366,7 +80491,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const render5 = () => {
       const affilShort = (a) => affilText(a, "short") || affilText(a, "full") || "(empty affiliation)";
       const authorRows = data.list.map((au2, i2) => '<tr data-i="' + i2 + '"><td class="num">' + (i2 + 1) + '</td><td><input data-f="name" value="' + esc7(au2.name) + '" placeholder="Full name, e.g. Peter B\xF8ggild"></td><td class="affchecks">' + (data.affils.length ? data.affils.map((a, k) => '<label title="' + esc7(affilText(a, "full")) + '"><input type="checkbox" data-aff="' + a.id + '"' + ((au2.affils || []).includes(a.id) ? " checked" : "") + "> " + (k + 1) + "</label>").join("") : '<span class="hint">add an affiliation below</span>') + '</td><td><label title="Corresponding author"><input type="checkbox" data-f="corresponding"' + (au2.corresponding ? " checked" : "") + '> \u2709</label></td><td><input data-f="email" value="' + esc7(au2.email) + '" placeholder="e-mail (corresponding)"' + (au2.corresponding ? "" : " disabled") + '></td><td class="act"><button data-act="up" title="Move up">\u2191</button><button data-act="down" title="Move down">\u2193</button><button data-act="del" title="Remove author">\u2715</button></td></tr>').join("");
-      const affilRows = data.affils.map((a, k) => '<div class="affil" data-id="' + a.id + '"><div class="affhead"><b>' + (k + 1) + "</b> <span>" + esc7(affilShort(a)) + '</span><span class="affacts">' + (lib.some((x3) => sameAffil(x3, a)) ? '<span class="saved">in library</span>' : '<button data-act="tolib">Save to library</button>') + '<button data-act="delaff" title="Remove affiliation">\u2715</button></span></div><div class="afffields">' + AFFIL_KEYS.map((key) => "<label>" + AFFIL_LABELS[key] + '<input data-k="' + key + '" value="' + esc7(a[key]) + '"></label>').join("") + "</div></div>").join("");
+      const affilRows = data.affils.map((a, k) => '<div class="affil" data-id="' + a.id + '"><div class="affhead"><b>' + (k + 1) + "</b> <span>" + esc7(affilShort(a)) + '</span><span class="affacts">' + (lib.some((x3) => sameAffil(x3, a)) ? '<span class="saved">in library</span>' : '<button data-act="tolib">Save to library</button>') + '<button data-act="delaff" title="Remove affiliation">\u2715</button></span></div><div class="afffields">' + AFFIL_KEYS.map((key2) => "<label>" + AFFIL_LABELS[key2] + '<input data-k="' + key2 + '" value="' + esc7(a[key2]) + '"></label>').join("") + "</div></div>").join("");
       const libOpts = lib.map((a, i2) => '<option value="' + i2 + '">' + esc7(affilText(a, "medium") || affilText(a, "full")) + "</option>").join("");
       dlg.innerHTML = '<div class="box"><h3>Authors and affiliations</h3><table class="authors"><thead><tr><th></th><th>Name</th><th>Affiliations</th><th></th><th></th><th></th></tr></thead><tbody>' + authorRows + '</tbody></table><button data-act="addauthor">+ Author</button><h4>Affiliations <small>numbered in the order the authors use them</small></h4>' + (affilRows || '<p class="hint">No affiliations yet.</p>') + '<div class="affadd"><button data-act="addaff">+ New affiliation</button><select data-act="fromlib"><option value="">+ From library\u2026</option>' + libOpts + '</select><span class="libfile"><button data-act="libimport" title="Add the affiliations of a saved library file">Import library\u2026</button><button data-act="libexport" title="Save the library to a file you can share">Export library\u2026</button></span></div><p class="hint">Format (markers ' + esc7(st2.affil.marker) + ", " + esc7(st2.affil.fields) + ' address) is set in Style.</p><div class="buttons"><button data-act="close" class="primary">Done</button></div></div>';
     };
@@ -80374,63 +80499,63 @@ Waals I Si Ge GaAs`.split(/\s+/));
       commit();
     };
     dlg.oninput = (e) => {
-      const el3 = e.target;
-      const row = el3.closest("tr[data-i]");
-      if (row && el3.dataset.f === "name") {
-        data.list[+row.dataset.i].name = el3.value;
+      const el4 = e.target;
+      const row = el4.closest("tr[data-i]");
+      if (row && el4.dataset.f === "name") {
+        data.list[+row.dataset.i].name = el4.value;
         change();
         return;
       }
-      if (row && el3.dataset.f === "email") {
-        data.list[+row.dataset.i].email = el3.value;
+      if (row && el4.dataset.f === "email") {
+        data.list[+row.dataset.i].email = el4.value;
         change();
         return;
       }
-      const af2 = el3.closest(".affil");
-      if (af2 && el3.dataset.k) {
+      const af2 = el4.closest(".affil");
+      if (af2 && el4.dataset.k) {
         const a = data.affils.find((x3) => x3.id === af2.dataset.id);
-        a[el3.dataset.k] = el3.value;
+        a[el4.dataset.k] = el4.value;
         af2.querySelector(".affhead span").textContent = affilText(a, "short") || affilText(a, "full");
         change();
       }
     };
     dlg.onchange = (e) => {
-      const el3 = e.target;
-      const row = el3.closest("tr[data-i]");
-      if (row && el3.dataset.aff) {
+      const el4 = e.target;
+      const row = el4.closest("tr[data-i]");
+      if (row && el4.dataset.aff) {
         const au2 = data.list[+row.dataset.i];
         const set = new Set(au2.affils || []);
-        if (el3.checked) set.add(el3.dataset.aff);
-        else set.delete(el3.dataset.aff);
+        if (el4.checked) set.add(el4.dataset.aff);
+        else set.delete(el4.dataset.aff);
         au2.affils = data.affils.map((a) => a.id).filter((id2) => set.has(id2));
         change();
         return;
       }
-      if (row && el3.dataset.f === "corresponding") {
-        data.list[+row.dataset.i].corresponding = el3.checked;
+      if (row && el4.dataset.f === "corresponding") {
+        data.list[+row.dataset.i].corresponding = el4.checked;
         change();
         render5();
         return;
       }
-      if (el3.dataset.act === "fromlib" && el3.value !== "") {
-        const a = { ...clone(lib[+el3.value]), id: newAffilId() };
+      if (el4.dataset.act === "fromlib" && el4.value !== "") {
+        const a = { ...clone(lib[+el4.value]), id: newAffilId() };
         if (!data.affils.some((x3) => sameAffil(x3, a))) data.affils.push(a);
         change();
         render5();
       }
     };
     dlg.onclick = async (e) => {
-      const el3 = e.target;
-      if (el3 === dlg || el3.dataset.act === "close") {
+      const el4 = e.target;
+      if (el4 === dlg || el4.dataset.act === "close") {
         dlg.hidden = true;
         view.focus();
         return;
       }
-      const act2 = el3.dataset.act;
-      if (!act2 || el3.tagName === "SELECT") return;
-      const row = el3.closest("tr[data-i]");
+      const act2 = el4.dataset.act;
+      if (!act2 || el4.tagName === "SELECT") return;
+      const row = el4.closest("tr[data-i]");
       const i2 = row ? +row.dataset.i : -1;
-      const af2 = el3.closest(".affil");
+      const af2 = el4.closest(".affil");
       if (act2 === "addauthor") data.list.push({ name: "", affils: [], corresponding: false, email: "" });
       else if (act2 === "del") data.list.splice(i2, 1);
       else if (act2 === "up" && i2 > 0) [data.list[i2 - 1], data.list[i2]] = [data.list[i2], data.list[i2 - 1]];
@@ -80755,10 +80880,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     };
     const readForm = () => {
       const it2 = editing ? { ...libraryOf(view.state.doc)[editing] } : {};
-      dlg.querySelectorAll("[data-k]").forEach((el3) => {
-        const k = el3.dataset.k, v = el3.value.trim();
+      dlg.querySelectorAll("[data-k]").forEach((el4) => {
+        const k = el4.dataset.k, v = el4.value.trim();
         if (k === "author") {
-          const a = textToNames(el3.value);
+          const a = textToNames(el4.value);
           if (a.length) it2.author = a;
           else delete it2.author;
         } else if (k === "year") {
@@ -80771,16 +80896,16 @@ Waals I Si Ge GaAs`.split(/\s+/));
     };
     const render5 = () => editing === null ? renderList() : renderForm();
     dlg.onclick = async (e) => {
-      const el3 = e.target, act2 = el3.dataset && el3.dataset.act;
-      if (el3 === dlg || act2 === "close") {
+      const el4 = e.target, act2 = el4.dataset && el4.dataset.act;
+      if (el4 === dlg || act2 === "close") {
         dlg.hidden = true;
         view.focus();
         return;
       }
-      const key = el3.closest && el3.closest("tr[data-key]") && el3.closest("tr[data-key]").dataset.key;
+      const key2 = el4.closest && el4.closest("tr[data-key]") && el4.closest("tr[data-key]").dataset.key;
       const lib2 = libraryOf(view.state.doc);
       if (act2 === "edit") {
-        editing = key;
+        editing = key2;
         return render5();
       }
       if (act2 === "new") {
@@ -80793,7 +80918,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
       if (act2 === "del") {
         const l = { ...lib2 };
-        delete l[key];
+        delete l[key2];
         setLibrary(view, l);
         return render5();
       }
@@ -81296,8 +81421,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
             if (open2) i2 += 1;
             const n = (k.type === "heading" ? /^S?\d+(?:\.\d+)*/ : /^S?\d+/).exec(text2.slice(i2));
             if (!n) break;
-            const key = supplementary && !/^S/.test(n[0]) ? "S" + n[0] : n[0];
-            const target = byNum.get(k.type + ":" + key);
+            const key2 = supplementary && !/^S/.test(n[0]) ? "S" + n[0] : n[0];
+            const target = byNum.get(k.type + ":" + key2);
             const from2 = at2[i2], last = at2[i2 + n[0].length - 1];
             const next = text2[i2 + n[0].length] || "";
             if (target && from2 > 0 && last === from2 + n[0].length - 1 && !/[\d.]\d/.test(next + (text2[i2 + n[0].length + 1] || ""))) out.push({ from: from2, to: last + 1, target, type: k.type });
@@ -81331,7 +81456,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const keyOf = /* @__PURE__ */ new Map();
     let verified = 0;
     const kept = [];
-    const where = part === "si" ? " (Supporting Information)" : "";
+    const where = part === "si" ? " (Supplementary Information)" : "";
     for (let i2 = 0; i2 < entries.length; i2++) {
       const e = entries[i2];
       if (!quiet) toast("Looking up reference " + (i2 + 1) + " of " + entries.length + where + " \u2026");
@@ -81408,39 +81533,39 @@ Waals I Si Ge GaAs`.split(/\s+/));
       } else if (m[3]) {
         const attrs = {};
         for (const a of m[4].matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[a[1]] = decodeXml(a[2] ?? a[3]);
-        const el3 = { name: m[3], attrs, children: [] };
-        top.children.push(el3);
-        if (!m[5]) stack.push(el3);
+        const el4 = { name: m[3], attrs, children: [] };
+        top.children.push(el4);
+        if (!m[5]) stack.push(el4);
       } else if (m[6] !== void 0) top.children.push({ text: decodeXml(m[6]) });
     }
     return root;
   }
-  var kids = (el3, name) => el3 ? el3.children.filter((c) => c.name && (!name || c.name === name)) : [];
-  var kid = (el3, name) => (el3 ? el3.children.find((c) => c.name === name) : void 0) || null;
-  function find(el3, name) {
-    if (!el3 || !el3.children) return null;
-    for (const c of el3.children) {
+  var kids = (el4, name) => el4 ? el4.children.filter((c) => c.name && (!name || c.name === name)) : [];
+  var kid = (el4, name) => (el4 ? el4.children.find((c) => c.name === name) : void 0) || null;
+  function find(el4, name) {
+    if (!el4 || !el4.children) return null;
+    for (const c of el4.children) {
       if (c.name === name) return c;
       const d = find(c, name);
       if (d) return d;
     }
     return null;
   }
-  function findAll(el3, name, out = []) {
-    if (!el3 || !el3.children) return out;
-    for (const c of el3.children) {
+  function findAll(el4, name, out = []) {
+    if (!el4 || !el4.children) return out;
+    for (const c of el4.children) {
       if (c.name === name) out.push(c);
       findAll(c, name, out);
     }
     return out;
   }
-  var textOf2 = (el3) => el3.text !== void 0 ? el3.text : (el3.children || []).map(textOf2).join("");
-  var val = (el3, name, attr2) => {
-    const c = kid(el3, name);
+  var textOf2 = (el4) => el4.text !== void 0 ? el4.text : (el4.children || []).map(textOf2).join("");
+  var val = (el4, name, attr2) => {
+    const c = kid(el4, name);
     return c ? c.attrs[attr2 || name.split(":")[0] + ":val"] ?? "" : null;
   };
-  var on3 = (el3, name) => {
-    const c = kid(el3, name);
+  var on3 = (el4, name) => {
+    const c = kid(el4, name);
     if (!c) return false;
     const v = c.attrs["w:val"] ?? c.attrs["m:val"];
     return !(v === "0" || v === "false" || v === "off");
@@ -81655,12 +81780,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
   var textEsc = (s) => String(s).replace(/([\\{}$&%#_^~])/g, (m) => m === "\\" ? "\\textbackslash{}" : m === "~" ? "\\textasciitilde{}" : m === "^" ? "\\textasciicircum{}" : "\\" + m);
   var grp = (s) => /^(.|\\[A-Za-z]+)$/.test(s) ? s : "{" + s + "}";
   var arg = (s) => "{" + s + "}";
-  var mval = (el3, name) => {
-    const c = kid(el3, name);
+  var mval = (el4, name) => {
+    const c = kid(el4, name);
     return c ? c.attrs["m:val"] : void 0;
   };
-  var prOf = (el3, name) => kid(el3, name);
-  var E = (el3, name) => conv2(kid(el3, name || "m:e"));
+  var prOf = (el4, name) => kid(el4, name);
+  var E = (el4, name) => conv2(kid(el4, name || "m:e"));
   function run3(r2) {
     const pr2 = kid(r2, "m:rPr");
     let text2 = "";
@@ -81761,90 +81886,90 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (!tall && es2.length === 1 && (beg === "(" && end === ")" || beg === "[" && end === "]")) return beg + inner2 + end;
     return join2(["\\left" + L2, inner2, "\\right" + R3]);
   }
-  function conv2(el3) {
-    if (!el3) return "";
-    if (el3.text !== void 0) return "";
-    switch (el3.name) {
+  function conv2(el4) {
+    if (!el4) return "";
+    if (el4.text !== void 0) return "";
+    switch (el4.name) {
       case "m:r":
-        return run3(el3);
+        return run3(el4);
       case "m:f": {
-        const type = mval(prOf(el3, "m:fPr"), "m:type");
-        const n = E(el3, "m:num"), d = E(el3, "m:den");
+        const type = mval(prOf(el4, "m:fPr"), "m:type");
+        const n = E(el4, "m:num"), d = E(el4, "m:den");
         if (type === "lin") return grp(n) + "/" + grp(d);
         if (type === "skw") return "{}^{" + n + "}\\!/\\!{}_{" + d + "}";
         if (type === "noBar") return "\\genfrac{}{}{0pt}{}" + arg(n) + arg(d);
         return "\\frac" + arg(n) + arg(d);
       }
       case "m:sSup": {
-        const sup = E(el3, "m:sup");
-        return /^'+$/.test(sup) ? grp(E(el3)) + sup : grp(E(el3)) + "^" + arg(sup);
+        const sup = E(el4, "m:sup");
+        return /^'+$/.test(sup) ? grp(E(el4)) + sup : grp(E(el4)) + "^" + arg(sup);
       }
       // f' not f^{'}
       case "m:sSub":
-        return grp(E(el3)) + "_" + arg(E(el3, "m:sub"));
+        return grp(E(el4)) + "_" + arg(E(el4, "m:sub"));
       case "m:sSubSup":
-        return grp(E(el3)) + "_" + arg(E(el3, "m:sub")) + "^" + arg(E(el3, "m:sup"));
+        return grp(E(el4)) + "_" + arg(E(el4, "m:sub")) + "^" + arg(E(el4, "m:sup"));
       case "m:sPre":
-        return "{}_" + arg(E(el3, "m:sub")) + "^" + arg(E(el3, "m:sup")) + grp(E(el3));
+        return "{}_" + arg(E(el4, "m:sub")) + "^" + arg(E(el4, "m:sup")) + grp(E(el4));
       case "m:rad": {
-        const hide2 = prOf(el3, "m:radPr") && kid(prOf(el3, "m:radPr"), "m:degHide") && mval(prOf(el3, "m:radPr"), "m:degHide") !== "0";
-        const deg = E(el3, "m:deg");
-        return "\\sqrt" + (!hide2 && deg ? "[" + deg + "]" : "") + arg(E(el3));
+        const hide2 = prOf(el4, "m:radPr") && kid(prOf(el4, "m:radPr"), "m:degHide") && mval(prOf(el4, "m:radPr"), "m:degHide") !== "0";
+        const deg = E(el4, "m:deg");
+        return "\\sqrt" + (!hide2 && deg ? "[" + deg + "]" : "") + arg(E(el4));
       }
       case "m:nary": {
-        const pr2 = prOf(el3, "m:naryPr");
+        const pr2 = prOf(el4, "m:naryPr");
         const chr = pr2 && kid(pr2, "m:chr") ? mval(pr2, "m:chr") : "\u222B";
-        const sub = pr2 && kid(pr2, "m:subHide") && mval(pr2, "m:subHide") !== "0" ? "" : E(el3, "m:sub");
-        const sup = pr2 && kid(pr2, "m:supHide") && mval(pr2, "m:supHide") !== "0" ? "" : E(el3, "m:sup");
-        return join2([(NARY2[chr] || chars(chr)) + (sub ? "_" + arg(sub) : "") + (sup ? "^" + arg(sup) : ""), E(el3)]);
+        const sub = pr2 && kid(pr2, "m:subHide") && mval(pr2, "m:subHide") !== "0" ? "" : E(el4, "m:sub");
+        const sup = pr2 && kid(pr2, "m:supHide") && mval(pr2, "m:supHide") !== "0" ? "" : E(el4, "m:sup");
+        return join2([(NARY2[chr] || chars(chr)) + (sub ? "_" + arg(sub) : "") + (sup ? "^" + arg(sup) : ""), E(el4)]);
       }
       case "m:d":
-        return delim2(el3);
+        return delim2(el4);
       case "m:func": {
-        const name = kid(el3, "m:fName");
-        return join2([conv2(name), E(el3)]);
+        const name = kid(el4, "m:fName");
+        return join2([conv2(name), E(el4)]);
       }
       case "m:acc": {
-        const pr2 = prOf(el3, "m:accPr");
+        const pr2 = prOf(el4, "m:accPr");
         const chr = pr2 && kid(pr2, "m:chr") ? mval(pr2, "m:chr") : "\u0302";
         const cmd2 = ACCENT2[chr];
-        return cmd2 ? "\\" + cmd2 + arg(E(el3)) : "\\overset{" + chars(chr || "") + "}" + arg(E(el3));
+        return cmd2 ? "\\" + cmd2 + arg(E(el4)) : "\\overset{" + chars(chr || "") + "}" + arg(E(el4));
       }
       case "m:bar":
-        return (mval(prOf(el3, "m:barPr"), "m:pos") === "bot" ? "\\underline" : "\\overline") + arg(E(el3));
+        return (mval(prOf(el4, "m:barPr"), "m:pos") === "bot" ? "\\underline" : "\\overline") + arg(E(el4));
       case "m:limLow": {
-        const base2 = E(el3), lim = E(el3, "m:lim");
+        const base2 = E(el4), lim = E(el4, "m:lim");
         return /^\\[A-Za-z]+$/.test(base2) || /^\\underbrace\b/.test(base2) ? base2 + "_" + arg(lim) : "\\underset" + arg(lim) + arg(base2);
       }
       case "m:limUpp": {
-        const base2 = E(el3);
-        return /^\\overbrace\b/.test(base2) ? base2 + "^" + arg(E(el3, "m:lim")) : "\\overset" + arg(E(el3, "m:lim")) + arg(base2);
+        const base2 = E(el4);
+        return /^\\overbrace\b/.test(base2) ? base2 + "^" + arg(E(el4, "m:lim")) : "\\overset" + arg(E(el4, "m:lim")) + arg(base2);
       }
       case "m:groupChr": {
-        const pr2 = prOf(el3, "m:groupChrPr");
+        const pr2 = prOf(el4, "m:groupChrPr");
         const chr = pr2 && kid(pr2, "m:chr") ? mval(pr2, "m:chr") : "\u23DF", pos = pr2 ? mval(pr2, "m:pos") : "bot";
         const map2 = { "\u23DF": "underbrace", "\u23DE": "overbrace", "\u2192": pos === "top" ? "overrightarrow" : "underrightarrow", "\u2190": pos === "top" ? "overleftarrow" : "underleftarrow", "\u23B5": "underbracket", "\u23B4": "overbracket" };
-        return "\\" + (map2[chr] || (pos === "top" ? "overline" : "underline")) + arg(E(el3));
+        return "\\" + (map2[chr] || (pos === "top" ? "overline" : "underline")) + arg(E(el4));
       }
       case "m:m":
-        return matrix(el3, "matrix");
+        return matrix(el4, "matrix");
       case "m:eqArr":
-        return eqArr(el3, "aligned");
+        return eqArr(el4, "aligned");
       case "m:borderBox":
-        return "\\boxed" + arg(E(el3));
+        return "\\boxed" + arg(E(el4));
       case "m:phant":
-        return "\\phantom" + arg(E(el3));
+        return "\\phantom" + arg(E(el4));
       case "m:oMathPara": {
-        const ms2 = kids(el3, "m:oMath").map(conv2).filter(Boolean);
+        const ms2 = kids(el4, "m:oMath").map(conv2).filter(Boolean);
         return ms2.length > 1 ? "\\begin{aligned}" + ms2.join(" \\\\ ") + "\\end{aligned}" : ms2[0] || "";
       }
       default:
-        return join2(el3.children.filter((c) => c.name && !/Pr$/.test(c.name)).map(conv2));
+        return join2(el4.children.filter((c) => c.name && !/Pr$/.test(c.name)).map(conv2));
     }
   }
-  function ommlToLatex(el3) {
+  function ommlToLatex(el4) {
     const FN = [...FUNCS].join("|");
-    return conv2(el3).replace(new RegExp("(\\\\(?:" + FN + ")(?![A-Za-z])(?:_\\{(?:[^{}]|\\{[^{}]*\\})*\\})?(?:\\^\\{(?:[^{}]|\\{[^{}]*\\})*\\})?)\\s*\\\\,", "g"), "$1 ").replace(new RegExp("\\\\,\\s*(\\\\(?:" + FN + ")(?![A-Za-z]))", "g"), "$1").replace(/\s+\\\\\s*$/, "").replace(/ {2,}/g, " ").trim();
+    return conv2(el4).replace(new RegExp("(\\\\(?:" + FN + ")(?![A-Za-z])(?:_\\{(?:[^{}]|\\{[^{}]*\\})*\\})?(?:\\^\\{(?:[^{}]|\\{[^{}]*\\})*\\})?)\\s*\\\\,", "g"), "$1 ").replace(new RegExp("\\\\,\\s*(\\\\(?:" + FN + ")(?![A-Za-z]))", "g"), "$1").replace(/\s+\\\\\s*$/, "").replace(/ {2,}/g, " ").trim();
   }
 
   // src/core/docxin.js
@@ -81894,6 +82019,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const m = /^heading\s*(\d)$/.exec(s.name) || /^heading(\d)$/.exec(s.id.toLowerCase());
         if (m) return { kind: "heading", level: Math.min(4, Math.max(1, +m[1])) };
       }
+      if (is2(/^part ?label$/)) return { kind: "partlabel" };
       if (is2(/^title$/)) return { kind: "title" };
       if (is2(/^subtitle$/)) return { kind: "p" };
       if (is2(/^caption$/)) return { kind: "caption" };
@@ -82033,11 +82159,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return [...m];
     };
     const keepRevisions = !(opts && opts.acceptRevisions);
-    const revOf = (el3) => ({ author: el3.attrs["w:author"] || "Unknown", time: el3.attrs["w:date"] || "" });
+    const revOf = (el4) => ({ author: el4.attrs["w:author"] || "Unknown", time: el4.attrs["w:date"] || "" });
     const initialsOf2 = (name) => String(name || "").split(/[\s.-]+/).filter(Boolean).map((w2) => w2[0]).join("").slice(0, 3).toUpperCase();
     const revAttrs = (r2) => {
-      const key = r2.author + "|" + r2.time;
-      if (ctx.revBreak || !ctx.revLast || ctx.revLast.key !== key) ctx.revLast = { key, id: "t-w" + ++ctx.revCount };
+      const key2 = r2.author + "|" + r2.time;
+      if (ctx.revBreak || !ctx.revLast || ctx.revLast.key !== key2) ctx.revLast = { key: key2, id: "t-w" + ++ctx.revCount };
       ctx.revBreak = false;
       return { id: ctx.revLast.id, author: r2.author, initials: initialsOf2(r2.author), time: r2.time };
     };
@@ -82115,8 +82241,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
         }
         out.push(n2);
       };
-      const walk = async (el3, marks2) => {
-        for (const c of el3.children) {
+      const walk = async (el4, marks2) => {
+        for (const c of el4.children) {
           if (!c.name) continue;
           switch (c.name) {
             case "w:r":
@@ -82406,7 +82532,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const open2 = [];
       for (let r2 = 0; r2 < trs.length; r2++) {
         const tr2 = trs[r2];
-        const header2 = !!(kid(tr2, "w:trPr") && kid(kid(tr2, "w:trPr"), "w:tblHeader"));
+        const header3 = !!(kid(tr2, "w:trPr") && kid(kid(tr2, "w:trPr"), "w:tblHeader"));
         const cells = [];
         let col = 0;
         for (const tc2 of kids(tr2, "w:tc")) {
@@ -82433,11 +82559,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
             for (const t39 of kids(tc2, "w:tbl")) content2.push({ type: "paragraph", content: [{ type: "text", text: findAll(t39, "w:t").map(textOf2).join(" ") }] });
           }
           let real = content2.filter((c) => c.content);
-          if (header2) real = real.map((par) => ({ ...par, content: par.content.map((n2) => n2.marks ? (({ marks: marks2, ...rest }) => {
+          if (header3) real = real.map((par) => ({ ...par, content: par.content.map((n2) => n2.marks ? (({ marks: marks2, ...rest }) => {
             const left2 = marks2.filter((m) => m.type !== "bold");
             return left2.length ? { ...rest, marks: left2 } : rest;
           })(n2) : n2) }));
-          const cell = { type: header2 ? "table_header" : "table_cell", attrs: { colspan: span, rowspan: 1, colwidth: null, align }, content: real.length ? real : [{ type: "paragraph" }] };
+          const cell = { type: header3 ? "table_header" : "table_cell", attrs: { colspan: span, rowspan: 1, colwidth: null, align }, content: real.length ? real : [{ type: "paragraph" }] };
           cells.push(cell);
           for (let k = 0; k < span; k++) open2[col + k] = vm2 ? cell : null;
           if (vm2) open2[col] = cell;
@@ -82537,6 +82663,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
         return;
       }
       if (sk.kind === "toc") return;
+      if (sk.kind === "partlabel") {
+        report.partLabel = plainText(nodes2).trim();
+        return;
+      }
       for (const tb2 of para.textboxes) {
         note("textbox", "a text box");
         for (const tp2 of findAll(tb2, "w:p")) await paragraph(tp2);
@@ -82780,8 +82910,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       addBlock({ type: "paragraph", content: content2 });
     }
     const body = find(docXml, "w:body");
-    const walkBody = async (el3) => {
-      for (const c of el3.children) {
+    const walkBody = async (el4) => {
+      for (const c of el4.children) {
         if (c.name === "w:p") await paragraph(c);
         else if (c.name === "w:sdt") {
           const sc2 = kid(c, "w:sdtContent");
@@ -83044,7 +83174,44 @@ Waals I Si Ge GaAs`.split(/\s+/));
     xrefs: "cross-references",
     changes: "tracked changes to review"
   };
+  function askImportTarget() {
+    return new Promise((resolve2) => {
+      let dlg = document.querySelector("#importdlg");
+      if (!dlg) {
+        dlg = document.createElement("div");
+        dlg.id = "importdlg";
+        dlg.className = "dlg";
+        document.body.appendChild(dlg);
+      }
+      const has = !!supplementOf(app.view.state.doc);
+      dlg.innerHTML = '<div class="box" role="dialog" aria-labelledby="importdlg-title"><h3 id="importdlg-title">Import a Word document</h3><p class="msg">Where should it go?</p><p class="msg"><b>Into this paper</b>: the Word file becomes the Supplementary Information, as the second tab' + (has ? " (replacing the one that is there)" : "") + '. The manuscript is not touched.<br><b>New document</b>: the Word file becomes a paper of its own; this one is closed.</p><div class="buttons"><button data-r="cancel">Cancel</button><span class="grow"></span><button data-r="si">Into this paper, as Supplementary Information</button><button data-r="new" class="primary">New document</button></div></div>';
+      const done = (r2) => {
+        dlg.hidden = true;
+        dlg.onclick = dlg.onkeydown = null;
+        if (r2 === "cancel") app.view.focus();
+        resolve2(r2);
+      };
+      dlg.onclick = (e) => {
+        if (e.target === dlg) return done("cancel");
+        const r2 = e.target.dataset && e.target.dataset.r;
+        if (r2) done(r2);
+      };
+      dlg.onkeydown = (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          done("cancel");
+        }
+      };
+      dlg.hidden = false;
+      dlg.querySelector('[data-r="new"]').focus();
+    });
+  }
   async function importWord(file) {
+    if (!file && !app.readOnly && app.view.state.doc.textContent.trim()) {
+      const where = await askImportTarget();
+      if (where === "cancel") return null;
+      if (where === "si") return importWordSI();
+    }
     if (!await confirmDiscard()) return null;
     const f = file || await api.pickWord();
     if (!f) return null;
@@ -83084,7 +83251,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return null;
     }
     const old = supplementOf(view.state.doc);
-    if (old && old.node.textContent.trim() && !window.confirm("Replace the Supporting Information of this document with the Word file?\n\nCtrl+Z brings the present one back.")) return null;
+    if (old && old.node.textContent.trim() && !window.confirm("Replace the Supplementary Information of this document with the Word file?\n\nCtrl+Z brings the present one back.")) return null;
     const f = file || await api.pickWord();
     if (!f) return null;
     let result;
@@ -83143,10 +83310,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     let node;
     try {
-      node = view.state.schema.nodeFromJSON({ type: "supplement", attrs: { title: old ? old.node.attrs.title : "Supporting Information" }, content: blocks3 });
+      node = view.state.schema.nodeFromJSON({ type: "supplement", attrs: { ...old ? old.node.attrs : {}, title: old && old.node.attrs.title || report.partLabel || "Supplementary Information" }, content: blocks3 });
       node.check();
     } catch (e) {
-      toast("The Word file could not be used as Supporting Information: " + e.message, "error");
+      toast("The Word file could not be used as Supplementary Information: " + e.message, "error");
       return null;
     }
     const now3 = supplementOf(view.state.doc);
@@ -83167,7 +83334,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     const typed = !!findTypedReferences(app.view.state.doc, opts.si ? "si" : "main").list || findTypedXrefs(app.view.state.doc).length > 0;
     const counts = Object.entries(LABEL).filter(([k]) => report.counts[k]).map(([k, l]) => "<li><b>" + report.counts[k] + "</b> " + l + "</li>").join("");
-    dlg.innerHTML = '<div class="box"><h3>Imported ' + esc10(name) + '</h3><p class="msg">' + (opts.si ? "It is now the Supporting Information of this paper (the second tab) \u2014 the Word file is unchanged. Its figures, tables and equations are numbered S1, S2, \u2026" : "It is a new document \u2014 the Word file is unchanged. Save it to keep it.") + '</p><ul class="imp-counts">' + counts + "</ul>" + ((opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).length ? '<h4>To check</h4><ul class="imp-notes">' + (opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).map((n) => "<li>" + esc10(n) + "</li>").join("") + "</ul>" : '<p class="msg">Everything in the file was converted.</p>') + (typed ? '<p class="msg">Citations and references like \u201CFig. 2\u201D are typed text here. <b>Convert typed references</b> looks each reference up and makes citations and cross-references live.</p>' : "") + '<div class="buttons"><span class="grow"></span>' + (typed ? '<button data-act="convert">Convert typed references</button>' : "") + '<button data-act="close" class="primary">OK</button></div></div>';
+    dlg.innerHTML = '<div class="box"><h3>Imported ' + esc10(name) + '</h3><p class="msg">' + (opts.si ? "It is now the Supplementary Information of this paper (the second tab) \u2014 the Word file is unchanged. Its figures, tables and equations are numbered S1, S2, \u2026" : "It is a new document \u2014 the Word file is unchanged. Save it to keep it.") + '</p><ul class="imp-counts">' + counts + "</ul>" + ((opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).length ? '<h4>To check</h4><ul class="imp-notes">' + (opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).map((n) => "<li>" + esc10(n) + "</li>").join("") + "</ul>" : '<p class="msg">Everything in the file was converted.</p>') + (typed ? '<p class="msg">Citations and references like \u201CFig. 2\u201D are typed text here. <b>Convert typed references</b> looks each reference up and makes citations and cross-references live.</p>' : "") + '<div class="buttons"><span class="grow"></span>' + (typed ? '<button data-act="convert">Convert typed references</button>' : "") + '<button data-act="close" class="primary">OK</button></div></div>';
     const close3 = () => {
       dlg.hidden = true;
       if (app.view) app.view.focus();
@@ -83232,11 +83399,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
       ["Co-authors in Word", "<b>Word</b> exports a real Word file: equations, numbered captions, cross-references, comments, tracked changes. File \u2192 <b>Import Word document\u2026</b> brings their version back, with their comments and tracked changes."],
       ["Co-authors in LaTeX", "File \u2192 Export LaTeX (for Overleaf): one zip to upload."]
     ]],
-    ["Supporting Information", [
-      ["Add it", "Insert \u2192 <b>Supporting Information</b>: a second tab in the same paper. Its figures, tables, equations and sections are numbered S1, S2, \u2026"],
+    ["Supplementary Information", [
+      ["Add it", "Insert \u2192 <b>Supplementary Information</b>: a second tab in the same paper. Its figures, tables, equations and sections are numbered S1, S2, \u2026"],
+      ["Name and header", "The part starts with its name \u2014 click it to change it (Supplementary Material, Supporting Information, \u2026) \u2014 then the paper\u2019s title and authors. Untick <b>Same title and authors as the paper</b> to type a title and an author line of its own; an empty line is left out."],
       ["Refer across", "A reference from the manuscript to \u201CFig. S2\u201D is live: it follows when the SI changes."],
       ["Export", "PDF and Word write two files: <code>name</code> and <code>name-SI</code>."],
-      ["From Word", "File \u2192 Import Word document as Supporting Information\u2026"]
+      ["From Word", "File \u2192 Import Word document as Supplementary Information\u2026 \u2014 or File \u2192 Import Word document\u2026, which asks whether the file goes into the open paper as its Supplementary Information or becomes a new document. The manuscript is not touched."]
     ]],
     ["From a Word manuscript", [
       ["Import", "File \u2192 Import Word document\u2026: a new paper here; the Word file is not changed. A report lists what arrived and what to check."],
@@ -83388,13 +83556,13 @@ Waals I Si Ge GaAs`.split(/\s+/));
         TRY(T2("press \u2713 Accept on one card and \u2717 Reject on the other. Then press the Track button and edit this sentence: your own changes are now suggestions too. Press Track again to switch it off.")),
         H2("tut-6", "For co-authors and for the journal"),
         P2(T2("The PDF button writes the paper as the preview shows it. The Word button writes a real Word file \u2014 equations, numbered captions, references, comments and tracked changes included \u2014 and File \u2192 Import Word document\u2026 brings a co-author\u2019s version back. File \u2192 Export LaTeX makes a project for Overleaf.")),
-        P2(T2("The second tab above the page is the Supporting Information of this paper: its figures and sections are numbered S1, S2, \u2026 and it is exported as a file of its own. A reference to it from here, such as "), X("tut-sfig"), T2(", stays right when it changes.")),
-        TRY(T2("click the \u201CSupporting Information\u201D tab, look, and come back. Then press F1 for the guide.")),
+        P2(T2("The second tab above the page is the Supplementary Information of this paper: its figures and sections are numbered S1, S2, \u2026 and it is exported as a file of its own. A reference to it from here, such as "), X("tut-sfig"), T2(", stays right when it changes.")),
+        TRY(T2("click the \u201CSupplementary Information\u201D tab, look, and come back. Then press F1 for the guide.")),
         { type: "bibliography", attrs: { title: "References" } },
-        { type: "supplement", attrs: { title: "Supporting Information" }, content: [
+        { type: "supplement", attrs: { title: "Supplementary Information" }, content: [
           H2("tut-s1", "Additional data"),
-          P2(T2("This is the Supporting Information. It is part of the same file, so references between the two parts stay right; it prints as its own document.")),
-          { type: "figure", attrs: { id: "tut-sfig", placement: "here", pos: "top", side: "right", width: 0.45, comments: [], annotations: [] }, content: [{ type: "image", attrs: { src: name, w: size.w, h: size.h } }, { type: "caption", content: [T2("The same data again, as a figure of the Supporting Information.")] }] },
+          P2(T2("This is the Supplementary Information. It is part of the same file, so references between the two parts stay right; it prints as its own document.")),
+          { type: "figure", attrs: { id: "tut-sfig", placement: "here", pos: "top", side: "right", width: 0.45, comments: [], annotations: [] }, content: [{ type: "image", attrs: { src: name, w: size.w, h: size.h } }, { type: "caption", content: [T2("The same data again, as a figure of the Supplementary Information.")] }] },
           P2(T2("Back to the manuscript: the first tab."))
         ] }
       ]
@@ -84027,10 +84195,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     if (!f.node.attrs.id) return;
     closeFigureViewer();
-    const el3 = document.createElement("div");
-    el3.id = "figview";
-    el3.innerHTML = '<div class="fv-bar"><span class="fv-title"></span><div class="fv-tools">' + TOOLS.map(([k, label4, title]) => '<button data-tool="' + k + '" title="' + esc11(title) + '">' + label4 + "</button>").join("") + '<span class="fv-colors"></span><label class="fv-size" title="Text size"><span>Size</span><input type="range" min="' + TEXT_SIZE_MIN + '" max="' + TEXT_SIZE_MAX + '" step="0.002"></label><button data-act="delete" title="Delete the selected mark (Delete)">\u{1F5D1} Delete</button><button data-act="undo" title="Undo (Ctrl+Z)">\u21B6 Undo</button></div><span class="grow"></span><button data-act="clear" class="quiet-danger" title="Remove every mark and comment box on this figure (Ctrl+Z brings them back)">Remove annotations</button><button data-act="close" class="primary" title="Close (Esc)">Close</button></div><div class="fv-main"><div class="fv-stage"><img alt=""><div class="fv-ann"></div><svg class="fv-live" preserveAspectRatio="none"></svg><div class="fv-input"></div></div><aside class="fv-notes"></aside></div><div class="fv-hint"></div>';
-    document.body.appendChild(el3);
+    const el4 = document.createElement("div");
+    el4.id = "figview";
+    el4.innerHTML = '<div class="fv-bar"><span class="fv-title"></span><div class="fv-tools">' + TOOLS.map(([k, label4, title]) => '<button data-tool="' + k + '" title="' + esc11(title) + '">' + label4 + "</button>").join("") + '<span class="fv-colors"></span><label class="fv-size" title="Text size"><span>Size</span><input type="range" min="' + TEXT_SIZE_MIN + '" max="' + TEXT_SIZE_MAX + '" step="0.002"></label><button data-act="delete" title="Delete the selected mark (Delete)">\u{1F5D1} Delete</button><button data-act="undo" title="Undo (Ctrl+Z)">\u21B6 Undo</button></div><span class="grow"></span><button data-act="clear" class="quiet-danger" title="Remove every mark and comment box on this figure (Ctrl+Z brings them back)">Remove annotations</button><button data-act="close" class="primary" title="Close (Esc)">Close</button></div><div class="fv-main"><div class="fv-stage"><img alt=""><div class="fv-ann"></div><svg class="fv-live" preserveAspectRatio="none"></svg><div class="fv-input"></div></div><aside class="fv-notes"></aside></div><div class="fv-hint"></div>';
+    document.body.appendChild(el4);
     S = {
       view,
       figId: f.node.attrs.id,
@@ -84040,18 +84208,18 @@ Waals I Si Ge GaAs`.split(/\s+/));
       selected: null,
       editing: null,
       el: {
-        root: el3,
-        title: el3.querySelector(".fv-title"),
-        stage: el3.querySelector(".fv-stage"),
-        img: el3.querySelector(".fv-stage img"),
-        ann: el3.querySelector(".fv-ann"),
-        live: el3.querySelector(".fv-live"),
-        input: el3.querySelector(".fv-input"),
-        size: el3.querySelector(".fv-size"),
-        notes: el3.querySelector(".fv-notes"),
-        colors: el3.querySelector(".fv-colors"),
-        hint: el3.querySelector(".fv-hint"),
-        main: el3.querySelector(".fv-main")
+        root: el4,
+        title: el4.querySelector(".fv-title"),
+        stage: el4.querySelector(".fv-stage"),
+        img: el4.querySelector(".fv-stage img"),
+        ann: el4.querySelector(".fv-ann"),
+        live: el4.querySelector(".fv-live"),
+        input: el4.querySelector(".fv-input"),
+        size: el4.querySelector(".fv-size"),
+        notes: el4.querySelector(".fv-notes"),
+        colors: el4.querySelector(".fv-colors"),
+        hint: el4.querySelector(".fv-hint"),
+        main: el4.querySelector(".fv-main")
       }
     };
     S.el.img.src = mediaUrl(f.node.firstChild.attrs.src);
@@ -84059,7 +84227,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     wire();
     render2();
     layout();
-    el3.focus();
+    el4.focus();
   }
   function closeFigureViewer() {
     if (!S) return;
@@ -84679,27 +84847,27 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (s < 86400) return Math.round(s / 3600) + " h ago";
     return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   };
-  var el2 = (tag, cls, text2) => {
+  var el3 = (tag, cls, text2) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text2 != null) e.textContent = text2;
     return e;
   };
   var isMine = (who) => app.settings && who && who === app.settings.name;
-  function header(who, initials, time) {
-    const h2 = el2("div", "cmt-head");
-    const badge = el2("span", "cmt-badge", initials || (who || "?").slice(0, 2).toUpperCase());
+  function header2(who, initials, time) {
+    const h2 = el3("div", "cmt-head");
+    const badge = el3("span", "cmt-badge", initials || (who || "?").slice(0, 2).toUpperCase());
     badge.style.background = colorOf(who);
-    h2.append(badge, el2("b", null, who || "Unknown"), el2("span", "cmt-time", ago(time)));
+    h2.append(badge, el3("b", null, who || "Unknown"), el3("span", "cmt-time", ago(time)));
     return h2;
   }
   function editor(initial, placeholder, onPost, onCancel, postLabel = "Post", takeFocus = true) {
-    const box = el2("div", "cmt-edit");
-    const ta2 = el2("textarea");
+    const box = el3("div", "cmt-edit");
+    const ta2 = el3("textarea");
     ta2.value = initial || "";
     ta2.placeholder = placeholder;
     ta2.rows = 2;
-    const post = el2("button", "primary", postLabel), cancel = el2("button", null, "Cancel");
+    const post = el3("button", "primary", postLabel), cancel = el3("button", null, "Cancel");
     const go2 = () => {
       const v = ta2.value.trim();
       if (v) onPost(v);
@@ -84717,7 +84885,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         onCancel();
       }
     };
-    const bar2 = el2("div", "cmt-buttons");
+    const bar2 = el3("div", "cmt-buttons");
     bar2.append(cancel, post);
     box.append(ta2, bar2);
     setTimeout(() => {
@@ -84726,13 +84894,13 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return box;
   }
   function card(view, t39, ui3) {
-    const c = el2("div", "cmt-card" + (t39.id === ui3.active ? " active" : "") + (t39.resolved ? " resolved" : ""));
+    const c = el3("div", "cmt-card" + (t39.id === ui3.active ? " active" : "") + (t39.resolved ? " resolved" : ""));
     c.dataset.id = t39.id;
     c.addEventListener("mousedown", (e) => {
       if (e.target.closest("textarea, input, button")) return;
       if (commentUi(view.state).active !== t39.id) setCommentUi(view, { active: t39.id });
     });
-    c.append(header(t39.author, t39.initials, t39.time));
+    c.append(header2(t39.author, t39.initials, t39.time));
     const editingThis = ui3.editing === t39.id;
     if (editingThis) {
       const isNew = !t39.text;
@@ -84745,10 +84913,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }, isNew ? "Post" : "Save"));
       return c;
     }
-    c.append(el2("div", "cmt-text", t39.text));
+    c.append(el3("div", "cmt-text", t39.text));
     for (const r2 of t39.replies || []) {
-      const rep = el2("div", "cmt-reply");
-      rep.append(header(r2.author, r2.initials, r2.time), el2("div", "cmt-text", r2.text));
+      const rep = el3("div", "cmt-reply");
+      rep.append(header2(r2.author, r2.initials, r2.time), el3("div", "cmt-text", r2.text));
       c.append(rep);
     }
     if (t39.id === ui3.active) {
@@ -84756,17 +84924,17 @@ Waals I Si Ge GaAs`.split(/\s+/));
         if (await ensureUserName()) reply(view, t39.id, v);
       }, () => setCommentUi(view, { active: null }), "Reply", false));
     }
-    const acts = el2("div", "cmt-actions");
-    const resolve2 = el2("button", null, t39.resolved ? "Reopen" : "\u2713 Resolve");
+    const acts = el3("div", "cmt-actions");
+    const resolve2 = el3("button", null, t39.resolved ? "Reopen" : "\u2713 Resolve");
     resolve2.onclick = () => setResolved(view, t39.id, !t39.resolved);
     acts.append(resolve2);
     if (isMine(t39.author)) {
-      const edit = el2("button", null, "Edit");
+      const edit = el3("button", null, "Edit");
       edit.onclick = () => setCommentUi(view, { active: t39.id, editing: t39.id });
       acts.append(edit);
     }
     if (!app.readOnly) {
-      const del2 = el2("button", "danger", "Delete");
+      const del2 = el3("button", "danger", "Delete");
       del2.title = "Delete the comment and its replies";
       del2.onclick = () => updateThread(view, t39.id, () => null);
       acts.append(del2);
@@ -84775,10 +84943,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return c;
   }
   function changeCard(view, c) {
-    const card2 = el2("div", "cmt-card chg-card");
+    const card2 = el3("div", "cmt-card chg-card");
     card2.dataset.change = c.id;
-    card2.append(header(c.author, c.initials, c.time || (/* @__PURE__ */ new Date()).toISOString()));
-    card2.append(el2("div", "cmt-text chg-text", describeChange(c)));
+    card2.append(header2(c.author, c.initials, c.time || (/* @__PURE__ */ new Date()).toISOString()));
+    card2.append(el3("div", "cmt-text chg-text", describeChange(c)));
     card2.addEventListener("mousedown", (e) => {
       if (!e.target.closest("button")) {
         e.preventDefault();
@@ -84787,8 +84955,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
     });
     if (!app.readOnly) {
-      const acts = el2("div", "cmt-actions chg-actions");
-      const no2 = el2("button", "danger", "\u2717 Reject"), yes = el2("button", "primary", "\u2713 Accept");
+      const acts = el3("div", "cmt-actions chg-actions");
+      const no2 = el3("button", "danger", "\u2717 Reject"), yes = el3("button", "primary", "\u2713 Accept");
       no2.title = "Reject this change: the text goes back to what it was";
       yes.title = "Accept this change";
       no2.onclick = () => resolve(view, false, { id: c.id });
@@ -84822,26 +84990,26 @@ Waals I Si Ge GaAs`.split(/\s+/));
       api.viewState({ comments: !ui3.hidden, showResolved: !!ui3.showResolved });
     }
     for (const id2 of ["#st-comments", "#st-changes"]) {
-      const el3 = $(id2);
-      if (el3) {
-        el3.classList.toggle("st-link", !!ui3.hidden && !!el3.textContent);
-        el3.title = ui3.hidden && el3.textContent ? "Show the comments and changes beside the page" : "";
+      const el4 = $(id2);
+      if (el4) {
+        el4.classList.toggle("st-link", !!ui3.hidden && !!el4.textContent);
+        el4.title = ui3.hidden && el4.textContent ? "Show the comments and changes beside the page" : "";
       }
     }
     if (ui3.hidden) {
       pane.replaceChildren();
       return;
     }
-    const head = el2("div", "cmt-pane-head");
-    head.append(el2("b", null, changes.length ? all.length ? "Comments and changes" : "Changes" : "Comments"));
-    const lab = el2("label");
-    const cb2 = el2("input");
+    const head = el3("div", "cmt-pane-head");
+    head.append(el3("b", null, changes.length ? all.length ? "Comments and changes" : "Changes" : "Comments"));
+    const lab = el3("label");
+    const cb2 = el3("input");
     cb2.type = "checkbox";
     cb2.checked = ui3.showResolved;
     cb2.onchange = () => setCommentUi(view, { showResolved: cb2.checked });
     lab.append(cb2, document.createTextNode(" show resolved (" + resolvedCount + ")"));
     head.append(lab);
-    const hide2 = el2("button", "cmt-hide", "Hide \u2715");
+    const hide2 = el3("button", "cmt-hide", "Hide \u2715");
     hide2.title = "Hide the comments and changes (View \u2192 Comments, or click the count at the bottom, shows them again)";
     hide2.onclick = () => setCommentUi(view, { hidden: true });
     head.append(hide2);
@@ -84883,8 +85051,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
   onReadOnly(schedule);
   window.addEventListener("resize", schedule);
   document.addEventListener("click", (e) => {
-    const el3 = e.target.closest && e.target.closest("#st-comments, #st-changes");
-    if (el3 && app.view && commentUi(app.view.state).hidden) setCommentUi(app.view, { hidden: false });
+    const el4 = e.target.closest && e.target.closest("#st-comments, #st-changes");
+    if (el4 && app.view && commentUi(app.view.state).hidden) setCommentUi(app.view, { hidden: false });
   });
 
   // src/renderer/ui/updatebar.js

@@ -3,7 +3,7 @@
    numbers after such a label (lists and ranges too) that match a figure, table, equation or section of the document;
    convertTypedXrefs replaces each number by a reference. The label and the panel letters stay as typed, so the text
    reads as before ("Figs. " + reference + "a–e and " + reference).
-   Numbers follow the document's own numbering: "S3" is the third figure of the Supporting Information. */
+   Numbers follow the document's own numbering: "S3" is the third figure of the Supplementary Information. */
 import { Fragment } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
 import { computeNumbers } from './numbering.js';

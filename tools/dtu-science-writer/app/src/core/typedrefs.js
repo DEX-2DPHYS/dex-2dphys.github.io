@@ -41,7 +41,7 @@ function expand(spec, through) {
  * such a heading, numbered paragraphs "[1] …" at the end of the document.
  */
 export function findTypedReferences(doc, part) {
-  // the manuscript and the Supporting Information each have their own typed list and numbers: one part at a time
+  // the manuscript and the Supplementary Information each have their own typed list and numbers: one part at a time
   const sup = supplementOf(doc);
   const tops = [];
   if (part === 'si' && sup) sup.node.forEach((n, off) => tops.push({ n, off: sup.pos + 1 + off }));

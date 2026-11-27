@@ -24,7 +24,7 @@ function buildMenu() {
       { label: 'Export LaTeX (for Overleaf)…', click: send('exportLatex') },
       { type: 'separator' },
       { label: 'Import Word document…', click: send('importWord') },
-      { label: 'Import Word document as Supporting Information…', click: send('importWordSI') },
+      { label: 'Import Word document as Supplementary Information…', click: send('importWordSI') },
       { type: 'separator' },
       { label: 'Settings…', click: send('settings') },
       { type: 'separator' },
@@ -52,7 +52,7 @@ function buildMenu() {
       { label: 'List of tables', click: send('lot') },
       { label: 'Page break', accelerator: 'CmdOrCtrl+Enter', click: send('pageBreak'), registerAccelerator: false },
       { type: 'separator' },
-      { label: 'Supporting Information', click: send('supplement') },
+      { label: 'Supplementary Information', click: send('supplement') },
       { type: 'separator' },
       // Ctrl+Alt shortcuts are handled in the page (AltGr on Danish keyboards is Ctrl+Alt: AltGr+M types µ)
       { label: 'Comment', accelerator: 'CmdOrCtrl+Alt+M', click: send('comment'), registerAccelerator: false },
@@ -66,7 +66,7 @@ function buildMenu() {
       { label: 'Add references to Zotero library', click: send('zoteroAddAll') },
       { type: 'separator' },
       { label: 'Appendix starts here (on/off)', click: send('appendix') },
-      { label: 'Remove Supporting Information…', click: send('removeSupplement') },
+      { label: 'Remove Supplementary Information…', click: send('removeSupplement') },
     ] },
     { label: '&Review', submenu: [
       { id: 'tracking', label: 'Track changes', type: 'checkbox', checked: false, accelerator: 'CmdOrCtrl+Shift+T', click: send('track') },

@@ -51,7 +51,7 @@ function decorations(doc) {
   const cite = styleOf(doc).cite;
   const lib = libraryOf(doc);
   const sup = supplementOf(doc);
-  // the manuscript and the Supporting Information each have their own numbering and list (as in the exported files)
+  // the manuscript and the Supplementary Information each have their own numbering and list (as in the exported files)
   const parts = sup
     ? { main: { refs: formatReferences(doc, cite, 'main'), i: 0, hasList: false, end: sup.pos }, si: { refs: formatReferences(doc, cite, 'si'), i: 0, hasList: false, end: sup.pos + sup.node.nodeSize - 1 } }
     : { main: { refs: formatReferences(doc, cite), i: 0, hasList: false, end: doc.content.size } };
@@ -157,7 +157,7 @@ export function insertBibliography(state, dispatch) {
   let at = null;
   const $sel = state.selection.$from;
   const inSI = $sel.depth >= 1 && $sel.node(1).type.name === 'supplement';
-  // one list per part: the manuscript's, or the Supporting Information's own
+  // one list per part: the manuscript's, or the Supplementary Information's own
   if (inSI) { const base = $sel.before(1) + 1; $sel.node(1).forEach((n, off) => { if (n.type.name === 'bibliography') at = base + off; }); }
   else state.doc.forEach((n, off) => { if (n.type.name === 'bibliography') at = off; });
   if (!dispatch) return true;
