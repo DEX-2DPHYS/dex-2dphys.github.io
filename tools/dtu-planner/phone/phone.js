@@ -7,7 +7,7 @@
   const M = window.OTTModel;
   // Dropbox app key (public — the login uses PKCE, so there is no secret). Can also be set under Settings › Advanced.
   const DROPBOX_APP_KEY = '3glond2jy4nknsk';
-  const VERSION = '1.7';
+  const VERSION = '1.8';
 
   // ---------- small helpers ----------
   const LS = {
@@ -728,11 +728,14 @@
     for (const gid of pc.children) {
       const g = e.nodes[gid];
       if (!g) continue;
-      const persons = g.children.map(id => e.nodes[id]).filter(Boolean);
+      // persons, and the people under a person (a group leader's own people), depth-first
+      const persons = [];
+      const take = (id, depth) => { const p = e.nodes[id]; if (!p || p.kind !== 'person') return; persons.push([p, depth]); for (const c of p.children) take(c, depth + 1); };
+      for (const id of g.children) take(id, 0);
       h += `<h3>${E(title(g))}<span>${persons.length}</span></h3><div class="card">`;
-      h += persons.map(p => {
-        const open = p.children.filter(c => !D(c).done).length + ((p.person && ownedBy.get(p.person)) || []).length;
-        return `<div class="row k-person" data-open="${E(p.id)}"><span class="kicon av">${E(initials(title(p)))}</span><span class="tt"><b>${E(title(p))}</b>${open ? `<small>${open} open</small>` : ''}</span>${(O.kids.get(p.id) || []).length ? `<span class="pend">${I('clock', 'mini')}</span>` : ''}${I('chev', 'go')}</div>`;
+      h += persons.map(([p, depth]) => {
+        const open = p.children.filter(c => e.nodes[c] && e.nodes[c].kind !== 'person' && !D(c).done).length + ((p.person && ownedBy.get(p.person)) || []).length;
+        return `<div class="row k-person" data-open="${E(p.id)}"${depth ? ` style="padding-left:${12 + depth * 22}px"` : ''}><span class="kicon av">${E(initials(title(p)))}</span><span class="tt"><b>${E(title(p))}</b>${open ? `<small>${open} open</small>` : ''}</span>${(O.kids.get(p.id) || []).length ? `<span class="pend">${I('clock', 'mini')}</span>` : ''}${I('chev', 'go')}</div>`;
       }).join('') || '<div class="none">Nobody yet</div>';
       h += '</div>';
     }
