@@ -8,6 +8,7 @@ import { app, api, $, fileName, baseName, isDirty, emit, toast } from '../contex
 import { askSave } from '../ui/asksave.js';
 import { chooseTemplate } from '../ui/templatedialog.js';
 import { templateDoc } from '../../core/templates.js';
+import { venueDoc } from '../../core/venues.js';
 
 /** Show a document (JSON) in the editor. Media must already be in the media store. */
 export function loadDocument(json, path, { readOnly = false, owner = null } = {}) {
@@ -59,7 +60,9 @@ export async function newDocument(choice) {
     } catch (e) { toast('The template “' + choice.user + '” could not be opened: ' + e.message, 'error'); clearMedia(); loadDocument(NEW_DOC, null); }
   } else {
     clearMedia();
-    loadDocument(choice.builtin ? templateDoc(choice.builtin) : NEW_DOC, null);
+    // a journal or funder chosen under Article / Proposal: its own skeleton, style and limits (core/venues.js)
+    const fromVenue = choice.venue ? venueDoc(choice.venue, choice.vtype) : null;
+    loadDocument(fromVenue || (choice.builtin ? templateDoc(choice.builtin) : NEW_DOC), null);
   }
   app.view.focus();
   return true;

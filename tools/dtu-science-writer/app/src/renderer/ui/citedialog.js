@@ -9,6 +9,21 @@ import { putCitation } from '../editor/citations.js';
 import { api, toast } from '../context.js';
 import { openLibraryDialog } from './librarydialog.js';
 
+/** Newly cited works with a DOI but neither page range nor article number (often Zotero's records): the article number
+    from doi.org, filled in afterwards (main/refs.js articleNumber) — journals that number articles print it in place of
+    the page. Not an undo step of its own. */
+async function fillArticleNumbers(view, ids) {
+  for (const id of ids) {
+    const it = id && libraryOf(view.state.doc)[id];
+    if (!it || !it.DOI || it.page || it['article-number']) continue;
+    const got = await api.refs('articleNumber', it).catch(() => null);
+    const now = got && libraryOf(view.state.doc)[id];
+    if (!now || now.page || now['article-number']) continue;
+    const lib = { ...libraryOf(view.state.doc), [id]: { ...now, ...got } };
+    view.dispatch(view.state.tr.setDocAttribute('references', lib).setMeta('addToHistory', false));
+  }
+}
+
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** DOI or arXiv number (same rule as main/refs.js doiOf). */
 export const looksLikeId = (s) => /10\.\d{4,9}\/\S+/.test(s) || /^(arxiv:\s*|https?:\/\/arxiv\.org\/(abs|pdf)\/)?(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?(\.pdf)?$/i.test(s.trim());
@@ -138,6 +153,7 @@ export function openCiteDialog(view) {
     const items = chosen.filter(c => c.id).map(c => (c.locator ? { id: c.id, locator: c.locator } : { id: c.id }));
     close();
     putCitation(view, items, mode, newLib);
+    fillArticleNumbers(view, fresh.map(c => c.id));
   };
 
   q.oninput = () => { clearTimeout(timer); timer = setTimeout(() => { timer = null; search(); }, q.value.trim().startsWith('@') || looksLikeId(q.value) ? 0 : 180); };

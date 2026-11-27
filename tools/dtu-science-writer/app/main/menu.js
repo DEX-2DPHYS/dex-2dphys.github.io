@@ -59,6 +59,13 @@ function buildMenu() {
       { label: 'Comment', accelerator: 'CmdOrCtrl+Alt+M', click: send('comment'), registerAccelerator: false },
     ] },
     { label: 'F&ormat', submenu: [
+      { label: 'Highlight', accelerator: 'CmdOrCtrl+Shift+H', click: send('highlight'), registerAccelerator: false },
+      { label: 'Remove highlight', click: send('removeHighlight') },
+      { label: 'Text colour', submenu: [
+        { label: 'Red', click: send('colorRed') }, { label: 'Blue', click: send('colorBlue') }, { label: 'Green', click: send('colorGreen') },
+        { type: 'separator' }, { label: 'Automatic', click: send('colorNone') },
+      ] },
+      { type: 'separator' },
       { label: 'Document style…', click: send('style') },
       { label: 'Journal style…', click: send('journal') },
       { label: 'Authors and affiliations…', click: send('authors') },

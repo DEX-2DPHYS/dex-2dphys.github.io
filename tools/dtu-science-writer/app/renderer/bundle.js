@@ -167,8 +167,8 @@
           function n(e2, t41, r3, n2, i3, s2) {
             var a, o, h3 = e2.file, u = e2.compression, l = s2 !== O2.utf8encode, f = I2.transformTo("string", s2(h3.name)), c = I2.transformTo("string", O2.utf8encode(h3.name)), d = h3.comment, p2 = I2.transformTo("string", s2(d)), m = I2.transformTo("string", O2.utf8encode(d)), _ = c.length !== h3.name.length, g2 = m.length !== d.length, b = "", v = "", y = "", w2 = h3.dir, k = h3.date, x3 = { crc32: 0, compressedSize: 0, uncompressedSize: 0 };
             t41 && !r3 || (x3.crc32 = e2.crc32, x3.compressedSize = e2.compressedSize, x3.uncompressedSize = e2.uncompressedSize);
-            var S2 = 0;
-            t41 && (S2 |= 8), l || !_ && !g2 || (S2 |= 2048);
+            var S3 = 0;
+            t41 && (S3 |= 8), l || !_ && !g2 || (S3 |= 2048);
             var z2 = 0, C = 0;
             w2 && (z2 |= 16), "UNIX" === i3 ? (C = 798, z2 |= (function(e3, t42) {
               var r5 = e3;
@@ -177,7 +177,7 @@
               return 63 & (e3 || 0);
             })(h3.dosPermissions)), a = k.getUTCHours(), a <<= 6, a |= k.getUTCMinutes(), a <<= 5, a |= k.getUTCSeconds() / 2, o = k.getUTCFullYear() - 1980, o <<= 4, o |= k.getUTCMonth() + 1, o <<= 5, o |= k.getUTCDate(), _ && (v = A(1, 1) + A(B3(f), 4) + c, b += "up" + A(v.length, 2) + v), g2 && (y = A(1, 1) + A(B3(p2), 4) + m, b += "uc" + A(y.length, 2) + y);
             var E2 = "";
-            return E2 += "\n\0", E2 += A(S2, 2), E2 += u.magic, E2 += A(a, 2), E2 += A(o, 2), E2 += A(x3.crc32, 4), E2 += A(x3.compressedSize, 4), E2 += A(x3.uncompressedSize, 4), E2 += A(f.length, 2), E2 += A(b.length, 2), { fileRecord: R3.LOCAL_FILE_HEADER + E2 + f + b, dirRecord: R3.CENTRAL_FILE_HEADER + A(C, 2) + E2 + A(p2.length, 2) + "\0\0\0\0" + A(z2, 4) + A(n2, 4) + f + b + p2 };
+            return E2 += "\n\0", E2 += A(S3, 2), E2 += u.magic, E2 += A(a, 2), E2 += A(o, 2), E2 += A(x3.crc32, 4), E2 += A(x3.compressedSize, 4), E2 += A(x3.uncompressedSize, 4), E2 += A(f.length, 2), E2 += A(b.length, 2), { fileRecord: R3.LOCAL_FILE_HEADER + E2 + f + b, dirRecord: R3.CENTRAL_FILE_HEADER + A(C, 2) + E2 + A(p2.length, 2) + "\0\0\0\0" + A(z2, 4) + A(n2, 4) + f + b + p2 };
           }
           var I2 = e("../utils"), i2 = e("../stream/GenericWorker"), O2 = e("../utf8"), B3 = e("../crc32"), R3 = e("../signature");
           function s(e2, t41, r3, n2) {
@@ -1445,7 +1445,7 @@
           };
         }, {}], 46: [function(e, t40, r2) {
           "use strict";
-          var h3, c = e("../utils/common"), u = e("./trees"), d = e("./adler32"), p2 = e("./crc32"), n = e("./messages"), l = 0, f = 4, m = 0, _ = -2, g2 = -1, b = 4, i2 = 2, v = 8, y = 9, s = 286, a = 30, o = 19, w2 = 2 * s + 1, k = 15, x3 = 3, S2 = 258, z2 = S2 + x3 + 1, C = 42, E2 = 113, A = 1, I2 = 2, O2 = 3, B3 = 4;
+          var h3, c = e("../utils/common"), u = e("./trees"), d = e("./adler32"), p2 = e("./crc32"), n = e("./messages"), l = 0, f = 4, m = 0, _ = -2, g2 = -1, b = 4, i2 = 2, v = 8, y = 9, s = 286, a = 30, o = 19, w2 = 2 * s + 1, k = 15, x3 = 3, S3 = 258, z2 = S3 + x3 + 1, C = 42, E2 = 113, A = 1, I2 = 2, O2 = 3, B3 = 4;
           function R3(e2, t41) {
             return e2.msg = n[t41], t41;
           }
@@ -1469,14 +1469,14 @@
             e2.pending_buf[e2.pending++] = t41 >>> 8 & 255, e2.pending_buf[e2.pending++] = 255 & t41;
           }
           function L2(e2, t41) {
-            var r3, n2, i3 = e2.max_chain_length, s2 = e2.strstart, a2 = e2.prev_length, o2 = e2.nice_match, h4 = e2.strstart > e2.w_size - z2 ? e2.strstart - (e2.w_size - z2) : 0, u2 = e2.window, l2 = e2.w_mask, f2 = e2.prev, c2 = e2.strstart + S2, d2 = u2[s2 + a2 - 1], p3 = u2[s2 + a2];
+            var r3, n2, i3 = e2.max_chain_length, s2 = e2.strstart, a2 = e2.prev_length, o2 = e2.nice_match, h4 = e2.strstart > e2.w_size - z2 ? e2.strstart - (e2.w_size - z2) : 0, u2 = e2.window, l2 = e2.w_mask, f2 = e2.prev, c2 = e2.strstart + S3, d2 = u2[s2 + a2 - 1], p3 = u2[s2 + a2];
             e2.prev_length >= e2.good_match && (i3 >>= 2), o2 > e2.lookahead && (o2 = e2.lookahead);
             do {
               if (u2[(r3 = t41) + a2] === p3 && u2[r3 + a2 - 1] === d2 && u2[r3] === u2[s2] && u2[++r3] === u2[s2 + 1]) {
                 s2 += 2, r3++;
                 do {
                 } while (u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && u2[++s2] === u2[++r3] && s2 < c2);
-                if (n2 = S2 - (c2 - s2), s2 = c2 - S2, a2 < n2) {
+                if (n2 = S3 - (c2 - s2), s2 = c2 - S3, a2 < n2) {
                   if (e2.match_start = t41, o2 <= (a2 = n2)) break;
                   d2 = u2[s2 + a2 - 1], p3 = u2[s2 + a2];
                 }
@@ -1618,15 +1618,15 @@
                 return e3.insert = 0, t42 === f ? (N2(e3, true), 0 === e3.strm.avail_out ? O2 : B3) : e3.last_lit && (N2(e3, false), 0 === e3.strm.avail_out) ? A : I2;
               })(n2, t41) : 3 === n2.strategy ? (function(e3, t42) {
                 for (var r5, n3, i4, s3, a3 = e3.window; ; ) {
-                  if (e3.lookahead <= S2) {
-                    if (j2(e3), e3.lookahead <= S2 && t42 === l) return A;
+                  if (e3.lookahead <= S3) {
+                    if (j2(e3), e3.lookahead <= S3 && t42 === l) return A;
                     if (0 === e3.lookahead) break;
                   }
                   if (e3.match_length = 0, e3.lookahead >= x3 && 0 < e3.strstart && (n3 = a3[i4 = e3.strstart - 1]) === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4]) {
-                    s3 = e3.strstart + S2;
+                    s3 = e3.strstart + S3;
                     do {
                     } while (n3 === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4] && n3 === a3[++i4] && i4 < s3);
-                    e3.match_length = S2 - (s3 - i4), e3.match_length > e3.lookahead && (e3.match_length = e3.lookahead);
+                    e3.match_length = S3 - (s3 - i4), e3.match_length > e3.lookahead && (e3.match_length = e3.lookahead);
                   }
                   if (e3.match_length >= x3 ? (r5 = u._tr_tally(e3, 1, e3.match_length - x3), e3.lookahead -= e3.match_length, e3.strstart += e3.match_length, e3.match_length = 0) : (r5 = u._tr_tally(e3, 0, e3.window[e3.strstart]), e3.lookahead--, e3.strstart++), r5 && (N2(e3, false), 0 === e3.strm.avail_out)) return A;
                 }
@@ -1657,7 +1657,7 @@
         }, {}], 48: [function(e, t40, r2) {
           "use strict";
           t40.exports = function(e2, t41) {
-            var r3, n, i2, s, a, o, h3, u, l, f, c, d, p2, m, _, g2, b, v, y, w2, k, x3, S2, z2, C;
+            var r3, n, i2, s, a, o, h3, u, l, f, c, d, p2, m, _, g2, b, v, y, w2, k, x3, S3, z2, C;
             r3 = e2.state, n = e2.next_in, z2 = e2.input, i2 = n + (e2.avail_in - 5), s = e2.next_out, C = e2.output, a = s - (t41 - e2.avail_out), o = s + (e2.avail_out - 257), h3 = r3.dmax, u = r3.wsize, l = r3.whave, f = r3.wnext, c = r3.window, d = r3.hold, p2 = r3.bits, m = r3.lencode, _ = r3.distcode, g2 = (1 << r3.lenbits) - 1, b = (1 << r3.distbits) - 1;
             e: do {
               p2 < 15 && (d += z2[n++] << p2, p2 += 8, d += z2[n++] << p2, p2 += 8), v = m[d & g2];
@@ -1695,25 +1695,25 @@
                         e2.msg = "invalid distance too far back", r3.mode = 30;
                         break e;
                       }
-                      if (S2 = c, (x3 = 0) === f) {
+                      if (S3 = c, (x3 = 0) === f) {
                         if (x3 += u - y, y < w2) {
                           for (w2 -= y; C[s++] = c[x3++], --y; ) ;
-                          x3 = s - k, S2 = C;
+                          x3 = s - k, S3 = C;
                         }
                       } else if (f < y) {
                         if (x3 += u + f - y, (y -= f) < w2) {
                           for (w2 -= y; C[s++] = c[x3++], --y; ) ;
                           if (x3 = 0, f < w2) {
                             for (w2 -= y = f; C[s++] = c[x3++], --y; ) ;
-                            x3 = s - k, S2 = C;
+                            x3 = s - k, S3 = C;
                           }
                         }
                       } else if (x3 += f - y, y < w2) {
                         for (w2 -= y; C[s++] = c[x3++], --y; ) ;
-                        x3 = s - k, S2 = C;
+                        x3 = s - k, S3 = C;
                       }
-                      for (; 2 < w2; ) C[s++] = S2[x3++], C[s++] = S2[x3++], C[s++] = S2[x3++], w2 -= 3;
-                      w2 && (C[s++] = S2[x3++], 1 < w2 && (C[s++] = S2[x3++]));
+                      for (; 2 < w2; ) C[s++] = S3[x3++], C[s++] = S3[x3++], C[s++] = S3[x3++], w2 -= 3;
+                      w2 && (C[s++] = S3[x3++], 1 < w2 && (C[s++] = S3[x3++]));
                     } else {
                       for (x3 = s - k; C[s++] = C[x3++], C[s++] = C[x3++], C[s++] = C[x3++], 2 < (w2 -= 3); ) ;
                       w2 && (C[s++] = C[x3++], 1 < w2 && (C[s++] = C[x3++]));
@@ -1771,7 +1771,7 @@
           r2.inflateReset = o, r2.inflateReset2 = h3, r2.inflateResetKeep = a, r2.inflateInit = function(e2) {
             return u(e2, 15);
           }, r2.inflateInit2 = u, r2.inflate = function(e2, t41) {
-            var r3, n2, i3, s2, a2, o2, h4, u2, l2, f2, c2, d, p2, m, _, g2, b, v, y, w2, k, x3, S2, z2, C = 0, E2 = new I2.Buf8(4), A = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+            var r3, n2, i3, s2, a2, o2, h4, u2, l2, f2, c2, d, p2, m, _, g2, b, v, y, w2, k, x3, S3, z2, C = 0, E2 = new I2.Buf8(4), A = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
             if (!e2 || !e2.state || !e2.output || !e2.input && 0 !== e2.avail_in) return U2;
             12 === (r3 = e2.state).mode && (r3.mode = 13), a2 = e2.next_out, i3 = e2.output, h4 = e2.avail_out, s2 = e2.next_in, n2 = e2.input, o2 = e2.avail_in, u2 = r3.hold, l2 = r3.bits, f2 = o2, c2 = h4, x3 = N2;
             e: for (; ; ) switch (r3.mode) {
@@ -1944,7 +1944,7 @@
                   r3.lens[A[r3.have++]] = 7 & u2, u2 >>>= 3, l2 -= 3;
                 }
                 for (; r3.have < 19; ) r3.lens[A[r3.have++]] = 0;
-                if (r3.lencode = r3.lendyn, r3.lenbits = 7, S2 = { bits: r3.lenbits }, x3 = T4(0, r3.lens, 0, 19, r3.lencode, 0, r3.work, S2), r3.lenbits = S2.bits, x3) {
+                if (r3.lencode = r3.lendyn, r3.lenbits = 7, S3 = { bits: r3.lenbits }, x3 = T4(0, r3.lens, 0, 19, r3.lencode, 0, r3.work, S3), r3.lenbits = S3.bits, x3) {
                   e2.msg = "invalid code lengths set", r3.mode = 30;
                   break;
                 }
@@ -1992,11 +1992,11 @@
                   e2.msg = "invalid code -- missing end-of-block", r3.mode = 30;
                   break;
                 }
-                if (r3.lenbits = 9, S2 = { bits: r3.lenbits }, x3 = T4(D, r3.lens, 0, r3.nlen, r3.lencode, 0, r3.work, S2), r3.lenbits = S2.bits, x3) {
+                if (r3.lenbits = 9, S3 = { bits: r3.lenbits }, x3 = T4(D, r3.lens, 0, r3.nlen, r3.lencode, 0, r3.work, S3), r3.lenbits = S3.bits, x3) {
                   e2.msg = "invalid literal/lengths set", r3.mode = 30;
                   break;
                 }
-                if (r3.distbits = 6, r3.distcode = r3.distdyn, S2 = { bits: r3.distbits }, x3 = T4(F2, r3.lens, r3.nlen, r3.ndist, r3.distcode, 0, r3.work, S2), r3.distbits = S2.bits, x3) {
+                if (r3.distbits = 6, r3.distcode = r3.distdyn, S3 = { bits: r3.distbits }, x3 = T4(F2, r3.lens, r3.nlen, r3.ndist, r3.distcode, 0, r3.work, S3), r3.distbits = S3.bits, x3) {
                   e2.msg = "invalid distances set", r3.mode = 30;
                   break;
                 }
@@ -2141,7 +2141,7 @@
           "use strict";
           var D = e("../utils/common"), F2 = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0], N2 = [16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 72, 78], U2 = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0], P4 = [16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 64, 64];
           t40.exports = function(e2, t41, r3, n, i2, s, a, o) {
-            var h3, u, l, f, c, d, p2, m, _, g2 = o.bits, b = 0, v = 0, y = 0, w2 = 0, k = 0, x3 = 0, S2 = 0, z2 = 0, C = 0, E2 = 0, A = null, I2 = 0, O2 = new D.Buf16(16), B3 = new D.Buf16(16), R3 = null, T4 = 0;
+            var h3, u, l, f, c, d, p2, m, _, g2 = o.bits, b = 0, v = 0, y = 0, w2 = 0, k = 0, x3 = 0, S3 = 0, z2 = 0, C = 0, E2 = 0, A = null, I2 = 0, O2 = new D.Buf16(16), B3 = new D.Buf16(16), R3 = null, T4 = 0;
             for (b = 0; b <= 15; b++) O2[b] = 0;
             for (v = 0; v < n; v++) O2[t41[r3 + v]]++;
             for (k = g2, w2 = 15; 1 <= w2 && 0 === O2[w2]; w2--) ;
@@ -2151,21 +2151,21 @@
             if (0 < z2 && (0 === e2 || 1 !== w2)) return -1;
             for (B3[1] = 0, b = 1; b < 15; b++) B3[b + 1] = B3[b] + O2[b];
             for (v = 0; v < n; v++) 0 !== t41[r3 + v] && (a[B3[t41[r3 + v]]++] = v);
-            if (d = 0 === e2 ? (A = R3 = a, 19) : 1 === e2 ? (A = F2, I2 -= 257, R3 = N2, T4 -= 257, 256) : (A = U2, R3 = P4, -1), b = y, c = s, S2 = v = E2 = 0, l = -1, f = (C = 1 << (x3 = k)) - 1, 1 === e2 && 852 < C || 2 === e2 && 592 < C) return 1;
+            if (d = 0 === e2 ? (A = R3 = a, 19) : 1 === e2 ? (A = F2, I2 -= 257, R3 = N2, T4 -= 257, 256) : (A = U2, R3 = P4, -1), b = y, c = s, S3 = v = E2 = 0, l = -1, f = (C = 1 << (x3 = k)) - 1, 1 === e2 && 852 < C || 2 === e2 && 592 < C) return 1;
             for (; ; ) {
-              for (p2 = b - S2, _ = a[v] < d ? (m = 0, a[v]) : a[v] > d ? (m = R3[T4 + a[v]], A[I2 + a[v]]) : (m = 96, 0), h3 = 1 << b - S2, y = u = 1 << x3; i2[c + (E2 >> S2) + (u -= h3)] = p2 << 24 | m << 16 | _ | 0, 0 !== u; ) ;
+              for (p2 = b - S3, _ = a[v] < d ? (m = 0, a[v]) : a[v] > d ? (m = R3[T4 + a[v]], A[I2 + a[v]]) : (m = 96, 0), h3 = 1 << b - S3, y = u = 1 << x3; i2[c + (E2 >> S3) + (u -= h3)] = p2 << 24 | m << 16 | _ | 0, 0 !== u; ) ;
               for (h3 = 1 << b - 1; E2 & h3; ) h3 >>= 1;
               if (0 !== h3 ? (E2 &= h3 - 1, E2 += h3) : E2 = 0, v++, 0 == --O2[b]) {
                 if (b === w2) break;
                 b = t41[r3 + a[v]];
               }
               if (k < b && (E2 & f) !== l) {
-                for (0 === S2 && (S2 = k), c += y, z2 = 1 << (x3 = b - S2); x3 + S2 < w2 && !((z2 -= O2[x3 + S2]) <= 0); ) x3++, z2 <<= 1;
+                for (0 === S3 && (S3 = k), c += y, z2 = 1 << (x3 = b - S3); x3 + S3 < w2 && !((z2 -= O2[x3 + S3]) <= 0); ) x3++, z2 <<= 1;
                 if (C += 1 << x3, 1 === e2 && 852 < C || 2 === e2 && 592 < C) return 1;
                 i2[l = E2 & f] = k << 24 | x3 << 16 | c - s | 0;
               }
             }
-            return 0 !== E2 && (i2[c + E2] = b - S2 << 24 | 64 << 16 | 0), o.bits = k, 0;
+            return 0 !== E2 && (i2[c + E2] = b - S3 << 24 | 64 << 16 | 0), o.bits = k, 0;
           };
         }, { "../utils/common": 41 }], 51: [function(e, t40, r2) {
           "use strict";
@@ -2176,7 +2176,7 @@
           function n(e2) {
             for (var t41 = e2.length; 0 <= --t41; ) e2[t41] = 0;
           }
-          var s = 0, a = 29, u = 256, l = u + 1 + a, f = 30, c = 19, _ = 2 * l + 1, g2 = 15, d = 16, p2 = 7, m = 256, b = 16, v = 17, y = 18, w2 = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0], k = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13], x3 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7], S2 = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15], z2 = new Array(2 * (l + 2));
+          var s = 0, a = 29, u = 256, l = u + 1 + a, f = 30, c = 19, _ = 2 * l + 1, g2 = 15, d = 16, p2 = 7, m = 256, b = 16, v = 17, y = 18, w2 = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0], k = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13], x3 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7], S3 = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15], z2 = new Array(2 * (l + 2));
           n(z2);
           var C = new Array(2 * f);
           n(C);
@@ -2302,11 +2302,11 @@
               return o;
             })(e2)), Y2(e2, e2.l_desc), Y2(e2, e2.d_desc), a2 = (function(e3) {
               var t42;
-              for (X2(e3, e3.dyn_ltree, e3.l_desc.max_code), X2(e3, e3.dyn_dtree, e3.d_desc.max_code), Y2(e3, e3.bl_desc), t42 = c - 1; 3 <= t42 && 0 === e3.bl_tree[2 * S2[t42] + 1]; t42--) ;
+              for (X2(e3, e3.dyn_ltree, e3.l_desc.max_code), X2(e3, e3.dyn_dtree, e3.d_desc.max_code), Y2(e3, e3.bl_desc), t42 = c - 1; 3 <= t42 && 0 === e3.bl_tree[2 * S3[t42] + 1]; t42--) ;
               return e3.opt_len += 3 * (t42 + 1) + 5 + 5 + 4, t42;
             })(e2), i3 = e2.opt_len + 3 + 7 >>> 3, (s2 = e2.static_len + 3 + 7 >>> 3) <= i3 && (i3 = s2)) : i3 = s2 = r3 + 5, r3 + 4 <= i3 && -1 !== t41 ? J2(e2, t41, r3, n2) : 4 === e2.strategy || s2 === i3 ? (P4(e2, 2 + (n2 ? 1 : 0), 3), K(e2, z2, C)) : (P4(e2, 4 + (n2 ? 1 : 0), 3), (function(e3, t42, r5, n3) {
               var i4;
-              for (P4(e3, t42 - 257, 5), P4(e3, r5 - 1, 5), P4(e3, n3 - 4, 4), i4 = 0; i4 < n3; i4++) P4(e3, e3.bl_tree[2 * S2[i4] + 1], 3);
+              for (P4(e3, t42 - 257, 5), P4(e3, r5 - 1, 5), P4(e3, n3 - 4, 4), i4 = 0; i4 < n3; i4++) P4(e3, e3.bl_tree[2 * S3[i4] + 1], 3);
               V(e3, e3.dyn_ltree, t42 - 1), V(e3, e3.dyn_dtree, r5 - 1);
             })(e2, e2.l_desc.max_code + 1, e2.d_desc.max_code + 1, a2 + 1), K(e2, e2.dyn_ltree, e2.dyn_dtree)), W(e2), n2 && M4(e2);
           }, r2._tr_tally = function(e2, t41, r3) {
@@ -3311,23 +3311,23 @@
           if (["bibliography", "citation"].indexOf(state2.tmp.area) > -1) {
             var callbacks = [];
             if (state2.opt.development_extensions.thin_non_breaking_space_html_hack && state2.opt.mode === "html") {
-              callbacks.push(function(txt) {
-                return txt.replace(/\u202f/g, '<span style="white-space:nowrap">&thinsp;</span>');
+              callbacks.push(function(txt2) {
+                return txt2.replace(/\u202f/g, '<span style="white-space:nowrap">&thinsp;</span>');
               });
             }
             if (callbacks.length) {
-              return function(txt) {
+              return function(txt2) {
                 for (var i2 = 0, ilen = callbacks.length; i2 < ilen; i2 += 1) {
-                  txt = callbacks[i2](txt);
+                  txt2 = callbacks[i2](txt2);
                 }
-                return CSL2.Output.Formats[state2.opt.mode].text_escape(txt);
+                return CSL2.Output.Formats[state2.opt.mode].text_escape(txt2);
               };
             } else {
               return CSL2.Output.Formats[state2.opt.mode].text_escape;
             }
           } else {
-            return function(txt) {
-              return txt;
+            return function(txt2) {
+              return txt2;
             };
           }
         },
@@ -3604,8 +3604,8 @@
             if (flags.condition.termtxt) {
               termStartAlpha = flags.condition.termtxt.slice(0, 1).match(CSL2.ALL_ROMANESQUE_REGEXP);
             }
-            var num = state2.tmp.just_did_number;
-            if (num) {
+            var num2 = state2.tmp.just_did_number;
+            if (num2) {
               if (flags.condition.valueTerm) {
                 testres = numbersOnly ? false : true;
               } else if (!locale_term) {
@@ -4193,11 +4193,11 @@
         }
         function _decodeHtmlEntities(str3) {
           return str3.split("&amp;").join("&").split("&quot;").join('"').split("&gt;").join(">").split("&lt;").join("<").replace(/&#([0-9]{1,6});/gi, function(match, numStr) {
-            var num = parseInt(numStr, 10);
-            return String.fromCharCode(num);
+            var num2 = parseInt(numStr, 10);
+            return String.fromCharCode(num2);
           }).replace(/&#x([a-f0-9]{1,6});/gi, function(match, numStr) {
-            var num = parseInt(numStr, 16);
-            return String.fromCharCode(num);
+            var num2 = parseInt(numStr, 16);
+            return String.fromCharCode(num2);
           });
         }
         function _getAttributes(elem2) {
@@ -4921,15 +4921,15 @@
         }
       };
       CSL2.XmlToToken = function(state2, tokentype, explicitTarget, var_stack) {
-        var name, txt, attrfuncs, attributes, decorations4, token, key2, target;
+        var name, txt2, attrfuncs, attributes, decorations4, token, key2, target;
         name = state2.cslXml.nodename(this);
         if (state2.build.skip && state2.build.skip !== name) {
           return;
         }
         if (!name) {
-          txt = state2.cslXml.content(this);
-          if (txt) {
-            state2.build.text = txt;
+          txt2 = state2.cslXml.content(this);
+          if (txt2) {
+            state2.build.text = txt2;
           }
           return;
         }
@@ -5008,8 +5008,8 @@
         var numberVal = "[?0-9]{1,3}";
         var rangeSeparator = "[%%DATED%%]";
         var fuzzyChar = "[?~]";
-        var chars2 = "[^-/~?0-9]+";
-        var rexString = "(" + yearFirst + "|" + yearLast + "|" + numberVal + "|" + rangeSeparator + "|" + fuzzyChar + "|" + chars2 + ")";
+        var chars3 = "[^-/~?0-9]+";
+        var rexString = "(" + yearFirst + "|" + yearLast + "|" + numberVal + "|" + rangeSeparator + "|" + fuzzyChar + "|" + chars3 + ")";
         var rexDash = new RegExp(rexString.replace(/%%NUMD%%/g, "-").replace(/%%DATED%%/g, "-"));
         var rexDashSlash = new RegExp(rexString.replace(/%%NUMD%%/g, "-").replace(/%%DATED%%/g, "/"));
         var rexSlashDash = new RegExp(rexString.replace(/%%NUMD%%/g, "/").replace(/%%DATED%%/g, "-"));
@@ -5145,11 +5145,11 @@
           }
           return ret.join("-");
         };
-        this._parseNumericDate = function(ret, delim3, suff, txt) {
+        this._parseNumericDate = function(ret, delim3, suff, txt2) {
           if (!suff) {
             suff = "";
           }
-          var lst = txt.split(delim3);
+          var lst = txt2.split(delim3);
           for (var i3 = 0, ilen2 = lst.length; i3 < ilen2; i3++) {
             if (lst[i3].length === 4) {
               ret["year" + suff] = lst[i3].replace(/^0*/, "");
@@ -5191,36 +5191,36 @@
             }
           }
         };
-        this.parseDateToObject = function(txt) {
-          var orig = txt;
+        this.parseDateToObject = function(txt2) {
+          var orig = txt2;
           var slashPos = -1;
           var dashPos = -1;
           var yearIsNegative = false;
           var lst;
-          if (txt) {
-            txt = txt.replace(/^(.*[0-9])T[0-9].*/, "$1");
-            if (txt.slice(0, 1) === "-") {
+          if (txt2) {
+            txt2 = txt2.replace(/^(.*[0-9])T[0-9].*/, "$1");
+            if (txt2.slice(0, 1) === "-") {
               yearIsNegative = true;
-              txt = txt.slice(1);
+              txt2 = txt2.slice(1);
             }
-            if (txt.match(/^[0-9]{1,3}$/)) {
-              while (txt.length < 4) {
-                txt = "0" + txt;
+            if (txt2.match(/^[0-9]{1,3}$/)) {
+              while (txt2.length < 4) {
+                txt2 = "0" + txt2;
               }
             }
-            txt = "" + txt;
-            txt = txt.replace(/\s*[0-9]{2}:[0-9]{2}(?::[0-9]+)/, "");
-            var m = txt.match(kanjiMonthDay);
+            txt2 = "" + txt2;
+            txt2 = txt2.replace(/\s*[0-9]{2}:[0-9]{2}(?::[0-9]+)/, "");
+            var m = txt2.match(kanjiMonthDay);
             if (m) {
-              txt = txt.replace(/\s+/g, "");
-              txt = txt.replace(kanjiYear, "");
-              txt = txt.replace(kanjiMonthDay, "-");
-              txt = txt.replace(kanjiRange, "/");
-              txt = txt.replace(/\-\//g, "/");
-              txt = txt.replace(/-$/g, "");
-              var slst = txt.split(epochSplitter);
+              txt2 = txt2.replace(/\s+/g, "");
+              txt2 = txt2.replace(kanjiYear, "");
+              txt2 = txt2.replace(kanjiMonthDay, "-");
+              txt2 = txt2.replace(kanjiRange, "/");
+              txt2 = txt2.replace(/\-\//g, "/");
+              txt2 = txt2.replace(/-$/g, "");
+              var slst = txt2.split(epochSplitter);
               lst = [];
-              var mm2 = txt.match(epochMatcher);
+              var mm2 = txt2.match(epochMatcher);
               if (mm2) {
                 var mmx = [];
                 for (var i3 = 0, ilen2 = mm2.length; i3 < ilen2; i3++) {
@@ -5241,43 +5241,43 @@
                 lst[i3 + 1] = epochMap[lst[i3]] + parseInt(lst[i3 + 1], 10);
                 lst[i3] = "";
               }
-              txt = lst.join("");
-              txt = txt.replace(/\s*-\s*$/, "").replace(/\s*-\s*\//, "/");
-              txt = txt.replace(/\.\s*$/, "");
-              txt = txt.replace(/\.(?! )/, "");
-              slashPos = txt.indexOf("/");
-              dashPos = txt.indexOf("-");
+              txt2 = lst.join("");
+              txt2 = txt2.replace(/\s*-\s*$/, "").replace(/\s*-\s*\//, "/");
+              txt2 = txt2.replace(/\.\s*$/, "");
+              txt2 = txt2.replace(/\.(?! )/, "");
+              slashPos = txt2.indexOf("/");
+              dashPos = txt2.indexOf("-");
             }
           }
-          txt = txt.replace(/([A-Za-z])\./g, "$1");
+          txt2 = txt2.replace(/([A-Za-z])\./g, "$1");
           var number = "";
           var note = "";
           var thedate = {};
           var rangeDelim;
           var dateDelim;
-          if (txt.slice(0, 1) === '"' && txt.slice(-1) === '"') {
-            thedate.literal = txt.slice(1, -1);
+          if (txt2.slice(0, 1) === '"' && txt2.slice(-1) === '"') {
+            thedate.literal = txt2.slice(1, -1);
             return thedate;
           }
           if (slashPos > -1 && dashPos > -1) {
-            var slashCount = txt.split("/");
+            var slashCount = txt2.split("/");
             if (slashCount.length > 3) {
               rangeDelim = "-";
-              txt = txt.replace(/\_/g, "-");
+              txt2 = txt2.replace(/\_/g, "-");
               dateDelim = "/";
-              lst = txt.split(rexSlashDash);
+              lst = txt2.split(rexSlashDash);
             } else {
               rangeDelim = "/";
-              txt = txt.replace(/\_/g, "/");
+              txt2 = txt2.replace(/\_/g, "/");
               dateDelim = "-";
-              lst = txt.split(rexDashSlash);
+              lst = txt2.split(rexDashSlash);
             }
           } else {
-            txt = txt.replace(/\//g, "-");
-            txt = txt.replace(/\_/g, "-");
+            txt2 = txt2.replace(/\//g, "-");
+            txt2 = txt2.replace(/\_/g, "-");
             rangeDelim = "-";
             dateDelim = "-";
-            lst = txt.split(rexDash);
+            lst = txt2.split(rexDash);
           }
           var ret = [];
           for (var i3 = 0, ilen2 = lst.length; i3 < ilen2; i3++) {
@@ -5373,14 +5373,14 @@
           }
           return thedate;
         };
-        this.parseDateToArray = function(txt) {
-          return this.convertDateObjectToArray(this.parseDateToObject(txt));
+        this.parseDateToArray = function(txt2) {
+          return this.convertDateObjectToArray(this.parseDateToObject(txt2));
         };
-        this.parseDateToString = function(txt) {
-          return this.convertDateObjectToString(this.parseDateToObject(txt));
+        this.parseDateToString = function(txt2) {
+          return this.convertDateObjectToString(this.parseDateToObject(txt2));
         };
-        this.parse = function(txt) {
-          return this.parseDateToObject(txt);
+        this.parse = function(txt2) {
+          return this.parseDateToObject(txt2);
         };
         this.setOrderMonthDay();
         this.resetDateParserMonths();
@@ -5870,8 +5870,8 @@
         }
         if (Item2.page) {
           Item2["page-first"] = Item2.page;
-          var num = "" + Item2.page;
-          var m = num.split(/\s*(?:&|, |-|\u2013)\s*/);
+          var num2 = "" + Item2.page;
+          var m = num2.split(/\s*(?:&|, |-|\u2013)\s*/);
           if (m[0].slice(-1) !== "\\") {
             Item2["page-first"] = m[0];
           }
@@ -10073,7 +10073,7 @@
       };
       CSL2.Node["date-part"] = {
         build: function(state2, target) {
-          var func, pos, len, first_date, value, value_end, real, have_collapsed, invoked, precondition, known_year, bc2, ad2, bc_end, ad_end, ready, curr, dcurr, number, num, formatter, item, blob;
+          var func, pos, len, first_date, value, value_end, real, have_collapsed, invoked, precondition, known_year, bc2, ad2, bc_end, ad_end, ready, curr, dcurr, number, num2, formatter, item, blob;
           if (!this.strings.form) {
             this.strings.form = "long";
           }
@@ -10286,8 +10286,8 @@
               if (state3.registry.registry[Item2.id] && state3.registry.registry[Item2.id].disambig.year_suffix !== false && !state3.tmp.has_done_year_suffix) {
                 state3.tmp.has_done_year_suffix = true;
                 last_string_output = "x";
-                num = parseInt(state3.registry.registry[Item2.id].disambig.year_suffix, 10);
-                number = new CSL2.NumericBlob(state3, false, num, this, Item2.id);
+                num2 = parseInt(state3.registry.registry[Item2.id].disambig.year_suffix, 10);
+                number = new CSL2.NumericBlob(state3, false, num2, this, Item2.id);
                 this.successor_prefix = state3[state3.build.area].opt.layout_delimiter;
                 this.splice_prefix = state3[state3.build.area].opt.layout_delimiter;
                 formatter = new CSL2.Util.Suffixator(CSL2.SUFFIX_CHARS);
@@ -10584,10 +10584,10 @@
                       }
                     }
                     if (state3.tmp.cite_index > 0 && (hasRepeat || !flags.parallel_first && !flags.parallel_last && !flags.non_parallel)) {
-                      var info = state3.tmp.suppress_repeats[state3.tmp.cite_index - 1];
-                      if (hasRepeat && flags.parallel_delimiter_override_on_suppress && (info.SIBLING || info.ORPHAN)) {
+                      var info2 = state3.tmp.suppress_repeats[state3.tmp.cite_index - 1];
+                      if (hasRepeat && flags.parallel_delimiter_override_on_suppress && (info2.SIBLING || info2.ORPHAN)) {
                         state3.output.queue.slice(-1)[0].parallel_delimiter = flags.parallel_delimiter_override_on_suppress;
-                      } else if (flags.parallel_delimiter_override && info.SIBLING) {
+                      } else if (flags.parallel_delimiter_override && info2.SIBLING) {
                         state3.output.queue.slice(-1)[0].parallel_delimiter = flags.parallel_delimiter_override;
                       }
                     }
@@ -10920,23 +10920,23 @@
                       }
                     }
                     if (state3.tmp.area === "citation_sort" && state3.bibliography_sort.tmp.citation_number_map) {
-                      var num = state3.bibliography_sort.tmp.citation_number_map[state3.registry.registry[Item2.id].seq];
+                      var num2 = state3.bibliography_sort.tmp.citation_number_map[state3.registry.registry[Item2.id].seq];
                     } else {
-                      var num = state3.registry.registry[Item2.id].seq;
+                      var num2 = state3.registry.registry[Item2.id].seq;
                     }
-                    if (num) {
-                      num = CSL2.Util.padding("" + num);
+                    if (num2) {
+                      num2 = CSL2.Util.padding("" + num2);
                     }
-                    state3.output.append(num, this);
+                    state3.output.append(num2, this);
                   };
                 } else {
                   func = function(state3, Item2) {
-                    var num = false;
-                    num = Item2[variable];
-                    if (num) {
-                      num = CSL2.Util.padding(num);
+                    var num2 = false;
+                    num2 = Item2[variable];
+                    if (num2) {
+                      num2 = CSL2.Util.padding(num2);
                     }
-                    state3.output.append(num, this);
+                    state3.output.append(num2, this);
                   };
                 }
               } else if (variable === "citation-label") {
@@ -11690,19 +11690,19 @@
         }
       };
       CSL2.NameOutput.prototype._applyLabels = function(blob, v) {
-        var txt;
+        var txt2;
         if (!this.label || !this.label[this.labelVariable]) {
           return blob;
         }
         var plural = 0;
-        var num = this.freeters_count[v] + this.institutions_count[v];
-        if (num > 1) {
+        var num2 = this.freeters_count[v] + this.institutions_count[v];
+        if (num2 > 1) {
           plural = 1;
         } else {
           for (var i2 = 0, ilen = this.persons[v].length; i2 < ilen; i2 += 1) {
-            num += this.persons_count[v][i2];
+            num2 += this.persons_count[v][i2];
           }
-          if (num > 1) {
+          if (num2 > 1) {
             plural = 1;
           }
         }
@@ -11710,9 +11710,9 @@
           if ("number" === typeof this.label[this.labelVariable].before.strings.plural) {
             plural = this.label[this.labelVariable].before.strings.plural;
           }
-          txt = this._buildLabel(v, plural, "before", this.labelVariable);
+          txt2 = this._buildLabel(v, plural, "before", this.labelVariable);
           this.state.output.openLevel("empty");
-          this.state.output.append(txt, this.label[this.labelVariable].before, true);
+          this.state.output.append(txt2, this.label[this.labelVariable].before, true);
           this.state.output.append(blob, "literal", true);
           this.state.output.closeLevel("empty");
           blob = this.state.output.pop();
@@ -11720,10 +11720,10 @@
           if ("number" === typeof this.label[this.labelVariable].after.strings.plural) {
             plural = this.label[this.labelVariable].after.strings.plural;
           }
-          txt = this._buildLabel(v, plural, "after", this.labelVariable);
+          txt2 = this._buildLabel(v, plural, "after", this.labelVariable);
           this.state.output.openLevel("empty");
           this.state.output.append(blob, "literal", true);
-          this.state.output.append(txt, this.label[this.labelVariable].after, true);
+          this.state.output.append(txt2, this.label[this.labelVariable].after, true);
           this.state.tmp.label_blob = this.state.output.pop();
           this.state.output.append(this.state.tmp.label_blob, "literal", true);
           this.state.output.closeLevel("empty");
@@ -14062,7 +14062,7 @@
       };
       CSL2.Node.text = {
         build: function(state2, target) {
-          var func, form, plural, id2, num, number, formatter, firstoutput, specialdelimiter, label4, suffix, term;
+          var func, form, plural, id2, num2, number, formatter, firstoutput, specialdelimiter, label4, suffix, term;
           if (this.postponed_macro) {
             var group_start = CSL2.Util.cloneToken(this);
             group_start.name = "group";
@@ -14113,28 +14113,28 @@
                         state3.tmp.group_context.tip.done_vars.push("citation-number");
                       }
                       if (state3.tmp.area === "citation_sort" && state3.bibliography_sort.tmp.citation_number_map) {
-                        var num2 = state3.bibliography_sort.tmp.citation_number_map[state3.registry.registry[Item2.id].seq];
+                        var num3 = state3.bibliography_sort.tmp.citation_number_map[state3.registry.registry[Item2.id].seq];
                       } else {
-                        var num2 = state3.registry.registry[Item2.id].seq;
+                        var num3 = state3.registry.registry[Item2.id].seq;
                       }
-                      if (num2) {
-                        num2 = CSL2.Util.padding("" + num2);
+                      if (num3) {
+                        num3 = CSL2.Util.padding("" + num3);
                       }
-                      state3.output.append(num2, this);
+                      state3.output.append(num3, this);
                       return;
                     }
                     if (item && item["author-only"]) {
                       state3.tmp.element_trace.replace("suppress-me");
                     }
                     if (state3.tmp.area !== "bibliography_sort" && state3.bibliography_sort.tmp.citation_number_map && state3.bibliography_sort.opt.citation_number_sort_direction === CSL2.DESCENDING) {
-                      num2 = state3.bibliography_sort.tmp.citation_number_map[state3.registry.registry[id2].seq];
+                      num3 = state3.bibliography_sort.tmp.citation_number_map[state3.registry.registry[id2].seq];
                     } else {
-                      num2 = state3.registry.registry[id2].seq;
+                      num3 = state3.registry.registry[id2].seq;
                     }
                     if (state3.opt.citation_number_slug) {
                       state3.output.append(state3.opt.citation_number_slug, this);
                     } else {
-                      number = new CSL2.NumericBlob(state3, false, num2, this, Item2.id);
+                      number = new CSL2.NumericBlob(state3, false, num3, this, Item2.id);
                       if (state3.tmp.in_cite_predecessor) {
                         number.suppress_splice_prefix = true;
                       }
@@ -14154,11 +14154,11 @@
                 }
                 func = function(state3, Item2) {
                   if (state3.registry.registry[Item2.id] && state3.registry.registry[Item2.id].disambig.year_suffix !== false && !state3.tmp.just_looking) {
-                    num = parseInt(state3.registry.registry[Item2.id].disambig.year_suffix, 10);
+                    num2 = parseInt(state3.registry.registry[Item2.id].disambig.year_suffix, 10);
                     if (state3[state3.tmp.area].opt.cite_group_delimiter) {
                       this.successor_prefix = state3[state3.tmp.area].opt.cite_group_delimiter;
                     }
-                    number = new CSL2.NumericBlob(state3, false, num, this, Item2.id);
+                    number = new CSL2.NumericBlob(state3, false, num2, this, Item2.id);
                     formatter = new CSL2.Util.Suffixator(CSL2.SUFFIX_CHARS);
                     number.setFormatter(formatter);
                     state3.output.append(number, "literal");
@@ -14190,8 +14190,8 @@
                   if (!state3.tmp.just_looking) {
                     suffix = "";
                     if (state3.registry.registry[Item2.id] && state3.registry.registry[Item2.id].disambig.year_suffix !== false) {
-                      num = parseInt(state3.registry.registry[Item2.id].disambig.year_suffix, 10);
-                      suffix = state3.fun.suffixator.format(num);
+                      num2 = parseInt(state3.registry.registry[Item2.id].disambig.year_suffix, 10);
+                      suffix = state3.fun.suffixator.format(num2);
                     }
                     label4 += suffix;
                   }
@@ -15783,7 +15783,7 @@
           var currItem = sortedItems[i2][0];
           var nextItem = sortedItems[i2 + 1][0];
           var freshMatchList = false;
-          var info = {};
+          var info2 = {};
           if (sortedItems[i2][0].seeAlso && sortedItems[i2][0].seeAlso.length > 0 && !parallelMatchList) {
             freshMatchList = true;
             parallelMatchList = [sortedItems[i2][0].id].concat(sortedItems[i2][0].seeAlso);
@@ -15813,7 +15813,7 @@
           }
           for (var varname in this.state.opt.track_repeat) {
             if (!currItem[varname] || !nextItem[varname]) {
-              info[varname] = false;
+              info2[varname] = false;
             } else if ("string" === typeof nextItem[varname] || "number" === typeof nextItem[varname]) {
               if (varname === "title" && currItem["title-short"] && nextItem["title-short"]) {
                 var currVal = currItem["title-short"];
@@ -15823,37 +15823,37 @@
                 var nextVal = nextItem[varname];
               }
               if (currVal == nextVal) {
-                info[varname] = true;
+                info2[varname] = true;
               } else {
-                info[varname] = false;
+                info2[varname] = false;
               }
             } else if ("undefined" === typeof currItem[varname].length) {
-              info[varname] = false;
+              info2[varname] = false;
               var currYear = currItem[varname].year;
               var nextYear = nextItem[varname].year;
               if (currYear && nextYear) {
                 if (currYear == nextYear) {
-                  info[varname] = true;
+                  info2[varname] = true;
                 }
               }
             } else {
               var currVal = JSON.stringify(currItem[varname]);
               var nextVal = JSON.stringify(nextItem[varname]);
               if (currVal === nextVal) {
-                info[varname] = true;
+                info2[varname] = true;
               } else {
-                info[varname] = false;
+                info2[varname] = false;
               }
             }
           }
           if (!parallelMatchList) {
-            info.ORPHAN = true;
+            info2.ORPHAN = true;
           }
           if (idxEnd === i2) {
-            info.END = true;
+            info2.END = true;
             parallelMatchList = false;
           }
-          this.state.tmp.suppress_repeats.push(info);
+          this.state.tmp.suppress_repeats.push(info2);
         }
         for (var j2 = 0, jlen = siblingRanges.length; j2 < jlen; j2++) {
           var masterID = sortedItems[siblingRanges[j2][0]][0].id;
@@ -16551,12 +16551,12 @@
           this.blobs.push(blob);
         }
       };
-      CSL2.NumericBlob = function(state2, particle, num, mother_token, id2) {
+      CSL2.NumericBlob = function(state2, particle, num2, mother_token, id2) {
         this.id = id2;
         this.alldecor = [];
-        this.num = num;
+        this.num = num2;
         this.particle = particle;
-        this.blobs = num.toString();
+        this.blobs = num2.toString();
         this.status = CSL2.START;
         this.strings = {};
         if (mother_token) {
@@ -16596,8 +16596,8 @@
       };
       CSL2.Output.DefaultFormatter = function() {
       };
-      CSL2.Output.DefaultFormatter.prototype.format = function(num) {
-        return num.toString();
+      CSL2.Output.DefaultFormatter.prototype.format = function(num2) {
+        return num2.toString();
       };
       CSL2.NumericBlob.prototype.checkNext = function(next, start) {
         if (start) {
@@ -16629,8 +16629,8 @@
           }
         }
       };
-      CSL2.NumericBlob.prototype.checkLast = function(last) {
-        if (this.status === CSL2.SEEN || last.num !== this.num - 1 && this.status === CSL2.SUCCESSOR) {
+      CSL2.NumericBlob.prototype.checkLast = function(last2) {
+        if (this.status === CSL2.SEEN || last2.num !== this.num - 1 && this.status === CSL2.SUCCESSOR) {
           this.status = CSL2.SUCCESSOR;
           return true;
         }
@@ -17002,23 +17002,23 @@
       };
       CSL2.Util.Dates = {};
       CSL2.Util.Dates.year = {};
-      CSL2.Util.Dates.year["long"] = function(state2, num) {
-        if (!num) {
-          if ("boolean" === typeof num) {
-            num = "";
+      CSL2.Util.Dates.year["long"] = function(state2, num2) {
+        if (!num2) {
+          if ("boolean" === typeof num2) {
+            num2 = "";
           } else {
-            num = 0;
+            num2 = 0;
           }
         }
-        return num.toString();
+        return num2.toString();
       };
-      CSL2.Util.Dates.year.imperial = function(state2, num, end) {
+      CSL2.Util.Dates.year.imperial = function(state2, num2, end) {
         var year = "";
-        if (!num) {
-          if ("boolean" === typeof num) {
-            num = "";
+        if (!num2) {
+          if ("boolean" === typeof num2) {
+            num2 = "";
           } else {
-            num = 0;
+            num2 = 0;
           }
         }
         end = end ? "_end" : "";
@@ -17032,7 +17032,7 @@
         while (day.length < 2) {
           day = "0" + day;
         }
-        var date = parseInt(num + month + day, 10);
+        var date = parseInt(num2 + month + day, 10);
         var label4;
         var offset2;
         if (date >= 18680908 && date < 19120730) {
@@ -17059,44 +17059,44 @@
           if (state2.transform.abbrevs["default"]["number"][normalizedKey]) {
             label4 = state2.transform.abbrevs["default"]["number"][normalizedKey];
           }
-          year = label4 + (num - offset2);
+          year = label4 + (num2 - offset2);
         }
         return year;
       };
-      CSL2.Util.Dates.year["short"] = function(state2, num) {
-        num = num.toString();
-        if (num && num.length === 4) {
-          return num.substr(2);
+      CSL2.Util.Dates.year["short"] = function(state2, num2) {
+        num2 = num2.toString();
+        if (num2 && num2.length === 4) {
+          return num2.substr(2);
         }
       };
-      CSL2.Util.Dates.year.numeric = function(state2, num) {
+      CSL2.Util.Dates.year.numeric = function(state2, num2) {
         var m, pre;
-        num = "" + num;
-        var m = num.match(/([0-9]*)$/);
+        num2 = "" + num2;
+        var m = num2.match(/([0-9]*)$/);
         if (m) {
-          pre = num.slice(0, m[1].length * -1);
-          num = m[1];
+          pre = num2.slice(0, m[1].length * -1);
+          num2 = m[1];
         } else {
-          pre = num;
-          num = "";
+          pre = num2;
+          num2 = "";
         }
-        while (num.length < 4) {
-          num = "0" + num;
+        while (num2.length < 4) {
+          num2 = "0" + num2;
         }
-        return pre + num;
+        return pre + num2;
       };
-      CSL2.Util.Dates.normalizeMonth = function(num, useSeason) {
+      CSL2.Util.Dates.normalizeMonth = function(num2, useSeason) {
         var ret;
-        if (!num) {
-          num = 0;
+        if (!num2) {
+          num2 = 0;
         }
-        num = "" + num;
-        if (!num.match(/^[0-9]+$/)) {
-          num = 0;
+        num2 = "" + num2;
+        if (!num2.match(/^[0-9]+$/)) {
+          num2 = 0;
         }
-        num = parseInt(num, 10);
+        num2 = parseInt(num2, 10);
         if (useSeason) {
-          var res = { stub: "month-", num };
+          var res = { stub: "month-", num: num2 };
           if (res.num < 1 || res.num > 24) {
             res.num = 0;
           } else {
@@ -17110,78 +17110,78 @@
           }
           ret = res;
         } else {
-          if (num < 1 || num > 12) {
-            num = 0;
+          if (num2 < 1 || num2 > 12) {
+            num2 = 0;
           }
-          ret = num;
+          ret = num2;
         }
         return ret;
       };
       CSL2.Util.Dates.month = {};
-      CSL2.Util.Dates.month.numeric = function(state2, num) {
-        var num = CSL2.Util.Dates.normalizeMonth(num);
-        if (!num) {
-          num = "";
+      CSL2.Util.Dates.month.numeric = function(state2, num2) {
+        var num2 = CSL2.Util.Dates.normalizeMonth(num2);
+        if (!num2) {
+          num2 = "";
         }
-        return num;
+        return num2;
       };
-      CSL2.Util.Dates.month["numeric-leading-zeros"] = function(state2, num) {
-        var num = CSL2.Util.Dates.normalizeMonth(num);
-        if (!num) {
-          num = "";
+      CSL2.Util.Dates.month["numeric-leading-zeros"] = function(state2, num2) {
+        var num2 = CSL2.Util.Dates.normalizeMonth(num2);
+        if (!num2) {
+          num2 = "";
         } else {
-          num = "" + num;
-          while (num.length < 2) {
-            num = "0" + num;
+          num2 = "" + num2;
+          while (num2.length < 2) {
+            num2 = "0" + num2;
           }
         }
-        return num;
+        return num2;
       };
-      CSL2.Util.Dates.month["long"] = function(state2, num, gender, forceDefaultLocale) {
-        var res = CSL2.Util.Dates.normalizeMonth(num, true);
-        var num = res.num;
-        if (!num) {
-          num = "";
+      CSL2.Util.Dates.month["long"] = function(state2, num2, gender, forceDefaultLocale) {
+        var res = CSL2.Util.Dates.normalizeMonth(num2, true);
+        var num2 = res.num;
+        if (!num2) {
+          num2 = "";
         } else {
-          num = "" + num;
-          while (num.length < 2) {
-            num = "0" + num;
+          num2 = "" + num2;
+          while (num2.length < 2) {
+            num2 = "0" + num2;
           }
-          num = state2.getTerm(res.stub + num, "long", 0, 0, false, forceDefaultLocale);
+          num2 = state2.getTerm(res.stub + num2, "long", 0, 0, false, forceDefaultLocale);
         }
-        return num;
+        return num2;
       };
-      CSL2.Util.Dates.month["short"] = function(state2, num, gender, forceDefaultLocale) {
-        var res = CSL2.Util.Dates.normalizeMonth(num, true);
-        var num = res.num;
-        if (!num) {
-          num = "";
+      CSL2.Util.Dates.month["short"] = function(state2, num2, gender, forceDefaultLocale) {
+        var res = CSL2.Util.Dates.normalizeMonth(num2, true);
+        var num2 = res.num;
+        if (!num2) {
+          num2 = "";
         } else {
-          num = "" + num;
-          while (num.length < 2) {
-            num = "0" + num;
+          num2 = "" + num2;
+          while (num2.length < 2) {
+            num2 = "0" + num2;
           }
-          num = state2.getTerm(res.stub + num, "short", 0, 0, false, forceDefaultLocale);
+          num2 = state2.getTerm(res.stub + num2, "short", 0, 0, false, forceDefaultLocale);
         }
-        return num;
+        return num2;
       };
       CSL2.Util.Dates.day = {};
-      CSL2.Util.Dates.day.numeric = function(state2, num) {
-        return num.toString();
+      CSL2.Util.Dates.day.numeric = function(state2, num2) {
+        return num2.toString();
       };
       CSL2.Util.Dates.day["long"] = CSL2.Util.Dates.day.numeric;
-      CSL2.Util.Dates.day["numeric-leading-zeros"] = function(state2, num) {
-        if (!num) {
-          num = 0;
+      CSL2.Util.Dates.day["numeric-leading-zeros"] = function(state2, num2) {
+        if (!num2) {
+          num2 = 0;
         }
-        num = num.toString();
-        while (num.length < 2) {
-          num = "0" + num;
+        num2 = num2.toString();
+        while (num2.length < 2) {
+          num2 = "0" + num2;
         }
-        return num.toString();
+        return num2.toString();
       };
-      CSL2.Util.Dates.day.ordinal = function(state2, num, gender) {
-        return state2.fun.ordinalizer.format(num, gender);
+      CSL2.Util.Dates.day.ordinal = function(state2, num2, gender) {
+        return state2.fun.ordinalizer.format(num2, gender);
       };
       CSL2.Util.Sort = {};
       CSL2.Util.Sort.strip_prepositions = function(str2) {
@@ -17480,39 +17480,39 @@
           this.execs.push(func);
         }
       };
-      CSL2.Util.padding = function(num) {
-        var m = num.match(/\s*(-{0,1}[0-9]+)/);
+      CSL2.Util.padding = function(num2) {
+        var m = num2.match(/\s*(-{0,1}[0-9]+)/);
         if (m) {
-          num = parseInt(m[1], 10);
-          if (num < 0) {
-            num = 1e20 + num;
+          num2 = parseInt(m[1], 10);
+          if (num2 < 0) {
+            num2 = 1e20 + num2;
           }
-          num = "" + num;
-          while (num.length < 20) {
-            num = "0" + num;
+          num2 = "" + num2;
+          while (num2.length < 20) {
+            num2 = "0" + num2;
           }
         }
-        return num;
+        return num2;
       };
       CSL2.Util.LongOrdinalizer = function() {
       };
       CSL2.Util.LongOrdinalizer.prototype.init = function(state2) {
         this.state = state2;
       };
-      CSL2.Util.LongOrdinalizer.prototype.format = function(num, gender) {
-        if (num < 10) {
-          num = "0" + num;
+      CSL2.Util.LongOrdinalizer.prototype.format = function(num2, gender) {
+        if (num2 < 10) {
+          num2 = "0" + num2;
         }
         var ret = CSL2.Engine.getField(
           CSL2.LOOSE,
           this.state.locale[this.state.opt.lang].terms,
-          "long-ordinal-" + num,
+          "long-ordinal-" + num2,
           "long",
           0,
           gender
         );
         if (!ret) {
-          ret = this.state.fun.ordinalizer.format(num, gender);
+          ret = this.state.fun.ordinalizer.format(num2, gender);
         }
         this.state.tmp.cite_renders_content = true;
         return ret;
@@ -17538,10 +17538,10 @@
           }
         }
       };
-      CSL2.Util.Ordinalizer.prototype.format = function(num, gender) {
+      CSL2.Util.Ordinalizer.prototype.format = function(num2, gender) {
         var str2;
-        num = parseInt(num, 10);
-        str2 = "" + num;
+        num2 = parseInt(num2, 10);
+        str2 = "" + num2;
         var suffix = "";
         var trygenders = [];
         if (gender) {
@@ -17570,13 +17570,13 @@
             gender = void 0;
           }
           this.state.fun.ordinalizer.init();
-          if (num / 10 % 10 === 1 || num > 10 && num < 20) {
+          if (num2 / 10 % 10 === 1 || num2 > 10 && num2 < 20) {
             suffix = this.suffixes[this.state.opt.lang][gender][3];
-          } else if (num % 10 === 1 && num % 100 !== 11) {
+          } else if (num2 % 10 === 1 && num2 % 100 !== 11) {
             suffix = this.suffixes[this.state.opt.lang][gender][0];
-          } else if (num % 10 === 2 && num % 100 !== 12) {
+          } else if (num2 % 10 === 2 && num2 % 100 !== 12) {
             suffix = this.suffixes[this.state.opt.lang][gender][1];
-          } else if (num % 10 === 3 && num % 100 !== 13) {
+          } else if (num2 % 10 === 3 && num2 % 100 !== 13) {
             suffix = this.suffixes[this.state.opt.lang][gender][2];
           } else {
             suffix = this.suffixes[this.state.opt.lang][gender][3];
@@ -17587,11 +17587,11 @@
       };
       CSL2.Util.Romanizer = function() {
       };
-      CSL2.Util.Romanizer.prototype.format = function(num) {
+      CSL2.Util.Romanizer.prototype.format = function(num2) {
         var ret, pos, n, numstr, len;
         ret = "";
-        if (num < 6e3) {
-          numstr = num.toString().split("");
+        if (num2 < 6e3) {
+          numstr = num2.toString().split("");
           numstr.reverse();
           pos = 0;
           n = 0;
@@ -17660,33 +17660,33 @@
         }
         function composeNumberInfo(origLabel, label4, val3, joiningSuffix, parsePosition) {
           joiningSuffix = joiningSuffix ? joiningSuffix : "";
-          var info2 = {};
+          var info3 = {};
           if (!label4 && !CSL2.STATUTE_SUBDIV_STRINGS_REVERSE[variable]) {
             label4 = "var:" + variable;
           }
           if (label4) {
             var m = label4.match(/(\s*)([^\s]+)(\s*)/);
             if (realVariable === "page" && parsePosition === 0 && ["p.", "pp."].indexOf(m[2]) === -1) {
-              info2.gotosleepability = true;
-              info2.labelVisibility = true;
+              info3.gotosleepability = true;
+              info3.labelVisibility = true;
             } else {
-              info2.labelVisibility = false;
+              info3.labelVisibility = false;
             }
-            info2.label = m[2];
-            info2.origLabel = origLabel;
-            info2.labelSuffix = m[3] ? m[3] : "";
-            info2.plural = 0;
+            info3.label = m[2];
+            info3.origLabel = origLabel;
+            info3.labelSuffix = m[3] ? m[3] : "";
+            info3.plural = 0;
           }
           var m = val3.match(/^([0-9]*[a-zA-Z]+0*)?([0-9]+(?:[a-zA-Z]*|[-,a-zA-Z]+))$/);
           if (m) {
-            info2.particle = m[1] ? m[1] : "";
-            info2.value = m[2];
+            info3.particle = m[1] ? m[1] : "";
+            info3.value = m[2];
           } else {
-            info2.particle = "";
-            info2.value = val3;
+            info3.particle = "";
+            info3.value = val3;
           }
-          info2.joiningSuffix = joiningSuffix.replace(/\s*-\s*/, "-");
-          return info2;
+          info3.joiningSuffix = joiningSuffix.replace(/\s*-\s*/, "-");
+          return info3;
         }
         function fixupSubsections(elems2) {
           for (var i2 = elems2.length - 2; i2 > -1; i2 -= 2) {
@@ -18138,32 +18138,32 @@
             }
             setVariableParams(this.tmp.shadow_numbers, realVariable, values);
           }
-          var info = this.tmp.shadow_numbers[realVariable];
+          var info2 = this.tmp.shadow_numbers[realVariable];
           if (variable === "number") {
-            if (info.values.length === 1 && info.values[0].value.indexOf("|") > -1) {
-              info.values[0].value = info.values[0].value.replace(/\|/g, ", ");
-              info.values[0].numeric = true;
-              info.values[0].plural = 1;
-              info.values[0].collapsible = false;
-              info.numeric = true;
-              info.plural = 1;
-              info.collapsible = false;
+            if (info2.values.length === 1 && info2.values[0].value.indexOf("|") > -1) {
+              info2.values[0].value = info2.values[0].value.replace(/\|/g, ", ");
+              info2.values[0].numeric = true;
+              info2.values[0].plural = 1;
+              info2.values[0].collapsible = false;
+              info2.numeric = true;
+              info2.plural = 1;
+              info2.collapsible = false;
             }
           }
-          if (info.values.length === 1) {
-            if (info.values[0].value.match(/^[0-9]+(?:\/[0-9]+)+$/)) {
-              info.values[0].numeric = true;
-              info.values[0].plural = 0;
-              info.values[0].collapsible = false;
-              info.numeric = true;
-              info.plural = 0;
-              info.collapsible = false;
+          if (info2.values.length === 1) {
+            if (info2.values[0].value.match(/^[0-9]+(?:\/[0-9]+)+$/)) {
+              info2.values[0].numeric = true;
+              info2.values[0].plural = 0;
+              info2.values[0].collapsible = false;
+              info2.numeric = true;
+              info2.plural = 0;
+              info2.collapsible = false;
             }
           }
           if (variable === "page") {
-            if (info.values.length > 0) {
-              if (info.values[0].gotosleepability) {
-                info.labelForm = "short";
+            if (info2.values.length > 0) {
+              if (info2.values[0].gotosleepability) {
+                info2.labelForm = "short";
               }
             }
           }
@@ -18186,35 +18186,35 @@
         var labelDecorations = state2.tmp.shadow_numbers[varname].labelDecorations;
         var lastLabelName = null;
         for (var i2 = 0, ilen = nums.length; i2 < ilen; i2++) {
-          var num = nums[i2];
+          var num2 = nums[i2];
           var label4 = "";
           var labelName;
-          if (num.label) {
-            if ("var:" === num.label.slice(0, 4)) {
-              labelName = num.label.slice(4);
+          if (num2.label) {
+            if ("var:" === num2.label.slice(0, 4)) {
+              labelName = num2.label.slice(4);
             } else {
-              labelName = CSL2.STATUTE_SUBDIV_STRINGS[num.label];
+              labelName = CSL2.STATUTE_SUBDIV_STRINGS[num2.label];
             }
             if (labelName) {
-              if (num.label === masterLabel) {
+              if (num2.label === masterLabel) {
                 if (tryStatic) {
-                  label4 = state2.getTerm(labelName, "static", num.plural);
+                  label4 = state2.getTerm(labelName, "static", num2.plural);
                   if (label4.indexOf("%s") === -1) {
                     label4 = "";
                   }
                 }
                 if (!label4) {
-                  label4 = state2.getTerm(labelName, labelForm, num.plural);
+                  label4 = state2.getTerm(labelName, labelForm, num2.plural);
                 }
               } else {
                 if (tryStatic) {
-                  label4 = state2.getTerm(labelName, "static", num.plural);
+                  label4 = state2.getTerm(labelName, "static", num2.plural);
                   if (label4.indexOf("%s") === -1) {
                     label4 = "";
                   }
                 }
                 if (!label4) {
-                  label4 = state2.getTerm(labelName, embeddedLabelForm, num.plural);
+                  label4 = state2.getTerm(labelName, embeddedLabelForm, num2.plural);
                 }
               }
               if (labelCapitalizeIfFirst) {
@@ -18226,41 +18226,41 @@
           if (label4) {
             labelPlaceholderPos = label4.indexOf("%s");
           }
-          var numStyling = CSL2.Util.cloneToken(num.styling);
-          numStyling.formatter = num.styling.formatter;
-          numStyling.type = num.styling.type;
-          numStyling.num = num.styling.num;
-          numStyling.gender = num.styling.gender;
+          var numStyling = CSL2.Util.cloneToken(num2.styling);
+          numStyling.formatter = num2.styling.formatter;
+          numStyling.type = num2.styling.type;
+          numStyling.num = num2.styling.num;
+          numStyling.gender = num2.styling.gender;
           if (labelPlaceholderPos > 0 && labelPlaceholderPos < label4.length - 2) {
             numStyling.strings.prefix += label4.slice(0, labelPlaceholderPos);
             numStyling.strings.suffix = label4.slice(labelPlaceholderPos + 2) + numStyling.strings.suffix;
-          } else if (num.labelVisibility) {
+          } else if (num2.labelVisibility) {
             if (!label4) {
-              label4 = num.label;
-              labelName = num.label;
+              label4 = num2.label;
+              labelName = num2.label;
             }
             if (labelPlaceholderPos > 0) {
               var prefixLabelStyling = new CSL2.Token();
               prefixLabelStyling.decorations = labelDecorations;
               state2.output.append(label4.slice(0, labelPlaceholderPos), prefixLabelStyling);
             } else if (labelPlaceholderPos === label4.length - 2 || labelPlaceholderPos === -1) {
-              state2.output.append(label4 + num.labelSuffix, "empty");
+              state2.output.append(label4 + num2.labelSuffix, "empty");
             }
           }
-          CSL2.UPDATE_GROUP_CONTEXT_CONDITION(state2, masterStyling.strings.prefix, null, masterStyling, `${num.particle}${num.value}`);
-          if (num.collapsible) {
+          CSL2.UPDATE_GROUP_CONTEXT_CONDITION(state2, masterStyling.strings.prefix, null, masterStyling, `${num2.particle}${num2.value}`);
+          if (num2.collapsible) {
             var blob;
-            if (num.value.match(/^[1-9][0-9]*$/) && Number.isSafeInteger(parseInt(num.value, 10))) {
-              blob = new CSL2.NumericBlob(state2, num.particle, parseInt(num.value, 10), numStyling, itemID);
+            if (num2.value.match(/^[1-9][0-9]*$/) && Number.isSafeInteger(parseInt(num2.value, 10))) {
+              blob = new CSL2.NumericBlob(state2, num2.particle, parseInt(num2.value, 10), numStyling, itemID);
             } else {
-              blob = new CSL2.NumericBlob(state2, num.particle, num.value, numStyling, itemID);
+              blob = new CSL2.NumericBlob(state2, num2.particle, num2.value, numStyling, itemID);
             }
             if ("undefined" === typeof blob.gender) {
               blob.gender = state2.locale[state2.opt.lang]["noun-genders"][varname];
             }
             state2.output.append(blob, "literal");
           } else {
-            state2.output.append(num.particle + num.value, numStyling);
+            state2.output.append(num2.particle + num2.value, numStyling);
           }
           if (labelPlaceholderPos === 0 && labelPlaceholderPos < label4.length - 2) {
             if (lastLabelName === null) {
@@ -21367,10 +21367,10 @@
     }
   });
 
-  // ../DTU Science Writer/src/core/fileformat.js
+  // src/core/fileformat.js
   var import_jszip = __toESM(require_jszip_min());
 
-  // ../DTU Science Writer/src/core/media.js
+  // src/core/media.js
   var store = /* @__PURE__ */ new Map();
   var MIME = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", svg: "image/svg+xml", webp: "image/webp" };
   var mimeOf = (name) => MIME[(name.split(".").pop() || "").toLowerCase()] || "application/octet-stream";
@@ -21413,7 +21413,7 @@
     });
   }
 
-  // ../DTU Science Writer/src/core/fileformat.js
+  // src/core/fileformat.js
   var FORMAT = "dtu-science-writer";
   var FORMAT_VERSION = 1;
   var EXT = "dtusw";
@@ -21424,14 +21424,14 @@
     });
     return [...names];
   }
-  async function packDocument(doc4, info = {}) {
+  async function packDocument(doc4, info2 = {}) {
     const zip = new import_jszip.default();
     const now3 = (/* @__PURE__ */ new Date()).toISOString();
     zip.file("manifest.json", JSON.stringify({
       format: FORMAT,
       version: FORMAT_VERSION,
-      app: info.appVersion || "",
-      created: info.created || now3,
+      app: info2.appVersion || "",
+      created: info2.created || now3,
       modified: now3
     }, null, 1));
     zip.file("document.json", JSON.stringify(doc4.toJSON()));
@@ -21463,7 +21463,7 @@
     return { json, manifest };
   }
 
-  // ../DTU Science Writer/src/renderer/context.js
+  // src/renderer/context.js
   var api = window.dsw;
   var $ = (s) => document.querySelector(s);
   var app = {
@@ -21773,9 +21773,9 @@
         return this;
       if (!this.size)
         return other;
-      let last = this.lastChild, first = other.firstChild, content = this.content.slice(), i2 = 0;
-      if (last.isText && last.sameMarkup(first)) {
-        content[content.length - 1] = last.withText(last.text + first.text);
+      let last2 = this.lastChild, first = other.firstChild, content = this.content.slice(), i2 = 0;
+      if (last2.isText && last2.sameMarkup(first)) {
+        content[content.length - 1] = last2.withText(last2.text + first.text);
         i2 = 1;
       }
       for (; i2 < other.content.length; i2++)
@@ -22298,9 +22298,9 @@
     return node;
   }
   function addNode(child, target) {
-    let last = target.length - 1;
-    if (last >= 0 && child.isText && child.sameMarkup(target[last]))
-      target[last] = child.withText(target[last].text + child.text);
+    let last2 = target.length - 1;
+    if (last2 >= 0 && child.isText && child.sameMarkup(target[last2]))
+      target[last2] = child.withText(target[last2].text + child.text);
     else
       target.push(child);
   }
@@ -24194,10 +24194,10 @@
     }
     finish(openEnd) {
       if (!(this.options & OPT_PRESERVE_WS)) {
-        let last = this.content[this.content.length - 1], m;
-        if (last && last.isText && (m = /[ \t\r\n\u000c]+$/.exec(last.text))) {
-          let text2 = last;
-          if (last.text.length == m[0].length)
+        let last2 = this.content[this.content.length - 1], m;
+        if (last2 && last2.isText && (m = /[ \t\r\n\u000c]+$/.exec(last2.text))) {
+          let text2 = last2;
+          if (last2.text.length == m[0].length)
             this.content.pop();
           else
             this.content[this.content.length - 1] = text2.withText(text2.text.slice(0, text2.text.length - m[0].length));
@@ -25364,9 +25364,9 @@
   };
   Step.jsonID("removeMark", RemoveMarkStep);
   function pushMarkStep(cls, from2, to2, mark, target) {
-    let last = target.length ? target[target.length - 1] : null;
-    if (last && last instanceof cls && last.to == from2 && last.mark.eq(mark)) {
-      target[target.length - 1] = new cls(last.from, to2, mark);
+    let last2 = target.length ? target[target.length - 1] : null;
+    if (last2 && last2 instanceof cls && last2.to == from2 && last2.mark.eq(mark)) {
+      target[target.length - 1] = new cls(last2.from, to2, mark);
     } else {
       target.push(new cls(from2, to2, mark));
     }
@@ -26385,10 +26385,10 @@
     }
     let covered = coveredDepths($from, $to);
     for (let i2 = 0; i2 < covered.length; i2++) {
-      let depth = covered[i2], last = i2 == covered.length - 1;
-      if (last && depth == 0 || $from.node(depth).type.contentMatch.validEnd)
+      let depth = covered[i2], last2 = i2 == covered.length - 1;
+      if (last2 && depth == 0 || $from.node(depth).type.contentMatch.validEnd)
         return tr2.delete($from.start(depth), $to.end(depth));
-      if (depth > 0 && (last || $from.node(depth - 1).canReplace($from.index(depth - 1), $to.indexAfter(depth - 1))))
+      if (depth > 0 && (last2 || $from.node(depth - 1).canReplace($from.index(depth - 1), $to.indexAfter(depth - 1))))
         return tr2.delete($from.before(depth), $to.after(depth));
     }
     for (let d = 1; d <= $from.depth && d <= $to.depth; d++) {
@@ -27197,13 +27197,13 @@
     return null;
   }
   function selectionToInsertionEnd(tr2, startLen, bias) {
-    let last = tr2.steps.length - 1;
-    if (last < startLen)
+    let last2 = tr2.steps.length - 1;
+    if (last2 < startLen)
       return;
-    let step = tr2.steps[last];
+    let step = tr2.steps[last2];
     if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep))
       return;
-    let map2 = tr2.mapping.maps[last], end;
+    let map2 = tr2.mapping.maps[last2], end;
     map2.forEach((_from, _to, _newFrom, newTo) => {
       if (end == null)
         end = newTo;
@@ -29970,15 +29970,15 @@
     let text2 = view.someProp("clipboardTextSerializer", (f) => f(slice2, view)) || slice2.content.textBetween(0, slice2.content.size, "\n\n");
     return { dom: wrap3, text: text2, slice: slice2 };
   }
-  function parseFromClipboard(view, text2, html, plainText, $context) {
+  function parseFromClipboard(view, text2, html, plainText2, $context) {
     let inCode = $context.parent.type.spec.code;
     let dom, slice2;
     if (!html && !text2)
       return null;
-    let asText = !!text2 && (plainText || inCode || !html);
+    let asText = !!text2 && (plainText2 || inCode || !html);
     if (asText) {
       view.someProp("transformPastedText", (f) => {
-        text2 = f(text2, inCode || plainText, view);
+        text2 = f(text2, inCode || plainText2, view);
       });
       if (inCode) {
         slice2 = new Slice(Fragment.from(view.state.schema.text(text2.replace(/\r\n?/g, "\n"))), 0, 0);
@@ -29987,7 +29987,7 @@
         });
         return slice2;
       }
-      let parsed = view.someProp("clipboardTextParser", (f) => f(text2, $context, plainText, view));
+      let parsed = view.someProp("clipboardTextParser", (f) => f(text2, $context, plainText2, view));
       if (parsed) {
         slice2 = parsed;
       } else {
@@ -30045,7 +30045,7 @@
       }
     }
     view.someProp("transformPasted", (f) => {
-      slice2 = f(slice2, view, plainText);
+      slice2 = f(slice2, view, plainText2);
     });
     return slice2;
   }
@@ -31265,9 +31265,9 @@
   function capturePaste(view, event) {
     if (!view.dom.parentNode)
       return;
-    let plainText = view.input.shiftKey || view.state.selection.$from.parent.type.spec.code;
-    let target = view.dom.parentNode.appendChild(document.createElement(plainText ? "textarea" : "div"));
-    if (!plainText)
+    let plainText2 = view.input.shiftKey || view.state.selection.$from.parent.type.spec.code;
+    let target = view.dom.parentNode.appendChild(document.createElement(plainText2 ? "textarea" : "div"));
+    if (!plainText2)
       target.contentEditable = "true";
     target.style.cssText = "position: fixed; left: -10000px; top: 10px";
     target.focus();
@@ -31276,7 +31276,7 @@
       view.focus();
       if (target.parentNode)
         target.parentNode.removeChild(target);
-      if (plainText)
+      if (plainText2)
         doPaste(view, target.value, null, plain, event);
       else
         doPaste(view, target.textContent, target.innerHTML, plain, event);
@@ -33717,9 +33717,9 @@
             let selection = item.selection && item.selection.map(remap.slice(mapFrom));
             if (selection)
               events++;
-            let newItem = new Item(map2.invert(), step, selection), merged2, last = items.length - 1;
-            if (merged2 = items.length && items[last].merge(newItem))
-              items[last] = merged2;
+            let newItem = new Item(map2.invert(), step, selection), merged2, last2 = items.length - 1;
+            if (merged2 = items.length && items[last2].merge(newItem))
+              items[last2] = merged2;
             else
               items.push(newItem);
           }
@@ -34951,7 +34951,7 @@
     };
   }
 
-  // ../DTU Science Writer/src/core/track.js
+  // src/core/track.js
   var TRACK_UNITS = /* @__PURE__ */ new Set(["equation", "figure", "table_figure", "page_break", "outline", "bibliography"]);
   var SCOPES = /* @__PURE__ */ new Set(["doc", "supplement", "abstract", "table_cell", "table_header", "caption", "footnote", "figure", "table_figure"]);
   var CONTENT_ATTRS = { math_inline: ["latex"], equation: ["latex"], citation: ["items", "mode"], xref: ["target"] };
@@ -36047,10 +36047,10 @@
         tr2.delete(pos, pos + table.nodeSize);
       }
     }
-    let first, last;
+    let first, last2;
     for (let i2 = 0; i2 < mustAdd.length; i2++) if (mustAdd[i2]) {
       if (first == null) first = i2;
-      last = i2;
+      last2 = i2;
     }
     for (let i2 = 0, pos = tablePos + 1; i2 < map2.height; i2++) {
       const row = table.child(i2);
@@ -36064,7 +36064,7 @@
           const node = tableNodeTypes(state2.schema)[role].createAndFill();
           if (node) nodes2.push(node);
         }
-        const side = (i2 == 0 || first == i2 - 1) && last == i2 ? pos + 1 : end - 1;
+        const side = (i2 == 0 || first == i2 - 1) && last2 == i2 ? pos + 1 : end - 1;
         tr2.insert(tr2.mapping.map(side), nodes2);
       }
       pos = end;
@@ -37448,7 +37448,7 @@
     });
   }
 
-  // ../DTU Science Writer/src/core/schema.js
+  // src/core/schema.js
   var idAttr = { default: null };
   var trackAttr = { default: null };
   var trackDom = (tag, cls) => (m) => [tag, { class: "tc " + cls, "data-tc": m.attrs.id, "data-author": m.attrs.author, title: (cls === "tc-ins" ? "Inserted by " : "Deleted by ") + (m.attrs.author || "unknown"), style: "--tc:" + colorFor(m.attrs.author) }, 0];
@@ -37704,6 +37704,18 @@
       parseDOM: [{ tag: "u" }, { style: "text-decoration", getAttrs: (v) => /underline/.test(v) && null }],
       toDOM: () => ["u", 0]
     },
+    /* Highlight (color: one of Word's highlighter names, HIGHLIGHT) and text colour (color: 'RRGGBB'). They come in from
+       Word — a revised manuscript or a response letter marks its changes so — and go out to PDF, Word and LaTeX. */
+    highlight: {
+      attrs: { color: { default: "yellow" } },
+      parseDOM: [{ tag: "mark", getAttrs: (d) => ({ color: HIGHLIGHT[d.getAttribute("data-color")] ? d.getAttribute("data-color") : "yellow" }) }],
+      toDOM: (m) => ["mark", { class: "hl", "data-color": m.attrs.color, style: "background:#" + highlightHex(m.attrs.color) }, 0]
+    },
+    color: {
+      attrs: { color: { default: "C00000" } },
+      parseDOM: [{ tag: "span.fgc", getAttrs: (d) => ({ color: /^[0-9A-F]{6}$/i.test(d.getAttribute("data-color") || "") ? d.getAttribute("data-color").toUpperCase() : "C00000" }) }],
+      toDOM: (m) => ["span", { class: "fgc", "data-color": m.attrs.color, style: "color:#" + m.attrs.color }, 0]
+    },
     sup: { excludes: "sub", parseDOM: [{ tag: "sup" }], toDOM: () => ["sup", 0] },
     sub: { excludes: "sup", parseDOM: [{ tag: "sub" }], toDOM: () => ["sub", 0] },
     /* Anchor of a comment thread (comments.js). Several may overlap; typing next to one does not extend it. */
@@ -37719,6 +37731,27 @@
     del: trackMark("del", "tc-del")
   };
   var schema = new Schema({ nodes, marks });
+  var HIGHLIGHT = {
+    yellow: "FFFF00",
+    green: "00FF00",
+    cyan: "00FFFF",
+    magenta: "FF00FF",
+    blue: "0000FF",
+    red: "FF0000",
+    darkBlue: "000080",
+    darkCyan: "008080",
+    darkGreen: "008000",
+    darkMagenta: "800080",
+    darkRed: "800000",
+    darkYellow: "808000",
+    darkGray: "808080",
+    lightGray: "C0C0C0",
+    black: "000000",
+    white: "FFFFFF"
+  };
+  function highlightHex(name) {
+    return HIGHLIGHT[name] || HIGHLIGHT.yellow;
+  }
   var LABELLED = /* @__PURE__ */ new Set(["heading", "figure", "equation", "table_figure"]);
 
   // ../../../../AppData/Local/dtu-science-writer-build/node_modules/prosemirror-inputrules/dist/index.js
@@ -37884,7 +37917,7 @@
     }, options);
   }
 
-  // ../DTU Science Writer/src/core/style.js
+  // src/core/style.js
   var FONTS = {
     times: { label: "Times New Roman", body: "Times New Roman", css: "'Times New Roman', Times, serif", math: "STIX Two Math", mathLabel: "STIX Two Math", word: "Times New Roman" },
     arial: { label: "Arial", body: "Arial", css: "Arial, Helvetica, sans-serif", math: "Fira Math", mathLabel: "Fira Math", word: "Arial" }
@@ -37914,8 +37947,10 @@
     // continuous line numbers in the margin (PDF, Word, LaTeX; not shown while editing)
     figLabel: "Fig.",
     // "Fig. 3" or "Figure 3", in captions and references
-    journal: ""
+    journal: "",
     // the journal style last applied (journalstyles.js), shown in the Style dialog
+    venue: ""
+    // journal or funding call + type whose limits the status bar checks (venues.js): 'nature-communications/article'
   };
   var SPACINGS = [[1, "single"], [1.5, "1.5 lines"], [2, "double"]];
   var FIG_LABELS = ["Fig.", "Figure"];
@@ -37951,6 +37986,7 @@
     out.figLabel = oneOf(s.figLabel, FIG_LABELS, DEFAULT_STYLE.figLabel);
     if (s.csl && typeof s.csl === "object" && typeof s.csl.xml === "string" && typeof s.csl.name === "string" && isCslKey("csl:" + s.csl.name)) out.csl = { name: s.csl.name, title: String(s.csl.title || s.csl.name), xml: s.csl.xml };
     if (isCslKey(out.cite) && !(out.csl && "csl:" + out.csl.name === out.cite)) out.cite = DEFAULT_STYLE.cite;
+    out.venue = typeof s.venue === "string" && /^[a-z0-9-]{1,60}\/[a-z0-9-]{1,60}$/.test(s.venue) ? s.venue : "";
     out.journal = typeof s.journal === "string" && /^[a-z0-9-]{1,60}$/.test(s.journal) ? s.journal : "";
     out.lang = oneOf(s.lang, LANGS, DEFAULT_STYLE.lang);
     out.affil = { marker: oneOf(a.marker, AFFIL_MARKERS, DEFAULT_STYLE.affil.marker), fields: oneOf(a.fields, AFFIL_FIELDS, DEFAULT_STYLE.affil.fields) };
@@ -37998,7 +38034,7 @@
     return formatCounter(counters[l - 1], fmt);
   }
 
-  // ../DTU Science Writer/src/core/numbering.js
+  // src/core/numbering.js
   var NBSP = "\xA0";
   var FORMS = {
     figure: (n, label4) => (label4 || "Fig.") + NBSP + n,
@@ -38028,14 +38064,14 @@
     for (let i2 = 0; i2 < index; i2++) t40 = nextContext(t40, parent.child(i2));
     return t40;
   }
-  function numberOnly(info, prevText) {
-    const re2 = info && info.num && REF_WORDS[info.type];
+  function numberOnly(info2, prevText) {
+    const re2 = info2 && info2.num && REF_WORDS[info2.type];
     return !!(re2 && prevText && re2.test(prevText));
   }
-  function refText(info, prevText) {
-    if (!numberOnly(info, prevText)) return info.ref;
-    if (info.type === "equation") return /\(\s*$/.test(prevText) ? info.num : "(" + info.num + ")";
-    return info.num;
+  function refText(info2, prevText) {
+    if (!numberOnly(info2, prevText)) return info2.ref;
+    if (info2.type === "equation") return /\(\s*$/.test(prevText) ? info2.num : "(" + info2.num + ")";
+    return info2.num;
   }
   var PREFIX = { heading: "sec", figure: "fig", equation: "eq", table_figure: "tab" };
   function newId(type, taken) {
@@ -38067,13 +38103,13 @@
         return true;
       }
       if (node.attrs && node.attrs.track && node.attrs.track.kind === "del" && (t40 === "figure" || t40 === "table_figure" || t40 === "equation")) {
-        const info = { type: t40, num: null, ref: "(deleted)", pos, snippet: "", si: si2, deleted: true };
-        byPos2.set(pos, info);
-        if (node.attrs.id && !byId2.has(node.attrs.id)) byId2.set(node.attrs.id, info);
+        const info2 = { type: t40, num: null, ref: "(deleted)", pos, snippet: "", si: si2, deleted: true };
+        byPos2.set(pos, info2);
+        if (node.attrs.id && !byId2.has(node.attrs.id)) byId2.set(node.attrs.id, info2);
         return false;
       }
       if (t40 === "heading") {
-        let num = null;
+        let num2 = null;
         const lv = Math.min(Math.max(node.attrs.level, 1), 4);
         if (lv === 1 && node.attrs.appendix && !inAppendix && !si2) {
           inAppendix = true;
@@ -38084,39 +38120,39 @@
           sec[l]++;
           for (let i2 = l + 1; i2 < 4; i2++) sec[i2] = 0;
           for (let i2 = 0; i2 < l; i2++) if (!sec[i2]) sec[i2] = 1;
-          num = si2 ? st2["h" + lv].num === "none" ? null : "S" + sec.slice(0, lv).map((c) => c || 1).join(".") : inAppendix ? appendixLabel(st2, sec, lv) : headingLabel(st2, sec, lv);
+          num2 = si2 ? st2["h" + lv].num === "none" ? null : "S" + sec.slice(0, lv).map((c) => c || 1).join(".") : inAppendix ? appendixLabel(st2, sec, lv) : headingLabel(st2, sec, lv);
         }
         const snippet = node.textContent.slice(0, 60);
-        const info = { type: t40, num, ref: num ? inAppendix ? FORMS.appendix(num) : FORMS.heading(num) : "\u201C" + snippet + "\u201D", pos, snippet, level: node.attrs.level, appendix: inAppendix, si: si2 };
-        byPos2.set(pos, info);
-        if (node.attrs.id) byId2.set(node.attrs.id, info);
+        const info2 = { type: t40, num: num2, ref: num2 ? inAppendix ? FORMS.appendix(num2) : FORMS.heading(num2) : "\u201C" + snippet + "\u201D", pos, snippet, level: node.attrs.level, appendix: inAppendix, si: si2 };
+        byPos2.set(pos, info2);
+        if (node.attrs.id) byId2.set(node.attrs.id, info2);
         return false;
       }
       if (t40 === "figure") {
         fig++;
         const cap = node.lastChild ? node.lastChild.textContent : "";
-        const info = { type: t40, num: P4() + fig, ref: FORMS.figure(P4() + fig, st2.figLabel), label: st2.figLabel, pos, snippet: cap.slice(0, 60), si: si2 };
-        byPos2.set(pos, info);
-        if (node.attrs.id) byId2.set(node.attrs.id, info);
+        const info2 = { type: t40, num: P4() + fig, ref: FORMS.figure(P4() + fig, st2.figLabel), label: st2.figLabel, pos, snippet: cap.slice(0, 60), si: si2 };
+        byPos2.set(pos, info2);
+        if (node.attrs.id) byId2.set(node.attrs.id, info2);
         return false;
       }
       if (t40 === "table_figure") {
         tab++;
         const cap = node.firstChild ? node.firstChild.textContent : "";
-        const info = { type: t40, num: P4() + tab, ref: FORMS.table(P4() + tab), pos, snippet: cap.slice(0, 60), si: si2 };
-        byPos2.set(pos, info);
-        if (node.attrs.id) byId2.set(node.attrs.id, info);
+        const info2 = { type: t40, num: P4() + tab, ref: FORMS.table(P4() + tab), pos, snippet: cap.slice(0, 60), si: si2 };
+        byPos2.set(pos, info2);
+        if (node.attrs.id) byId2.set(node.attrs.id, info2);
         return false;
       }
       if (t40 === "equation") {
-        let num = null;
+        let num2 = null;
         if (node.attrs.numbered) {
           eq++;
-          num = P4() + eq;
+          num2 = P4() + eq;
         }
-        const info = { type: t40, num, ref: num ? FORMS.equation(num) : "Eq. (\u2013)", pos, snippet: node.attrs.latex.slice(0, 60), si: si2 };
-        byPos2.set(pos, info);
-        if (node.attrs.id) byId2.set(node.attrs.id, info);
+        const info2 = { type: t40, num: num2, ref: num2 ? FORMS.equation(num2) : "Eq. (\u2013)", pos, snippet: node.attrs.latex.slice(0, 60), si: si2 };
+        byPos2.set(pos, info2);
+        if (node.attrs.id) byId2.set(node.attrs.id, info2);
         return false;
       }
       return true;
@@ -38159,8 +38195,8 @@
     return out;
   }
   function supplementOf(doc4) {
-    const last = doc4.lastChild;
-    return last && last.type.name === "supplement" ? { node: last, pos: doc4.content.size - last.nodeSize } : null;
+    const last2 = doc4.lastChild;
+    return last2 && last2.type.name === "supplement" ? { node: last2, pos: doc4.content.size - last2.nodeSize } : null;
   }
   function inSupplement(doc4, pos) {
     const s = supplementOf(doc4);
@@ -38188,7 +38224,7 @@
     return fixes;
   }
 
-  // ../DTU Science Writer/src/renderer/editor/plugins.js
+  // src/renderer/editor/plugins.js
   var idPlugin = new Plugin({
     appendTransaction(trs, _old, state2) {
       if (!trs.some((t40) => t40.docChanged)) return null;
@@ -38203,8 +38239,8 @@
   var trailingParagraph = new Plugin({
     appendTransaction(trs, _old, state2) {
       if (!trs.some((t40) => t40.docChanged)) return null;
-      const last = state2.doc.lastChild;
-      if (last && last.type.name === "paragraph") return null;
+      const last2 = state2.doc.lastChild;
+      if (last2 && last2.type.name === "paragraph") return null;
       return state2.tr.insert(state2.doc.content.size, state2.schema.nodes.paragraph.create()).setMeta("addToHistory", false);
     }
   });
@@ -38215,15 +38251,15 @@
     doc4.descendants((node, pos) => {
       const t40 = node.type.name;
       if (t40 === "heading") {
-        const info = nums.byPos.get(pos);
-        if (info && info.num) decos.push(Decoration.node(pos, pos + node.nodeSize, { "data-num": info.num }));
+        const info2 = nums.byPos.get(pos);
+        if (info2 && info2.num) decos.push(Decoration.node(pos, pos + node.nodeSize, { "data-num": info2.num }));
         return false;
       }
       if (t40 === "figure") {
-        const info = nums.byPos.get(pos);
+        const info2 = nums.byPos.get(pos);
         const capPos = pos + 1 + node.firstChild.nodeSize;
         const cap = node.lastChild;
-        decos.push(Decoration.node(capPos, capPos + cap.nodeSize, { "data-num": FORMS.captionLabel(info.num == null ? "\u2013" : info.num, info.label), class: cap.content.size ? "" : "empty" }));
+        decos.push(Decoration.node(capPos, capPos + cap.nodeSize, { "data-num": FORMS.captionLabel(info2.num == null ? "\u2013" : info2.num, info2.label), class: cap.content.size ? "" : "empty" }));
         if (node.attrs.placement === "wrap") {
           const next = doc4.resolve(pos + node.nodeSize).nodeAfter;
           if (!next || next.type.name !== "paragraph" || !next.content.size) decos.push(Decoration.node(pos, pos + node.nodeSize, { class: "nowrap" }));
@@ -38231,22 +38267,22 @@
         return true;
       }
       if (t40 === "table_figure") {
-        const info = nums.byPos.get(pos);
+        const info2 = nums.byPos.get(pos);
         const cap = node.firstChild;
-        decos.push(Decoration.node(pos + 1, pos + 1 + cap.nodeSize, { "data-num": FORMS.tableCaptionLabel(info.num == null ? "\u2013" : info.num), class: cap.content.size ? "" : "empty" }));
+        decos.push(Decoration.node(pos + 1, pos + 1 + cap.nodeSize, { "data-num": FORMS.tableCaptionLabel(info2.num == null ? "\u2013" : info2.num), class: cap.content.size ? "" : "empty" }));
         return true;
       }
       if (t40 === "caption" || t40 === "image") return t40 === "caption";
       if (t40 === "equation") {
-        const info = nums.byPos.get(pos);
-        decos.push(Decoration.node(pos, pos + node.nodeSize, {}, { eqNum: info && info.num }));
+        const info2 = nums.byPos.get(pos);
+        decos.push(Decoration.node(pos, pos + node.nodeSize, {}, { eqNum: info2 && info2.num }));
         return false;
       }
       if (t40 === "xref") {
-        const info = nums.byId.get(node.attrs.target);
+        const info2 = nums.byId.get(node.attrs.target);
         const $p2 = doc4.resolve(pos);
         const prev = contextBefore($p2.parent, $p2.index());
-        decos.push(Decoration.node(pos, pos + node.nodeSize, info ? { "data-ref": refText(info, prev) } : { "data-ref": "??", class: "xref-missing" }));
+        decos.push(Decoration.node(pos, pos + node.nodeSize, info2 ? { "data-ref": refText(info2, prev) } : { "data-ref": "??", class: "xref-missing" }));
       }
       if (t40 === "authors") {
         const st2 = styleOf(doc4);
@@ -38532,12 +38568,12 @@
     c && (e[0] = e[0].slice(1));
     for (let v = 0; v < e.length; v++) {
       r2 = o, i2 = a, n = s;
-      let b = (u = e[v].trim().match(/^([A-Za-z\d-]+)/)) == null ? void 0 : u[1], k = b == null ? void 0 : b.toLowerCase(), S2 = b && (y = (f = (p2 = (m = (d = tr[k]) != null ? d : tr[Ru[b]]) != null ? m : xf[b]) != null ? p2 : vf[b]) != null ? f : yf[b]) != null ? y : e[v].trim(), A = S2.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i);
+      let b = (u = e[v].trim().match(/^([A-Za-z\d-]+)/)) == null ? void 0 : u[1], k = b == null ? void 0 : b.toLowerCase(), S3 = b && (y = (f = (p2 = (m = (d = tr[k]) != null ? d : tr[Ru[b]]) != null ? m : xf[b]) != null ? p2 : vf[b]) != null ? f : yf[b]) != null ? y : e[v].trim(), A = S3.match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i);
       if (A != null && A[1] && A[2] && A[3]) o = Math.max(0, Math.min(255, Number.parseInt(A[1], 16))), a = Math.max(0, Math.min(255, Number.parseInt(A[2], 16))), s = Math.max(0, Math.min(255, Number.parseInt(A[3], 16)));
-      else if (A = S2.match(/^#([\da-f]{3})$/i), A != null && A[1]) {
+      else if (A = S3.match(/^#([\da-f]{3})$/i), A != null && A[1]) {
         let E2 = Number.parseInt(A[1][0], 16), C = Number.parseInt(A[1][1], 16), _ = Number.parseInt(A[1][2], 16);
         o = Math.max(0, Math.min(255, E2 * 16 + E2)), a = Math.max(0, Math.min(255, C * 16 + C)), s = Math.max(0, Math.min(255, _ * 16 + _));
-      } else if (A = S2.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i), A != null && A[1] && A[2] && A[3]) o = Math.max(0, Math.min(255, Number.parseInt(A[1]))), a = Math.max(0, Math.min(255, Number.parseInt(A[2]))), s = Math.max(0, Math.min(255, Number.parseInt(A[3])));
+      } else if (A = S3.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i), A != null && A[1] && A[2] && A[3]) o = Math.max(0, Math.min(255, Number.parseInt(A[1]))), a = Math.max(0, Math.min(255, Number.parseInt(A[2]))), s = Math.max(0, Math.min(255, Number.parseInt(A[3])));
       else return;
       l >= 0 && (o = (1 - l) * o + l * r2, a = (1 - l) * a + l * i2, s = (1 - l) * s + l * n, l = -1), v + 1 < e.length && (l = Math.max(0, Math.min(100, Number.parseInt(e[++v]))) / 100);
     }
@@ -40024,7 +40060,7 @@ M500 241 v40 H399408 v-40z M500 435 v40 H400000 v-40z` };
   }
   var P = class t2 {
     constructor(e, r2) {
-      var o, a, s, l, c, u, d, m, p2, f, y, v, b, k, S2;
+      var o, a, s, l, c, u, d, m, p2, f, y, v, b, k, S3;
       let i2;
       e != null && e.parent ? (this.parent = e.parent, i2 = e.parent, this.registers = {}) : (i2 = h(h({}, no()), (o = e == null ? void 0 : e.from) != null ? o : {}), this.registers = i2.registers), i2.atomIdsSettings && (this.atomIdsSettings = h({}, i2.atomIdsSettings)), this.renderPlaceholder = i2.renderPlaceholder, this.isPhantom = (l = (s = e == null ? void 0 : e.isPhantom) != null ? s : (a = this.parent) == null ? void 0 : a.isPhantom) != null ? l : false, this.letterShapeStyle = i2.letterShapeStyle, this.minFontScale = i2.minFontScale, this.maxMatrixCols = i2.maxMatrixCols, r2 != null && r2.color && r2.color !== "none" ? this.color = r2.color : this.color = (u = (c = this.parent) == null ? void 0 : c.color) != null ? u : "", r2 != null && r2.backgroundColor && r2.backgroundColor !== "none" ? this.backgroundColor = r2.backgroundColor : this.backgroundColor = (m = (d = this.parent) == null ? void 0 : d.backgroundColor) != null ? m : "", r2 != null && r2.fontSize && r2.fontSize !== "auto" && r2.fontSize !== ((p2 = this.parent) == null ? void 0 : p2.size) ? this.size = r2.fontSize : this.size = (y = (f = this.parent) == null ? void 0 : f.size) != null ? y : Zi;
       let n = (b = (v = this.parent) == null ? void 0 : v.mathstyle) != null ? b : pt.displaystyle;
@@ -40064,7 +40100,7 @@ M500 241 v40 H399408 v-40z M500 435 v40 H400000 v-40z` };
             break;
         }
       }
-      this.mathstyle = n, this.smartFence = i2.smartFence, this.placeholderSymbol = i2.placeholderSymbol, this.colorMap = (k = i2.colorMap) != null ? k : ((A) => A), this.backgroundColorMap = (S2 = i2.backgroundColorMap) != null ? S2 : ((A) => A), this.getMacro = i2.getMacro, this.parent !== void 0 || this.registers;
+      this.mathstyle = n, this.smartFence = i2.smartFence, this.placeholderSymbol = i2.placeholderSymbol, this.colorMap = (k = i2.colorMap) != null ? k : ((A) => A), this.backgroundColorMap = (S3 = i2.backgroundColorMap) != null ? S3 : ((A) => A), this.getMacro = i2.getMacro, this.parent !== void 0 || this.registers;
     }
     makeID() {
       if (!this.atomIdsSettings) return;
@@ -43829,16 +43865,16 @@ Note there are a different set of tooltip rules for the keyboard toggle
       let D = Dr(a, c);
       v = D.height + D.depth, b = 2;
     }
-    let k = d + y + v, S2 = Math.max(0, Math.ceil((e - k) / (b * p2))), A = k + S2 * b * p2, E2 = Ie;
+    let k = d + y + v, S3 = Math.max(0, Math.ceil((e - k) / (b * p2))), A = k + S3 * b * p2, E2 = Ie;
     r2 && (E2 = E2 * i2.scalingFactor);
     let C = A / 2 - E2, _ = 8e-3, B3 = [];
     B3.push({ box: new w(l, { fontFamily: c }) }), B3.push(-_);
     let I2 = new w(s, { fontFamily: c });
-    if (a === null) for (let D = 0; D < S2; D++) B3.push({ box: I2 });
+    if (a === null) for (let D = 0; D < S3; D++) B3.push({ box: I2 });
     else {
-      for (let D = 0; D < S2; D++) B3.push({ box: I2 });
+      for (let D = 0; D < S3; D++) B3.push({ box: I2 });
       B3.push(-_), B3.push({ box: new w(a, { fontFamily: c }) }), B3.push(-_);
-      for (let D = 0; D < S2; D++) B3.push({ box: I2 });
+      for (let D = 0; D < S3; D++) B3.push({ box: I2 });
     }
     B3.push(-_), B3.push({ box: new w(o, { fontFamily: c }) });
     let V = "";
@@ -44047,22 +44083,22 @@ Note there are a different set of tooltip rules for the keyboard toggle
         }
         ye.length > 0 && v.push(new te({ individualShift: ye }));
       }
-      let b = [], k = false, S2 = false, A = 0, E2 = !this.leftDelim, { colFormat: C } = this;
+      let b = [], k = false, S3 = false, A = 0, E2 = !this.leftDelim, { colFormat: C } = this;
       for (let X2 of C) {
         if ("align" in X2 && A >= v.length) break;
-        if ("align" in X2) k ? b.push(ns(2 * s)) : (S2 || E2) && b.push(ns(s)), b.push(new w(v[A], { classes: "col-align-" + X2.align })), A++, k = true, S2 = false, E2 = false;
+        if ("align" in X2) k ? b.push(ns(2 * s)) : (S3 || E2) && b.push(ns(s)), b.push(new w(v[A], { classes: "col-align-" + X2.align })), A++, k = true, S3 = false, E2 = false;
         else if ("gap" in X2) {
           if (typeof X2.gap == "number") b.push(ns(X2.gap));
           else {
             let ye = kg(e, m, y, X2.gap);
             ye && b.push(ye);
           }
-          k = false, S2 = false, E2 = false;
+          k = false, S3 = false, E2 = false;
         } else if ("separator" in X2) {
           let ye = new w(null, { classes: "ML__vertical-separator" });
           ye.height = d, ye.setStyle("height", d, "em"), ye.setStyle("border-right", `${i2}em ${X2.separator} currentColor`), ye.setStyle("vertical-align", -(d - y), "em");
           let xe = 0;
-          S2 ? xe = o - i2 : k && (xe = s - i2), ye.left = xe, b.push(ye), k = false, S2 = true, E2 = false;
+          S3 ? xe = o - i2 : k && (xe = s - i2), ye.left = xe, b.push(ye), k = false, S3 = true, E2 = false;
         }
       }
       k && !this.rightDelim && b.push(ns(s));
@@ -44361,10 +44397,10 @@ Note there are a different set of tooltip rules for the keyboard toggle
       b.height = y.height + o, b.depth = y.depth + o, b.width = y.width + 2 * n, b.setStyle("position", "absolute"), b.setStyle("height", y.height + y.depth + 2 * o, "em"), n === 0 && b.setStyle("width", "100%"), n !== 0 && (b.setStyle("width", `calc(100% + ${2 * n}em)`), b.setStyle("top", i2, "em"), b.setStyle("left", -n, "em"));
       let k = "";
       this.correctness === "incorrect" && (k += '<line x1="3%"  y1="97%" x2="97%" y2="3%" stroke-width="0.5" stroke="var(--incorrect-color, var(--ML__incorrect-color))" stroke-linecap="round" />'), k && (b.svgOverlay = k);
-      let S2 = new w([b, y], { classes: "ML__prompt-atom" });
-      y.setStyle("line-height", 1), S2.setStyle("position", "relative"), S2.setStyle("display", "inline-block"), S2.setStyle("line-height", 0), S2.height = d + o + 0.2, S2.depth = m + o, S2.left = n, S2.right = n, S2.setStyle("height", d + 2 * o, "em"), S2.setStyle("top", m - d - o / 2, "em"), S2.setStyle("vertical-align", y.depth, "em"), S2.setStyle("margin-left", 0.5, "em"), S2.setStyle("margin-right", 0.5, "em"), this.caret && (S2.caret = this.caret);
-      let A = this.attachSupsub(e, { base: S2 }), E2 = this.bind(r2, A);
-      return E2 && this.id && (b.atomID = this.id, y.atomID = this.id, S2.atomID = this.id), E2;
+      let S3 = new w([b, y], { classes: "ML__prompt-atom" });
+      y.setStyle("line-height", 1), S3.setStyle("position", "relative"), S3.setStyle("display", "inline-block"), S3.setStyle("line-height", 0), S3.height = d + o + 0.2, S3.depth = m + o, S3.left = n, S3.right = n, S3.setStyle("height", d + 2 * o, "em"), S3.setStyle("top", m - d - o / 2, "em"), S3.setStyle("vertical-align", y.depth, "em"), S3.setStyle("margin-left", 0.5, "em"), S3.setStyle("margin-right", 0.5, "em"), this.caret && (S3.caret = this.caret);
+      let A = this.attachSupsub(e, { base: S3 }), E2 = this.bind(r2, A);
+      return E2 && this.id && (b.atomID = this.id, y.atomID = this.id, S3.atomID = this.id), E2;
     }
     _serialize(e) {
       var n;
@@ -45113,11 +45149,11 @@ Note there are a different set of tooltip rules for the keyboard toggle
   }, uprightEntities: /^(?:pH|pOH|pC|pK|iPr|iBu)(?=$|[^a-zA-Z])/, "/": /^\s*(\/)\s*/, "//": /^\s*(\/\/)\s*/, "*": /^\s*[*.]\s*/ }, findObserveGroups: function(t40, e, r2, i2, n, o, a, s, l, c) {
     var u = function(b, k) {
       if (typeof k == "string") return b.indexOf(k) !== 0 ? null : k;
-      var S2 = b.match(k);
-      return S2 ? S2[0] : null;
-    }, d = function(b, k, S2) {
+      var S3 = b.match(k);
+      return S3 ? S3[0] : null;
+    }, d = function(b, k, S3) {
       for (var A = 0; k < b.length; ) {
-        var E2 = b.charAt(k), C = u(b.substr(k), S2);
+        var E2 = b.charAt(k), C = u(b.substr(k), S3);
         if (C !== null && A === 0) return { endMatchBegin: k, endMatchEnd: k + C.length };
         if (E2 === "{") A++;
         else if (E2 === "}") {
@@ -45698,13 +45734,13 @@ Note there are a different set of tooltip rules for the keyboard toggle
       }
       if (this.notation.updiagonalstrike && (c += this.line((o + u).toString(), (s - o - u).toString(), (o + i2.width - u).toString(), (o + u).toString())), this.notation.downdiagonalstrike && (c += this.line((o + u).toString(), (o + u).toString(), (o + i2.width - u).toString(), (s - o - u).toString())), this.notation.updiagonalarrow) {
         c += this.line(o.toString(), (2 * o + i2.depth + i2.height).toString(), (o + i2.width).toString(), o.toString());
-        let S2 = 0.03 * Math.sqrt(l * l + s * s) * 1, A = i2.width * S2, E2 = (i2.depth + i2.height) * S2, C = o + i2.width, _ = o;
+        let S3 = 0.03 * Math.sqrt(l * l + s * s) * 1, A = i2.width * S3, E2 = (i2.depth + i2.height) * S3, C = o + i2.width, _ = o;
         _ + E2 - 0.4 * A < 0 && (_ = 0.4 * A - E2), c += '<polygon points="', c += `${C},${_} ${C - A - 0.4 * E2},${_ + E2 - 0.4 * A} `, c += `${C - 0.7 * A},${_ + 0.7 * E2} ${C - A + 0.4 * E2},${_ + E2 + 0.4 * A} `, c += `${C},${_}`, c += `" stroke='none' fill="${lo((p2 = this.strokeColor) != null ? p2 : "")}"`, c += "/>";
       }
       let d = 0;
       if (this.notation.phasorangle) {
-        let b = Lh(r2), k = (i2.height + i2.depth + 2 * b + 2 * o).toString(), S2 = (i2.height + i2.depth) / 2;
-        c += this.line(o.toString(), k, (o + S2 + i2.width).toString(), k), c += this.line(o.toString(), k, (o + S2).toString(), (o - b).toString()), s += b, d = S2, i2.left += s / 2 - o;
+        let b = Lh(r2), k = (i2.height + i2.depth + 2 * b + 2 * o).toString(), S3 = (i2.height + i2.depth) / 2;
+        c += this.line(o.toString(), k, (o + S3 + i2.width).toString(), k), c += this.line(o.toString(), k, (o + S3).toString(), (o - b).toString()), s += b, d = S3, i2.left += s / 2 - o;
       }
       if (this.notation.longdiv) {
         let b = Lh(r2);
@@ -45790,7 +45826,7 @@ Note there are a different set of tooltip rules for the keyboard toggle
       }
       let v = r2.isDisplayStyle ? i2.delim1 : i2.delim2, b = this.leftDelim ? this.bind(e, cn("open", this.leftDelim, v, true, e, { style: this.style, mode: this.mode, isSelected: this.isSelected })) : cr(r2, "ML__open"), k = null;
       this.continuousFraction ? k = new w(null, { type: "close" }) : this.rightDelim ? k = this.bind(e, cn("close", this.rightDelim, v, true, e, { style: this.style, mode: this.mode, isSelected: this.isSelected })) : k = cr(r2, "ML__close");
-      let S2 = new w([b, y, k], { isTight: r2.isTight, type: "inner", classes: "ML__mfrac" }), A = this.bind(e, S2);
+      let S3 = new w([b, y, k], { isTight: r2.isTight, type: "inner", classes: "ML__mfrac" }), A = this.bind(e, S3);
       return this.caret && (A.caret = this.caret), this.attachSupsub(e, { base: A });
     }
   };
@@ -46011,8 +46047,8 @@ Note there are a different set of tooltip rules for the keyboard toggle
       p2 > i2.height + i2.depth + l && (l = (l + p2 - (i2.height + i2.depth)) / 2), m.setTop(m.height - i2.height - l);
       let f = this.bind(e, new te({ firstBaseline: [{ box: new w(i2) }, l - 2 * o, { box: s }, o] })), y = x.createBox(new P({ parent: e, mathstyle: "scriptscriptstyle" }), this.above, { type: "ignore" });
       if (!y) {
-        let S2 = new w([m, f], { classes: this.containsCaret ? "ML__contains-caret" : "", type: "inner" });
-        return S2.setStyle("display", "inline-block"), S2.setStyle("height", S2.height + S2.depth, "em"), this.caret && (S2.caret = this.caret), this.bind(e, S2);
+        let S3 = new w([m, f], { classes: this.containsCaret ? "ML__contains-caret" : "", type: "inner" });
+        return S3.setStyle("display", "inline-block"), S3.setStyle("height", S3.height + S3.depth, "em"), this.caret && (S3.caret = this.caret), this.bind(e, S3);
       }
       let v = new te({ shift: -0.6 * (Math.max(m.height, f.height) - Math.max(m.depth, f.depth)), children: [{ box: y }] }), b = new w([new w(v, { classes: "ML__sqrt-index", type: "ignore" }), m, f], { type: "inner", classes: this.containsCaret ? "ML__contains-caret" : "" });
       return b.height = m.height, b.depth = m.depth, this.caret && (b.caret = this.caret), this.bind(e, b);
@@ -47776,10 +47812,10 @@ Note there are a different set of tooltip rules for the keyboard toggle
     }
     let o = {}, a = "";
     for (let b of ob(n)) {
-      let k = Mo(b), S2 = Date.now().toString(36).slice(-2) + Math.floor(Math.random() * 1e5).toString(36);
-      o[S2] = k;
+      let k = Mo(b), S3 = Date.now().toString(36).slice(-2) + Math.floor(Math.random() * 1e5).toString(36);
+      o[S3] = k;
       let [A, E2] = Sn(k);
-      a += `<div id=${S2} class="item ${E2}">${A}</div>`;
+      a += `<div id=${S3} class="item ${E2}">${A}</div>`;
     }
     let s = document.createElement("div");
     s.setAttribute("aria-hidden", "true"), s.className = "MLK__variant-panel", s.style.height = "auto";
@@ -47790,7 +47826,7 @@ Note there are a different set of tooltip rules for the keyboard toggle
       d.top - s.clientHeight < 0 && (s.style.width = "auto", l <= 6 ? s.style.height = "56px" : l <= 12 ? s.style.height = "108px" : l <= 18 ? s.style.height = "205px" : s.classList.add("compact"));
       let b = Math.max(0, Math.min(window.innerWidth - s.offsetWidth, (d.left + d.right - s.offsetWidth) / 2)), k = d.top - s.clientHeight + 5;
       s.style.left = `${b}px`, s.style.top = `${k}px`, s.classList.add("is-visible"), requestAnimationFrame(() => {
-        var S2;
+        var S3;
         s.addEventListener("pointerup", (A) => {
           let E2 = ki(A.target);
           !(E2 != null && E2.id) || !o[E2.id] || (ws(o[E2.id]), Ur(), e == null || e(), A.preventDefault());
@@ -47800,7 +47836,7 @@ Note there are a different set of tooltip rules for the keyboard toggle
         }, { capture: true, signal: u }), s.addEventListener("pointerleave", (A) => {
           let E2 = ki(A.target);
           A.target && "tagName" in A.target && typeof A.target.tagName == "string" && A.target.tagName.toUpperCase() === "ASIDE" || !(E2 != null && E2.id) || !o[E2.id] || E2.classList.remove("is-active");
-        }, { capture: true, signal: u }), (S2 = r2.getKeycap(i2 == null ? void 0 : i2.id)) != null && S2.stickyVariantPanel ? window.addEventListener("pointerdown", (A) => {
+        }, { capture: true, signal: u }), (S3 = r2.getKeycap(i2 == null ? void 0 : i2.id)) != null && S3.stickyVariantPanel ? window.addEventListener("pointerdown", (A) => {
           if (!(A.target instanceof Node)) return;
           let E2 = s.contains(A.target);
           A.target === s || E2 || (Ur(), e == null || e());
@@ -48581,24 +48617,24 @@ Note there are a different set of tooltip rules for the keyboard toggle
     e = e != null ? e : t40.atoms.length;
     let n = "", o = "", a = t40.atoms[t40.index], s = (d = a.style) == null ? void 0 : d.variant, l = (m = a.style) == null ? void 0 : m.variantStyle, c = "";
     if (a.value && (s || l)) {
-      let S2 = (p2 = Rn(a.value, s, l)) != null ? p2 : a.value;
-      if (S2 !== a.value) return t40.index += 1, n = `<mi${re(a.id, r2)}>${S2}</mi>`, Jt(n, t40, r2) || (t40.mathML += n, t40.lastType = "mi"), true;
+      let S3 = (p2 = Rn(a.value, s, l)) != null ? p2 : a.value;
+      if (S3 !== a.value) return t40.index += 1, n = `<mi${re(a.id, r2)}>${S3}</mi>`, Jt(n, t40, r2) || (t40.mathML += n, t40.lastType = "mi"), true;
       c = (f = { upnormal: "normal", boldnormal: "bold", italicmain: "italic", bolditalicmain: "bold-italic", "updouble-struck": "double-struck", "double-struck": "double-struck", boldfraktur: "bold-fraktur", calligraphic: "script", upcalligraphic: "script", script: "script", boldscript: "bold-script", boldcalligraphic: "bold-script", fraktur: "fraktur", "upsans-serif": "sans-serif", "boldsans-serif": "bold-sans-serif", "italicsans-serif": "sans-serif-italic", "bolditalicsans-serif": "sans-serif-bold-italic", monospace: "monospace" }[(l != null ? l : "") + (s != null ? s : "")]) != null ? f : "", c && (c = ` mathvariant="${c}"`);
     }
     let u = { "\\exponentialE": "&#x02147;", "\\imaginaryI": "&#x2148;", "\\differentialD": "&#x2146;", "\\capitalDifferentialD": "&#x2145;", "\\alpha": "&#x03b1;", "\\pi": "&#x03c0;", "\\infty": "&#x221e;", "\\forall": "&#x2200;", "\\nexists": "&#x2204;", "\\exists": "&#x2203;", "\\hbar": "\u210F", "\\cdotp": "\u22C5", "\\ldots": "\u2026", "\\cdots": "\u22EF", "\\ddots": "\u22F1", "\\vdots": "\u22EE", "\\ldotp": "." };
     if (a.command === "!") return t40.index += 1, n = "<mo>!</mo>", Jt(n, t40, r2) || (t40.mathML += n, t40.lastType = "mo"), true;
     if (u[a.command]) {
       t40.index += 1;
-      let S2 = `<mi${re(a.id, r2)}${c}>${u[a.command]}</mi>`;
-      return (t40.lastType === "mi" || t40.lastType === "mn" || t40.lastType === "mtext" || t40.lastType === "fence") && (S2 = As + S2), Jt(S2, t40, r2) || (t40.mathML += S2, t40.lastType = "mi"), true;
+      let S3 = `<mi${re(a.id, r2)}${c}>${u[a.command]}</mi>`;
+      return (t40.lastType === "mi" || t40.lastType === "mn" || t40.lastType === "mtext" || t40.lastType === "fence") && (S3 = As + S3), Jt(S3, t40, r2) || (t40.mathML += S3, t40.lastType = "mi"), true;
     }
     if (a.command === "\\operatorname") o = Cn(a.body), t40.index += 1;
     else if (s || l) for (; t40.index < e && (a.type === "mord" || a.type === "macro") && !a.isDigit() && s === ((v = (y = a.style) == null ? void 0 : y.variant) != null ? v : "") && l === ((k = (b = a.style) == null ? void 0 : b.variantStyle) != null ? k : ""); ) o += Cn([a]), t40.index += 1, a = t40.atoms[t40.index];
     else (a.type === "mord" || a.type === "macro") && !a.isDigit() && (o += Cn([a]), t40.index += 1);
     if (o.length > 0) {
       i2 = true, n = `<mi${c}>${o}</mi>`;
-      let S2 = t40.lastType;
-      n.endsWith(">f</mi>") || n.endsWith(">g</mi>") ? (n += ep, t40.lastType = "applyfunction") : t40.lastType = /^<mo>(.*)<\/mo>$/.test(n) ? "mo" : "mi", Jt(n, t40, r2) || ((S2 === "mi" || S2 === "mn" || S2 === "mtext" || S2 === "fence") && (n = As + n), t40.mathML += n);
+      let S3 = t40.lastType;
+      n.endsWith(">f</mi>") || n.endsWith(">g</mi>") ? (n += ep, t40.lastType = "applyfunction") : t40.lastType = /^<mo>(.*)<\/mo>$/.test(n) ? "mo" : "mi", Jt(n, t40, r2) || ((S3 === "mi" || S3 === "mn" || S3 === "mtext" || S3 === "fence") && (n = As + n), t40.mathML += n);
     }
     return i2;
   }
@@ -48707,7 +48743,7 @@ Note there are a different set of tooltip rules for the keyboard toggle
     return De(e);
   }
   function Kc(t40, e) {
-    var y, v, b, k, S2, A, E2, C, _, B3, I2, V, K, N2, G, D, W, ie2, X2, ye, xe, Pe, At;
+    var y, v, b, k, S3, A, E2, C, _, B3, I2, V, K, N2, G, D, W, ie2, X2, ye, xe, Pe, At;
     if (t40.mode === "text") return `<mi${re(t40.id, e)}>${De(t40.value)}</mi>`;
     let r2 = { widehat: "^", widecheck: "\u02C7", widetilde: "~", utilde: "~", overleftarrow: "\u2190", underleftarrow: "\u2190", xleftarrow: "\u2190", longleftarrow: "\u2190", overrightarrow: "\u2192", underrightarrow: "\u2192", xrightarrow: "\u2192", longrightarrow: "\u2192", underbrace: "\u23DF", overbrace: "\u23DE", overgroup: "\u23E0", undergroup: "\u23E1", overleftrightarrow: "\u2194", underleftrightarrow: "\u2194", xleftrightarrow: "\u2194", Overrightarrow: "\u21D2", xRightarrow: "\u21D2", overleftharpoon: "\u21BC", xleftharpoonup: "\u21BC", overrightharpoon: "\u21C0", xrightharpoonup: "\u21C0", xLeftarrow: "\u21D0", xLeftrightarrow: "\u21D4", xhookleftarrow: "\u21A9", xhookrightarrow: "\u21AA", xmapsto: "\u21A6", xrightharpoondown: "\u21C1", xleftharpoondown: "\u21BD", xrightleftharpoons: "\u21CC", longrightleftharpoons: "\u21CC", xleftrightharpoons: "\u21CB", xtwoheadleftarrow: "\u219E", xtwoheadrightarrow: "\u21A0", xlongequal: "=", xtofrom: "\u21C4", xleftrightarrows: "\u21C4", xRightleftharpoons: "\u21CC", longRightleftharpoons: "\u21CC", xLeftrightharpoons: "\u21CB", longLeftrightharpoons: "\u21CB" }, i2 = { "\\!": -3 / 18, "\\ ": 6 / 18, "\\,": 3 / 18, "\\:": 4 / 18, "\\>": 4 / 18, "\\;": 5 / 18, "\\enspace": 0.5, "\\quad": 1, "\\qquad": 2, "\\enskip": 0.5 }, n = "", o = "", a, s, l, c, u, d, { command: m } = t40;
     if (t40.command === "\\error") return `<merror${re(t40.id, e)}>${j(t40.body, e)}</merror>`;
@@ -48768,7 +48804,7 @@ Note there are a different set of tooltip rules for the keyboard toggle
         break;
       case "overunder":
         let Ge = t40;
-        u = t40.above, c = t40.below, (Ge.svgAbove || u) && (Ge.svgBelow || c) ? d = t40.body : u && u.length > 0 ? (d = t40.body, (k = (b = t40.body) == null ? void 0 : b[0]) != null && k.below ? (c = t40.body[0].below, d = t40.body[0].body) : ((A = (S2 = t40.body) == null ? void 0 : S2[0]) == null ? void 0 : A.type) === "first" && ((C = (E2 = t40.body) == null ? void 0 : E2[1]) != null && C.below) && (c = t40.body[1].below, d = t40.body[1].body)) : c && c.length > 0 && (d = t40.body, (B3 = (_ = t40.body) == null ? void 0 : _[0]) != null && B3.above ? (u = t40.body[0].above, d = t40.body[0].body) : ((V = (I2 = t40.body) == null ? void 0 : I2[0]) == null ? void 0 : V.type) === "first" && ((N2 = (K = t40.body) == null ? void 0 : K[1]) != null && N2.above) && (u = t40.body[1].above, d = t40.body[1].body)), (Ge.svgAbove || u) && (Ge.svgBelow || c) ? (n += `<munderover ${re(t40.id, e)}>`, n += (G = r2[Ge.svgBody]) != null ? G : j(d, e), n += (D = r2[Ge.svgBelow]) != null ? D : j(c, e), n += (W = r2[Ge.svgAbove]) != null ? W : j(u, e), n += "</munderover>") : Ge.svgAbove || u ? (n += `<mover ${re(t40.id, e)}>` + ((ie2 = r2[Ge.svgBody]) != null ? ie2 : j(d, e)), n += (X2 = r2[Ge.svgAbove]) != null ? X2 : j(u, e), n += "</mover>") : (Ge.svgBelow || c) && (n += `<munder ${re(t40.id, e)}>` + ((ye = r2[Ge.svgBody]) != null ? ye : j(d, e)), n += (xe = r2[Ge.svgBelow]) != null ? xe : j(c, e), n += "</munder>");
+        u = t40.above, c = t40.below, (Ge.svgAbove || u) && (Ge.svgBelow || c) ? d = t40.body : u && u.length > 0 ? (d = t40.body, (k = (b = t40.body) == null ? void 0 : b[0]) != null && k.below ? (c = t40.body[0].below, d = t40.body[0].body) : ((A = (S3 = t40.body) == null ? void 0 : S3[0]) == null ? void 0 : A.type) === "first" && ((C = (E2 = t40.body) == null ? void 0 : E2[1]) != null && C.below) && (c = t40.body[1].below, d = t40.body[1].body)) : c && c.length > 0 && (d = t40.body, (B3 = (_ = t40.body) == null ? void 0 : _[0]) != null && B3.above ? (u = t40.body[0].above, d = t40.body[0].body) : ((V = (I2 = t40.body) == null ? void 0 : I2[0]) == null ? void 0 : V.type) === "first" && ((N2 = (K = t40.body) == null ? void 0 : K[1]) != null && N2.above) && (u = t40.body[1].above, d = t40.body[1].body)), (Ge.svgAbove || u) && (Ge.svgBelow || c) ? (n += `<munderover ${re(t40.id, e)}>`, n += (G = r2[Ge.svgBody]) != null ? G : j(d, e), n += (D = r2[Ge.svgBelow]) != null ? D : j(c, e), n += (W = r2[Ge.svgAbove]) != null ? W : j(u, e), n += "</munderover>") : Ge.svgAbove || u ? (n += `<mover ${re(t40.id, e)}>` + ((ie2 = r2[Ge.svgBody]) != null ? ie2 : j(d, e)), n += (X2 = r2[Ge.svgAbove]) != null ? X2 : j(u, e), n += "</mover>") : (Ge.svgBelow || c) && (n += `<munder ${re(t40.id, e)}>` + ((ye = r2[Ge.svgBody]) != null ? ye : j(d, e)), n += (xe = r2[Ge.svgBelow]) != null ? xe : j(c, e), n += "</munder>");
         break;
       case "placeholder":
         n += "?";
@@ -48957,14 +48993,14 @@ Note there are a different set of tooltip rules for the keyboard toggle
         i2 += ' <break time="300ms"/> ' + b + '. <break time="700ms"/>' + ((p2 = e.correctness) != null ? p2 : "") + ' . <break time="700ms"/> ';
         break;
       case "array":
-        let k = e.rows, S2 = e.environmentName;
-        if (Object.keys(Pc).includes(S2)) {
-          i2 += ` begin ${Pc[S2]} `;
+        let k = e.rows, S3 = e.environmentName;
+        if (Object.keys(Pc).includes(S3)) {
+          i2 += ` begin ${Pc[S3]} `;
           for (let C = 0; C < k.length; C++) {
             C > 0 && (i2 += ","), i2 += ` row ${C + 1} `;
             for (let _ = 0; _ < k[C].length; _++) _ > 0 && (i2 += ","), i2 += ` column ${_ + 1}: `, i2 += q("math", k[C][_]);
           }
-          i2 += ` end ${Pc[S2]} `;
+          i2 += ` end ${Pc[S3]} `;
         }
         break;
       case "group":
@@ -49086,8 +49122,8 @@ Note there are a different set of tooltip rules for the keyboard toggle
       let k = globalThis.MathfieldElement.textToSpeechMarkup ? op(b) : b;
       if (Lo(e.superscript)) {
         if (t40 === "math") {
-          let S2 = Eb(e.superscript);
-          S2 && (i2 += '<mark name="' + S2 + '"/>');
+          let S3 = Eb(e.superscript);
+          S3 && (i2 += '<mark name="' + S3 + '"/>');
         }
         k === "\u2032" ? i2 += " prime " : k === "2" ? i2 += " squared " : k === "3" ? i2 += " cubed " : Number.isNaN(Number.parseInt(k)) ? i2 += " to the " + b + "; " : i2 += ' to the <say-as interpret-as="ordinal">' + k + "</say-as> power; ";
       } else Number.isNaN(Number.parseInt(k)) ? i2 += " raised to the " + b + "; " : i2 += ' raised to the <say-as interpret-as="ordinal">' + k + "</say-as> power; ";
@@ -49550,8 +49586,8 @@ Note there are a different set of tooltip rules for the keyboard toggle
           let [d, m] = [Math.min(t40.position, t40.anchor), Math.max(t40.position, t40.anchor)], [p2, f] = t40.at(d).parentBranch, [y, v] = t40.at(m).parentBranch;
           if (y - p2 + 1 >= 2) return t40.deferNotifications({ content: true, selection: true, type: r2 }, () => {
             var _;
-            let k = u.getCell(p2, f), S2 = u.getCell(y, v);
-            if (!k || !S2) return;
+            let k = u.getCell(p2, f), S3 = u.getCell(y, v);
+            if (!k || !S3) return;
             t40.extractAtoms([d, m]);
             let A = u.getCell(p2, f), E2 = u.getCell(y, v);
             for (let B3 = y - 1; B3 > p2; B3--) u.removeRow(B3);
@@ -50203,8 +50239,8 @@ Note there are a different set of tooltip rules for the keyboard toggle
         if (!r2.selectionIsCollapsed) {
           let b = $r(e);
           if (b === "(" || b === "{" || b === "[") {
-            let k = { "(": "(", "{": "\\lbrace", "[": "\\lbrack" }[b], S2 = { "(": ")", "{": "\\rbrace", "[": "\\rbrack" }[b], [A, E2] = de(r2.selection);
-            return t40.snapshot(), r2.position = E2, H.insert(r2, S2, { format: "latex" }), r2.position = A, H.insert(r2, k, { format: "latex" }), r2.setSelection(A + 1, E2 + 1), r2.contentDidChange({ data: b, inputType: "insertText" }), t40.snapshot("insert-fence"), t40.dirty = true, t40.scrollIntoView(), e.preventDefault && e.preventDefault(), false;
+            let k = { "(": "(", "{": "\\lbrace", "[": "\\lbrack" }[b], S3 = { "(": ")", "{": "\\rbrace", "[": "\\rbrack" }[b], [A, E2] = de(r2.selection);
+            return t40.snapshot(), r2.position = E2, H.insert(r2, S3, { format: "latex" }), r2.position = A, H.insert(r2, k, { format: "latex" }), r2.setSelection(A + 1, E2 + 1), r2.contentDidChange({ data: b, inputType: "insertText" }), t40.snapshot("insert-fence"), t40.dirty = true, t40.scrollIntoView(), e.preventDefault && e.preventDefault(), false;
           }
         }
       }
@@ -50616,8 +50652,8 @@ Note there are a different set of tooltip rules for the keyboard toggle
       xe >= 0 && Pe >= 0 && (r2.model.extendSelectionTo(xe, Pe), Y(t40)), o && Is(r2.model);
     }
     Ci && Math.abs(Ci.x - c) < 5 && Math.abs(Ci.y - u) < 5 && Date.now() < Ci.time + 500 ? (Do += 1, Ci.time = d) : (Ci = { x: c, y: u, time: d }, Do = 1);
-    let v = m.getBoundingClientRect(), b = (I2 = (B3 = t40.container) == null ? void 0 : B3.getBoundingClientRect()) != null ? I2 : t40.element.getBoundingClientRect(), k = (K = (V = t40.element) == null ? void 0 : V.getBoundingClientRect()) != null ? K : b, S2 = jc(c, u, v), A = !S2 && b ? jc(c, u, b) : false, E2 = !S2 && !A && k ? jc(c, u, k) : false, C = S2 ? c : A || E2 ? Lp(c, v.left, v.right) : c, _ = S2 ? u : A || E2 ? Lp(u, v.top, v.bottom) : u;
-    if (S2 || A || E2) {
+    let v = m.getBoundingClientRect(), b = (I2 = (B3 = t40.container) == null ? void 0 : B3.getBoundingClientRect()) != null ? I2 : t40.element.getBoundingClientRect(), k = (K = (V = t40.element) == null ? void 0 : V.getBoundingClientRect()) != null ? K : b, S3 = jc(c, u, v), A = !S3 && b ? jc(c, u, b) : false, E2 = !S3 && !A && k ? jc(c, u, k) : false, C = S3 ? c : A || E2 ? Lp(c, v.left, v.right) : c, _ = S3 ? u : A || E2 ? Lp(u, v.top, v.bottom) : u;
+    if (S3 || A || E2) {
       if (t40.flushInlineShortcutBuffer(), i2 = Oo(t40, C, _, { bias: 0 }), i2 !== t40.model.anchor) {
         let D = t40.defaultStyle.variantStyle;
         t40.defaultStyle = D !== void 0 ? { variantStyle: D } : {}, t40.styleBias = "left";
@@ -50771,8 +50807,8 @@ Note there are a different set of tooltip rules for the keyboard toggle
       return false;
     }
     insert(e, r2, i2) {
-      var k, S2, A, E2;
-      let n = typeof r2 == "string" ? r2 : (S2 = (k = globalThis.MathfieldElement.computeEngine) == null ? void 0 : k.box(r2).latex) != null ? S2 : "";
+      var k, S3, A, E2;
+      let n = typeof r2 == "string" ? r2 : (S3 = (k = globalThis.MathfieldElement.computeEngine) == null ? void 0 : k.box(r2).latex) != null ? S3 : "";
       if (!i2.silenceNotifications && !e.contentWillChange({ data: n, inputType: "insertText" })) return false;
       i2.insertionMode || (i2.insertionMode = "replaceSelection"), i2.selectionMode || (i2.selectionMode = "placeholder"), i2.format || (i2.format = "auto");
       let { silenceNotifications: o } = e;
@@ -51178,12 +51214,12 @@ data-command='["setEnvironment","pmatrix"]'>
       let v = gy(l);
       s = Yc[v]("active");
       let p2 = Yc, { [v]: b } = p2, k = Oi(p2, [cl(v)]);
-      a = Object.values(k).map((S2) => S2("inactive"));
+      a = Object.values(k).map((S3) => S3("inactive"));
     } else if (wh(l)) {
       let v = by(l);
       s = Qc[v]("active");
       let f = Qc, { [v]: b } = f, k = Oi(f, [cl(v)]);
-      a = Object.values(k).map((S2) => S2("inactive"));
+      a = Object.values(k).map((S3) => S3("inactive"));
     } else Sh(l) && (s = Yc.matrix("active"), a = Object.values(Qc).map((v) => v("inactive")));
     let c = document.createElement("div");
     c.className = "MLEP__environment-delimiter-controls", c.style.display = "flex", c.style.flexDirection = "column", c.innerHTML = `
@@ -51194,9 +51230,9 @@ data-command='["setEnvironment","pmatrix"]'>
       let b = v.dataset.command, k = b;
       try {
         k = JSON.parse(b);
-      } catch (S2) {
+      } catch (S3) {
       }
-      v.addEventListener("mousedown", (S2) => S2.preventDefault()), k && v.addEventListener("click", () => t40.executeCommand(k));
+      v.addEventListener("mousedown", (S3) => S3.preventDefault()), k && v.addEventListener("click", () => t40.executeCommand(k));
     });
     let d = (y = t40.field) == null ? void 0 : y.getBoundingClientRect();
     d && (i2.style.top = `${window.scrollY + (d.top - i2.clientHeight - 15)}px`, i2.style.left = `${d.left + 20}px`, i2.classList.add("is-visible"));
@@ -51849,7 +51885,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return e;
   }
   function le(t40, e) {
-    var a, s, l, c, u, d, m, p2, f, y, v, b, k, S2, A, E2, C, _, B3;
+    var a, s, l, c, u, d, m, p2, f, y, v, b, k, S3, A, E2, C, _, B3;
     if (!t40) return "";
     if (ee(t40)) {
       if (t40.length === 0) return "";
@@ -51944,7 +51980,7 @@ data-command='["setEnvironment","pmatrix"]'>
             for (let X2 of W) ie2.push(le(X2, e));
             N2.push(K[0] + ie2.join(",") + K[1]);
           }
-          let D = (S2 = { bmatrix: ["[", "]"], "bmatrix*": ["[", "]"], cases: ["{", ":}"] }[V]) != null ? S2 : ["(", ")"];
+          let D = (S3 = { bmatrix: ["[", "]"], "bmatrix*": ["[", "]"], cases: ["{", ":}"] }[V]) != null ? S3 : ["(", ")"];
           r2 = D[0] + N2.join(",") + D[1];
         }
         break;
@@ -52068,8 +52104,8 @@ data-command='["setEnvironment","pmatrix"]'>
     function b(_) {
       return (_ < 0 ? -1 : 1) * Math.pow(Math.abs(_), 2.4);
     }
-    let k = v(b(i2.r / 255) * 0.2126729 + b(i2.g / 255) * 0.7151522 + b(i2.b / 255) * 0.072175), S2 = v(b(r2.r / 255) * 0.2126729 + b(r2.g / 255) * 0.7151522 + b(r2.b / 255) * 0.072175), A, E2, C;
-    return Math.abs(S2 - k) < d ? E2 = 0 : S2 > k ? (A = S2 ** n - k ** o, E2 = A * m) : (A = S2 ** s - k ** a, E2 = A * f), Math.abs(E2) < u ? C = 0 : E2 > 0 ? C = E2 - y : C = E2 + p2, C * 100;
+    let k = v(b(i2.r / 255) * 0.2126729 + b(i2.g / 255) * 0.7151522 + b(i2.b / 255) * 0.072175), S3 = v(b(r2.r / 255) * 0.2126729 + b(r2.g / 255) * 0.7151522 + b(r2.b / 255) * 0.072175), A, E2, C;
+    return Math.abs(S3 - k) < d ? E2 = 0 : S3 > k ? (A = S3 ** n - k ** o, E2 = A * m) : (A = S3 ** s - k ** a, E2 = A * f), Math.abs(E2) < u ? C = 0 : E2 > 0 ? C = E2 - y : C = E2 + p2, C * 100;
   }
   function su(t40, e, r2) {
     r2 != null || (r2 = "#fff"), e != null || (e = "#000");
@@ -52266,7 +52302,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return e;
   }
   function ae(t40) {
-    var o, a, s, l, c, u, d, m, p2, f, y, v, b, k, S2, A, E2, C, _, B3, I2, V, K;
+    var o, a, s, l, c, u, d, m, p2, f, y, v, b, k, S3, A, E2, C, _, B3, I2, V, K;
     if (!t40) return "";
     if (ee(t40)) {
       if (t40.length === 0) return "";
@@ -52338,7 +52374,7 @@ data-command='["setEnvironment","pmatrix"]'>
         break;
       case "mopen":
       case "mclose":
-        e = (S2 = Ve[n]) != null ? S2 : t40.value;
+        e = (S3 = Ve[n]) != null ? S3 : t40.value;
         break;
       case "mpunct":
         e = (A = Fo[r2]) != null ? A : r2;
@@ -54893,8 +54929,8 @@ data-command='["setEnvironment","pmatrix"]'>
     "textcolor"
   ];
   function unescape(str2) {
-    const chars2 = ["{", "}", "\\", "$", "&", "#", "_", "%"];
-    for (const char of chars2) {
+    const chars3 = ["{", "}", "\\", "$", "&", "#", "_", "%"];
+    for (const char of chars3) {
       str2 = str2.replaceAll("\\" + char, char);
     }
     return str2;
@@ -57380,10 +57416,10 @@ data-command='["setEnvironment","pmatrix"]'>
   function convert_tex_array_align_literal(alignLiteral) {
     const np2 = {};
     const alignMap2 = { l: "#left", c: "#center", r: "#right" };
-    const chars2 = Array.from(alignLiteral);
+    const chars3 = Array.from(alignLiteral);
     const vlinePositions = [];
     let columnIndex = 0;
-    for (const c of chars2) {
+    for (const c of chars3) {
       if (c === "|") {
         vlinePositions.push(columnIndex);
       } else if (c === "l" || c === "c" || c === "r") {
@@ -57399,7 +57435,7 @@ data-command='["setEnvironment","pmatrix"]'>
       }
       np2["augment"] = new TypstToken(3, augment_str).toNode();
     }
-    const alignments = chars2.map((c) => alignMap2[c]).filter((x3) => x3 !== void 0).map((s) => new TypstToken(3, s).toNode());
+    const alignments = chars3.map((c) => alignMap2[c]).filter((x3) => x3 !== void 0).map((s) => new TypstToken(3, s).toNode());
     if (alignments.length > 0) {
       const all_same = alignments.every((item) => item.eq(alignments[0]));
       np2["align"] = all_same ? alignments[0] : new TypstToken(3, "#center").toNode();
@@ -64139,8 +64175,8 @@ data-command='["setEnvironment","pmatrix"]'>
   var RGBregEx = /^ *\d{1,3} *(?:, *\d{1,3} *){2}$/;
   var rgbRegEx = /^ *[10](?:\.\d*)? *(?:, *[10](?:\.\d*)? *){2}$/;
   var xcolorHtmlRegEx = /^[a-f0-9]{6}$/i;
-  var toHex = (num) => {
-    let str2 = num.toString(16);
+  var toHex = (num2) => {
+    let str2 = num2.toString(16);
     if (str2.length === 1) {
       str2 = "0" + str2;
     }
@@ -64250,11 +64286,11 @@ data-command='["setEnvironment","pmatrix"]'>
         throw new ParseError("Invalid rbg input.");
       }
       spec.split(",").map((e) => {
-        const num = Number(e.trim());
-        if (num > 1) {
+        const num2 = Number(e.trim());
+        if (num2 > 1) {
           throw new ParseError("Color rgb input must be < 1.");
         }
-        color2 += toHex(Number((num * 255).toFixed(0)));
+        color2 += toHex(Number((num2 * 255).toFixed(0)));
       });
     }
     if (color2.charAt(0) !== "#") {
@@ -70189,9 +70225,9 @@ data-command='["setEnvironment","pmatrix"]'>
     /**
      * Creates a new style object with the given font size
      */
-    withFontSize(num) {
+    withFontSize(num2) {
       return this.extend({
-        fontSize: num
+        fontSize: num2
       });
     }
     /**
@@ -70614,7 +70650,7 @@ data-command='["setEnvironment","pmatrix"]'>
     __defineMacro: defineMacro
   };
 
-  // ../DTU Science Writer/src/core/omml.js
+  // src/core/omml.js
   var ENT = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'", nbsp: "\xA0" };
   var decode = (s) => s.replace(/&(#x[0-9a-fA-F]+|#\d+|\w+);/g, (m, e) => e[0] === "#" ? String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : +e.slice(1)) : ENT[e] ?? m);
   function parseXml(src) {
@@ -70818,7 +70854,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return "<m:oMath>" + conv(math2) + "</m:oMath>";
   }
 
-  // ../DTU Science Writer/src/core/typst-symfix.json
+  // src/core/typst-symfix.json
   var typst_symfix_default = {
     alef: "\u2135",
     "dot.circle": "\u2299",
@@ -70826,7 +70862,7 @@ data-command='["setEnvironment","pmatrix"]'>
     "times.circle": "\u2297"
   };
 
-  // ../DTU Science Writer/src/core/mathconv.js
+  // src/core/mathconv.js
   var LATEX_ALIASES = { dots: "\\ldots", dotsc: "\\ldots", dotso: "\\ldots", dotsb: "\\cdots", dotsm: "\\cdots", dotsi: "\\cdots" };
   var ALIAS_RE = new RegExp("\\\\(" + Object.keys(LATEX_ALIASES).sort((a, b) => b.length - a.length).join("|") + ")(?![a-zA-Z])", "g");
   var expandAliases = (tex) => String(tex || "").replace(ALIAS_RE, (_, k) => LATEX_ALIASES[k]);
@@ -70855,7 +70891,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return mathmlToOmml(latexToMathML(t40, display));
   }
 
-  // ../DTU Science Writer/src/renderer/editor/mathview.js
+  // src/renderer/editor/mathview.js
   Mt.fontsDirectory = "./mathlive/fonts";
   Mt.soundsDirectory = null;
   var mathState = { open: null };
@@ -71115,7 +71151,7 @@ data-command='["setEnvironment","pmatrix"]'>
     };
   }
 
-  // ../DTU Science Writer/src/renderer/ui/ctxbar.js
+  // src/renderer/ui/ctxbar.js
   function ctxHost() {
     return document.querySelector("#ctxbar");
   }
@@ -71127,7 +71163,7 @@ data-command='["setEnvironment","pmatrix"]'>
     if (hint) hint.style.display = anyShown ? "none" : "";
   }
 
-  // ../DTU Science Writer/src/core/annotations.js
+  // src/core/annotations.js
   var PEN_COLORS = ["#d0021b", "#1f5fbf", "#2e8540", "#111111"];
   var MARKER_COLORS = ["#ffe14d", "#7cf27c", "#ff9de2", "#8fd3ff"];
   var TEXT_SIZE = 0.022;
@@ -71146,8 +71182,8 @@ data-command='["setEnvironment","pmatrix"]'>
       const q2 = out[out.length - 1];
       if (!q2 || Math.hypot(p2[0] - q2[0], p2[1] - q2[1]) >= tol) out.push(p2);
     }
-    const last = pts[pts.length - 1];
-    if (last && out.length && (out[out.length - 1][0] !== r4(clamp01(last[0])) || out[out.length - 1][1] !== r4(clamp01(last[1])))) out.push([r4(clamp01(last[0])), r4(clamp01(last[1]))]);
+    const last2 = pts[pts.length - 1];
+    if (last2 && out.length && (out[out.length - 1][0] !== r4(clamp01(last2[0])) || out[out.length - 1][1] !== r4(clamp01(last2[1])))) out.push([r4(clamp01(last2[0])), r4(clamp01(last2[1]))]);
     return out;
   }
   var esc2 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -71183,7 +71219,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + " " + H4 + '" preserveAspectRatio="none" class="ann-svg">' + parts.join("") + "</svg>";
   }
 
-  // ../DTU Science Writer/src/core/comments.js
+  // src/core/comments.js
   var NODE_ANCHORS = /* @__PURE__ */ new Set(["equation", "figure"]);
   var newCommentId = () => "c-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   var threadsOf = (doc4) => doc4.attrs && doc4.attrs.comments || {};
@@ -71217,7 +71253,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return next;
   }
 
-  // ../DTU Science Writer/src/renderer/editor/figures.js
+  // src/renderer/editor/figures.js
   async function insertFigure(view, fileName2, bytes, attrs = {}) {
     const src = addImage(fileName2, bytes);
     const { w: w2, h: h3 } = await imageSize(src);
@@ -71492,7 +71528,7 @@ data-command='["setEnvironment","pmatrix"]'>
     });
   }
 
-  // ../DTU Science Writer/src/renderer/editor/tables.js
+  // src/renderer/editor/tables.js
   function tableFigureAt(state2) {
     const $f2 = state2.selection.$from;
     for (let d = $f2.depth; d > 0; d--) if ($f2.node(d).type.name === "table_figure") return { pos: $f2.before(d), node: $f2.node(d), depth: d };
@@ -71680,12 +71716,12 @@ data-command='["setEnvironment","pmatrix"]'>
     const close3 = () => {
       pop.hidden = true;
       document.removeEventListener("mousedown", outside, true);
-      document.removeEventListener("keydown", esc13, true);
+      document.removeEventListener("keydown", esc14, true);
     };
     const outside = (e) => {
       if (!pop.contains(e.target) && e.target !== anchor) close3();
     };
-    const esc13 = (e) => {
+    const esc14 = (e) => {
       if (e.key === "Escape") {
         close3();
         view.focus();
@@ -71693,7 +71729,7 @@ data-command='["setEnvironment","pmatrix"]'>
     };
     setTimeout(() => {
       document.addEventListener("mousedown", outside, true);
-      document.addEventListener("keydown", esc13, true);
+      document.addEventListener("keydown", esc14, true);
     }, 0);
   }
   var BAR = [
@@ -71777,7 +71813,7 @@ data-command='["setEnvironment","pmatrix"]'>
     ];
   }
 
-  // ../DTU Science Writer/src/renderer/editor/comments.js
+  // src/renderer/editor/comments.js
   var commentsKey = new PluginKey("comments");
   var setCommentUi = (view, patch) => view.dispatch(view.state.tr.setMeta(commentsKey, patch));
   var commentUi = (state2) => commentsKey.getState(state2);
@@ -71873,7 +71909,7 @@ data-command='["setEnvironment","pmatrix"]'>
     view.dispatch(tr2);
   }
 
-  // ../DTU Science Writer/src/core/authors.js
+  // src/core/authors.js
   var AFFIL_KEYS = ["dept", "inst", "street", "postcode", "city", "country"];
   var AFFIL_LABELS = { dept: "Department / group", inst: "Institution", street: "Street", postcode: "Postcode", city: "City", country: "Country" };
   var SYMBOLS = ["\u2020", "\u2021", "\xA7", "\xB6", "\u2016", "\u2020\u2020", "\u2021\u2021", "\xA7\xA7"];
@@ -71922,7 +71958,7 @@ data-command='["setEnvironment","pmatrix"]'>
     return { type: "authors", attrs: { list: list3, affils: [] } };
   }
 
-  // ../DTU Science Writer/src/renderer/editor/authorsview.js
+  // src/renderer/editor/authorsview.js
   var esc3 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var AuthorsView = class {
     constructor(node, view) {
@@ -71973,10 +72009,10 @@ data-command='["setEnvironment","pmatrix"]'>
     return pos === null ? null : { pos, node };
   }
 
-  // ../DTU Science Writer/src/core/references.js
+  // src/core/references.js
   var import_citeproc = __toESM(require_citeproc_commonjs());
 
-  // ../DTU Science Writer/src/core/csl/american-physics-society.csl
+  // src/core/csl/american-physics-society.csl
   var american_physics_society_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">
   <info>
@@ -72198,7 +72234,7 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/nature.csl
+  // src/core/csl/nature.csl
   var nature_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-GB">
   <info>
@@ -72390,7 +72426,7 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/american-chemical-society.csl
+  // src/core/csl/american-chemical-society.csl
   var american_chemical_society_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" page-range-format="expanded" default-locale="en-US">
   <info>
@@ -72696,7 +72732,7 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/ieee.csl
+  // src/core/csl/ieee.csl
   var ieee_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only">
   <info>
@@ -73218,13 +73254,13 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/apa.csl
+  // src/core/csl/apa.csl
   var apa_default = '<?xml version="1.0" encoding="utf-8"?>\n<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" demote-non-dropping-particle="never" initialize-with=". " names-delimiter=", " page-range-format="expanded" version="1.0">\n  <!-- This file was generated by the Style Variant Builder <https://github.com/citation-style-language/style-variant-builder>. To contribute changes, modify the template and regenerate variants. -->\n  <info>\n    <title>APA Style 7th edition</title>\n    <title-short>Publication Manual of the American Psychological Association, with Bluebook</title-short>\n    <id>http://www.zotero.org/styles/apa</id>\n    <link href="http://www.zotero.org/styles/apa" rel="self"/>\n    <link href="http://www.zotero.org/styles/apa-6th-edition" rel="template"/>\n    <link href="https://apastyle.apa.org/style-grammar-guidelines/references" rel="documentation"/>\n    <link href="https://zotero.org/groups/2205533/collections/MR2N872S" rel="documentation"/>\n    <author>\n      <name>Brenton M. Wiernik</name>\n      <email>zotero@wiernik.org</email>\n      <uri>https://orcid.org/0000-0001-9560-6336</uri>\n    </author>\n    <author>\n      <name>Andrew Dunning</name>\n      <uri>https://orcid.org/0000-0003-0464-5036</uri>\n    </author>\n    <contributor>\n      <name>Jay Pfaffman</name>\n      <email>jay@literatecomputing.com</email>\n    </contributor>\n    <category citation-format="author-date"/>\n    <category field="anthropology"/>\n    <category field="communications"/>\n    <category field="generic-base"/>\n    <category field="law"/>\n    <category field="medicine"/>\n    <category field="psychology"/>\n    <category field="social_science"/>\n    <category field="sociology"/>\n    <summary>Author-date system of the Publication Manual of the American Psychological Association (2020)</summary>\n    <updated>2026-02-07T00:00:00+00:00</updated>\n    <rights license="http://creativecommons.org/licenses/by-sa/3.0/">This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 License</rights>\n  </info>\n  <locale xml:lang="en">\n    <terms>\n      <term name="ad"> C.E.</term>\n      <term name="bc"> B.C.E.</term>\n      <term form="short" name="circa">ca.</term>\n      <term name="guest">\n        <single>guest expert</single>\n        <multiple>guest experts</multiple>\n      </term>\n      <term form="short" name="illustrator">illus.</term>\n      <term form="short" name="interviewer">\n        <single>interviewer</single>\n        <multiple>interviewers</multiple>\n      </term>\n      <term form="short" name="legislation">Pub. L.</term>\n      <term name="manuscript">unpublished manuscript</term>\n      <term form="verb" name="performer">recorded by</term>\n      <term name="post">online post</term>\n      <term name="review-of">review of the</term>\n      <term form="short" name="review-of">review of</term>\n      <term name="software">computer software</term>\n      <term name="dataset">data set</term>\n      <term form="short" name="supplement">\n        <single>suppl.</single>\n        <multiple>suppls.</multiple>\n      </term>\n    </terms>\n  </locale>\n  <locale xml:lang="da">\n    <terms>\n      <term name="et-al">et al.</term>\n    </terms>\n  </locale>\n  <locale xml:lang="de">\n    <terms>\n      <term name="et-al">et al.</term>\n    </terms>\n  </locale>\n  <locale xml:lang="es">\n    <terms>\n      <term name="from">de</term>\n    </terms>\n  </locale>\n  <locale xml:lang="fr">\n    <terms>\n      <term form="short" name="editor">\n        <single>\xE9d.</single>\n        <multiple>\xE9ds.</multiple>\n      </term>\n    </terms>\n  </locale>\n  <locale xml:lang="nb">\n    <terms>\n      <term name="et-al">et al.</term>\n    </terms>\n  </locale>\n  <locale xml:lang="nl">\n    <terms>\n      <term name="et-al">et al.</term>\n    </terms>\n  </locale>\n  <locale xml:lang="nn">\n    <terms>\n      <term name="et-al">et al.</term>\n    </terms>\n  </locale>\n  <locale xml:lang="pl">\n    <terms>\n      <term name="et-al">i in.</term>\n    </terms>\n  </locale>\n  <locale xml:lang="ro">\n    <terms>\n      <term name="et-al">et al.</term>\n    </terms>\n  </locale>\n  <!-- Contents:\n\n       APA uses four main reference elements:\n\n        1. Author (APA 9.7-12)\n        2. Date (APA 9.13-17)\n        3. Title and descriptions (APA 9.18-22)\n            3.1. Title (APA 9.18)\n            3.2. Identifier (in parentheses) (APA 9.19)\n            3.3. Description [in square brackets] (APA 9.21-22)\n        4. Source (APA 9.23-37)\n            4.1. Serial sources (APA 9.25-27)\n            4.2. Monographic sources (APA 9.28)\n            4.3. Publisher sources (APA 9.29)\n            4.4. Database and archive sources (APA 9.30)\n            4.5. Works with specific locations (APA 9.31)\n            4.6. Social media and website sources (APA 9.32-33)\n            4.7. DOI or URL (APA 9.34-36)\n\n       A note on the source may follow the main reference elements:\n\n        5. Publication history (APA 9.39-41)\n\n       APA also provides parallel rules for legal references following The Bluebook: A Uniform System of Citation (chap. 11):\n\n        6. Legal references\n  -->\n  <!-- APA categorizes all sources as serial (APA 9.25-27) or monographic (APA 9.28).\n\n       Serial\n       : article-journal article-magazine article-newspaper periodical post-weblog review review-book\n\n       Serial or Monographic\n       : interview paper-conference\n\n         Monographic with any of `collection-editor compiler editor editorial-director`.\n         A serial `paper-conference` is unpublished if it lacks any of `issue page supplement-number volume`.\n\n       Monographic\n       : article book broadcast chapter classic collection dataset document entry entry-dictionary entry-encyclopedia event figure graphic manuscript map motion_picture musical_score pamphlet patent performance personal_communication post report software song speech standard thesis webpage\n\n       Legal\n       : bill hearing legal_case legislation regulation treaty\n  -->\n  <!-- Equivalencies:\n\n       `classic` == `book`\n       `document` == `report` (but give full date)\n       `standard` == `report`\n       `performance` == `speech`\n       `event` == `speech`\n  -->\n  <!-- Role equivalencies:\n\n       `compiler` == `editor`\n       `organizer`, `curator` == `chair`\n       `script-writer` == `director`\n       `producer` == `director` (but don\'t print both)\n       `guest`, `host` == `director`\n       `series-creator`, `executive-producer` == `editor`\n  -->\n  <!-- Reviews are detected if an item has type `review` or `review-book` or if it has any of the variables `reviewed-title`, `reviewed-author`, or `reviewed-genre`. For the latter case, reviews are commonly stored as types `article-journal`, `article-magazine`, `article-newspaper`, `post-weblog`, or `webpage`. -->\n  <!-- Indigeneous knowledge: Assume the item is stored as `document` or `speech` and that Nation/Community, treaty territory, where the Elder lives, and topic are all stored in `title`. Cf. <https://libguides.norquest.ca/c.php?g=314831&p=5188823>. If the item is stored as `interview`, assume that Nation/Community, treaty territory, and topic are stored in `title`. \'Oral teaching\' or similar is stored in `archive`, and where the Elder lives is stored in `archive-place`. -->\n  <!-- Variable labels -->\n  <macro name="label-chapter-number">\n    <group delimiter=" ">\n      <choose>\n        <if is-numeric="chapter-number" type="song">\n          <text text-case="capitalize-first" value="track"/>\n        </if>\n        <else-if is-numeric="chapter-number">\n          <label text-case="capitalize-first" variable="chapter-number"/>\n        </else-if>\n      </choose>\n      <text variable="chapter-number"/>\n    </group>\n  </macro>\n  <macro name="label-edition">\n    <group delimiter=" ">\n      <choose>\n        <if is-numeric="edition">\n          <number form="ordinal" variable="edition"/>\n          <label form="short" variable="edition"/>\n        </if>\n        <else>\n          <text variable="edition"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="label-issue">\n    <group delimiter=" ">\n      <label text-case="capitalize-first" variable="issue"/>\n      <text variable="issue"/>\n    </group>\n  </macro>\n  <macro name="label-locator">\n    <!-- Abbreviate page and paragraph; leave other locator labels in long form (APA 8.13) -->\n    <group delimiter=" ">\n      <choose>\n        <if locator="page">\n          <label form="short" variable="locator"/>\n        </if>\n        <else-if match="any" type="bill hearing legal_case legislation regulation treaty">\n          <!-- Bluebook-style labels for legal types -->\n          <choose>\n            <if locator="chapter paragraph section" match="any">\n              <label form="symbol" variable="locator"/>\n            </if>\n            <else>\n              <label text-case="capitalize-first" variable="locator"/>\n            </else>\n          </choose>\n        </else-if>\n        <else-if locator="paragraph">\n          <label form="short" variable="locator"/>\n        </else-if>\n        <else-if is-numeric="locator">\n          <label text-case="capitalize-first" variable="locator"/>\n        </else-if>\n        <!-- a non-numeric canonical reference is identified by its formatting and does not need a label, similar to a timestamp -->\n        <else-if locator="chapter line verse" match="any"/>\n        <else>\n          <label text-case="capitalize-first" variable="locator"/>\n        </else>\n      </choose>\n      <text variable="locator"/>\n    </group>\n  </macro>\n  <macro name="label-number">\n    <group delimiter=" ">\n      <choose>\n        <if type="standard"/>\n        <else-if is-numeric="number" match="any" type="legislation patent regulation">\n          <label form="short" text-case="capitalize-first" variable="number"/>\n        </else-if>\n      </choose>\n      <text text-case="capitalize-first" variable="number"/>\n    </group>\n  </macro>\n  <macro name="label-number-capitalized">\n    <!-- alias for cross-compatibility of Bluebook macros -->\n    <text macro="label-number"/>\n  </macro>\n  <macro name="label-number-article">\n    <!-- APA example 6: Journal article with article number or eLocator -->\n    <group delimiter=" ">\n      <text term="article-locator" text-case="capitalize-first"/>\n      <text variable="number"/>\n    </group>\n  </macro>\n  <macro name="label-number-of-volumes">\n    <group delimiter=" ">\n      <choose>\n        <if is-numeric="number-of-volumes">\n          <label form="short" text-case="capitalize-first" variable="number-of-volumes"/>\n          <group>\n            <text prefix="1" term="page-range-delimiter"/>\n            <number variable="number-of-volumes"/>\n          </group>\n        </if>\n        <else>\n          <text variable="number-of-volumes"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="label-page">\n    <group delimiter=" ">\n      <label form="short" variable="page"/>\n      <text variable="page"/>\n    </group>\n  </macro>\n  <macro name="label-part-number">\n    <group delimiter=" ">\n      <choose>\n        <if is-numeric="part-number">\n          <!-- TODO: Replace with `part-number` label when CSL provides one -->\n          <text form="short" term="part" text-case="capitalize-first"/>\n        </if>\n      </choose>\n      <text text-case="capitalize-first" variable="part-number"/>\n    </group>\n  </macro>\n  <macro name="label-section-symbol">\n    <group delimiter=" ">\n      <label form="symbol" variable="section"/>\n      <text variable="section"/>\n    </group>\n  </macro>\n  <macro name="label-supplement-number">\n    <group delimiter=" ">\n      <choose>\n        <if is-numeric="supplement-number">\n          <!-- TODO: Replace with `supplement-number` label when CSL provides one -->\n          <text form="short" term="supplement" text-case="capitalize-first"/>\n        </if>\n      </choose>\n      <text text-case="capitalize-first" variable="supplement-number"/>\n    </group>\n  </macro>\n  <macro name="label-version">\n    <group delimiter=" ">\n      <label text-case="capitalize-first" variable="version"/>\n      <text variable="version"/>\n    </group>\n  </macro>\n  <macro name="label-volume">\n    <group delimiter=" ">\n      <choose>\n        <if is-numeric="volume">\n          <label form="short" text-case="capitalize-first" variable="volume"/>\n        </if>\n      </choose>\n      <text text-case="capitalize-first" variable="volume"/>\n    </group>\n  </macro>\n  <!-- 1. Author (APA 9.7-12) -->\n  <macro name="author">\n    <!-- Substitutes for missing authors: order prioritizes primary creators (e.g., composer, author) over secondary roles (e.g., editor, curator), with title as the final fallback. -->\n    <names variable="composer">\n      <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n      <label form="short" prefix=" (" suffix=")" text-case="title"/>\n      <substitute>\n        <names variable="author"/>\n        <!-- `narrator` only cited in `identifier-contributors` -->\n        <names variable="illustrator"/>\n        <choose>\n          <if type="broadcast">\n            <names variable="script-writer director">\n              <!-- Actors/performers and producers [not executive] not cited in APA style. -->\n              <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n              <label prefix=" (" suffix=")" text-case="title"/>\n            </names>\n          </if>\n        </choose>\n        <names variable="director">\n          <!-- For non-broadcast items, APA only cites directors and not writers. -->\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="guest host">\n          <!-- TODO: Collapse variables when that becomes available. -->\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="producer">\n          <!-- Producers not cited if there is a writer/director, but use if they are the principal creator. -->\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <choose>\n          <if match="any" type="entry-dictionary entry-encyclopedia">\n            <text variable="publisher"/>\n          </if>\n        </choose>\n        <choose>\n          <if match="none" variable="container-title"/>\n          <else-if match="any" type="book classic entry entry-dictionary entry-encyclopedia">\n            <!-- Items with a monographic `container-title` substitute their title and identifier, but leave description after `container-title`. This mimics the `source-monographic` macro. -->\n            <text macro="author-title-substitute"/>\n          </else-if>\n        </choose>\n        <names variable="executive-producer">\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="series-creator">\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="editor-translator"/>\n        <!-- `translator` is not cited as a primary creator (only as Ed. & Trans.). -->\n        <names variable="editor"/>\n        <names variable="editorial-director"/>\n        <names variable="compiler">\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <choose>\n          <if match="any" type="event performance speech">\n            <names variable="chair">\n              <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n              <label prefix=" (" suffix=")" text-case="title"/>\n            </names>\n            <names variable="organizer">\n              <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n              <label prefix=" (" suffix=")" text-case="title"/>\n            </names>\n          </if>\n        </choose>\n        <names variable="curator">\n          <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          <label prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="collection-editor"/>\n        <choose>\n          <if match="any" type="software webpage">\n            <!-- `software` (APA 10.10) and `webpage` (APA 10.16) can be cited under "name of group": likely in `publisher` if no `author` -->\n            <text variable="publisher"/>\n          </if>\n          <else-if type="standard">\n            <text variable="authority"/>\n          </else-if>\n        </choose>\n        <text macro="author-title-substitute"/>\n      </substitute>\n    </names>\n  </macro>\n  <macro name="author-and-contributors">\n    <group delimiter=" ">\n      <text macro="author"/>\n      <choose>\n        <!-- add nonprimary authors equivalent to those appearing "on a book cover"; do not modify the in-text citation (APA 9.8) -->\n        <if match="none" variable="author compiler composer editor editor-translator illustrator"/>\n        <else-if match="any" type="book musical_score pamphlet report standard">\n          <names prefix="(" suffix=")" variable="contributor">\n            <label form="verb" suffix=" "/>\n            <name and="symbol" delimiter-precedes-last="always" name-as-sort-order="all"/>\n          </names>\n        </else-if>\n      </choose>\n    </group>\n  </macro>\n  <macro name="author-short">\n    <choose>\n      <if match="any" type="bill hearing legal_case legislation regulation treaty">\n        <text macro="title-and-descriptions-short"/>\n      </if>\n      <else-if match="any" type="interview personal_communication">\n        <choose>\n          <!-- These variables indicate that the letter is retrievable by the reader. If not, use the APA in-text-only personal communication format. -->\n          <if match="any" variable="archive archive-place container-title DOI number publisher references URL">\n            <names variable="author">\n              <name and="symbol" form="short"/>\n              <substitute>\n                <text macro="title-and-descriptions-short"/>\n              </substitute>\n            </names>\n          </if>\n          <else>\n            <group delimiter=", ">\n              <names variable="author">\n                <name and="symbol"/>\n                <substitute>\n                  <text macro="title-and-descriptions-short"/>\n                </substitute>\n              </names>\n              <text term="personal-communication"/>\n            </group>\n          </else>\n        </choose>\n      </else-if>\n      <else>\n        <names variable="composer">\n          <name and="symbol" form="short"/>\n          <substitute>\n            <names variable="author"/>\n            <names variable="illustrator"/>\n            <choose>\n              <if type="broadcast">\n                <!-- TODO: Collapse variables when that becomes available. -->\n                <!-- Ideally combine as `script-writer director` -->\n                <names variable="script-writer"/>\n              </if>\n            </choose>\n            <names variable="director"/>\n            <!-- TODO: Collapse variables when that becomes available. -->\n            <names variable="guest host"/>\n            <names variable="producer"/>\n            <choose>\n              <if match="any" type="entry-dictionary entry-encyclopedia">\n                <text variable="publisher"/>\n              </if>\n            </choose>\n            <choose>\n              <if match="none" variable="container-title"/>\n              <else-if match="any" type="book classic entry entry-dictionary entry-encyclopedia">\n                <text macro="title-and-descriptions-short"/>\n              </else-if>\n            </choose>\n            <names variable="executive-producer"/>\n            <names variable="series-creator"/>\n            <names variable="editor"/>\n            <names variable="editorial-director"/>\n            <names variable="compiler"/>\n            <choose>\n              <if match="any" type="event performance speech">\n                <names variable="chair"/>\n                <names variable="organizer"/>\n              </if>\n            </choose>\n            <names variable="curator"/>\n            <names variable="collection-editor"/>\n            <choose>\n              <if match="any" type="software webpage">\n                <!-- `software` (APA 10.10) and `webpage` (APA 10.16) can be cited under "name of group": likely in `publisher` if no `author` -->\n                <text form="short" variable="publisher"/>\n              </if>\n              <else-if type="standard">\n                <text form="short" variable="authority"/>\n              </else-if>\n            </choose>\n            <text macro="title-and-descriptions-short"/>\n          </substitute>\n        </names>\n      </else>\n    </choose>\n  </macro>\n  <macro name="author-sort">\n    <choose>\n      <if match="any" type="bill hearing legal_case legislation regulation treaty">\n        <text macro="legal-title"/>\n      </if>\n      <else>\n        <text macro="author"/>\n      </else>\n    </choose>\n  </macro>\n  <!-- Author elements -->\n  <macro name="author-title-substitute">\n    <choose>\n      <if match="any" type="review review-book" variable="reviewed-author reviewed-genre reviewed-title">\n        <!-- `title` is only the review title if there is a separate `reviewed-genre` or `reviewed-title`; otherwise, it is the title of the reviewed work, printed in the description -->\n        <choose>\n          <if variable="reviewed-genre title">\n            <text macro="title"/>\n          </if>\n          <else-if variable="reviewed-title title">\n            <text macro="title"/>\n          </else-if>\n          <else>\n            <text macro="title-and-descriptions"/>\n          </else>\n        </choose>\n      </if>\n      <else-if variable="title">\n        <!-- If an item has a `title`, substitute missing author with title and identifier, but leave description after the date (in the title position). -->\n        <group delimiter=" ">\n          <text macro="title"/>\n          <text macro="identifier"/>\n        </group>\n      </else-if>\n      <else>\n        <!-- If an item has no `title`, substitute with descriptions. -->\n        <text macro="title-and-descriptions"/>\n      </else>\n    </choose>\n  </macro>\n  <!-- 2. Date (APA 9.13-17) -->\n  <macro name="date">\n    <!-- Full dates included for ephemeral sources (e.g. broadcasts, interviews) to provide maximum specificity, while books use year only. -->\n    <group delimiter="-" prefix="(" suffix=")">\n      <choose>\n        <if variable="issued">\n          <group delimiter=", ">\n            <group>\n              <text macro="date-issued-year"/>\n              <text variable="year-suffix"/>\n            </group>\n            <choose>\n              <if match="any" type="article-magazine article-newspaper broadcast collection document event motion_picture pamphlet performance personal_communication post post-weblog song speech webpage">\n                <!-- Many video and audio examples in manual give full dates. Err on the side of too much information. -->\n                <text macro="date-issued-month-day"/>\n              </if>\n              <!-- Only show the month and day for an unpublished `interview` or `paper-conference` -->\n              <else-if match="any" variable="collection-editor compiler editor editorial-director issue page supplement-number volume"/>\n              <else-if match="any" type="interview paper-conference">\n                <text macro="date-issued-month-day"/>\n              </else-if>\n              <!-- Only year: article article-journal book chapter classic entry entry-dictionary entry-encyclopedia dataset figure graphic manuscript map musical_score paper-conference[published] patent periodical report review review-book software standard thesis -->\n            </choose>\n          </group>\n        </if>\n        <else-if variable="status">\n          <!-- Print the status variable rather than use generic CSL terms (`in press`, etc.) -->\n          <text text-case="lowercase" variable="status"/>\n          <text variable="year-suffix"/>\n        </else-if>\n        <else>\n          <text form="short" term="no date"/>\n          <text variable="year-suffix"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="date-short">\n    <group delimiter="-">\n      <choose>\n        <if variable="issued">\n          <group delimiter="/">\n            <text macro="date-original-year"/>\n            <group>\n              <choose>\n                <if match="any" variable="archive archive-place container-title DOI number publisher references URL">\n                  <text macro="date-issued-year"/>\n                </if>\n                <else-if match="any" type="interview personal_communication">\n                  <!-- use the in-text-only format for inaccessible personal communications -->\n                  <text macro="date-issued-full"/>\n                </else-if>\n                <else>\n                  <text macro="date-issued-year"/>\n                </else>\n              </choose>\n              <text variable="year-suffix"/>\n            </group>\n          </group>\n        </if>\n        <else-if variable="status">\n          <!-- Print the status variable rather than use generic CSL terms (`in press`, etc.) -->\n          <text text-case="lowercase" variable="status"/>\n          <text variable="year-suffix"/>\n        </else-if>\n        <else>\n          <text form="short" term="no date"/>\n          <text variable="year-suffix"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="date-sort">\n    <!-- Sort items by issue date as printed -->\n    <choose>\n      <if match="any" type="article article-journal book chapter entry entry-dictionary entry-encyclopedia dataset figure graphic manuscript map musical_score patent report review review-book thesis">\n        <date date-parts="year" form="numeric" variable="issued"/>\n      </if>\n      <else-if type="paper-conference">\n        <!-- Determine whether published and serial or monographic -->\n        <choose>\n          <if match="any" variable="collection-editor compiler editor editorial-director issue page supplement-number volume">\n            <date date-parts="year" form="numeric" variable="issued"/>\n          </if>\n          <else>\n            <text macro="date-issued-leading-zeros"/>\n          </else>\n        </choose>\n      </else-if>\n      <else>\n        <text macro="date-issued-leading-zeros"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="date-sort-group">\n    <!-- Sorts items with and without dates:\n\n          1. `no date` items (= 0)\n          2. items with dates (= 1)\n          3. items with `status` (forthcoming, in press, etc.) (= 2) -->\n    <choose>\n      <if variable="issued">\n        <text value="1"/>\n      </if>\n      <else-if variable="status">\n        <text value="2"/>\n      </else-if>\n      <else>\n        <text value="0"/>\n      </else>\n    </choose>\n  </macro>\n  <!-- Date elements -->\n  <macro name="date-event-full">\n    <group delimiter=" ">\n      <choose>\n        <if is-uncertain-date="event-date">\n          <text form="short" term="circa"/>\n        </if>\n      </choose>\n      <date form="text" variable="event-date"/>\n    </group>\n  </macro>\n  <macro name="date-issued-full">\n    <group delimiter=" ">\n      <choose>\n        <if is-uncertain-date="issued">\n          <text form="short" term="circa"/>\n        </if>\n      </choose>\n      <date form="text" variable="issued"/>\n    </group>\n  </macro>\n  <macro name="date-issued-leading-zeros">\n    <date delimiter="-" variable="issued">\n      <date-part name="year"/>\n      <date-part form="numeric-leading-zeros" name="month"/>\n      <date-part form="numeric-leading-zeros" name="day"/>\n    </date>\n  </macro>\n  <macro name="date-issued-month-day">\n    <date variable="issued">\n      <date-part name="month"/>\n      <date-part name="day" prefix=" "/>\n    </date>\n  </macro>\n  <macro name="date-issued-year">\n    <group delimiter=" ">\n      <choose>\n        <if is-uncertain-date="issued">\n          <text form="short" term="circa"/>\n        </if>\n      </choose>\n      <date date-parts="year" form="numeric" variable="issued"/>\n    </group>\n  </macro>\n  <macro name="date-original-year">\n    <group delimiter=" ">\n      <choose>\n        <if is-uncertain-date="original-date">\n          <text form="short" term="circa"/>\n        </if>\n      </choose>\n      <date date-parts="year" form="numeric" variable="original-date"/>\n    </group>\n  </macro>\n  <!-- 3. Title and descriptions (APA 9.18-22) -->\n  <macro name="title-and-descriptions">\n    <group delimiter=" ">\n      <choose>\n        <if variable="title">\n          <text macro="title"/>\n          <text macro="identifier"/>\n          <text macro="description"/>\n        </if>\n        <else-if match="any" type="bill report">\n          <!-- Bills, resolutions, and congressional reports substitute bill number if no title. -->\n          <!-- Congressional reports are indistinguishable from other reports -->\n          <text macro="identifier-number"/>\n          <text macro="description"/>\n          <text macro="identifier"/>\n        </else-if>\n        <else>\n          <text macro="description"/>\n          <text macro="identifier"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="title-and-descriptions-short">\n    <choose>\n      <if variable="title">\n        <text macro="title-short"/>\n      </if>\n      <else-if match="any" type="bill report">\n        <!-- Bills, resolutions, and congressional reports substitute bill number if no title. -->\n        <text macro="legal-identifier-bill-report"/>\n      </else-if>\n      <else>\n        <text macro="description-short"/>\n      </else>\n    </choose>\n  </macro>\n  <!-- 3.1. Title (APA 9.18) -->\n  <macro name="title">\n    <choose>\n      <if match="any" type="post webpage">\n        <!-- part number/title always at the analytic level -->\n        <text font-style="italic" macro="title-and-part-filter-review"/>\n      </if>\n      <!-- Other types are italicized based on presence of `container-title`. Assume that `review` and `review-book` are published either in a serial or on a webpage (APA example 69) -->\n      <else-if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book">\n        <text macro="title-serial"/>\n      </else-if>\n      <else-if match="any" variable="collection-editor compiler editor editorial-director">\n        <text macro="title-monographic"/>\n      </else-if>\n      <else-if match="any" type="interview paper-conference">\n        <text macro="title-serial"/>\n      </else-if>\n      <else>\n        <text macro="title-monographic"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="title-short">\n    <choose>\n      <if match="any" type="review review-book" variable="reviewed-author reviewed-genre reviewed-title">\n        <!-- `title` is only the review title if there is a separate `reviewed-genre` or `reviewed-title`; otherwise, it is the title of the reviewed work, printed in the description -->\n        <choose>\n          <if variable="reviewed-genre title">\n            <!-- Quotes, title case -->\n            <text form="short" quotes="true" text-case="title" variable="title"/>\n          </if>\n          <else-if variable="reviewed-title title">\n            <!-- Quotes, title case -->\n            <text form="short" quotes="true" text-case="title" variable="title"/>\n          </else-if>\n          <else>\n            <text macro="description-short"/>\n          </else>\n        </choose>\n      </if>\n      <else-if match="any" type="bill legislation regulation report treaty">\n        <!-- No italics or quotes, title case -->\n        <text form="short" text-case="title" variable="title"/>\n      </else-if>\n      <else-if match="any" type="legal_case post">\n        <!-- Italicized, sentence case -->\n        <text font-style="italic" form="short" variable="title"/>\n      </else-if>\n      <else-if match="any" type="hearing webpage">\n        <!-- Italicized, title case (regardless of `container-title`) -->\n        <text font-style="italic" form="short" text-case="title" variable="title"/>\n      </else-if>\n      <!-- Other types are formatted based on presence of `container-title`, as in title macro -->\n      <else-if variable="container-title">\n        <!-- Quotes, title case -->\n        <text form="short" quotes="true" text-case="title" variable="title"/>\n      </else-if>\n      <else>\n        <!-- Italicized, title case (default) -->\n        <text font-style="italic" form="short" text-case="title" variable="title"/>\n      </else>\n    </choose>\n  </macro>\n  <!-- Title elements -->\n  <macro name="title-and-part-filter-review">\n    <choose>\n      <if match="any" type="review review-book" variable="reviewed-author reviewed-genre reviewed-title">\n        <!-- If a review has no `reviewed-genre` or `reviewed-title`, assume that `title` contains the title of the reviewed work; the description provides it. -->\n        <choose>\n          <if variable="reviewed-genre title">\n            <text macro="title-and-part-title"/>\n          </if>\n          <else-if variable="reviewed-title title">\n            <text macro="title-and-part-title"/>\n          </else-if>\n        </choose>\n      </if>\n      <else>\n        <text macro="title-and-part-title"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="title-and-part-title">\n    <group delimiter=": ">\n      <text variable="title"/>\n      <text macro="title-part"/>\n    </group>\n  </macro>\n  <macro name="title-and-volume-title">\n    <group delimiter=": ">\n      <text variable="title"/>\n      <text macro="title-volume"/>\n    </group>\n  </macro>\n  <macro name="title-monographic">\n    <!-- For monographic items, assume `part-number` and `part-title` refer to the book/volume. -->\n    <choose>\n      <if variable="container-title">\n        <text variable="title"/>\n      </if>\n      <else>\n        <!-- For monographic items without `container-title` and with `volume-title`, append `volume-title` to `title` (APA example 30) -->\n        <text font-style="italic" macro="title-and-volume-title"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="title-part">\n    <choose>\n      <if variable="part-title">\n        <group delimiter=". ">\n          <text macro="label-part-number"/>\n          <text text-case="capitalize-first" variable="part-title"/>\n        </group>\n      </if>\n      <else-if is-numeric="part-number"/>\n      <else>\n        <text macro="label-part-number"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="title-serial">\n    <!-- For serials, assume that `part-number` and `part-title` refer to the article and append to `title` -->\n    <choose>\n      <if variable="container-title">\n        <text macro="title-and-part-filter-review"/>\n      </if>\n      <else>\n        <!-- for serial items without `container-title`, don\'t append `volume-title` to `title` -->\n        <text font-style="italic" macro="title-and-part-filter-review"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="title-volume">\n    <group delimiter=", ">\n      <choose>\n        <!-- Assume that `part-number` and `part-title` of monographic items refer to the source book/volume -->\n        <if variable="volume-title">\n          <group delimiter=": ">\n            <group delimiter=". ">\n              <text macro="label-volume"/>\n              <text variable="volume-title"/>\n            </group>\n            <text macro="title-part"/>\n          </group>\n        </if>\n        <else-if variable="part-title">\n          <text macro="label-volume"/>\n          <text macro="title-part"/>\n        </else-if>\n        <!-- if there is no `part-title` or `volume title`, `part-number` and `volume` appear in `identifier` if numeric -->\n        <else-if is-numeric="part-number volume"/>\n        <else-if is-numeric="part-number" variable="volume">\n          <text macro="label-volume"/>\n        </else-if>\n        <else-if is-numeric="volume" variable="part-number">\n          <text macro="label-part-number"/>\n        </else-if>\n        <else-if is-numeric="part-number"/>\n        <else-if is-numeric="volume"/>\n        <else>\n          <text macro="label-volume"/>\n          <text macro="label-part-number"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- 3.2. Identifier (in parentheses) (APA 9.19) -->\n  <macro name="identifier">\n    <!-- (Secondary contributors; Database location; Genre no. 123; Report Series 123, Version, Edition, Volume, Page) -->\n    <group delimiter="; " prefix="(" suffix=")">\n      <choose>\n        <if type="patent">\n          <text macro="identifier-patent"/>\n        </if>\n        <else-if match="any" type="post webpage">\n          <!-- print `container-title` on `post` or `webpage` in the same way as `publisher` -->\n          <text macro="identifier-contributors"/>\n          <text macro="identifier-number"/>\n          <text macro="identifier-monographic"/>\n        </else-if>\n        <else-if type="report" variable="container-title">\n          <!-- If the report is a chapter in a larger report, then most identifying information is printed in the source. -->\n          <text macro="identifier-contributors"/>\n        </else-if>\n        <else-if type="report" variable="title">\n          <text macro="identifier-contributors"/>\n          <text macro="identifier-number"/>\n          <text macro="identifier-monographic"/>\n        </else-if>\n        <else-if type="report">\n          <!-- If there is no `title`, then `genre` and `number` are already printed as the title. -->\n          <text macro="identifier-contributors"/>\n          <text macro="identifier-monographic"/>\n        </else-if>\n        <else-if variable="container-title">\n          <choose>\n            <if match="none" variable="genre title">\n              <text macro="label-chapter-number"/>\n            </if>\n          </choose>\n          <text macro="identifier-contributors"/>\n          <choose>\n            <if match="any" type="broadcast graphic map motion_picture">\n              <!-- For some audiovisual media, `number` information comes after title, not `container-title` (APA example 94); but an album track number is `chapter-number` -->\n              <text macro="identifier-number"/>\n            </if>\n          </choose>\n          <text macro="identifier-serial"/>\n        </else-if>\n        <else>\n          <text macro="identifier-contributors"/>\n          <text macro="identifier-number"/>\n          <text macro="identifier-monographic"/>\n          <text macro="identifier-serial"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- Identifier elements -->\n  <macro name="identifier-contributors">\n    <choose>\n      <if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book">\n        <text macro="identifier-contributors-serial"/>\n      </if>\n      <else-if match="any" variable="collection-editor compiler editor editorial-director">\n        <text macro="identifier-contributors-monographic"/>\n      </else-if>\n      <else-if match="any" type="interview paper-conference">\n        <text macro="identifier-contributors-serial"/>\n      </else-if>\n      <else>\n        <text macro="identifier-contributors-monographic"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="identifier-contributors-monographic">\n    <group delimiter="; ">\n      <choose>\n        <if variable="title">\n          <names variable="interviewer">\n            <name and="symbol"/>\n            <label form="short" prefix=", " text-case="title"/>\n          </names>\n        </if>\n      </choose>\n      <choose>\n        <if match="any" type="post webpage">\n          <!-- print `container-title` on `post` or `webpage` in the same way as `publisher` -->\n          <names variable="container-author">\n            <label form="verb-short" suffix=" " text-case="title"/>\n            <name and="symbol"/>\n          </names>\n          <names delimiter="; " variable="editor translator">\n            <name and="symbol"/>\n            <label form="short" prefix=", " text-case="title"/>\n          </names>\n          <names delimiter="; " variable="illustrator narrator">\n            <name and="symbol"/>\n            <label form="short" prefix=", " text-case="title"/>\n          </names>\n          <names delimiter="; " variable="compiler chair organizer curator series-creator executive-producer">\n            <name and="symbol"/>\n            <label prefix=", " text-case="title"/>\n          </names>\n        </if>\n        <else>\n          <names delimiter="; " variable="illustrator narrator">\n            <name and="symbol"/>\n            <label form="short" prefix=", " text-case="title"/>\n          </names>\n          <choose>\n            <if variable="container-title editor-translator"/>\n            <else-if variable="container-title">\n              <!-- TODO: Check logic once processors start to automatically populate `editor-translator` -->\n              <names delimiter="; " variable="translator">\n                <name and="symbol"/>\n                <label form="short" prefix=", " text-case="title"/>\n              </names>\n            </else-if>\n            <else>\n              <names variable="container-author">\n                <label form="verb-short" suffix=" " text-case="title"/>\n                <name and="symbol"/>\n              </names>\n              <names delimiter="; " variable="editor translator">\n                <name and="symbol"/>\n                <label form="short" prefix=", " text-case="title"/>\n              </names>\n              <names delimiter="; " variable="compiler chair organizer curator series-creator executive-producer">\n                <name and="symbol"/>\n                <label prefix=", " text-case="title"/>\n              </names>\n            </else>\n          </choose>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="identifier-contributors-serial">\n    <group delimiter="; ">\n      <choose>\n        <if variable="title">\n          <names delimiter="; " variable="interviewer">\n            <name and="symbol"/>\n            <label form="short" prefix=", " text-case="title"/>\n          </names>\n        </if>\n      </choose>\n      <names delimiter="; " variable="translator narrator">\n        <name and="symbol"/>\n        <label form="short" prefix=", " text-case="title"/>\n      </names>\n    </group>\n  </macro>\n  <macro name="identifier-locators">\n    <choose>\n      <if variable="page">\n        <text macro="label-page"/>\n      </if>\n      <else-if variable="chapter-number genre">\n        <text macro="label-chapter-number"/>\n      </else-if>\n      <else-if variable="chapter-number title">\n        <text macro="label-chapter-number"/>\n      </else-if>\n      <!-- `chapter-number` appears earlier in `identifier` if there is no `title` or `genre` -->\n    </choose>\n  </macro>\n  <macro name="identifier-monographic">\n    <choose>\n      <!-- omit serial types -->\n      <if match="any" type="article-journal article-magazine article-newspaper broadcast event patent performance periodical post post-weblog review review-book speech webpage"/>\n      <else-if match="any" variable="collection-editor compiler editor editorial-director">\n        <!-- monographic types -->\n        <text macro="identifier-monographic-item"/>\n      </else-if>\n      <!-- omit serial types -->\n      <else-if match="any" type="interview paper-conference"/>\n      <else>\n        <!-- monographic types -->\n        <text macro="identifier-monographic-item"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="identifier-monographic-item">\n    <group delimiter=", ">\n      <text macro="label-version"/>\n      <text macro="label-edition"/>\n      <text macro="identifier-series"/>\n      <text macro="label-supplement-number"/>\n      <text macro="identifier-number-volume"/>\n      <text macro="identifier-number-part"/>\n      <text macro="label-issue"/>\n      <text macro="identifier-locators"/>\n    </group>\n  </macro>\n  <macro name="identifier-number">\n    <group delimiter=" ">\n      <choose>\n        <if type="thesis" variable="genre">\n          <!-- `genre` provided with thesis description (APA example 65) -->\n          <text text-case="capitalize-first" value="publication"/>\n        </if>\n        <else-if variable="number">\n          <text text-case="title" variable="genre"/>\n        </else-if>\n      </choose>\n      <text macro="label-number"/>\n    </group>\n  </macro>\n  <macro name="identifier-number-part">\n    <choose>\n      <!-- Part number printed with part title -->\n      <if variable="part-title"/>\n      <!-- Non-numeric part numbers printed as part of the title -->\n      <else-if is-numeric="part-number">\n        <text macro="label-part-number"/>\n      </else-if>\n    </choose>\n  </macro>\n  <macro name="identifier-number-volume">\n    <choose>\n      <!-- Volume number printed with volume/part title -->\n      <if variable="volume volume-title"/>\n      <else-if variable="part-title volume"/>\n      <!-- Non-numeric volumes printed as part of the book title -->\n      <else-if is-numeric="volume">\n        <text macro="label-volume"/>\n      </else-if>\n      <else>\n        <text macro="label-number-of-volumes"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="identifier-patent">\n    <!-- `authority`: U.S. ; `genre`: patent ; `number`: 123,445 -->\n    <group delimiter=" ">\n      <text form="short" variable="authority"/>\n      <choose>\n        <if variable="genre">\n          <text text-case="capitalize-first" variable="genre"/>\n        </if>\n        <else>\n          <text term="patent" text-case="capitalize-first"/>\n        </else>\n      </choose>\n      <text macro="label-number"/>\n    </group>\n  </macro>\n  <macro name="identifier-serial">\n    <choose>\n      <if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book">\n        <!-- serial types -->\n        <text macro="identifier-number-part"/>\n      </if>\n      <!-- omit monographic types -->\n      <else-if match="any" variable="collection-editor compiler editor editorial-director"/>\n      <else-if match="any" type="interview paper-conference">\n        <!-- serial types -->\n        <text macro="identifier-number-part"/>\n      </else-if>\n    </choose>\n  </macro>\n  <macro name="identifier-series">\n    <!-- Series given only for report-like types (APA example 52) -->\n    <choose>\n      <if match="any" type="document report standard">\n        <group delimiter=" ">\n          <text text-case="title" variable="collection-title"/>\n          <text variable="collection-number"/>\n        </group>\n      </if>\n    </choose>\n  </macro>\n  <!-- 3.3. Description [in square brackets] (APA 9.21) -->\n  <macro name="description">\n    <group prefix="[" suffix="]">\n      <choose>\n        <if match="any" type="interview" variable="interviewer">\n          <text macro="description-interview"/>\n        </if>\n        <else-if match="any" type="review review-book" variable="reviewed-author reviewed-genre reviewed-title">\n          <text macro="description-review"/>\n        </else-if>\n        <else-if type="personal_communication">\n          <text macro="description-letter"/>\n        </else-if>\n        <else-if type="song" variable="composer">\n          <text macro="description-song"/>\n        </else-if>\n        <else-if type="thesis">\n          <text macro="description-thesis"/>\n        </else-if>\n        <else-if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book">\n          <text macro="description-serial"/>\n        </else-if>\n        <else-if match="none" variable="container-title">\n          <!-- Other description -->\n          <text macro="description-format"/>\n        </else-if>\n        <!-- For unpublished conference presentations/performances/events, chapters in reports/standards/generic documents, software, place description within the source element -->\n        <else-if match="any" type="document report software standard"/>\n        <else-if match="any" type="event paper-conference performance speech">\n          <choose>\n            <if match="any" variable="collection-editor compiler editor editorial-director issue page supplement-number volume">\n              <text macro="description-format"/>\n            </if>\n          </choose>\n        </else-if>\n        <else>\n          <text macro="description-format"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="description-short">\n    <group prefix="[" suffix="]">\n      <choose>\n        <if match="any" type="interview" variable="interviewer">\n          <text macro="description-interview-short"/>\n        </if>\n        <else-if match="any" type="review review-book" variable="reviewed-author reviewed-genre reviewed-title">\n          <text macro="description-review-short"/>\n        </else-if>\n        <else-if type="personal_communication">\n          <text macro="description-letter-short"/>\n        </else-if>\n        <else-if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book">\n          <!-- serial types -->\n          <text macro="description-serial-short"/>\n        </else-if>\n        <else-if match="any" variable="collection-editor compiler editor editorial-director">\n          <!-- monographic types -->\n          <text macro="description-format-short"/>\n        </else-if>\n        <else-if match="any" type="interview paper-conference">\n          <!-- serial types -->\n          <text macro="description-serial-short"/>\n        </else-if>\n        <else>\n          <!-- monographic types -->\n          <text macro="description-format-short"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- Description elements -->\n  <macro name="description-format">\n    <choose>\n      <if match="any" variable="genre medium">\n        <group delimiter="; ">\n          <choose>\n            <if match="none" variable="number">\n              <text text-case="capitalize-first" variable="genre"/>\n            </if>\n          </choose>\n          <text text-case="capitalize-first" variable="medium"/>\n        </group>\n      </if>\n      <else>\n        <text macro="description-format-term-generic"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-format-short">\n    <choose>\n      <if variable="genre">\n        <text form="short" text-case="capitalize-first" variable="genre"/>\n      </if>\n      <else-if variable="medium">\n        <text form="short" text-case="capitalize-first" variable="medium"/>\n      </else-if>\n      <else>\n        <text macro="description-format-term-generic"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-format-term-generic">\n    <!-- Generic labels for specific types -->\n    <choose>\n      <if type="broadcast">\n        <text term="broadcast" text-case="capitalize-first"/>\n      </if>\n      <else-if type="collection">\n        <text term="collection" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="dataset">\n        <text term="dataset" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="figure">\n        <text term="figure" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="graphic">\n        <text term="graphic" text-case="capitalize-first"/>\n      </else-if>\n      <else-if match="any" type="interview personal_communication">\n        <choose>\n          <if match="none" variable="archive archive-place container-title DOI number publisher references URL">\n            <text term="personal-communication" text-case="capitalize-first"/>\n          </if>\n          <else-if type="interview">\n            <text term="interview" text-case="capitalize-first"/>\n          </else-if>\n          <else-if type="personal_communication">\n            <text term="letter" text-case="capitalize-first"/>\n          </else-if>\n        </choose>\n      </else-if>\n      <else-if type="manuscript">\n        <choose>\n          <if match="none" variable="archive archive-place container-title DOI number publisher references URL">\n            <text term="manuscript" text-case="capitalize-first"/>\n          </if>\n        </choose>\n      </else-if>\n      <else-if type="map">\n        <text term="map" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="motion_picture">\n        <text term="motion_picture" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="periodical" variable="container-title supplement-number">\n        <text term="supplement" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="periodical" variable="container-title title">\n        <text term="special-issue" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="song">\n        <text term="song" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="software">\n        <text term="software" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="post">\n        <text term="post" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="review">\n        <text term="review" text-case="capitalize-first"/>\n      </else-if>\n      <else-if type="review-book">\n        <text term="review-book" text-case="capitalize-first"/>\n      </else-if>\n    </choose>\n  </macro>\n  <macro name="description-interview">\n    <group delimiter="; ">\n      <choose>\n        <if variable="interviewer title">\n          <!-- Avoid repeating \'interview\' -->\n          <choose>\n            <if match="none" variable="number">\n              <text text-case="capitalize-first" variable="genre"/>\n            </if>\n          </choose>\n          <text text-case="capitalize-first" variable="medium"/>\n        </if>\n        <else-if variable="title">\n          <text macro="description-format"/>\n        </else-if>\n        <else-if variable="genre">\n          <group delimiter=" ">\n            <text text-case="capitalize-first" variable="genre"/>\n            <choose>\n              <if variable="interviewer">\n                <text form="verb" term="container-author"/>\n                <names variable="interviewer">\n                  <name and="symbol"/>\n                </names>\n              </if>\n            </choose>\n          </group>\n        </else-if>\n        <else-if variable="interviewer">\n          <names variable="interviewer">\n            <label form="verb" suffix=" " text-case="capitalize-first"/>\n            <name and="symbol"/>\n          </names>\n          <text text-case="capitalize-first" variable="medium"/>\n        </else-if>\n        <else>\n          <text macro="description-format"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="description-interview-short">\n    <names variable="interviewer">\n      <label form="verb" suffix=" " text-case="capitalize-first"/>\n      <name and="symbol" form="short"/>\n      <substitute>\n        <text macro="description-format-short"/>\n      </substitute>\n    </names>\n  </macro>\n  <macro name="description-letter">\n    <choose>\n      <if variable="recipient">\n        <group delimiter="; ">\n          <group delimiter=" ">\n            <text macro="description-format"/>\n            <names variable="recipient">\n              <label form="verb" suffix=" "/>\n              <name and="symbol" initialize="false"/>\n            </names>\n          </group>\n          <text macro="description-medium"/>\n        </group>\n      </if>\n      <else>\n        <text macro="description-format"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-letter-short">\n    <choose>\n      <if variable="recipient">\n        <group delimiter=" ">\n          <text macro="description-format-short"/>\n          <names variable="recipient">\n            <label form="verb" suffix=" "/>\n            <name and="symbol" form="short"/>\n          </names>\n        </group>\n      </if>\n      <else>\n        <text macro="description-format-short"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-medium">\n    <choose>\n      <if variable="number"/>\n      <else-if variable="genre">\n        <text text-case="capitalize-first" variable="medium"/>\n      </else-if>\n    </choose>\n  </macro>\n  <macro name="description-review">\n    <group delimiter="; ">\n      <group delimiter=", ">\n        <group delimiter=" ">\n          <choose>\n            <if variable="reviewed-genre">\n              <text term="review-of" text-case="capitalize-first"/>\n              <text variable="reviewed-genre"/>\n            </if>\n            <else-if variable="number">\n              <!-- Genre printed with `number` -->\n              <text form="short" term="review-of" text-case="capitalize-first"/>\n            </else-if>\n            <!-- If no `reviewed-genre`, assume that `genre` or `medium` is entered as \'Review of the book\' or similar -->\n            <else-if variable="genre">\n              <text text-case="capitalize-first" variable="genre"/>\n            </else-if>\n            <else-if variable="medium">\n              <text text-case="capitalize-first" variable="medium"/>\n            </else-if>\n            <else-if type="review-book">\n              <text term="review-of" text-case="capitalize-first"/>\n              <text term="book" text-case="lowercase"/>\n            </else-if>\n            <else>\n              <text form="short" term="review-of" text-case="capitalize-first"/>\n            </else>\n          </choose>\n          <text macro="description-review-title"/>\n        </group>\n        <names variable="reviewed-author">\n          <label form="verb-short" suffix=" "/>\n          <name and="symbol"/>\n        </names>\n      </group>\n      <text macro="description-medium"/>\n    </group>\n  </macro>\n  <macro name="description-review-short">\n    <group delimiter=" ">\n      <text form="short" term="review-of" text-case="capitalize-first"/>\n      <text macro="description-review-title-short"/>\n    </group>\n  </macro>\n  <macro name="description-review-title">\n    <choose>\n      <if match="any" variable="reviewed-genre reviewed-title">\n        <!-- Not possible to distinguish TV series episode from other reviewed works without a reviewed source title (APA example 69) -->\n        <!-- TODO: Adapt for `reviewed-container-title` or similar if it becomes available -->\n        <text font-style="italic" variable="reviewed-title"/>\n      </if>\n      <else>\n        <!-- Assume `title` is the title of the reviewed work -->\n        <text font-style="italic" variable="title"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-review-title-short">\n    <choose>\n      <if match="any" variable="reviewed-genre reviewed-title">\n        <!-- Not possible to distinguish TV series episode from other reviewed works without a reviewed source title (APA example 69) -->\n        <!-- TODO: Adapt for `reviewed-container-title` or similar if it becomes available -->\n        <text font-style="italic" form="short" text-case="title" variable="reviewed-title"/>\n      </if>\n      <else>\n        <!-- Assume `title` is the title of the reviewed work -->\n        <text font-style="italic" form="short" text-case="title" variable="title"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-serial">\n    <group delimiter="; ">\n      <text macro="description-format"/>\n      <choose>\n        <if match="none" variable="title">\n          <text variable="section"/>\n        </if>\n      </choose>\n    </group>\n  </macro>\n  <macro name="description-serial-short">\n    <choose>\n      <if variable="title"/>\n      <else-if variable="section">\n        <text form="short" text-case="capitalize-first" variable="section"/>\n      </else-if>\n      <else>\n        <text macro="description-format-short"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="description-song">\n    <!-- Performer of classical music works -->\n    <group delimiter="; ">\n      <group delimiter=" ">\n        <!-- Based on `description-format` macro -->\n        <choose>\n          <if match="any" variable="genre medium">\n            <choose>\n              <if match="none" variable="number">\n                <text text-case="capitalize-first" variable="genre"/>\n              </if>\n            </choose>\n            <text text-case="capitalize-first" variable="medium"/>\n            <text form="verb" term="performer"/>\n          </if>\n          <else>\n            <text form="verb" term="performer" text-case="capitalize-first"/>\n          </else>\n        </choose>\n        <names variable="author">\n          <name and="symbol"/>\n          <substitute>\n            <names variable="performer"/>\n          </substitute>\n        </names>\n      </group>\n      <text macro="description-medium"/>\n    </group>\n  </macro>\n  <macro name="description-thesis">\n    <group delimiter="; ">\n      <group delimiter=", ">\n        <text text-case="capitalize-first" variable="genre"/>\n        <choose>\n          <if match="any" variable="archive DOI URL">\n            <!-- Include the university in description if thesis is published -->\n            <text variable="publisher"/>\n          </if>\n        </choose>\n      </group>\n      <text text-case="capitalize-first" variable="medium"/>\n    </group>\n  </macro>\n  <!-- 4. Source (APA 9.23-37) -->\n  <macro name="source">\n    <group delimiter=". ">\n      <choose>\n        <if match="any" type="post webpage"/>\n        <else-if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book">\n          <text macro="source-serial"/>\n        </else-if>\n        <else-if match="any" variable="collection-editor compiler editor editorial-director">\n          <text macro="source-monographic"/>\n        </else-if>\n        <else-if match="any" type="interview paper-conference">\n          <text macro="source-serial"/>\n        </else-if>\n        <else>\n          <text macro="source-monographic"/>\n        </else>\n      </choose>\n      <text macro="source-publisher"/>\n      <text macro="source-archive"/>\n      <text macro="source-location"/>\n      <text macro="source-website"/>\n    </group>\n  </macro>\n  <!-- 4.1. Serial sources (APA 9.25-27) -->\n  <macro name="source-serial">\n    <group delimiter=". ">\n      <group delimiter=", ">\n        <group delimiter=", " font-style="italic">\n          <text text-case="title" variable="container-title"/>\n          <!-- `collection-title` is for any serial with multiple series (e.g. \'second series\') -->\n          <text text-case="title" variable="collection-title"/>\n        </group>\n        <group>\n          <text font-style="italic" variable="volume"/>\n          <group delimiter=", " prefix="(" suffix=")">\n            <text variable="issue"/>\n            <text macro="label-supplement-number"/>\n          </group>\n        </group>\n        <choose>\n          <if variable="number">\n            <text macro="label-number-article"/>\n          </if>\n          <else>\n            <text variable="page"/>\n          </else>\n        </choose>\n      </group>\n      <choose>\n        <if match="any" variable="collection-title issue number page supplement-number volume"/>\n        <else-if variable="issued status">\n          <!-- Print the status variable rather than use generic CSL terms (`in press`, etc.) -->\n          <text text-case="capitalize-first" variable="status"/>\n        </else-if>\n      </choose>\n    </group>\n  </macro>\n  <!-- 4.2. Monographic sources (APA 9.28) -->\n  <macro name="source-monographic">\n    <!-- Monographic sources repeat main reference elements -->\n    <choose>\n      <if variable="container-title">\n        <group delimiter=" ">\n          <choose>\n            <if type="song">\n              <text term="on" text-case="capitalize-first"/>\n            </if>\n            <else>\n              <text term="in" text-case="capitalize-first"/>\n            </else>\n          </choose>\n          <group delimiter=", ">\n            <text macro="source-monographic-author"/>\n            <text macro="source-monographic-title"/>\n          </group>\n          <text macro="source-monographic-identifier"/>\n          <text macro="source-monographic-description"/>\n        </group>\n      </if>\n    </choose>\n  </macro>\n  <!-- Monographic source author -->\n  <macro name="source-monographic-author">\n    <names variable="container-author">\n      <name and="symbol"/>\n      <label prefix=" (" suffix=")" text-case="title"/>\n      <substitute>\n        <names variable="executive-producer"/>\n        <names variable="series-creator"/>\n        <names variable="editor-translator">\n          <name and="symbol"/>\n          <label form="short" prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <!-- TODO: Translator omitted on the assumption that editor-translators are uncommon for chapter citations. If needed, direct entry or automatic population of `editor-translator` can produce combined labels. -->\n        <names delimiter="; " variable="editor">\n          <name and="symbol"/>\n          <label form="short" prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="editorial-director">\n          <name and="symbol"/>\n          <label form="short" prefix=" (" suffix=")" text-case="title"/>\n        </names>\n        <names variable="compiler"/>\n        <choose>\n          <if match="any" type="event performance speech">\n            <names variable="chair"/>\n            <names variable="organizer"/>\n          </if>\n        </choose>\n        <names variable="curator"/>\n        <names variable="collection-editor">\n          <name and="symbol"/>\n          <label form="short" prefix=" (" suffix=")" text-case="title"/>\n        </names>\n      </substitute>\n    </names>\n  </macro>\n  <!-- Monographic source title -->\n  <macro name="source-monographic-title">\n    <group delimiter=": " font-style="italic">\n      <text variable="container-title"/>\n      <text macro="title-volume"/>\n    </group>\n  </macro>\n  <!-- Monographic source identifier -->\n  <macro name="source-monographic-identifier">\n    <choose>\n      <if variable="container-title">\n        <group delimiter="; " prefix="(" suffix=")">\n          <choose>\n            <if match="none" type="broadcast graphic map motion_picture">\n              <!-- For some audiovisual media, number information comes after `title`, not `container-title` (APA example 94); but an album track number is `chapter-number` -->\n              <text macro="identifier-number"/>\n            </if>\n          </choose>\n          <text macro="identifier-monographic"/>\n        </group>\n      </if>\n    </choose>\n  </macro>\n  <!-- Monographic source description -->\n  <macro name="source-monographic-description">\n    <group prefix="[" suffix="]">\n      <choose>\n        <if match="any" type="document report software standard">\n          <!-- place description after `container-title` -->\n          <text macro="description-format"/>\n        </if>\n        <else-if match="any" variable="collection-editor compiler editor editorial-director issue page supplement-number volume"/>\n        <else-if match="any" type="event paper-conference performance speech">\n          <!-- unpublished conference presentations should describe the session -->\n          <text macro="description-format"/>\n        </else-if>\n      </choose>\n    </group>\n  </macro>\n  <!-- 4.3. Publisher sources (APA 9.29) -->\n  <macro name="source-publisher">\n    <choose>\n      <if type="thesis">\n        <choose>\n          <if match="none" variable="archive DOI URL">\n            <!-- Provide university in `publisher` if unpublished -->\n            <text variable="publisher"/>\n          </if>\n        </choose>\n      </if>\n      <!-- omit serial types -->\n      <else-if match="any" type="article-journal article-magazine article-newspaper periodical post-weblog review review-book"/>\n      <else-if match="any" variable="collection-editor compiler editor editorial-director">\n        <!-- monographic types -->\n        <text variable="publisher"/>\n      </else-if>\n      <else-if type="interview">\n        <!-- give publisher for a broadcast `interview` handled as a serial type -->\n        <text variable="publisher"/>\n      </else-if>\n      <!-- omit serial `paper-conference` -->\n      <else-if type="paper-conference"/>\n      <else>\n        <text variable="publisher"/>\n      </else>\n    </choose>\n  </macro>\n  <!-- 4.4. Database and archive sources (APA 9.30) -->\n  <macro name="source-archive">\n    <group delimiter=", ">\n      <choose>\n        <if variable="archive_collection">\n          <!-- With collection: `archive_collection` (`archive_location`), `archive`, `archive-place` -->\n          <group delimiter=" ">\n            <text variable="archive_collection"/>\n            <text prefix="(" suffix=")" variable="archive_location"/>\n          </group>\n          <text variable="archive"/>\n          <text variable="archive-place"/>\n        </if>\n        <else>\n          <!-- No collection: `archive` (`archive_location`), `archive-place` -->\n          <group delimiter=" ">\n            <text variable="archive"/>\n            <text prefix="(" suffix=")" variable="archive_location"/>\n          </group>\n          <text variable="archive-place"/>\n        </else>\n      </choose>\n      <!-- a database identifier/number is stored in `number` and appears in `identifier-number` -->\n    </group>\n  </macro>\n  <!-- 4.5. Works with specific locations (APA 9.31) -->\n  <macro name="source-location">\n    <choose>\n      <if match="any" variable="event event-title">\n        <!-- TODO: To prevent Zotero from printing `event-place`, due to its double-mapping of `publisher-place` and `event-place`. Remove this when that is changed. -->\n        <choose>\n          <if type="paper-conference">\n            <choose>\n              <if match="none" variable="collection-editor compiler editor editorial-director issue page supplement-number volume">\n                <!-- Don\'t print event info for conference papers published in a proceedings -->\n                <text macro="source-location-title-place-date"/>\n              </if>\n            </choose>\n          </if>\n          <else>\n            <!-- For other item types, print event info even if published (e.g. collection catalogs, performance programs). These items aren\'t given explicit examples in the APA manual, so err on the side of providing too much information. -->\n            <text macro="source-location-title-place-date"/>\n          </else>\n        </choose>\n      </if>\n    </choose>\n  </macro>\n  <macro name="source-location-title-place-date">\n    <group delimiter=", ">\n      <choose>\n        <!-- TODO: We expect `event-title` to be used, but processors and applications may not be updated yet. This macro ensures that either `event` or `event-title` can be accepted. Remove if processor logic and application adoption can handle this. -->\n        <if variable="event-title">\n          <text text-case="capitalize-first" variable="event-title"/>\n        </if>\n        <else>\n          <text text-case="capitalize-first" variable="event"/>\n        </else>\n      </choose>\n      <text variable="event-place"/>\n      <text macro="date-event-full"/>\n    </group>\n  </macro>\n  <!-- 4.6. Social media and website sources (APA 9.32-33) -->\n  <macro name="source-website">\n    <choose>\n      <if match="any" type="post webpage">\n        <text text-case="title" variable="container-title"/>\n      </if>\n    </choose>\n  </macro>\n  <!-- 4.7. DOI or URL (APA 9.34-36) -->\n  <macro name="source-DOI-URL">\n    <choose>\n      <if variable="DOI">\n        <text prefix="https://doi.org/" variable="DOI"/>\n      </if>\n      <else-if variable="URL">\n        <group delimiter=" ">\n          <choose>\n            <if match="none" variable="issued status">\n              <text term="retrieved" text-case="capitalize-first"/>\n              <group delimiter=", ">\n                <date form="text" variable="accessed"/>\n                <text term="from"/>\n              </group>\n            </if>\n          </choose>\n          <text variable="URL"/>\n        </group>\n      </else-if>\n    </choose>\n  </macro>\n  <!-- 5. Publication history (APA 9.39-41) -->\n  <macro name="publication-history">\n    <!-- Notes on source element: original publication, reprint info, retraction info -->\n    <group delimiter="; " prefix="(" suffix=")">\n      <choose>\n        <if type="patent">\n          <text variable="references"/>\n        </if>\n        <else>\n          <!-- Print `status` here for "retracted" etc. if it\'s not printed elsewhere. -->\n          <choose>\n            <if match="none" variable="issued"/>\n            <else-if match="any" variable="collection-title issue number page supplement-number volume">\n              <text text-case="capitalize-first" variable="status"/>\n            </else-if>\n          </choose>\n          <choose>\n            <if variable="references">\n              <!-- Provide the option for more elaborate description of publication history, such as full "reprinted" references (APA examples 11, 43, 44) -->\n              <text variable="references"/>\n            </if>\n            <else>\n              <!-- Format publication history using CSL variables -->\n              <group delimiter=" ">\n                <text term="original-work-published" text-case="capitalize-first"/>\n                <group delimiter=", ">\n                  <group delimiter=" ">\n                    <text value="as"/>\n                    <text font-style="italic" variable="original-title"/>\n                  </group>\n                  <text macro="date-original-year"/>\n                  <text variable="original-publisher"/>\n                </group>\n              </group>\n            </else>\n          </choose>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- 6. Legal references: Bluebook style (shared with Chicago) -->\n  <!-- Where APA or Chicago diverge from Bluebook, the official manual is followed -->\n  <macro name="legal-reference">\n    <!-- Type usage:\n\n         `bill`\n         : bills, resolutions, federal reports\n\n         `legal_case`\n         : all legal and court cases\n\n         `hearing`\n         : hearings and testimony\n\n         `legislation`\n         : statutes, constitutional items, and charters\n\n         `regulation`\n         : codified regulations, uncodified regulations, executive orders\n\n         `treaty`\n         : treaties\n    -->\n    <group delimiter=", ">\n      <choose>\n        <if type="treaty">\n          <text macro="legal-title"/>\n          <names variable="author">\n            <!-- Treaty parties should be included at least for bilateral treaties (Bluebook 21.4.2) -->\n            <name delimiter="-" et-al-min="100" et-al-use-first="99" form="short" initialize="false"/>\n          </names>\n          <text macro="legal-date"/>\n          <!-- treaty source/report in addition to URL (Bluebook 21.4.5) -->\n          <text macro="legal-source"/>\n        </if>\n        <else>\n          <group delimiter=" ">\n            <group delimiter=", ">\n              <text macro="legal-title"/>\n              <text macro="legal-source"/>\n            </group>\n            <text macro="legal-date"/>\n            <text macro="legal-identifier"/>\n          </group>\n        </else>\n      </choose>\n      <group delimiter=" ">\n        <!-- locator for use in notes -->\n        <choose>\n          <if locator="page" variable="page">\n            <text term="at"/>\n          </if>\n        </choose>\n        <text macro="label-locator"/>\n      </group>\n    </group>\n  </macro>\n  <!-- 6.1. Legal date -->\n  <macro name="legal-date">\n    <choose>\n      <if type="treaty">\n        <text macro="date-issued-full"/>\n      </if>\n      <else-if type="legal_case">\n        <text macro="legal-date-case"/>\n      </else-if>\n      <else-if match="any" type="bill hearing legislation regulation">\n        <group delimiter=" " prefix="(" suffix=")">\n          <group delimiter=" ">\n            <text macro="date-original-year"/>\n            <text form="symbol" term="and"/>\n          </group>\n          <choose>\n            <if variable="issued">\n              <text macro="date-issued-year"/>\n            </if>\n            <else>\n              <!-- Show proposal date for uncodified regulations. Assume date is entered literally ala "proposed May 23, 2016". -->\n              <!-- TODO: Add `proposed` date here if that becomes available -->\n              <date form="text" variable="submitted"/>\n            </else>\n          </choose>\n        </group>\n      </else-if>\n    </choose>\n  </macro>\n  <macro name="legal-date-case">\n    <group delimiter=" " prefix="(" suffix=")">\n      <text variable="authority"/>\n      <choose>\n        <if variable="container-title">\n          <!-- Print only year for cases published in reporters-->\n          <text macro="date-issued-year"/>\n        </if>\n        <else>\n          <text macro="date-issued-full"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- 6.2.1. Legal title -->\n  <macro name="legal-title">\n    <choose>\n      <if match="any" type="bill legal_case legislation regulation treaty">\n        <text text-case="title" variable="title"/>\n      </if>\n      <else-if type="hearing">\n        <!-- use standard format (Bluebook 13.3) -->\n        <group delimiter=": " font-style="italic">\n          <text text-case="capitalize-first" variable="title"/>\n          <group delimiter=" ">\n            <text term="hearing" text-case="capitalize-first"/>\n            <group delimiter=" ">\n              <text term="on"/>\n              <text variable="number"/>\n            </group>\n            <group delimiter=" ">\n              <text value="before the"/>\n              <text variable="section"/>\n            </group>\n          </group>\n        </group>\n      </else-if>\n    </choose>\n  </macro>\n  <!-- 6.2.2. Legal identifier -->\n  <macro name="legal-identifier">\n    <group delimiter=" " prefix="(" suffix=")">\n      <choose>\n        <if type="hearing">\n          <!-- Use the \'verb\' form of the hearing term to hold \'testimony of\' -->\n          <text form="verb" term="hearing"/>\n          <names variable="author">\n            <name and="symbol" initialize="false"/>\n          </names>\n        </if>\n        <else-if match="any" type="bill legislation regulation">\n          <!-- For uncodified regulations, assume future code section is in `status`. -->\n          <text variable="status"/>\n        </else-if>\n      </choose>\n    </group>\n  </macro>\n  <macro name="legal-identifier-bill-report">\n    <group delimiter=" ">\n      <text variable="genre"/>\n      <choose>\n        <if match="any" variable="authority chapter-number container-title">\n          <text variable="number"/>\n        </if>\n        <else>\n          <!-- If there is no legislative body, session number, or code/record title, assume the item is a congressional report and include \'No.\' label. -->\n          <text macro="label-number-capitalized"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- 6.3. Legal source -->\n  <macro name="legal-source">\n    <!-- Expect legal item `container-title` to be stored in short form -->\n    <choose>\n      <if type="bill">\n        <text macro="legal-source-bill"/>\n      </if>\n      <else-if type="hearing">\n        <text macro="legal-source-hearing"/>\n      </else-if>\n      <else-if type="legal_case">\n        <text macro="legal-source-case"/>\n      </else-if>\n      <else-if type="legislation">\n        <text macro="legal-source-legislation"/>\n      </else-if>\n      <else-if type="regulation">\n        <text macro="legal-source-regulation"/>\n      </else-if>\n      <else-if type="treaty">\n        <text macro="legal-source-treaty"/>\n      </else-if>\n    </choose>\n  </macro>\n  <!-- Legal source types -->\n  <macro name="legal-source-bill">\n    <group delimiter=", ">\n      <text macro="legal-identifier-bill-report"/>\n      <group delimiter=" ">\n        <text variable="authority"/>\n        <!-- `chapter-number` is a session number -->\n        <text variable="chapter-number"/>\n      </group>\n      <group delimiter=" ">\n        <text variable="volume"/>\n        <text variable="container-title"/>\n        <text variable="page-first"/>\n      </group>\n    </group>\n  </macro>\n  <macro name="legal-source-case">\n    <group delimiter=" ">\n      <choose>\n        <if variable="container-title">\n          <text variable="volume"/>\n          <text variable="container-title"/>\n          <text macro="label-section-symbol"/>\n          <choose>\n            <if match="any" variable="page page-first">\n              <text variable="page-first"/>\n            </if>\n            <else>\n              <text value="___"/>\n            </else>\n          </choose>\n        </if>\n        <else>\n          <text macro="label-number-capitalized"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <macro name="legal-source-hearing">\n    <group delimiter=" ">\n      <text variable="authority"/>\n      <!-- `chapter-number` is a session number -->\n      <text variable="chapter-number"/>\n    </group>\n  </macro>\n  <macro name="legal-source-legislation">\n    <choose>\n      <if variable="number">\n        <!-- `number` is a public law number -->\n        <group delimiter=", ">\n          <group delimiter=" ">\n            <choose>\n              <if variable="genre">\n                <text text-case="capitalize-first" variable="genre"/>\n              </if>\n              <else>\n                <text form="short" term="legislation" text-case="capitalize-first"/>\n              </else>\n            </choose>\n            <text macro="label-number-capitalized"/>\n          </group>\n          <group delimiter=" ">\n            <text variable="volume"/>\n            <text variable="container-title"/>\n            <text variable="page-first"/>\n          </group>\n        </group>\n      </if>\n      <else>\n        <group delimiter=" ">\n          <text variable="volume"/>\n          <text variable="container-title"/>\n          <choose>\n            <if variable="section">\n              <text macro="label-section-symbol"/>\n            </if>\n            <else>\n              <text variable="page-first"/>\n            </else>\n          </choose>\n        </group>\n      </else>\n    </choose>\n  </macro>\n  <macro name="legal-source-regulation">\n    <group delimiter=", ">\n      <group delimiter=" ">\n        <text variable="genre"/>\n        <text macro="label-number-capitalized"/>\n      </group>\n      <group delimiter=" ">\n        <text variable="volume"/>\n        <text variable="container-title"/>\n        <choose>\n          <if variable="section">\n            <text macro="label-section-symbol"/>\n          </if>\n          <else>\n            <text variable="page-first"/>\n          </else>\n        </choose>\n      </group>\n    </group>\n  </macro>\n  <macro name="legal-source-treaty">\n    <group delimiter=" ">\n      <number variable="volume"/>\n      <text variable="container-title"/>\n      <choose>\n        <if match="any" variable="page page-first">\n          <text variable="page-first"/>\n        </if>\n        <else>\n          <text macro="label-number-capitalized"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <!-- Citation -->\n  <citation collapse="year" disambiguate-add-givenname="true" disambiguate-add-names="true" disambiguate-add-year-suffix="true" et-al-min="3" et-al-use-first="1" givenname-disambiguation-rule="primary-name-with-initials">\n    <sort>\n      <key macro="author-sort" names-min="3" names-use-first="1"/>\n      <key macro="date-sort-group"/>\n      <key macro="date-sort"/>\n      <key variable="status"/>\n    </sort>\n    <layout delimiter="; " prefix="(" suffix=")">\n      <group delimiter=", ">\n        <text macro="author-short"/>\n        <text macro="date-short"/>\n        <text macro="label-locator"/>\n      </group>\n    </layout>\n  </citation>\n  <!-- Bibliography -->\n  <macro name="bibliography">\n    <group delimiter=" ">\n      <choose>\n        <if match="any" type="bill hearing legal_case legislation regulation treaty">\n          <!-- Legal items have different orders and delimiters -->\n          <text macro="legal-reference" suffix="."/>\n          <text macro="source-DOI-URL"/>\n          <text variable="references"/>\n        </if>\n        <else>\n          <group delimiter=". " suffix=".">\n            <text macro="author-and-contributors"/>\n            <text macro="date"/>\n            <text macro="title-and-descriptions"/>\n            <text macro="source"/>\n          </group>\n          <text macro="source-DOI-URL"/>\n          <text macro="publication-history"/>\n        </else>\n      </choose>\n    </group>\n  </macro>\n  <bibliography entry-spacing="0" et-al-min="21" et-al-use-first="19" et-al-use-last="true" hanging-indent="true" line-spacing="2">\n    <sort>\n      <key macro="author-sort"/>\n      <key macro="date-sort-group"/>\n      <key macro="date-sort"/>\n      <key variable="status"/>\n      <key macro="title"/>\n      <key variable="volume"/>\n      <key variable="part-number"/>\n      <key variable="event-date"/>\n      <key variable="original-date"/>\n      <key macro="source-archive"/>\n    </sort>\n    <layout>\n      <choose>\n        <if match="any" variable="archive archive-place container-title DOI number publisher references URL">\n          <text macro="bibliography"/>\n        </if>\n        <!-- an inaccessible `interview` or `personal_communication` is cited in-text only (APA 8.9) -->\n        <else-if match="any" type="interview personal_communication"/>\n        <else>\n          <text macro="bibliography"/>\n        </else>\n      </choose>\n    </layout>\n  </bibliography>\n</style>\n';
 
-  // ../DTU Science Writer/src/core/csl/elsevier-vancouver.csl
+  // src/core/csl/elsevier-vancouver.csl
   var elsevier_vancouver_default = '<?xml version="1.0" encoding="utf-8"?>\n<style xmlns="http://purl.org/net/xbiblio/csl" page-range-format="minimal" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">\n  <info>\n    <title>Elsevier - NLM/Vancouver (citation-sequence)</title>\n    <title-short>Elsevier - Vancouver</title-short>\n    <id>http://www.zotero.org/styles/elsevier-vancouver</id>\n    <link href="http://www.zotero.org/styles/elsevier-vancouver" rel="self"/>\n    <link href="http://www.elsevier.com/journals/energy/0360-5442/guide-for-authors#68000" rel="documentation"/>\n    <author>\n      <name>Richard Karnesky</name>\n      <email>karnesky+zotero@gmail.com</email>\n      <uri>http://arc.nucapt.northwestern.edu/Richard_Karnesky</uri>\n    </author>\n    <category citation-format="numeric"/>\n    <summary>A style for some Elsevier journals, resembles Vancouver style</summary>\n    <updated>2019-10-15T22:06:38+00:00</updated>\n    <rights license="http://creativecommons.org/licenses/by-sa/3.0/">This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 License</rights>\n  </info>\n  <macro name="author">\n    <names variable="author">\n      <name initialize-with="" delimiter=", " delimiter-precedes-last="always" name-as-sort-order="all" sort-separator=" "/>\n      <label form="long" prefix=", "/>\n      <substitute>\n        <names variable="editor"/>\n        <names variable="translator"/>\n      </substitute>\n    </names>\n  </macro>\n  <macro name="editor">\n    <names variable="editor">\n      <name initialize-with="" delimiter=", " delimiter-precedes-last="always" name-as-sort-order="all" sort-separator=" "/>\n      <label form="long" prefix=", " suffix="."/>\n    </names>\n  </macro>\n  <macro name="year-date">\n    <choose>\n      <if variable="issued">\n        <date variable="issued">\n          <date-part name="year"/>\n        </date>\n      </if>\n      <else>\n        <text term="no date" form="short"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="publisher">\n    <text variable="publisher-place" suffix=": " text-case="title"/>\n    <text variable="publisher" suffix="; "/>\n    <text macro="year-date"/>\n  </macro>\n  <macro name="edition">\n    <choose>\n      <if is-numeric="edition">\n        <group delimiter=" ">\n          <number variable="edition" form="ordinal"/>\n          <text term="edition" form="short"/>\n        </group>\n      </if>\n      <else>\n        <text variable="edition"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="access">\n    <choose>\n      <if variable="DOI">\n        <text variable="DOI" prefix="https://doi.org/"/>\n      </if>\n      <else-if type="webpage post-weblog" match="any">\n        <choose>\n          <if variable="URL">\n            <text variable="URL"/>\n            <group prefix=" (" suffix=")" delimiter=" ">\n              <text term="accessed"/>\n              <date variable="accessed" form="text"/>\n            </group>\n          </if>\n        </choose>\n      </else-if>\n    </choose>\n  </macro>\n  <citation collapse="citation-number">\n    <sort>\n      <key variable="citation-number"/>\n    </sort>\n    <layout prefix="[" suffix="]" delimiter=",">\n      <text variable="citation-number"/>\n    </layout>\n  </citation>\n  <bibliography entry-spacing="0" second-field-align="flush" et-al-min="7" et-al-use-first="6">\n    <layout suffix=".">\n      <text variable="citation-number" prefix="[" suffix="]"/>\n      <text macro="author" suffix=". "/>\n      <choose>\n        <if type="bill book graphic legal_case legislation motion_picture report song" match="any">\n          <group delimiter=". ">\n            <text variable="title"/>\n            <text variable="volume" prefix="vol. "/>\n            <text macro="edition"/>\n            <text macro="publisher"/>\n          </group>\n        </if>\n        <else-if type="chapter paper-conference" match="any">\n          <group delimiter=", ">\n            <group delimiter=". ">\n              <text variable="title"/>\n              <group>\n                <text term="in" text-case="sentence" suffix=": "/>\n                <text macro="editor"/>\n              </group>\n              <group delimiter=", ">\n                <text variable="container-title" form="short"/>\n                <text variable="volume" prefix="vol. "/>\n              </group>\n              <text macro="edition"/>\n            </group>\n            <text macro="publisher"/>\n            <group delimiter=" ">\n              <label variable="page" form="short" plural="never"/>\n              <text variable="page"/>\n            </group>\n          </group>\n        </else-if>\n        <else-if type="patent">\n          <group delimiter=", ">\n            <group delimiter=". ">\n              <text variable="title"/>\n              <text variable="number"/>\n            </group>\n            <text macro="year-date"/>\n          </group>\n        </else-if>\n        <else-if type="thesis">\n          <group delimiter=". ">\n            <text variable="title"/>\n            <text variable="genre"/>\n            <group delimiter=", ">\n              <text variable="publisher"/>\n              <text macro="year-date"/>\n            </group>\n          </group>\n        </else-if>\n        <else>\n          <group delimiter=":">\n            <group delimiter=" ">\n              <group delimiter=". ">\n                <text variable="title"/>\n                <text variable="container-title" form="short" text-case="title" strip-periods="true"/>\n              </group>\n              <group delimiter=";">\n                <text macro="year-date"/>\n                <text variable="volume"/>\n              </group>\n            </group>\n            <text variable="page" form="short"/>\n          </group>\n        </else>\n      </choose>\n      <text macro="access" prefix=". "/>\n    </layout>\n  </bibliography>\n</style>\n';
 
-  // ../DTU Science Writer/src/core/csl/harvard-cite-them-right.csl
+  // src/core/csl/harvard-cite-them-right.csl
   var harvard_cite_them_right_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only">
   <info>
@@ -73543,7 +73579,7 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/american-institute-of-physics.csl
+  // src/core/csl/american-institute-of-physics.csl
   var american_institute_of_physics_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">
   <info>
@@ -73710,10 +73746,10 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/science.csl
+  // src/core/csl/science.csl
   var science_default = '<?xml version="1.0" encoding="utf-8"?>\n<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">\n  <info>\n    <title>Science</title>\n    <id>http://www.zotero.org/styles/science</id>\n    <link href="http://www.zotero.org/styles/science" rel="self"/>\n    <link href="https://www.science.org/content/page/instructions-preparing-initial-manuscript#science-citation-style" rel="documentation"/>\n    <author>\n      <name>Julian Onions</name>\n      <email>julian.onions@gmail.com</email>\n    </author>\n    <contributor>\n      <name>Sebastian Karcher</name>\n    </contributor>\n    <contributor>\n      <name>Greg Barendt</name>\n    </contributor>\n    <category citation-format="numeric"/>\n    <category field="science"/>\n    <issn>0036-8075</issn>\n    <eissn>1095-9203</eissn>\n    <summary>The Science journal style.</summary>\n    <updated>2023-10-16T14:22:40+00:00</updated>\n    <rights license="http://creativecommons.org/licenses/by-sa/3.0/">This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 License</rights>\n  </info>\n  <macro name="editor">\n    <names variable="editor" delimiter=", ">\n      <name initialize-with=". " delimiter=", " delimiter-precedes-last="always"/>\n      <label form="short" prefix=", " text-case="capitalize-first"/>\n    </names>\n  </macro>\n  <macro name="author">\n    <names variable="author">\n      <name sort-separator=", " initialize-with=". " delimiter=", " delimiter-precedes-last="always"/>\n      <label form="short" prefix=", " text-case="capitalize-first"/>\n      <et-al font-style="italic"/>\n      <substitute>\n        <names variable="editor"/>\n      </substitute>\n    </names>\n  </macro>\n  <macro name="access">\n    <choose>\n      <if variable="page" match="none">\n        <text macro="access-value"/>\n      </if>\n    </choose>\n  </macro>\n  <macro name="access-value">\n    <choose>\n      <if variable="DOI">\n        <text variable="DOI" prefix="https://doi.org/"/>\n      </if>\n      <else>\n        <text variable="URL"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="title">\n    <choose>\n      <if type="bill book graphic legal_case legislation motion_picture song" match="any">\n        <text variable="title" font-style="italic" text-case="title"/>\n      </if>\n      <else-if type="chapter report thesis paper-conference" match="any">\n        <text variable="title" quotes="true"/>\n      </else-if>\n      <else>\n        <text variable="title"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="article-details">\n    <group delimiter=", ">\n      <group delimiter=" ">\n        <text form="short" variable="container-title" font-style="italic"/>\n        <text variable="volume" font-weight="bold"/>\n      </group>\n      <choose>\n        <if variable="page volume" match="none">\n          <text variable="DOI" prefix="doi: "/>\n        </if>\n      </choose>\n      <text variable="page"/>\n    </group>\n    <text macro="issued" prefix=" (" suffix=")"/>\n  </macro>\n  <macro name="publisher">\n    <group delimiter=", ">\n      <text variable="publisher"/>\n      <text variable="publisher-place"/>\n    </group>\n  </macro>\n  <macro name="pages">\n    <label variable="page" form="short" suffix=" "/>\n    <text variable="page" form="short"/>\n  </macro>\n  <macro name="issued">\n    <date variable="issued" delimiter=" ">\n      <date-part name="year"/>\n    </date>\n  </macro>\n  <macro name="edition">\n    <choose>\n      <if is-numeric="edition">\n        <group delimiter=" ">\n          <text term="edition" form="short"/>\n          <number variable="edition" form="numeric"/>\n        </group>\n      </if>\n      <else>\n        <text variable="edition" suffix="."/>\n      </else>\n    </choose>\n  </macro>\n  <citation collapse="citation-number">\n    <sort>\n      <key variable="citation-number"/>\n    </sort>\n    <layout prefix="(" suffix=")" delimiter=", ">\n      <text variable="citation-number" font-style="italic"/>\n    </layout>\n  </citation>\n  <bibliography second-field-align="flush">\n    <layout suffix=".">\n      <text variable="citation-number" suffix=". "/>\n      <group delimiter=", ">\n        <text macro="author"/>\n        <text macro="title"/>\n      </group>\n      <choose>\n        <if type="thesis">\n          <group delimiter=" " prefix=", ">\n            <group delimiter=", ">\n              <text term="thesis"/>\n              <text macro="publisher"/>\n            </group>\n            <text macro="issued" prefix="(" suffix=")"/>\n          </group>\n        </if>\n        <else-if type="bill book graphic legal_case legislation motion_picture song chapter paper-conference" match="any">\n          <group delimiter=" " prefix=" ">\n            <choose>\n              <if type="chapter paper-conference" match="any">\n                <group delimiter=", ">\n                  <group delimiter=" ">\n                    <text term="in"/>\n                    <text variable="container-title" font-style="italic" text-case="title"/>\n                  </group>\n                  <text macro="editor"/>\n                </group>\n              </if>\n            </choose>\n            <group prefix="(" suffix=")" delimiter="; ">\n              <group delimiter=", ">\n                <text macro="publisher"/>\n                <text macro="edition"/>\n                <text macro="issued"/>\n              </group>\n              <text variable="URL"/>\n            </group>\n          </group>\n          <group delimiter=" of ">\n            <group>\n              <label variable="volume" form="short" suffix=" "/>\n              <number variable="volume"/>\n            </group>\n            <text variable="collection-title" font-style="italic"/>\n          </group>\n          <choose>\n            <if type="chapter paper-conference" match="any">\n              <text macro="pages" prefix=", "/>\n            </if>\n          </choose>\n        </else-if>\n        <else-if type="article-journal">\n          <text macro="article-details" prefix=". "/>\n        </else-if>\n        <else-if type="report">\n          <group prefix=" (" suffix=")" delimiter=", ">\n            <group delimiter=" ">\n              <text variable="genre" form="short"/>\n              <number variable="number"/>\n            </group>\n            <text variable="publisher"/>\n            <text variable="publisher-place"/>\n            <text macro="issued"/>\n          </group>\n          <text macro="access-value" prefix="; "/>\n        </else-if>\n        <else-if type="article">\n          <group delimiter=". " prefix=". ">\n            <group delimiter=" ">\n              <text variable="publisher"/>\n              <text variable="number"/>\n              <text term="article" text-case="capitalize-first" prefix="[" suffix="]"/>\n              <text macro="issued" prefix="(" suffix=")"/>\n            </group>\n            <text macro="access-value"/>\n          </group>\n        </else-if>\n        <else-if type="dataset software" match="any">\n          <group delimiter=" " prefix=", ">\n            <group delimiter=", ">\n              <group delimiter=" ">\n                <text term="version"/>\n                <text variable="version"/>\n              </group>\n              <text variable="publisher"/>\n            </group>\n            <text macro="issued" prefix="(" suffix=")"/>\n          </group>\n          <text macro="access-value" prefix="; "/>\n        </else-if>\n        <else>\n          <group>\n            <group delimiter=", " prefix=", ">\n              <text macro="editor"/>\n              <group delimiter=". ">\n                <text variable="container-title" font-style="italic"/>\n                <text variable="volume" font-weight="bold"/>\n              </group>\n            </group>\n            <text macro="issued" prefix=" (" suffix=")"/>\n          </group>\n          <text macro="pages"/>\n          <text macro="access" prefix=". "/>\n        </else>\n      </choose>\n    </layout>\n  </bibliography>\n</style>\n';
 
-  // ../DTU Science Writer/src/core/csl/advanced-materials.csl
+  // src/core/csl/advanced-materials.csl
   var advanced_materials_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">
   <info>
@@ -73866,7 +73902,7 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/advanced-functional-materials.csl
+  // src/core/csl/advanced-functional-materials.csl
   var advanced_functional_materials_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="en-US">
   <info>
@@ -74041,7 +74077,7 @@ data-command='["setEnvironment","pmatrix"]'>
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/small.csl
+  // src/core/csl/small.csl
   var small_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">
   <info>
@@ -74198,10 +74234,10 @@ This style has the limit, due to csl constraints, of support for citing 1a)... b
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/institute-of-physics-numeric.csl
+  // src/core/csl/institute-of-physics-numeric.csl
   var institute_of_physics_numeric_default = '<?xml version="1.0" encoding="utf-8"?>\n<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" page-range-format="minimal" default-locale="en-US">\n  <info>\n    <title>Institute of Physics (numeric)</title>\n    <title-short>IOP</title-short>\n    <id>http://www.zotero.org/styles/institute-of-physics-numeric</id>\n    <link href="http://www.zotero.org/styles/institute-of-physics-numeric" rel="self"/>\n    <link href="http://authors.iop.org/atom/help.nsf/7765E7F03B07DE5080257020002E4D9B/$File/IOPWordGuidelines.pdf" rel="documentation"/>\n    <author>\n      <name>Sebastian Karcher</name>\n    </author>\n    <category citation-format="numeric"/>\n    <category field="physics"/>\n    <updated>2018-05-22T00:59:23+00:00</updated>\n    <rights license="http://creativecommons.org/licenses/by-sa/3.0/">This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 License</rights>\n  </info>\n  <locale xml:lang="en">\n    <terms>\n      <term name="et-al">et al</term>\n      <term name="editor" form="short">ed</term>\n    </terms>\n  </locale>\n  <macro name="editor">\n    <names variable="editor" delimiter=", ">\n      <label form="short" suffix=" " strip-periods="true"/>\n      <name and="text" initialize-with=" " delimiter=", " delimiter-precedes-last="never"/>\n    </names>\n  </macro>\n  <macro name="anon">\n    <text term="anonymous" form="short" text-case="capitalize-first" strip-periods="true"/>\n  </macro>\n  <macro name="author">\n    <names variable="author">\n      <name name-as-sort-order="all" and="text" sort-separator=" " initialize-with=" " delimiter-precedes-last="never" delimiter=", "/>\n      <substitute>\n        <names variable="editor"/>\n        <text macro="anon"/>\n      </substitute>\n    </names>\n  </macro>\n  <macro name="title">\n    <choose>\n      <if type="bill book graphic legal_case legislation motion_picture report song thesis" match="any">\n        <text variable="title" font-style="italic"/>\n      </if>\n      <else>\n        <text variable="title"/>\n      </else>\n    </choose>\n  </macro>\n  <macro name="publisher">\n    <group prefix="(" suffix=")" delimiter=": ">\n      <text variable="publisher-place"/>\n      <text variable="publisher"/>\n    </group>\n  </macro>\n  <macro name="pages">\n    <group>\n      <label variable="page" form="short" suffix=" " strip-periods="true"/>\n      <text variable="page"/>\n    </group>\n  </macro>\n  <macro name="volume">\n    <group delimiter=" ">\n      <text term="volume" form="short" strip-periods="true"/>\n      <text variable="volume"/>\n    </group>\n  </macro>\n  <citation collapse="citation-number">\n    <sort>\n      <key variable="citation-number"/>\n    </sort>\n    <layout prefix="[" suffix="]" delimiter=",">\n      <text variable="citation-number"/>\n    </layout>\n  </citation>\n  <bibliography second-field-align="flush" et-al-min="99" et-al-use-first="98">\n    <layout>\n      <text variable="citation-number" prefix="[" suffix="]"/>\n      <group delimiter=" " prefix=" ">\n        <text macro="author"/>\n        <date variable="issued">\n          <date-part name="year"/>\n        </date>\n        <text macro="title"/>\n      </group>\n      <choose>\n        <if type="bill book graphic legal_case legislation motion_picture report song" match="any">\n          <group prefix=" " delimiter=" ">\n            <group delimiter=", ">\n              <text macro="volume"/>\n              <text macro="editor"/>\n            </group>\n            <text macro="publisher"/>\n          </group>\n        </if>\n        <else-if type="chapter paper-conference" match="any">\n          <group prefix=" " delimiter=" ">\n            <text variable="container-title" font-style="italic"/>\n            <text variable="collection-title"/>\n            <text variable="event"/>\n            <group delimiter=", ">\n              <text macro="volume"/>\n              <text macro="editor"/>\n            </group>\n            <text macro="publisher"/>\n            <text macro="pages"/>\n          </group>\n        </else-if>\n        <else-if type="thesis">\n          <group prefix=" " delimiter=" ">\n            <text variable="genre"/>\n            <text macro="publisher"/>\n          </group>\n        </else-if>\n        <else>\n          <group prefix=" " delimiter=" ">\n            <text macro="editor"/>\n            <text variable="container-title" font-style="italic" form="short"/>\n            <text variable="volume" font-weight="bold"/>\n            <text variable="page"/>\n          </group>\n        </else>\n      </choose>\n    </layout>\n  </bibliography>\n</style>\n';
 
-  // ../DTU Science Writer/src/core/csl/elsevier-with-titles.csl
+  // src/core/csl/elsevier-with-titles.csl
   var elsevier_with_titles_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">
   <info>
@@ -74352,7 +74388,7 @@ This style has the limit, due to csl constraints, of support for citing 1a)... b
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/royal-society-of-chemistry.csl
+  // src/core/csl/royal-society-of-chemistry.csl
   var royal_society_of_chemistry_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-GB">
   <info>
@@ -74614,7 +74650,7 @@ This style has the limit, due to csl constraints, of support for citing 1a)... b
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/pnas.csl
+  // src/core/csl/pnas.csl
   var pnas_default = `<?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" demote-non-dropping-particle="sort-only" default-locale="en-US">
   <info>
@@ -74846,7 +74882,7 @@ This style has the limit, due to csl constraints, of support for citing 1a)... b
 </style>
 `;
 
-  // ../DTU Science Writer/src/core/csl/locales-en-US.xml
+  // src/core/csl/locales-en-US.xml
   var locales_en_US_default = `<?xml version="1.0" encoding="utf-8"?>
 <locale xmlns="http://purl.org/net/xbiblio/csl" version="1.0" xml:lang="en-US">
   <!-- The abbreviations in this file follow the recommendations of The Chicago Manual of Style, 18th ed. (2024), sec. 10.48 (cited hereafter as CMOS), unless stated otherwise. -->
@@ -75713,7 +75749,7 @@ This style has the limit, due to csl constraints, of support for citing 1a)... b
 </locale>
 `;
 
-  // ../DTU Science Writer/src/core/journals.js
+  // src/core/journals.js
   var TABLE = [
     ["Physical Review Letters", "Phys. Rev. Lett."],
     ["Physical Review B", "Phys. Rev. B"],
@@ -75789,10 +75825,10 @@ This style has the limit, due to csl constraints, of support for citing 1a)... b
     ["Light: Science & Applications", "Light Sci. Appl."]
   ];
   var journalKey = (s) => String(s || "").toLowerCase().replace(/&amp;/g, "&").replace(/[^a-z0-9&]+/g, " ").trim();
-  var BY_KEY = new Map(TABLE.map(([full, short2]) => [journalKey(full), short2]));
+  var BY_KEY = new Map(TABLE.map(([full, short3]) => [journalKey(full), short3]));
   var journalAbbreviation = (title2) => BY_KEY.get(journalKey(Array.isArray(title2) ? title2[0] : title2)) || null;
 
-  // ../DTU Science Writer/src/core/titles.js
+  // src/core/titles.js
   var PROPER = new Set(`Dirac Hall Landau Anderson Kubo Bloch Fermi Coulomb Raman Josephson Klein Hofstadter Boltzmann
 Schr\xF6dinger Schrodinger Hamiltonian Lagrangian Gaussian Lorentzian Brillouin Berry Chern Majorana Weyl Bose Einstein Mott
 Hubbard Kondo Zeeman Stark Rashba Dresselhaus Aharonov Bohm Fabry P\xE9rot Perot Peierls Kekul\xE9 Kekule N\xE9el Neel Curie Ising
@@ -75831,7 +75867,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/core/references.js
+  // src/core/references.js
   var STYLES = [
     ["aps", "Physical Review (APS)", american_physics_society_default],
     ["nature", "Nature", nature_default],
@@ -75914,6 +75950,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     return base2 + "-" + Math.random().toString(36).slice(2, 6);
   }
+  var CSL_TYPE = { "journal-article": "article-journal", "proceedings-article": "paper-conference", "book-chapter": "chapter", "book-section": "chapter", "book-part": "chapter", "posted-content": "article", "dissertation": "thesis", "monograph": "book", "edited-book": "book", "reference-book": "book", "book-set": "book", "reference-entry": "entry-encyclopedia", "report-component": "report" };
+  var cslType = (t40) => CSL_TYPE[t40] || t40;
   function normalizeItem(it2) {
     if (!it2 || typeof it2 !== "object") return null;
     const out = { ...it2 };
@@ -75922,7 +75960,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     delete out["reference-count"];
     if (Array.isArray(out.title)) out.title = out.title[0];
     if (Array.isArray(out["container-title"])) out["container-title"] = out["container-title"][0];
-    if (!out.type) out.type = "article-journal";
+    out.type = out.type ? cslType(out.type) : "article-journal";
     if (!out.title && !out.author) return null;
     return out;
   }
@@ -75954,7 +75992,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const it2 = normalizeItem(fresh);
     if (!it2) return null;
     const zotero = fresh && fresh.zotero || old.zotero;
-    return { ...it2, id: old.id, ...zotero ? { zotero } : {} };
+    const keep = !it2.page && !it2["article-number"] && old["article-number"] ? { "article-number": old["article-number"] } : {};
+    return { ...it2, ...keep, id: old.id, ...zotero ? { zotero } : {} };
   }
   function summary(it2) {
     const a = (it2.author || []).map((x3) => x3.family || x3.literal).filter(Boolean);
@@ -76063,6 +76102,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
   function forFormatting(it2) {
     if (!it2) return it2;
     let out = it2;
+    if (CSL_TYPE[it2.type]) out = { ...out, type: CSL_TYPE[it2.type] };
     const abbr = it2["container-title"] && journalAbbreviation(it2["container-title"]);
     if (abbr && abbr !== it2["container-title-short"]) out = { ...out, "container-title-short": abbr, journalAbbreviation: abbr };
     if (typeof it2.title === "string" && !/^(de|fr|es|it|da|sv|no|nl)/i.test(it2.language || "")) {
@@ -76070,7 +76110,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (t40 !== it2.title) out = { ...out, title: t40 };
     }
     if (!it2.page) {
-      const an2 = it2["article-number"] || (it2.type === "article-journal" && it2.number && !/^arxiv:/i.test(String(it2.number)) ? it2.number : null);
+      const an2 = it2["article-number"] || (out.type === "article-journal" && it2.number && !/^arxiv:/i.test(String(it2.number)) ? it2.number : null);
       if (an2) out = { ...out, page: String(an2) };
     }
     return out;
@@ -76084,7 +76124,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return true;
     });
     if (part !== "si") return out;
-    const last = doc4.lastChild, from2 = last && last.type.name === "supplement" ? doc4.content.size - last.nodeSize : Infinity;
+    const last2 = doc4.lastChild, from2 = last2 && last2.type.name === "supplement" ? doc4.content.size - last2.nodeSize : Infinity;
     return out.filter((c) => c.pos > from2);
   }
   function formatReferences(doc4, styleKey, part) {
@@ -76199,7 +76239,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return out.map((s) => s.marks.includes("normal") ? { text: s.text, marks: s.marks.filter((x3) => x3 !== "normal" && x3 !== "italic") } : s);
   }
 
-  // ../DTU Science Writer/src/renderer/editor/citations.js
+  // src/renderer/editor/citations.js
   var refsKey = new PluginKey("references");
   function fillSegments(el4, html) {
     el4.textContent = "";
@@ -76409,7 +76449,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     view.dispatch(tr2.scrollIntoView());
   }
 
-  // ../DTU Science Writer/src/renderer/editor/structure.js
+  // src/renderer/editor/structure.js
   var FootnoteView = class {
     constructor(node, view, getPos, decos) {
       this.node = node;
@@ -76649,7 +76689,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     outline: (node, view, getPos, decos) => new OutlineView(node, view, getPos, decos)
   };
 
-  // ../DTU Science Writer/src/core/latexin.js
+  // src/core/latexin.js
   var ACCENT = { "'": "\u0301", "`": "\u0300", "^": "\u0302", '"': "\u0308", "~": "\u0303", "=": "\u0304", ".": "\u0307", c: "\u0327", v: "\u030C", u: "\u0306", H: "\u030B", r: "\u030A" };
   var SYMBOL = { o: "\xF8", O: "\xD8", aa: "\xE5", AA: "\xC5", ae: "\xE6", AE: "\xC6", ss: "\xDF", oe: "\u0153", OE: "\u0152", l: "\u0142", L: "\u0141", i: "\u0131", ldots: "\u2026", dots: "\u2026", textendash: "\u2013", textemdash: "\u2014", textdegree: "\xB0", LaTeX: "LaTeX", TeX: "TeX", today: "", textbackslash: "\\", textasciitilde: "~", textasciicircum: "^", textbar: "|", textless: "<", textgreater: ">", copyright: "\xA9", textregistered: "\xAE", S: "\xA7", P: "\xB6", dag: "\u2020", ddag: "\u2021", textbullet: "\u2022", textmu: "\xB5" };
   var MARK = { textbf: "bold", bf: "bold", textit: "italic", emph: "italic", it: "italic", textsl: "italic", underline: "underline", textsuperscript: "sup", textsubscript: "sub" };
@@ -76941,11 +76981,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
         else merged2.push({ ...n });
       }
       if (merged2.length && merged2[0].type === "text") merged2[0].text = merged2[0].text.replace(/^\s+/, "");
-      const last = merged2[merged2.length - 1];
-      if (last && last.type === "text") last.text = last.text.replace(/\s+$/, "");
+      const last2 = merged2[merged2.length - 1];
+      if (last2 && last2.type === "text") last2.text = last2.text.replace(/\s+$/, "");
       return merged2.filter((n) => n.type !== "text" || n.text);
     }
-    const para = (src) => {
+    const para2 = (src) => {
       const c = inline2(src);
       return c.length ? { type: "paragraph", content: c } : null;
     };
@@ -76953,7 +76993,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     let text2 = "";
     const flushPara = () => {
       for (const chunk of text2.split(/\n\s*\n/)) {
-        const p2 = para(chunk.trim());
+        const p2 = para2(chunk.trim());
         if (p2) blocks3.push(p2);
       }
       text2 = "";
@@ -77064,7 +77104,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
           nested.push(listBlock(n2, in2));
           return "";
         });
-        const c = para(rest.trim());
+        const c = para2(rest.trim());
         items.push({ type: "list_item", content: [c || { type: "paragraph" }, ...nested] });
       }
       return name === "enumerate" ? { type: "ordered_list", attrs: { order: 1 }, content: items.length ? items : [{ type: "list_item", content: [{ type: "paragraph" }] }] } : { type: "bullet_list", content: items.length ? items : [{ type: "list_item", content: [{ type: "paragraph" }] }] };
@@ -77140,7 +77180,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return cmds >= 2 || cmds >= 1 && math2 >= 1 || math2 >= 2;
   }
 
-  // ../DTU Science Writer/src/renderer/editor/latexpaste.js
+  // src/renderer/editor/latexpaste.js
   var plainUntil = 0;
   function latexSlice(state2, text2) {
     const ids = [];
@@ -77199,7 +77239,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
   });
 
-  // ../DTU Science Writer/src/renderer/editor/track.js
+  // src/renderer/editor/track.js
   var trackKey = new PluginKey("track");
   var lastKey = { key: "", at: 0 };
   var forwardDelete = () => lastKey.key === "Delete" && Date.now() - lastKey.at < 400;
@@ -77282,7 +77322,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (sel) view.dispatch(view.state.tr.setSelection(sel).scrollIntoView());
   }
 
-  // ../DTU Science Writer/src/core/pages.js
+  // src/core/pages.js
   var PAGE_GEOMETRY = { height: 841.89, top: 70.87, bottom: 841.89 - 70.87 };
   var BREAKABLE = /* @__PURE__ */ new Set(["paragraph", "bullet_list", "ordered_list", "bibliography", "outline", "table_figure"]);
   function posAtFraction(node, pos, f) {
@@ -77321,9 +77361,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
         out.push({ pos: next.pos, page: next.page, inside: false });
         continue;
       }
-      const first = Math.max(0, bottom - cur.y), last = atTop ? 0 : Math.max(0, next.y - top);
+      const first = Math.max(0, bottom - cur.y), last2 = atTop ? 0 : Math.max(0, next.y - top);
       const pagesIn = atTop ? span - 1 : span;
-      const total = first + Math.max(0, pagesIn - 1) * full + last + (atTop ? full : 0);
+      const total = first + Math.max(0, pagesIn - 1) * full + last2 + (atTop ? full : 0);
       for (let m = 0; m < pagesIn; m++) {
         const f = (first + m * full) / (total || 1);
         const pos = posAtFraction(cur.node, cur.pos, f);
@@ -77334,7 +77374,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return out;
   }
 
-  // ../DTU Science Writer/src/renderer/editor/pageview.js
+  // src/renderer/editor/pageview.js
   var pageKey = new PluginKey("pageview");
   var on2 = false;
   var pageBreaksOn = () => on2;
@@ -77392,7 +77432,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (view) view.dispatch(view.state.tr.setMeta(pageKey, on2 ? {} : { data: null }));
   }
 
-  // ../DTU Science Writer/src/renderer/editor/siheader.js
+  // src/renderer/editor/siheader.js
   var key = new PluginKey("siheader");
   var el2 = (tag, cls, text2) => {
     const e = document.createElement(tag);
@@ -77501,7 +77541,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     } }
   });
 
-  // ../DTU Science Writer/src/core/templates.js
+  // src/core/templates.js
   var t38 = (text2) => text2 ? [{ type: "text", text: text2 }] : void 0;
   var p = (text2) => ({ type: "paragraph", content: t38(text2) });
   var h2 = (level, text2, numbered = true, extra = {}) => ({ type: "heading", attrs: { level, numbered, ...extra }, content: t38(text2) });
@@ -77623,7 +77663,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return JSON.parse(JSON.stringify(tpl.doc));
   }
 
-  // ../DTU Science Writer/src/renderer/editor/editor.js
+  // src/renderer/editor/editor.js
   var NEW_DOC = templateDoc(DEFAULT_TEMPLATE);
   var M2 = schema.marks;
   var N = schema.nodes;
@@ -77633,6 +77673,17 @@ Waals I Si Ge GaAs`.split(/\s+/));
     underline: toggleMark(M2.underline),
     sup: toggleMark(M2.sup),
     sub: toggleMark(M2.sub),
+    highlight: toggleMark(M2.highlight, { color: "yellow" }),
+    colorRed: textColor("C00000"),
+    colorBlue: textColor("1F5FBF"),
+    colorGreen: textColor("2E7D32"),
+    colorNone: textColor(null),
+    removeHighlight: (state2, dispatch) => {
+      const { from: from2, to: to2, empty: empty2 } = state2.selection;
+      if (empty2) return false;
+      if (dispatch) dispatch(state2.tr.removeMark(from2, to2, M2.highlight));
+      return true;
+    },
     paragraph: setBlockType2(N.paragraph),
     h1: setBlockType2(N.heading, { level: 1 }),
     h2: setBlockType2(N.heading, { level: 2 }),
@@ -77645,6 +77696,18 @@ Waals I Si Ge GaAs`.split(/\s+/));
     undo,
     redo
   };
+  function textColor(hex) {
+    return (state2, dispatch) => {
+      const { from: from2, to: to2, empty: empty2 } = state2.selection;
+      if (empty2) return false;
+      if (dispatch) {
+        let tr2 = state2.tr.removeMark(from2, to2, M2.color);
+        if (hex) tr2 = tr2.addMark(from2, to2, M2.color.create({ color: hex }));
+        dispatch(tr2);
+      }
+      return true;
+    };
+  }
   function toggleNumbered(state2, dispatch) {
     const sel = state2.selection;
     let pos = null, node = null;
@@ -77685,6 +77748,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       "Mod-b": cmd.bold,
       "Mod-i": cmd.italic,
       "Mod-u": cmd.underline,
+      "Mod-Shift-h": cmd.highlight,
       "Mod-Shift-=": cmd.sup,
       "Mod-Shift-+": cmd.sup,
       "Mod-=": cmd.sub,
@@ -77762,7 +77826,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return view;
   }
 
-  // ../DTU Science Writer/src/renderer/ui/asksave.js
+  // src/renderer/ui/asksave.js
   var esc4 = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   function askSave(name) {
     if (app.info && app.info.test) return Promise.resolve("discard");
@@ -77801,7 +77865,6518 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/ui/templatedialog.js
+  // src/core/venues.json
+  var venues_default = [
+    {
+      id: "physical-review-letters",
+      name: "Physical Review Letters",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://journals.aps.org/prl/authors",
+        "https://journals.aps.org/authors/length-guide",
+        "https://journals.aps.org/prl/authors/style-basics",
+        "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+      ],
+      verifiedWith: [
+        "10.1103/5kfl-11m1",
+        "10.1103/8gx2-rbns"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: `Abstract limit is 600 characters (APS style guide), which the schema cannot hold in "words", so words = null. figureWords depends on each figure's aspect ratio and width; 170 is the square single-column value. No figure-count, reference or title-length limit stated. "Conflicts of Interest"/"AI Use Disclosure" headings from the Feb 2026 style guide not seen in recent papers; left out. Exact position of Data Availability relative to End Matter taken from the papers checked (before References).`,
+      types: [
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: null,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                'run-in heads chosen by the author, e.g. "Model\u2014", "Experiment\u2014"'
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data Availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "End Matter",
+              counts: false,
+              sub: [
+                "Appendix A\u2014"
+              ]
+            }
+          ],
+          limits: {
+            mainWords: 3750,
+            mainScope: "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI. End Matter (up to two pages, after the references) does not count.",
+            captionsCount: true,
+            figureWords: 170
+          },
+          notes: 'Abstract max 600 characters including spaces (not words). No freestanding headings: italic run-in heads with an em dash ("Introduction\u2014Text"). Appendixes go in End Matter after the references, max two pages, not counted. Title in title case. figureWords = 170 is 150/aspect + 20 for a single-column figure of aspect ratio 1.'
+        }
+      ]
+    },
+    {
+      id: "physical-review-b",
+      name: "Physical Review B",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://journals.aps.org/prb/authors",
+        "https://journals.aps.org/authors/length-guide",
+        "https://journals.aps.org/prl/authors/style-basics",
+        "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+      ],
+      verifiedWith: [
+        "10.1103/j28r-4nht"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'Abstract limit is "about 5% of article length and < 500 words" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places "Conflicts of Interest" and "AI Use Disclosure" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. Only a Regular Article was checked for headings; no open-access PRB Letter checked.',
+      types: [
+        {
+          id: "regular-article",
+          name: "Regular Article",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Model / Experimental details"
+              ]
+            },
+            {
+              title: "Results",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No length limit for Regular Articles."
+          },
+          notes: "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                'optional run-in heads, e.g. "Model. ...", "Experiment. ..."'
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4500,
+            mainScope: "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+            captionsCount: true,
+            figureWords: 170
+          },
+          notes: 'Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads ("Introduction. Text..."). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more. Letters get priority handling; justify the format in the cover letter.'
+        }
+      ]
+    },
+    {
+      id: "physical-review-x",
+      name: "Physical Review X",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://journals.aps.org/prx/authors",
+        "https://journals.aps.org/authors/length-guide",
+        "https://journals.aps.org/prl/authors/style-basics",
+        "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+      ],
+      verifiedWith: [
+        "10.1103/84g7-fmcv"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'Abstract limit is "about 5% of article length and < 500 words" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places "Conflicts of Interest" and "AI Use Disclosure" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. The length guide gives PRX figures as 170 words (single-column) / 340 (two-column), but PRX Research Articles have no length limit, so figureWords is left null.',
+      types: [
+        {
+          id: "regular-article",
+          name: "Research Article",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Model / Experimental details"
+              ]
+            },
+            {
+              title: "Results",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No length limit for Regular Articles."
+          },
+          notes: "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references. A Popular Summary (max 150 words, for non-specialists, no math) is required before publication. PRX has no Letter type. Title in title case."
+        }
+      ]
+    },
+    {
+      id: "physical-review-applied",
+      name: "Physical Review Applied",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://journals.aps.org/prapplied/authors",
+        "https://journals.aps.org/authors/length-guide",
+        "https://journals.aps.org/prl/authors/style-basics",
+        "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+      ],
+      verifiedWith: [
+        "10.1103/3146-fgdw"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: `Abstract limit is "about 5% of article length and < 500 words" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places "Conflicts of Interest" and "AI Use Disclosure" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. The paper checked had a METHODS section after the conclusion; Methods placement is the authors' choice. No open-access PRApplied Letter checked.`,
+      types: [
+        {
+          id: "regular-article",
+          name: "Regular Article",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Model / Experimental details"
+              ]
+            },
+            {
+              title: "Results",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No length limit for Regular Articles."
+          },
+          notes: "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references. A 100-word justification is required at submission (cover letter, not the paper). Appendixes preferred over Supplemental Material."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                'optional run-in heads, e.g. "Model. ...", "Experiment. ..."'
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4500,
+            mainScope: "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+            captionsCount: true,
+            figureWords: 170
+          },
+          notes: 'Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads ("Introduction. Text..."). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more. A 100-word justification is required at submission.'
+        }
+      ]
+    },
+    {
+      id: "physical-review-materials",
+      name: "Physical Review Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://journals.aps.org/prmaterials/authors",
+        "https://journals.aps.org/authors/length-guide",
+        "https://journals.aps.org/prl/authors/style-basics",
+        "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+      ],
+      verifiedWith: [
+        "10.1103/d9pn-bys3"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'Abstract limit is "about 5% of article length and < 500 words" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places "Conflicts of Interest" and "AI Use Disclosure" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. Research Updates (10,000 words) and Review Articles (30,000) not included as research types. No open-access PRMaterials Letter checked.',
+      types: [
+        {
+          id: "regular-article",
+          name: "Regular Article",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Model / Experimental details"
+              ]
+            },
+            {
+              title: "Results",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No length limit for Regular Articles."
+          },
+          notes: "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                'optional run-in heads, e.g. "Model. ...", "Experiment. ..."'
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4500,
+            mainScope: "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+            captionsCount: true,
+            figureWords: 170
+          },
+          notes: 'Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads ("Introduction. Text..."). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more. A 100-word justification is required at submission.'
+        }
+      ]
+    },
+    {
+      id: "physical-review-research",
+      name: "Physical Review Research",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://journals.aps.org/prresearch/authors",
+        "https://journals.aps.org/authors/length-guide",
+        "https://journals.aps.org/prl/authors/style-basics",
+        "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+      ],
+      verifiedWith: [
+        "10.1103/sxcl-yqs7"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'Abstract limit is "about 5% of article length and < 500 words" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places "Conflicts of Interest" and "AI Use Disclosure" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. No open-access PRResearch Letter checked.',
+      types: [
+        {
+          id: "regular-article",
+          name: "Regular Article",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Model / Experimental details"
+              ]
+            },
+            {
+              title: "Results",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No length limit for Regular Articles."
+          },
+          notes: `Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references. Avoid "Note Added" sections.`
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 500,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                'optional run-in heads, e.g. "Model. ...", "Experiment. ..."'
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4500,
+            mainScope: "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+            captionsCount: true,
+            figureWords: 170
+          },
+          notes: 'Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads ("Introduction. Text..."). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more.'
+        }
+      ]
+    },
+    {
+      id: "nature",
+      name: "Nature",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/nature/for-authors/formatting-guide",
+        "https://www.nature.com/nature/for-authors/initial-submission"
+      ],
+      verifiedWith: [
+        "10.1038/s41586-026-11272-2",
+        "10.1038/s41586-026-11268-y"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: "double",
+        lineNumbers: true,
+        margins_cm: null
+      },
+      uncertain: "Word counts are stated as typical lengths per print page budget, not hard limits; mainWords/display use the 6-page physical-sciences figures. Legend limit conflicts: formatting guide says <300 words, initial-submission page says <250 words. 12-pt Times New Roman is 'preferred', not required. Reference order in the manuscript: main references follow the main text; Methods references continue the numbering after Methods (modelled here as one References entry after the main text).",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 200,
+            label: "Summary paragraph"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Topical subheading (up to 40 characters)"
+              ]
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Short bold method headings",
+                "Statistics"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Funding",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 2500,
+            mainScope: "summary paragraph plus body text (typical 6-page physical-sciences Article with 4 modest display items); excludes title, authors, Methods, references, acknowledgements",
+            captionsCount: false,
+            display: 4,
+            refs: 50,
+            titleChars: 75,
+            pages: 6
+          },
+          notes: "Guide figures, not hard caps: 6 pages ~2,500 words + 4 display items (physical sciences); 8 pages ~4,300 words + 5-6 display items. The summary paragraph (~200 words) is fully referenced and counts in the word total. Methods typically <=3,000 words (online only, own references); figure legends <300 words each; no 'Results'/'Discussion' headings in the published style, only topical subheadings."
+        }
+      ]
+    },
+    {
+      id: "nature-nanotechnology",
+      name: "Nature Nanotechnology",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/nnano/content",
+        "https://www.nature.com/nnano/submission-guidelines/aip-and-formatting",
+        "https://www.nature.com/nnano/submission-guidelines/initial-formatting",
+        "https://www.nature.com/nnano/submission-guidelines/preparing-your-submission"
+      ],
+      verifiedWith: [
+        "10.1038/s41565-026-02267-1",
+        "10.1038/s41565-026-02268-0"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Letters are no longer listed as a content type (only Article and Analysis carry primary research). No title length or figure-legend word limit stated on the journal pages ('legend must not exceed the word limit of the article type', but none is given). Initial submissions need no special formatting. Order of back-matter statements is taken from the Nature-portfolio AIP guide and published papers, not stated explicitly.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Topical section heading (fewer than 60 characters)"
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "main text; excludes abstract, Methods, references and figure legends",
+            captionsCount: false,
+            display: 6,
+            refs: 50
+          },
+          notes: "4 to 6 sections with topical headings; avoid 'Introduction', 'Results', 'Discussion'; the last heading must be 'Conclusions'. Abstract unreferenced. Methods up to 3,000 additional words (online only); up to 10 Extended Data items; references 'up to 50' is a guideline."
+        },
+        {
+          id: "analysis",
+          name: "Analysis",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Topical section heading (fewer than 60 characters)"
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "main text; excludes abstract, Methods, references and figure legends",
+            captionsCount: false,
+            display: 6,
+            refs: 50
+          },
+          notes: "Same format as Article (comparative study of existing or new data). Methods up to 3,000 additional words."
+        }
+      ]
+    },
+    {
+      id: "nature-materials",
+      name: "Nature Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/nmat/content",
+        "https://www.nature.com/nmat/submission-guidelines/aip-and-formatting",
+        "https://www.nature.com/nmat/submission-guidelines/initial-formatting"
+      ],
+      verifiedWith: [
+        "10.1038/s41563-026-02779-0",
+        "10.1038/s41563-026-02783-4"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "No Methods word limit, title length or figure-legend limit stated on the Nature Materials pages. Published Articles (e.g. 10.1038/s41563-026-02783-4) often show topical headings and an 'Outlook'/'Conclusions' instead of literal 'Results'/'Discussion' after editing. Back-matter order from the portfolio AIP guide and published papers.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "main text; excludes abstract, Methods, references and figure legends",
+            captionsCount: false,
+            display: 6,
+            refs: 50
+          },
+          notes: "Introduction has no heading; Results and Methods use topical subheadings; Discussion has no subheadings. Abstract unreferenced. Methods appear online only."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 150,
+            label: "Introductory paragraph (referenced; not an abstract)"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 2e3,
+            mainScope: "main text; excludes the introductory paragraph, online Methods, references and figure legends",
+            captionsCount: false,
+            display: 4,
+            refs: 30
+          },
+          notes: "Letters have no headings except in the online Methods. The 150-word introductory paragraph is referenced and is part of the main text. 3-4 display items; references 'up to 30' is a guideline."
+        }
+      ]
+    },
+    {
+      id: "nature-physics",
+      name: "Nature Physics",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/nphys/content",
+        "https://www.nature.com/nphys/submission-guidelines/aip-and-formatting",
+        "https://www.nature.com/nphys/submission-guidelines/initial-formatting"
+      ],
+      verifiedWith: [
+        "10.1038/s41567-026-03433-x",
+        "10.1038/s41567-026-03397-y"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Article is the only primary research format (Letters discontinued). No title length stated. Initial submissions need no special formatting. Back-matter order from the portfolio AIP guide and published papers.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Topical section heading (fewer than 60 characters)"
+              ]
+            },
+            {
+              title: "Methods",
+              counts: false
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "main text; excludes abstract, Methods, references and figure captions",
+            captionsCount: false,
+            display: 6,
+            refs: 50
+          },
+          notes: "Avoid generic headings ('Introduction', 'Results', 'Discussion'); concluding paragraphs that only summarize are not permitted. Abstract unreferenced. Figure captions <350 words each. Methods up to 3,000 additional words (online only); up to 10 Extended Data items."
+        }
+      ]
+    },
+    {
+      id: "nature-electronics",
+      name: "Nature Electronics",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/natelectron/content",
+        "https://www.nature.com/natelectron/submission-guidelines/aip-and-formatting",
+        "https://www.nature.com/natelectron/submission-guidelines/initial-formatting"
+      ],
+      verifiedWith: [
+        "10.1038/s41928-026-01705-1",
+        "10.1038/s41928-026-01593-5"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "No Methods word limit, title length or figure-legend limit stated. Initial submissions need no special formatting. Back-matter order from the portfolio AIP guide and published papers.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Short topical heading"
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 3500,
+            mainScope: "main text; excludes abstract, Methods, references and figure legends",
+            captionsCount: false,
+            display: 6,
+            refs: 50
+          },
+          notes: "Introduction without heading, a few short topical headings, then Conclusions and Methods. Main text 'typically up to 3,500 words'; abstract 'approximately 150 words', unreferenced; references up to 50 as a guideline."
+        },
+        {
+          id: "analysis",
+          name: "Analysis",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Short topical heading"
+              ]
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 3500,
+            mainScope: "main text; excludes abstract, Methods, references and figure legends",
+            captionsCount: false,
+            display: 6,
+            refs: 50
+          },
+          notes: "Same format as Article (comparative study of existing or new data)."
+        }
+      ]
+    },
+    {
+      id: "nature-communications",
+      name: "Nature Communications",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/ncomms/submit/article",
+        "https://www.nature.com/ncomms/submit/how-to-submit"
+      ],
+      verifiedWith: [
+        "10.1038/s41467-026-79580-9"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "The journal says it is flexible about initial-submission format; limits are 'ideally'/'as a guide'. Final-version text is double-spaced, single column, unjustified with numbered pages (not set as a submission requirement here). Placement of Data/Code availability (end of Methods vs after it) taken from published papers; the manuscript-order list names only References, Acknowledgements, Author Contributions, Competing Interests, Figure Legends, Tables.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 5e3,
+            mainScope: "main text; excludes Abstract, Methods, References and figure legends",
+            captionsCount: false,
+            display: 10,
+            refs: 70,
+            titleWords: 15
+          },
+          notes: "Abstract unreferenced. Discussion is succinct with no subheadings. Methods typically <3,000 words; figure legends <=350 words each; display items scale with length (fewer than 2,000 words: at most 4). No footnotes."
+        }
+      ]
+    },
+    {
+      id: "npj-2d-materials-and-applications",
+      name: "npj 2D Materials and Applications",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/npj2dmaterials/content-types",
+        "https://www.nature.com/npj2dmaterials/for-authors-and-referees/submission-guidelines"
+      ],
+      verifiedWith: [
+        "10.1038/s41699-026-00744-8"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "No display-item limit stated for either type. Figure legends go after References in the manuscript file. Only one recent OA research article with machine-readable headings was checked (the other candidate had no sections in the PMC XML).",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            captionsCount: false,
+            refs: 60,
+            titleWords: 15
+          },
+          notes: "No strict word or page limits (online only). Introduction and Discussion have no subheadings; no separate limitations or conclusions sections; funding goes in Acknowledgements. Figure legends <=350 words; references limited to 60 'though not strictly enforced'."
+        },
+        {
+          id: "brief-communication",
+          name: "Brief Communication",
+          abstract: {
+            words: 70,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 1500,
+            mainScope: "main text; excludes abstract, Methods, references and figure legends",
+            captionsCount: false,
+            refs: 20,
+            titleWords: 15
+          },
+          notes: "Main text has no subheadings and should be 1,000-1,500 words. Around 20 references as a guide; figure legends <=350 words."
+        }
+      ]
+    },
+    {
+      id: "communications-physics",
+      name: "Communications Physics",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.nature.com/commsphys/submit/content-types",
+        "https://www.nature.com/commsphys/submit/formatting-guidelines",
+        "https://www.nature.com/commsphys/submit/guide-to-authors"
+      ],
+      verifiedWith: [
+        "10.1038/s42005-026-02788-0",
+        "10.1038/s42005-026-02526-6"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: 12,
+        spacing: null,
+        lineNumbers: true,
+        margins_cm: null
+      },
+      uncertain: "Word, display and reference numbers are recommendations ('as a guide', '~70'). Line numbers and a minimum 12 pt font appear under 'style suggestions' but are worded as requests ('please provide line numbers'). Order of the back-matter statements is not stated in the guide; taken from published papers.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Code availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainWords: 5e3,
+            mainScope: "main text; excludes Methods (Methods length not limited)",
+            captionsCount: false,
+            display: 10,
+            refs: 70,
+            titleWords: 15
+          },
+          notes: "Abstract 150-250 words, no citations. Introduction, Results, Discussion, Methods is the usual order (Introduction, Methods, Results, Discussion also allowed; a joint 'Results and Discussion' and an optional 'Conclusions' after Discussion are allowed). Legends <350 words, placed after References; about 5 display items for ~2,500 words."
+        }
+      ]
+    },
+    {
+      id: "science",
+      name: "Science",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.science.org/content/page/science-information-authors",
+        "https://www.science.org/cms/asset/af4a2b0b-7e56-47f7-be10-dfb4b7441d06/science_manuscript_word_template_december2025.docx"
+      ],
+      verifiedWith: [
+        "10.1126/science.aec6299",
+        "10.1126/science.ady0339"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "The 'Instructions for preparing an initial manuscript' page refused automated access (403 / bot check); abstract (125 words) and title (96 characters) come from Science's own Word template (December 2025), linked from the Information for authors page. The current Information for authors lists only Research Articles as peer-reviewed research (no separate 'Report' category), so Reports are not included. Page numbers are required and line numbers encouraged (template). Acknowledgments sub-paragraphs (Funding etc.) are bold run-in paragraphs, not numbered sections.",
+      types: [
+        {
+          id: "research-article",
+          name: "Research Article",
+          abstract: {
+            words: 125,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Brief topic-specific subheading"
+              ]
+            },
+            {
+              title: "References and Notes",
+              refs: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Funding",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data, code, and materials availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Supplementary Materials",
+              counts: false,
+              sub: [
+                "Materials and Methods",
+                "Supplementary Text",
+                "Figs. S1 to S#",
+                "Tables S1 to S#"
+              ]
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "main text; excludes abstract, references, figure legends, acknowledgments and Supplementary Materials",
+            captionsCount: false,
+            display: 5,
+            refs: 50,
+            titleChars: 96
+          },
+          notes: "Abstract 100-125 words, one paragraph. Main text: 1-2 paragraph introduction (no heading before the first paragraph), then subheadings (required). Materials and Methods go in the Supplementary Materials file. 3-5 display items, about 50 main-text references (SM-only references not counted)."
+        },
+        {
+          id: "research-article-extended",
+          name: "Research Article (extended online format)",
+          abstract: {
+            words: 125,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true,
+              sub: [
+                "Brief topic-specific subheading"
+              ]
+            },
+            {
+              title: "References and Notes",
+              refs: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Funding",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data, code, and materials availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Supplementary Materials",
+              counts: false,
+              sub: [
+                "Materials and Methods",
+                "Supplementary Text",
+                "Figs. S1 to S#",
+                "Tables S1 to S#"
+              ]
+            }
+          ],
+          limits: {
+            mainWords: 6e3,
+            mainScope: "main text; excludes abstract, references, figure legends, acknowledgments and Supplementary Materials",
+            captionsCount: false,
+            display: 6,
+            refs: 100,
+            titleChars: 96
+          },
+          notes: "Allowed for a few Research Articles presented online; the cover letter must justify the extra length. Display items may include videos."
+        }
+      ]
+    },
+    {
+      id: "science-advances",
+      name: "Science Advances",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.science.org/content/page/science-advances-information-authors",
+        "https://www.science.org/cms/asset/3a36745b-78e6-476a-8c5d-6f3349bc8231/advances_ms_template_07_2026.docx"
+      ],
+      verifiedWith: [
+        "10.1126/sciadv.aeh5101"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Conflict between sources: the Information for authors page says up to 15,000 words and an abstract of no more than 150 words; the July 2026 manuscript template says up to 17,000 words 'not including the reference list' and an abstract of <=250 words. The web page values are used here. Whether figure legends count toward the word limit is not stated. No required format for initial submission.",
+      types: [
+        {
+          id: "research-article",
+          name: "Research Article",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                "Short descriptive subheading (under 10 words)"
+              ]
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Materials and Methods",
+              counts: true,
+              sub: [
+                "Short subheading"
+              ]
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Funding",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Competing interests",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data, code, and materials availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Supplementary Materials",
+              counts: false
+            }
+          ],
+          limits: {
+            mainWords: 15e3,
+            mainScope: "whole article text including Materials and Methods; excludes the reference list",
+            display: 10,
+            refs: 80,
+            titleChars: 135
+          },
+          notes: "Short title up to 50 characters. Abstract a single paragraph for a general reader, no citations. Up to 10 figures and/or tables combined; table legends <=250 words; 80 main-text references (SM-only references not counted). Discussion should include a limitations paragraph."
+        }
+      ]
+    },
+    {
+      id: "nano-letters",
+      name: "Nano Letters",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://researcher-resources.acs.org/publish/author_guidelines?coden=nalefd",
+        "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=nalefd"
+      ],
+      verifiedWith: [
+        "10.1021/acs.nanolett.6c03884",
+        "10.1021/acs.nanolett.6c03925"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "pubs.acs.org author page refused automated access (Cloudflare 403); read the official ACS Researcher Resources copy (last updated 2026-10-15). Figure limit conflicts within the guide: Letters 'preferred ... 3-6 figures in total, including schemes' vs editorial policy 'no more than 5 figures' (5 used). Author Information and Notes headings are taken from the published layout, not the guide. Keywords: guide silent (published Letters carry 4-6).",
+      types: [
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4e3,
+            mainScope: "guide: 'less than 4000 words' (preferred 1500-4000); it does not say what is excluded",
+            display: 5
+          },
+          notes: "No subsection titles: one continuous text (introduction, integrated results and discussion, concluding remarks); experimental details go to the Supporting Information. TOC/abstract graphic required; the Supporting Information description must come before Acknowledgments and References."
+        }
+      ]
+    },
+    {
+      id: "acs-nano",
+      name: "ACS Nano",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://researcher-resources.acs.org/publish/author_guidelines?coden=ancac3",
+        "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=ancac3"
+      ],
+      verifiedWith: [
+        "10.1021/acsnano.6c17796",
+        "10.1021/acsnano.6c07558"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-10-05). Abstract limits are stated as '~250' (Articles) in one place and '250 words' in the Abstract section. Author Information and Notes headings come from the published layout, not the guide. The PMC XML of the two check papers labels the first section 'Introduction' although the guide says the introduction is unheaded (followed the guide). Review/Perspective skeletons beyond the introduction are not prescribed; the guide says Results and/or Discussion, Conclusions and Methods or Experimental are 'required in all article type manuscripts', which cannot sensibly apply to Reviews.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: false
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "Unheaded introduction of at most 1000 words; Methods (or Experimental Section) is the last text section; 5-7 lowercase keywords and a TOC graphic. No references in the abstract; no claims of novelty; title in title case, no acronyms except RNA, DNA, 2D, 3D."
+        },
+        {
+          id: "review",
+          name: "Review",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Vocabulary",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "Usually by invitation (or after an accepted proposal). Length flexible (6-20 or more pages); informative topical headings; ~8-10 keywords and a Vocabulary of 5-7 defined terms; TOC graphic."
+        },
+        {
+          id: "perspective",
+          name: "Perspective",
+          abstract: {
+            words: 120,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "Generally by invitation; abstract ~120 words; TOC graphic required."
+        }
+      ]
+    },
+    {
+      id: "acs-applied-materials-and-interfaces",
+      name: "ACS Applied Materials & Interfaces",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://researcher-resources.acs.org/publish/author_guidelines?coden=aamick",
+        "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=aamick"
+      ],
+      verifiedWith: [
+        "10.1021/acsami.6c08717",
+        "10.1021/acsami.6c02463"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-11-09). The guide gives no section order, keywords, title limit or figure limit for Articles; the skeleton follows the guide's named sections plus the two check papers (Experimental Section/Materials and Methods after Introduction). The guide says '6 types of papers' but lists seven. Review abstract limit not stated. Author Information and Notes headings from the published layout.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental Section",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "The Introduction must be a separate section; no length limit, 'as concise as possible'. Choose a journal section (subject area) at submission; TOC graphic per ACS TOC guidelines."
+        },
+        {
+          id: "review",
+          name: "Review",
+          abstract: {
+            words: null,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "10 journal pages including tables, figures and references (~50 double-spaced manuscript pages)",
+            captionsCount: true,
+            pages: 10
+          },
+          notes: "Usually invited, or after an accepted proposal; written for a general materials audience, with a focus on application."
+        }
+      ]
+    },
+    {
+      id: "acs-photonics",
+      name: "ACS Photonics",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://researcher-resources.acs.org/publish/author_guidelines?coden=apchd5",
+        "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=apchd5"
+      ],
+      verifiedWith: [
+        "10.1021/acsphotonics.6c01684",
+        "10.1021/acsphotonics.6c01355"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-10-08). The guide lists components as 'Introduction, Experimental Section or Methods, Results, Discussion, Conclusion' but both check papers put Methods/Experimental Section after the conclusions (followed the papers; position is the author's choice). Limits are 'fewer than 250/150 words' (stored as 250/150). No reference or title limit stated. Author Information and Notes headings from the published layout.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            display: 10
+          },
+          notes: "Unreferenced abstract of fewer than 250 words, no specialized abbreviations; up to 10 display items (figures/tables/schemes); up to six keywords and a TOC graphic. Methods may also be called Experimental Section and may come after the Introduction."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "'approximately 3,000 words or less in length'; guide does not say what is excluded",
+            display: 4
+          },
+          notes: "Generally by invitation. Unheaded introduction and combined results and discussion, then a headed Methods section (subsections allowed); abstract fewer than 150 words; up to six keywords and a TOC graphic."
+        }
+      ]
+    },
+    {
+      id: "chemistry-of-materials",
+      name: "Chemistry of Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://researcher-resources.acs.org/publish/author_guidelines?coden=cmatex",
+        "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=cmatex"
+      ],
+      verifiedWith: [
+        "10.1021/acs.chemmater.6c02062",
+        "10.1021/acs.chemmater.6c01542"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-10-15). No abstract, title, word, figure or reference limits are stated for Articles. The guide's 'preferred order' lists Acknowledgements BEFORE the Supporting Information description, while the same guide says the SI description 'should appear before the Acknowledgement and Reference sections'; the Article skeleton follows the published layout (SI first), Methods/Protocols keeps the guide's order verbatim. One check paper put the Experimental section after Conclusions ('Experimental Methods'). Communications are not offered as a type in the current guide. Author Information and Notes headings from the published layout.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: null,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental Section",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Table of Contents Graphic",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {},
+          notes: "Full Articles must contain a detailed Experimental Section; Results and Discussion may be separate or combined. Pages numbered consecutively from the title page; the TOC/abstract graphic goes at the end."
+        },
+        {
+          id: "methods-protocols",
+          name: "Methods/Protocols",
+          abstract: {
+            words: null,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Materials or Theory Used",
+              counts: true
+            },
+            {
+              title: "Procedure",
+              counts: true
+            },
+            {
+              title: "Troubleshooting and Safety",
+              counts: true
+            },
+            {
+              title: "Characterization",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Table of Contents Graphic",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {},
+          notes: "No set length; starts with a short review of the area, then detailed procedures (videos and photographs of apparatus encouraged)."
+        }
+      ]
+    },
+    {
+      id: "the-journal-of-physical-chemistry-c",
+      name: "The Journal of Physical Chemistry C",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://researcher-resources.acs.org/publish/author_guidelines?coden=jpccck",
+        "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=jpccck"
+      ],
+      verifiedWith: [
+        "10.1021/acs.jpcc.6c05759",
+        "10.1021/acs.jpcc.6c00839"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "pubs.acs.org refused automated access; read the ACS Researcher Resources guide shared by J. Phys. Chem. A/B/C (last updated 2026-10-05). Abstract is given as a range '100-200 words' (stored 200); one check paper's abstract has ~238 words, so it may not be enforced. The guide says there is no separate Author Information section (corresponding author marked on the title page). Featured Article and Perspective body headings are not prescribed. No word, figure or reference limits for Articles.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental and/or Theoretical Methods",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Table of Contents Graphic",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {},
+          notes: "One-paragraph abstract of 100-200 words on its own labeled page. Methods may be named Experimental Section, Theory or Computational Details; Results and Discussion may be separate or combined. TOC image required at the end. Letters/Communications go to J. Phys. Chem. Lett."
+        },
+        {
+          id: "featured-article",
+          name: "Featured Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Table of Contents Graphic",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Biographies",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainScope: "~8 printed pages (~40 double-spaced pages with figures and tables), excluding references",
+            captionsCount: true,
+            pages: 8
+          },
+          notes: "Usually by invitation; a critical status report of the field plus the author's own contribution; biography (and photo) for each author."
+        },
+        {
+          id: "perspective",
+          name: "Perspective",
+          abstract: {
+            words: 150,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            },
+            {
+              title: "Table of Contents Graphic",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Biographies",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainScope: "approximately 4-6 journal pages (~20-30 double-spaced pages)",
+            captionsCount: true,
+            pages: 6
+          },
+          notes: "Primarily by invitation; references should draw on work from the last two years; brief biography for each author."
+        }
+      ]
+    },
+    {
+      id: "applied-physics-letters",
+      name: "Applied Physics Letters",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://pubs.aip.org/aip/apl/pages/policies",
+        "https://pubs.aip.org/aip/apl/pages/manuscript",
+        "https://pubs.aip.org/pages/author-instructions"
+      ],
+      verifiedWith: [
+        "10.1063/5.0330381",
+        "10.1063/5.0328217"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'figureWords = 0 because APL excludes figures, tables and equations from the count (captions count). Five figures is encouragement, so display = null. titleChars 100 is advisory. In both papers checked the acknowledgments were printed without a heading. Abstract "one paragraph of (approximately) 250 words".',
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Supplementary material",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author declarations",
+              counts: false,
+              back: true,
+              sub: [
+                "Conflict of Interest",
+                "Author Contributions",
+                "Ethics Approval"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "Text including figure and table captions; excludes title, author list, abstract, acknowledgments, data availability statement, references, and non-text items (figures, tables, equations). Absolute maximum 3500 words; longer papers are normally returned.",
+            captionsCount: true,
+            titleChars: 100
+          },
+          notes: 'No section headings in the main text (continuous text). Up to five figures encouraged (not a hard limit). Title "on the order of 100 characters including spaces" is encouraged, not required. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables.'
+        }
+      ]
+    },
+    {
+      id: "journal-of-applied-physics",
+      name: "Journal of Applied Physics",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://pubs.aip.org/aip/jap/pages/policies",
+        "https://pubs.aip.org/aip/jap/pages/manuscript",
+        "https://pubs.aip.org/pages/author-instructions"
+      ],
+      verifiedWith: [
+        "10.1063/5.0336473"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'JAP has no section of its own in the AIP author instructions; limits come from the JAP policies/manuscript pages, which state none. Methods articles (a separate JAP type) not included. Abstract "approximately 250 words". Body section names vary by paper.',
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Subheading",
+                "Sub-subheading"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Supplementary material",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author declarations",
+              counts: false,
+              back: true,
+              sub: [
+                "Conflict of Interest",
+                "Author Contributions",
+                "Ethics Approval"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No word or page limit; editors judge whether length suits the content (equations, tables, figures and captions are considered)."
+          },
+          notes: "Numbered capital headings (I. INTRODUCTION, A., 1.). Footnotes in text not permitted. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+        }
+      ]
+    },
+    {
+      id: "apl-materials",
+      name: "APL Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://pubs.aip.org/aip/apm/pages/policies",
+        "https://pubs.aip.org/pages/author-instructions"
+      ],
+      verifiedWith: [
+        "10.1063/5.0333757"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: 'The 3500-word figure is a guideline read from the APL Materials section of the AIP author instructions (summarised by the fetch tool, not quoted verbatim); it is stated alongside "no article length restrictions", so mainWords = null. Abstract length from the general AIP rule (250 words).',
+      types: [
+        {
+          id: "research-article",
+          name: "Research Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Supplementary material",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author declarations",
+              counts: false,
+              back: true,
+              sub: [
+                "Conflict of Interest",
+                "Author Contributions",
+                "Ethics Approval"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No article length restrictions; as a guideline the main text of a regular article is about 3500 words excluding title and references."
+          },
+          notes: "Guideline (not a limit): main text about 3500 words excluding title and references. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+        }
+      ]
+    },
+    {
+      id: "review-of-scientific-instruments",
+      name: "Review of Scientific Instruments",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://pubs.aip.org/aip/rsi/pages/policies",
+        "https://pubs.aip.org/pages/author-instructions"
+      ],
+      verifiedWith: [
+        "10.1063/5.0350333"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "RSI states limits only for Conference Articles; regular Articles have none. Whether captions count is not stated. Abstract length from the general AIP rule (250 words). Body section names vary by instrument paper.",
+      types: [
+        {
+          id: "article",
+          name: "Article",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Technical description",
+              counts: true,
+              sub: [
+                "Overview of instrument"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Supplementary material",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author declarations",
+              counts: false,
+              back: true,
+              sub: [
+                "Conflict of Interest",
+                "Author Contributions",
+                "Ethics Approval"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "No length limit stated for regular contributed articles."
+          },
+          notes: "Physical data demonstrating instrument performance are needed in almost all cases. Cost may not appear in the title and prices may not be quoted. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+        },
+        {
+          id: "conference-article",
+          name: "Conference Article (contributed)",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Technical description",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Supplementary material",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author declarations",
+              counts: false,
+              back: true,
+              sub: [
+                "Conflict of Interest",
+                "Author Contributions",
+                "Ethics Approval"
+              ]
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Appendix",
+              appendix: true,
+              counts: false
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4e3,
+            mainScope: "Total = text + figures + tables + equations. Average single-column figure 260 words, double-column 550; tables 5 words per line + 13 (single-column) or 13 per line + 26 (double-column); equations 7 words per line (single-column) or 13 (double-column). TeX users: max 5 pages.",
+            figureWords: 260,
+            pages: 5
+          },
+          notes: "Invited Conference Articles: 7500 words or 9 pages."
+        }
+      ]
+    },
+    {
+      id: "2d-materials",
+      name: "2D Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://publishingsupport.iopscience.iop.org/journals/2d-materials/about-2d-materials/",
+        "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+        "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+        "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+      ],
+      verifiedWith: [
+        "10.1088/2053-1583/ae3c33",
+        "10.1088/2053-1583/adac6e"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Abstract limit (300 words) is IOP's general rule, not stated on the 2D Materials page. Word-count scope, title length, figure and reference limits are not stated. A data availability statement is 'strongly encouraged' (required only for a few IOP journals); IOP places it after Acknowledgments, before References. Published papers vary ('Experimental methods', 'Conclusion', methods placed last).",
+      types: [
+        {
+          id: "paper",
+          name: "Paper",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "IOP does not state what the word count includes"
+          },
+          notes: "Research Papers are 'articles of unlimited length'. IOP abstracts should not normally exceed 300 words."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 5e3,
+            mainScope: "IOP does not state what the word count includes",
+            pages: 6
+          },
+          notes: "A Letter should not normally be more than six journal pages (5000 words)."
+        },
+        {
+          id: "topical-review",
+          name: "Topical Review",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Main sections (by topic)",
+              counts: true
+            },
+            {
+              title: "Summary and outlook",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 15e3,
+            mainScope: "typical length 10 000-15 000 words (guidance, not a hard cap)"
+          },
+          notes: "Typical length 10 000-15 000 words."
+        }
+      ]
+    },
+    {
+      id: "nanotechnology",
+      name: "Nanotechnology",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://publishingsupport.iopscience.iop.org/journals/nanotechnology/about-nanotechnology/",
+        "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+        "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+        "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+      ],
+      verifiedWith: [
+        "10.1088/1361-6528/ae8860"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Abstract limit (300 words) is IOP's general rule. Word-count scope, title, figure and reference limits not stated. Only one recent CC-BY paper checked (Introduction, Experimental, Results and discussion, Conclusion, Data availability statement).",
+      types: [
+        {
+          id: "paper",
+          name: "Research Paper",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 8500,
+            mainScope: "IOP does not state what the word count includes",
+            pages: 10
+          },
+          notes: "Not normally more than 8500 words (10 journal pages)."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 5e3,
+            mainScope: "IOP does not state what the word count includes"
+          },
+          notes: "Fewer than 5000 words; a justification statement is required at submission."
+        },
+        {
+          id: "topical-review",
+          name: "Topical Review",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Main sections (by topic)",
+              counts: true
+            },
+            {
+              title: "Summary and outlook",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 12500,
+            mainScope: "generally 10 000-12 500 words"
+          },
+          notes: "Invited; generally 10 000-12 500 words."
+        }
+      ]
+    },
+    {
+      id: "journal-of-physics-condensed-matter",
+      name: "Journal of Physics: Condensed Matter",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://publishingsupport.iopscience.iop.org/?p=3530",
+        "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+        "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+        "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+      ],
+      verifiedWith: [
+        "10.1088/1361-648x/ae191c"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Abstract limit (300 words) is IOP's general rule. Word-count scope, title, figure and reference limits not stated. The verified paper also has a 'Funding' heading after the data availability statement.",
+      types: [
+        {
+          id: "paper",
+          name: "Paper",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 8500,
+            mainScope: "IOP does not state what the word count includes"
+          },
+          notes: "Normally not more than 8500 words."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4500,
+            mainScope: "IOP does not state what the word count includes",
+            pages: 6
+          },
+          notes: "Length limit six pages (4500 words); justify why rapid publication is needed."
+        },
+        {
+          id: "topical-review",
+          name: "Topical Review",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Main sections (by topic)",
+              counts: true
+            },
+            {
+              title: "Summary and outlook",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 15e3,
+            mainScope: "should be between 10 000 and 15 000 words"
+          },
+          notes: "Should be between 10 000 and 15 000 words."
+        }
+      ]
+    },
+    {
+      id: "new-journal-of-physics",
+      name: "New Journal of Physics",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://publishingsupport.iopscience.iop.org/journals/new-journal-of-physics/about-new-journal-physics/",
+        "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+        "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+        "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+      ],
+      verifiedWith: [
+        "10.1088/1367-2630/ae4acc"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Abstract limit (300 words) is IOP's general rule; NJP only asks for short, non-technical titles and abstracts. Letter pages given as 'approximately 9-10', so pages left null. The verified paper used Introduction, Results, Discussion, Materials and methods, then Acknowledgments, Data availability statement, Funding, Author contributions.",
+      types: [
+        {
+          id: "paper",
+          name: "Paper",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 18e3,
+            mainScope: "no rigid limit; articles should normally stay under 18 000 words (about 900 words per journal page)"
+          },
+          notes: "No rigid length restriction; normally under 18 000 words. Title, abstract, introduction and conclusions should be readable by non-specialists."
+        },
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Methods",
+              counts: true,
+              sub: [
+                "Sample fabrication",
+                "Measurements"
+              ]
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 5e3,
+            mainScope: "IOP does not state what the word count includes"
+          },
+          notes: "Not to exceed 5000 words (about 9-10 journal pages); a justification statement is required."
+        },
+        {
+          id: "topical-review",
+          name: "Topical Review",
+          abstract: {
+            words: 300,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Main sections (by topic)",
+              counts: true
+            },
+            {
+              title: "Summary and outlook",
+              counts: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 18e3,
+            mainScope: "typical length 12 000-18 000 words"
+          },
+          notes: "Typical length 12 000-18 000 words."
+        }
+      ]
+    },
+    {
+      id: "advanced-materials",
+      name: "Advanced Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://advanced.onlinelibrary.wiley.com/hub/journal/15214095/author-guidelines"
+      ],
+      verifiedWith: [
+        "10.1002/adma.202508889",
+        "10.1002/adma.202511039"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Wiley's author-guideline pages refuse automated access (HTTP 403); numbers taken from search-engine extracts of the official page. Title length and reference limits not found. Back-matter order follows Wiley house style seen in published papers (via Europe PMC XML, where the order of Conflict of Interest / Author Contributions / Acknowledgements is not reliable). The current guidelines list Research Articles, Reviews, Perspectives and Correspondence; 'Communication' appears only in old guides (about 3000 words, 3 display items) and no current Communication type was found, so it is omitted. Reviews: typical 10 000-20 000 words, 5-15 display items.",
+      types: [
+        {
+          id: "research-article",
+          name: "Research Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Experimental Section",
+              counts: true,
+              sub: [
+                "Statistical Analysis"
+              ]
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Conflict of Interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data Availability Statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "typical Research Article about 3000-8000 words in its entirety with 3-8 display items; any length if the science justifies it"
+          },
+          notes: "Abstract max 200 words plus 3-7 keywords. Typical length 3000-8000 words (whole article) with 3-8 display items, not a hard cap. A 'Statistical Analysis' subsection ends the Experimental Section."
+        }
+      ]
+    },
+    {
+      id: "advanced-functional-materials",
+      name: "Advanced Functional Materials",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://advanced.onlinelibrary.wiley.com/hub/journal/16163028/author-guidelines"
+      ],
+      verifiedWith: [
+        "10.1002/adfm.202523042",
+        "10.1002/adfm.202506063"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Wiley's author-guideline pages refuse automated access (HTTP 403); numbers taken from search-engine extracts of the official page. Title length and reference limits not found. Back-matter order follows Wiley house style seen in published papers (via Europe PMC XML, where the order of Conflict of Interest / Author Contributions / Acknowledgements is not reliable). An older Wiley-hosted PDF guide (at least 5000 words, up to 12 display items, max five keywords) conflicts with the current page; the current page was used.",
+      types: [
+        {
+          id: "research-article",
+          name: "Research Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Experimental Section",
+              counts: true,
+              sub: [
+                "Statistical Analysis"
+              ]
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Conflict of Interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data Availability Statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "typical Research Article about 3000-8000 words in its entirety with 3-8 display items; any length if the science justifies it"
+          },
+          notes: "Abstract max 200 words plus 3-7 keywords. Typical length 3000-8000 words (whole article) with 3-8 display items, not a hard cap. A 'Statistical Analysis' subsection ends the Experimental Section."
+        }
+      ]
+    },
+    {
+      id: "small",
+      name: "Small",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://onlinelibrary.wiley.com/page/journal/16136829/homepage/author-guidelines"
+      ],
+      verifiedWith: [
+        "10.1002/smll.202511454",
+        "10.1002/smll.202511646"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Wiley's author-guideline pages refuse automated access (HTTP 403); numbers taken from search-engine extracts of the official page. Title length and reference limits not found. Back-matter order follows Wiley house style seen in published papers (via Europe PMC XML, where the order of Conflict of Interest / Author Contributions / Acknowledgements is not reliable). No separate short Communication type found in the current guidelines.",
+      types: [
+        {
+          id: "research-article",
+          name: "Research Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Experimental Section",
+              counts: true,
+              sub: [
+                "Statistical Analysis"
+              ]
+            },
+            {
+              title: "Supporting Information",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Conflict of Interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Author Contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data Availability Statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "typical Research Article about 3000-8000 words in its entirety with 3-8 display items; any length if the science justifies it"
+          },
+          notes: "Abstract max 200 words plus 3-7 keywords. Typical length 3000-8000 words (whole article) with 3-8 display items, not a hard cap. A 'Statistical Analysis' subsection ends the Experimental Section."
+        }
+      ]
+    },
+    {
+      id: "carbon",
+      name: "Carbon",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.sciencedirect.com/journal/carbon/publish/guide-for-authors"
+      ],
+      verifiedWith: [
+        "10.1016/j.carbon.2025.121159"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "The current guide lists no article types and no length, figure or reference limits; no Letter type is described, so it is omitted. Word files must be single-column. Data must be deposited or a reason given (Elsevier option C); 'Data availability' placed before Acknowledgements because the guide puts Acknowledgements directly before References. Only one open-access paper checked (Introduction, Methods and materials, Results and discussion, Conclusion, Acknowledgements, Data availability).",
+      types: [
+        {
+          id: "research-paper",
+          name: "Research paper",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Materials and methods",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "CRediT authorship contribution statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Declaration of competing interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "Abstract max 250 words; 1-6 keywords; highlights required (3-5 bullets, max 85 characters each incl. spaces); graphical abstract required. Conclusion must be a stand-alone section; Acknowledgements directly before the reference list."
+        }
+      ]
+    },
+    {
+      id: "applied-surface-science",
+      name: "Applied Surface Science",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.sciencedirect.com/journal/applied-surface-science/publish/guide-for-authors"
+      ],
+      verifiedWith: [],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "The journal-specific text says abstracts of up to 200 words, while the generic Elsevier section of the same guide says 250; 200 used. Full Length Article has no stated length limit. The Short Communication limit is in double-spaced manuscript pages, not typeset pages. No ScienceDirect article page could be opened (bot block) and none is in Europe PMC, so headings follow Elsevier's standard structure, unverified.",
+      types: [
+        {
+          id: "full-length-article",
+          name: "Full Length Article",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "CRediT authorship contribution statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Declaration of competing interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "Abstract up to 200 words and a Conclusions section required; 1-7 keywords; highlights required (3-5 bullets, max 85 characters)."
+        },
+        {
+          id: "short-communication",
+          name: "Short Communication",
+          abstract: {
+            words: 200,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "CRediT authorship contribution statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Declaration of competing interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            pages: 6
+          },
+          notes: "No longer than six double-spaced typed manuscript pages (not typeset pages); given priority in refereeing and production."
+        }
+      ]
+    },
+    {
+      id: "microelectronic-engineering",
+      name: "Microelectronic Engineering",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.sciencedirect.com/journal/microelectronic-engineering/publish/guide-for-authors"
+      ],
+      verifiedWith: [],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Word counts are given as 'typically', page counts as maxima. How a double-column figure counts against 'single column figures or equivalent' is not spelled out. Highlights encouraged (not required); 1-7 keywords. No ScienceDirect article page could be opened (bot block) and none is in Europe PMC, so headings follow Elsevier's standard structure, unverified.",
+      types: [
+        {
+          id: "regular-paper",
+          name: "Regular paper",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "CRediT authorship contribution statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Declaration of competing interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 5e3,
+            mainScope: "typically 5000 words plus up to 6 single-column figures/tables or equivalent",
+            display: 6
+          },
+          notes: "Typically 5000 words plus up to 6 single-column (8 x 8 cm) figures and/or tables or equivalent; exceptions by agreement with an Editor."
+        },
+        {
+          id: "accelerated-publication",
+          name: "Accelerated Publication (Letter)",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "CRediT authorship contribution statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Declaration of competing interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "typically 3000 words plus 3 single-column figures/tables or equivalent",
+            display: 3,
+            pages: 4
+          },
+          notes: "Research breakthroughs; maximum 4 journal pages, typically 3000 words plus 3 single-column figures/tables."
+        },
+        {
+          id: "short-communication",
+          name: "Short Communication",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "CRediT authorship contribution statement",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Declaration of competing interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 3e3,
+            mainScope: "typically 3000 words with up to 3 single-column figures/tables or equivalent",
+            display: 3,
+            pages: 4
+          },
+          notes: "Concise but complete description of a limited investigation or industrial R&D; maximum 4 journal pages."
+        }
+      ]
+    },
+    {
+      id: "nanoscale",
+      name: "Nanoscale",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.rsc.org/publishing/publish-with-us/publish-a-journal-article/nanoscale",
+        "https://www.rsc.org/publishing/journals/processes-and-policies/author-responsibilities",
+        "https://www.rsc.org/publishing/publish-with-us/publish-a-journal-article/rsc-advances"
+      ],
+      verifiedWith: [
+        "10.1039/d6nr02308h",
+        "10.1039/d6nr03456j"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "rsc.org and pubs.rsc.org refused automated access (HTTP 403); Nanoscale facts come from search-engine extracts of the official RSC guideline page (indexed ~2025, so possibly outdated), and the back-matter order from RSC's author-responsibilities and RSC Advances pages. Abstract is 'around 50-250 words' (stored 250). Headings checked in the Europe PMC XML of two 2026 Papers (PMC reorders back matter, so the back-matter order follows RSC's stated rules, not the XML). Experimental may also be titled 'Materials and methods' and its position varies. No Communication was available for checking; its skeleton (and Experimental at the end) is an assumption. Reviews/Minireviews omitted (no length rules found).",
+      types: [
+        {
+          id: "paper",
+          name: "Paper",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Conflicts of interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes and references",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "No formal page limit. Single-paragraph abstract of ~50-250 words. Table of contents entry (graphic max 8 cm x 4 cm, 1-2 sentences, max 250 characters) at revision. A Conflicts of interest statement is required; Data availability statement after it, before Acknowledgements."
+        },
+        {
+          id: "communication",
+          name: "Communication",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Results and discussion",
+              counts: true
+            },
+            {
+              title: "Conclusions",
+              counts: true
+            },
+            {
+              title: "Experimental",
+              counts: true
+            },
+            {
+              title: "Author contributions",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Conflicts of interest",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Data availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgements",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Notes and references",
+              refs: true
+            }
+          ],
+          limits: {},
+          notes: "For urgent, significant findings; no formal page limit but expected to be concise; explain the urgency in the cover letter."
+        }
+      ]
+    },
+    {
+      id: "pnas",
+      name: "PNAS",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.overleaf.com/latex/templates/template-for-preparing-your-research-report-submission-to-pnas-using-overleaf-2025/whbdryzwztnd"
+      ],
+      verifiedWith: [
+        "10.1073/pnas.2627324123",
+        "10.1073/pnas.2628364123"
+      ],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "The PNAS Author Center (pnas.org) refused automated access (403 / bot check); all numbers come from PNAS's official Overleaf template (2025, listed as official, by the National Academy of Sciences). No title length, figure-legend limit or Brief Report abstract limit found; Brief Report section skeleton and display-item limit not stated. Placement of the Significance Statement relative to the abstract follows the PNAS template (it is a separate front item, not main text).",
+      types: [
+        {
+          id: "research-report",
+          name: "Research Report",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Significance Statement",
+              counts: false
+            },
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Results",
+              counts: true,
+              sub: [
+                "Topical subheading"
+              ]
+            },
+            {
+              title: "Discussion",
+              counts: true
+            },
+            {
+              title: "Materials and Methods",
+              counts: true
+            },
+            {
+              title: "Data, Materials, and Software Availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 4e3,
+            mainScope: "approximate words of a standard 6-page article; PNAS counts length in typeset pages, with figures, tables and equations taking page space",
+            display: 4,
+            refs: 50,
+            pages: 12
+          },
+          notes: "Standard article is 6 pages (~4,000 words, 50 references, 4 medium-size figures/tables); maximum 12 pages. Significance Statement 50-120 words, for an undergraduate-level scientist outside the field. Introduction has no heading; other orders and headings are permitted. 3-5 keywords."
+        },
+        {
+          id: "brief-report",
+          name: "Brief Report",
+          abstract: {
+            words: null,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: null,
+              counts: true
+            },
+            {
+              title: "Materials and Methods",
+              counts: true
+            },
+            {
+              title: "Data, Materials, and Software Availability",
+              counts: false,
+              back: true
+            },
+            {
+              title: "Acknowledgments",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainWords: 1600,
+            mainScope: "approximate words of a 3-page Brief Report",
+            refs: 15,
+            pages: 3
+          },
+          notes: "Limited to 3 pages (~1,600 words, 15 references). No Significance Statement."
+        }
+      ]
+    },
+    {
+      id: "ieee-electron-device-letters",
+      name: "IEEE Electron Device Letters",
+      kind: "journal",
+      checked: "2026-11-27",
+      sources: [
+        "https://eds.ieee.org/publications/electron-device-letters/information-for-authors"
+      ],
+      verifiedWith: [],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: "IEEE two-column template; font sizes and line spacing must not be altered",
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Abstract also has a minimum of 150 words (schema holds only the maximum). The image limits are rules 'going in place on August 1, 2026'. Middle section titles (Device Fabrication, Results and Discussion) are typical IEEE practice, not prescribed; no open-access EDL paper was checked (IEEE Xplore not readable by script). An older EDS PDF stated a three-page limit; the current page says four.",
+      types: [
+        {
+          id: "letter",
+          name: "Letter",
+          abstract: {
+            words: 250,
+            label: "Abstract"
+          },
+          sections: [
+            {
+              title: "Introduction",
+              counts: true
+            },
+            {
+              title: "Device Fabrication",
+              counts: true
+            },
+            {
+              title: "Results and Discussion",
+              counts: true
+            },
+            {
+              title: "Conclusion",
+              counts: true
+            },
+            {
+              title: "Acknowledgment",
+              counts: false,
+              back: true
+            },
+            {
+              title: "References",
+              refs: true
+            }
+          ],
+          limits: {
+            mainScope: "text excluding references max 2 2/3 pages (new submission), 3 pages (revision), in the IEEE two-column template",
+            display: 9,
+            pages: 4
+          },
+          notes: "Accepted paper max 4 pages, the 4th reserved for references; text excluding references max 2 2/3 pages at submission (3 at revision). Abstract 150-250 words, one paragraph, no abbreviations or references, followed by Index Terms. Max 9 independent images at submission (+1 benchmarking graph), 11 (+1) in the final paper; a literature-comparison table or graph is required for state-of-the-art claims."
+        }
+      ]
+    },
+    {
+      id: "carlsberg",
+      name: "Carlsberg Foundation (Carlsbergfondet)",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://carlsbergfondet.dk/en/applicant/semper-ardens-advance",
+        "https://carlsbergfondet.dk/en/applicant/semper-ardens-accelerate",
+        "https://carlsbergfondet.dk/en/applicant/semper-ardens-accomplish",
+        "https://carlsbergfondet.dk/en/applicant/research-infrastructure",
+        "https://carlsbergfondet.dk/en/news/autumn-call-2026-funding-for-independent-basic-research-with-application/"
+      ],
+      verifiedWith: [],
+      format: {
+        font: "Times New Roman",
+        fontSizeMin: 12,
+        spacing: "1.5",
+        lineNumbers: null,
+        margins_cm: 2
+      },
+      uncertain: "Carlsberg's guideline pages were read through a summarising fetch, not the raw text. Accomplish rules are from the 2025 call and will be updated in 2027. The Accomplish page does not state a 1-page cap on references (Advance, Accelerate and Infrastructure do). Carlsberg has no general natural-science project grant besides these.",
+      types: [
+        {
+          id: "semper-ardens-advance",
+          name: "Semper Ardens: Advance",
+          abstract: {
+            words: null,
+            chars: 1200,
+            label: "Popularised description: What / Why / How (max 400 characters each, entered online)"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "Overarching goal",
+                "Potential impact"
+              ],
+              limit: {
+                pages: 5
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Description of research group, project organisation and networks",
+              counts: false,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Curriculum vitae",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            },
+            {
+              title: "List of publications",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Project description incl. figures and tables; references (max 1 page) follow directly after",
+            captionsCount: true
+          },
+          notes: "Autumn Call 2026 (deadline 1 Sep 2026; held every other year, next expected 2028). DKK 15-25 M over 5 years, single professors or teams of 2-4. Group description is 2 pages for teams. Publication list: bibliometric summary + up to 10 papers with relevance notes (more than 10 = inadmissible). Budget on template, max 1 page."
+        },
+        {
+          id: "semper-ardens-accomplish",
+          name: "Semper Ardens: Accomplish",
+          abstract: {
+            words: null,
+            chars: 1200,
+            label: "Popularised description: What / Why / How (max 400 characters each, entered online)"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "Overarching goal",
+                "Potential impact",
+                "Time commitments of any concurrent career grant (if applicable)"
+              ],
+              limit: {
+                pages: 5
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Research group description",
+              counts: false,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Curriculum vitae",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            },
+            {
+              title: "List of publications",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Project description incl. figures and tables; references excluded and follow directly after",
+            captionsCount: true
+          },
+          notes: "Rules of the 2025 call (held every other year; next call opens 31 May 2027, deadline 1 Sep 2027, guidelines to be updated then). For professors appointed max 4 years; DKK 10-13 M over 5 years."
+        },
+        {
+          id: "semper-ardens-accelerate",
+          name: "Semper Ardens: Accelerate",
+          abstract: {
+            words: null,
+            chars: 1200,
+            label: "Popularised description: What / Why / How (max 400 characters each, entered online)"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "Overarching goal",
+                "Potential impact"
+              ],
+              limit: {
+                pages: 3
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Description of the research group, project organisation and networks",
+              counts: false,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Curriculum vitae",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            },
+            {
+              title: "List of publications",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Project description incl. figures and tables; references (max 1 page) follow directly after",
+            captionsCount: true
+          },
+          notes: "Autumn Call 2026 rules (yearly; next deadline 1 Sep 2027). Newly tenured associate professors (max 2 years), up to DKK 7 M over 3-5 years. Group description 2 pages for teams."
+        },
+        {
+          id: "research-infrastructure",
+          name: "Research Infrastructure",
+          abstract: {
+            words: null,
+            chars: 1200,
+            label: "Popularised description: What / Why / How (max 400 characters each, entered online)"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "The infrastructure",
+                "The scientific project it is essential for",
+                "Need, incl. availability of similar infrastructure"
+              ],
+              limit: {
+                pages: 2
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Description of other Danish research groups using the infrastructure",
+              counts: false,
+              limit: {
+                pages: 1
+              }
+            },
+            {
+              title: "Curriculum vitae",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            },
+            {
+              title: "List of publications",
+              counts: false,
+              limit: {
+                pages: 2
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Project description incl. figures and tables; references (max 1 page) follow directly after",
+            captionsCount: true
+          },
+          notes: "Autumn Call 2026 rules (yearly; next deadline 1 Sep 2027). Equipment or access to international facilities, min DKK 300,000; no salaries. Page limits apply regardless of number of applicants."
+        }
+      ]
+    },
+    {
+      id: "erc",
+      name: "European Research Council (ERC)",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://www.eubuero.de/files/ERC_StG_2027_B1_Final.rtf",
+        "https://www.eubuero.de/files/ERC_StG_2027_B2_Final.rtf",
+        "https://www.eubuero.de/files/ERC_COG_2026_B1_final.rtf",
+        "https://www.eubuero.de/files/ERC_COG_2026_B2_final.rtf",
+        "https://www.eubuero.de/files/ERC_ADG_2026_B1_final.rtf",
+        "https://www.eubuero.de/files/ERC_ADG_2026_B2_final.rtf",
+        "https://erc.europa.eu/news-events/news/changes-2026-and-2027-work-programmes"
+      ],
+      verifiedWith: [],
+      format: {
+        font: "Times New Roman, Arial or similar",
+        fontSizeMin: 11,
+        spacing: "single",
+        lineNumbers: null,
+        margins_cm: {
+          top: 1.5,
+          bottom: 1.5,
+          left: 2,
+          right: 2
+        }
+      },
+      uncertain: "Templates read from the German NCP mirror (eubuero.de) because erc.europa.eu serves them only inside the submission system; the official Information for Applicants 2027 PDF could not be fetched (404 on mirrors). CoG 2027 B1/B2 templates were not found online; CoG uses the 2026 templates, which match StG 2027. AdG figures are from the 2026 call. ERC states no overall B1 page total beyond the 5 + 4 page parts.",
+      types: [
+        {
+          id: "stg-b1",
+          name: "Starting Grant - Part B1 (Part I + CV and Track Record)",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Proposal summary (identical to the Part A abstract)"
+          },
+          sections: [
+            {
+              title: "Part I of the Scientific Proposal",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Current state of knowledge",
+                "Scientific question and objectives",
+                "Overall approach / research strategy"
+              ],
+              limit: {
+                pages: 5
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Curriculum vitae and Track Record",
+              counts: true,
+              sub: [
+                "Personal details",
+                "Research achievements (up to ten research outputs)",
+                "Peer recognition",
+                "Additional information: career breaks, diverse career paths and major life events",
+                "Other contributions to the research community"
+              ],
+              limit: {
+                pages: 4
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Part I max 5 pages (references excluded); CV and Track Record max 4 pages"
+          },
+          notes: "ERC 2027 call template (Information for Applicants to the StG and CoG 2027 Calls). Part I + references + CV/Track Record must be ONE document; only B1 is read at Step 1. Cover page: full title, acronym, PI name, host institution, duration."
+        },
+        {
+          id: "stg-b2",
+          name: "Starting Grant - Part B2 (Part II of the Scientific Proposal)",
+          abstract: null,
+          sections: [
+            {
+              title: "Part II of the Scientific Proposal",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Research methodology",
+                "Work plan",
+                "Risk assessment and mitigating measures"
+              ],
+              limit: {
+                pages: 7
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Appendix: All current grants and on-going / submitted grant applications of the PI (Funding ID)",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainScope: "Part II only; references and Funding ID appendix excluded"
+          },
+          notes: "ERC 2027 call template. Evaluated at Step 2 only. Do not include the budget table (it is in Part A); the 7-page limit was introduced with the 2026 calls (was 14 pages)."
+        },
+        {
+          id: "cog-b1",
+          name: "Consolidator Grant - Part B1 (Part I + CV and Track Record)",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Proposal summary (identical to the Part A abstract)"
+          },
+          sections: [
+            {
+              title: "Part I of the Scientific Proposal",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Current state of knowledge",
+                "Scientific question and objectives",
+                "Overall approach / research strategy"
+              ],
+              limit: {
+                pages: 5
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Curriculum vitae and Track Record",
+              counts: true,
+              sub: [
+                "Personal details",
+                "Research achievements (up to ten research outputs)",
+                "Peer recognition",
+                "Additional information: career breaks, diverse career paths and major life events",
+                "Other contributions to the research community"
+              ],
+              limit: {
+                pages: 4
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Part I max 5 pages (references excluded); CV and Track Record max 4 pages"
+          },
+          notes: "Checked against the CoG 2026 template; StG and CoG share the 2027 Information for Applicants and the StG 2027 template is identical in structure. One single PDF, read at Step 1."
+        },
+        {
+          id: "cog-b2",
+          name: "Consolidator Grant - Part B2 (Part II of the Scientific Proposal)",
+          abstract: null,
+          sections: [
+            {
+              title: "Part II of the Scientific Proposal",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Research methodology",
+                "Work plan",
+                "Risk assessment and mitigating measures"
+              ],
+              limit: {
+                pages: 7
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Appendix: All current grants and on-going / submitted grant applications of the PI (Funding ID)",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainScope: "Part II only; references and Funding ID appendix excluded"
+          },
+          notes: "From the CoG 2026 B2 template (same as StG 2027 B2). Step 2 only; budget table belongs in Part A."
+        },
+        {
+          id: "adg-b1",
+          name: "Advanced Grant - Part B1 (Part I + CV and Track Record)",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Proposal summary (identical to the Part A abstract)"
+          },
+          sections: [
+            {
+              title: "Part I of the Scientific Proposal",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Current state of knowledge",
+                "Scientific question and objectives",
+                "Overall approach / research strategy"
+              ],
+              limit: {
+                pages: 5
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Curriculum vitae and Track Record",
+              counts: true,
+              sub: [
+                "Personal details",
+                "Research achievements (up to ten research outputs)",
+                "Peer recognition",
+                "Additional information",
+                "Other contributions to the research community"
+              ],
+              limit: {
+                pages: 4
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Part I max 5 pages (references excluded); CV and Track Record max 4 pages"
+          },
+          notes: "ERC AdG 2026 call template (the 2027 AdG call has not opened; WP 2027 announces no structural change). One single PDF read at Step 1."
+        },
+        {
+          id: "adg-b2",
+          name: "Advanced Grant - Part B2 (Part II of the Scientific Proposal)",
+          abstract: null,
+          sections: [
+            {
+              title: "Part II of the Scientific Proposal",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Research methodology",
+                "Work plan",
+                "Risk assessment and mitigating measures"
+              ],
+              limit: {
+                pages: 7
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "Appendix: All current grants and on-going / submitted grant applications of the PI (Funding ID)",
+              counts: false,
+              back: true
+            }
+          ],
+          limits: {
+            mainScope: "Part II only; references and Funding ID appendix excluded"
+          },
+          notes: "ERC AdG 2026 B2 template. Step 2 only; no budget table or resources description in B2."
+        }
+      ]
+    },
+    {
+      id: "horizon-europe",
+      name: "Horizon Europe (European Commission)",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/temp-form/af/af_he-ria-ia_en.pdf",
+        "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/temp-form/af/af_he-msca-pf_en.pdf"
+      ],
+      verifiedWith: [],
+      format: {
+        font: "Times New Roman (reference font; Times or Nimbus Roman No. 9 L on Apple/Linux)",
+        fontSizeMin: 11,
+        spacing: "single (minimum), standard character spacing",
+        lineNumbers: null,
+        margins_cm: 1.5
+      },
+      uncertain: "Section 9 title in MSCA B-2 is truncated in the extracted PDF text after 'Letter of commitment from the'; the rest of the title is an inference. Headers, footnotes, captions and formulas may be smaller than 11 pt if legible. Margins are 15 mm minimum, A4, not including headers/footers.",
+      types: [
+        {
+          id: "ria-part-b",
+          name: "Research and Innovation Action (RIA/IA) - Part B technical description",
+          abstract: null,
+          sections: [
+            {
+              title: "1. Excellence",
+              numbered: false,
+              counts: true,
+              sub: [
+                "1.1 Objectives and ambition",
+                "1.2 Methodology"
+              ]
+            },
+            {
+              title: "2. Impact",
+              numbered: false,
+              counts: true,
+              sub: [
+                "2.1 Project's pathways towards impact",
+                "2.2 Measures to maximise impact - Dissemination, exploitation and communication",
+                "2.3 Summary (optional key-element table)"
+              ]
+            },
+            {
+              title: "3. Quality and efficiency of the implementation",
+              numbered: false,
+              counts: true,
+              sub: [
+                "3.1 Work plan and resources",
+                "3.2 Capacity of participants and consortium as a whole"
+              ]
+            }
+          ],
+          limits: {
+            mainScope: "Title, list of participants and sections 1-3 together, including all tables, figures and references",
+            captionsCount: true,
+            pages: 40
+          },
+          notes: "HE RIA/IA application form V5.1 (22.01.2026), adapted to WP 2026-2027: 40 pages for actual-cost topics, 45 pages for lump-sum topics; excess pages are watermarked. Per-section page counts are only indicative: 1.1 ~4, 1.2 ~14 (an older line still says ~10), 2.1 ~3, 2.2 + 2.3 ~3, 3.1 ~12 (17 lump sum), 3.2 ~3."
+        },
+        {
+          id: "msca-pf-b1",
+          name: "MSCA Postdoctoral Fellowships - Part B-1",
+          abstract: null,
+          sections: [
+            {
+              title: "1. Excellence",
+              numbered: false,
+              counts: true,
+              sub: [
+                "1.1 Quality and pertinence of the project's research and innovation objectives (and the extent to which they are ambitious, and go beyond the state of the art)",
+                "1.2 Soundness of the proposed methodology (including interdisciplinary approaches, consideration of the gender dimension and other diversity aspects if relevant for the research project, and the quality of open science practices)",
+                "1.3 Quality of the supervision, training and of the two-way transfer of knowledge between the researcher and the host",
+                "1.4 Quality and appropriateness of the researcher's professional experience, competences and skills"
+              ]
+            },
+            {
+              title: "2. Impact",
+              numbered: false,
+              counts: true,
+              sub: [
+                "2.1 Credibility of the measures to enhance the career perspectives and employability of the researcher and contribution to his/her skills development",
+                "2.2 Suitability and quality of the measures to maximise expected outcomes and impacts, as set out in the dissemination and exploitation plan, including communication activities",
+                "2.3 The magnitude and importance of the project's contribution to the expected scientific, societal and economic impacts"
+              ]
+            },
+            {
+              title: "3. Quality and Efficiency of the Implementation",
+              numbered: false,
+              counts: true,
+              sub: [
+                "3.1 Quality and effectiveness of the work plan, assessment of risks and appropriateness of the effort assigned to work packages",
+                "3.2 Quality and capacity of the host institutions and participating organisations, including hosting arrangements"
+              ]
+            }
+          ],
+          limits: {
+            mainScope: "Sections 1-3 together, including tables, figures and references; no cover page or table of contents",
+            captionsCount: true,
+            pages: 10
+          },
+          notes: "HE MSCA PF application form V5.0 (27.03.2026), call HORIZON-MSCA-2025-PF-01 (PF 2026). Part B is uploaded as two files: B-1 (10-page limit) and B-2 (no overall limit)."
+        },
+        {
+          id: "msca-pf-b2",
+          name: "MSCA Postdoctoral Fellowships - Part B-2",
+          abstract: null,
+          sections: [
+            {
+              title: "4. CV of the researcher",
+              numbered: false,
+              counts: false
+            },
+            {
+              title: "5. Capacity of the Participating Organisation(s)",
+              numbered: false,
+              counts: false,
+              sub: [
+                "5.1 Overview of Participating Organisations (table)",
+                "5.2 Capacity of the Participating Organisations (table)"
+              ]
+            },
+            {
+              title: "6. Additional ethics information",
+              numbered: false,
+              counts: false
+            },
+            {
+              title: "7. Additional information on security screening",
+              numbered: false,
+              counts: false
+            },
+            {
+              title: "8. Environmental considerations in light of the MSCA Green Charter",
+              numbered: false,
+              counts: false,
+              limit: {
+                pages: 0.5
+              }
+            },
+            {
+              title: "9. Required for Global Fellowships only: Letter of commitment from the associated partner for the outgoing phase",
+              numbered: false,
+              counts: false
+            }
+          ],
+          limits: {
+            mainScope: "No overall page limit for B-2"
+          },
+          notes: "Same V5.0 form. CV of the researcher has an indicative length of 5 pages; section 8 max 1/2 page."
+        }
+      ]
+    },
+    {
+      id: "dff",
+      name: "Independent Research Fund Denmark (Danmarks Frie Forskningsfond, DFF)",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://dff.dk/media/1yjno2gi/call-for-proposals-for-independent-research-2026.pdf",
+        "https://dff.dk/en/apply-for-funding/see-what-you-can-apply-for/current-funding-opportunities/instruments/2026/april/dff-research-project1-f26",
+        "https://dff.dk/en/apply-for-funding/see-what-you-can-apply-for/current-funding-opportunities/instruments/2026/oktober/sapere-aude-dff-research-leader-e26/"
+      ],
+      verifiedWith: [],
+      format: {
+        font: "Times New Roman",
+        fontSizeMin: 12,
+        spacing: "1.5 (main text); min 10 pt and 1.0 spacing allowed in tables, figures, captions, footnotes",
+        lineNumbers: null,
+        margins_cm: 2
+      },
+      uncertain: "The section list is built from DFF's required-content list (section 10.6 + instrument-specific requirements); DFF prescribes no headings. The recommended 'DFF-Project description' template itself was not opened. A 2027 call had not been published on 2026-11-27.",
+      types: [
+        {
+          id: "research-project-1",
+          name: "DFF-Research Project1 - Project description (B10)",
+          abstract: null,
+          sections: [
+            {
+              title: "Objective, research question and hypotheses",
+              counts: true
+            },
+            {
+              title: "Scientific and societal perspectives and relevance",
+              counts: true
+            },
+            {
+              title: "Theoretical foundation, state of the art and your qualifications",
+              counts: true
+            },
+            {
+              title: "Methods (if relevant)",
+              counts: true
+            },
+            {
+              title: "Empirical material (if relevant)",
+              counts: true
+            },
+            {
+              title: "Research plan: feasibility, work plan and time schedule",
+              counts: true
+            },
+            {
+              title: "Practical framework (facilities, staff, data access)",
+              counts: true
+            },
+            {
+              title: "Publication and dissemination",
+              counts: true
+            },
+            {
+              title: "Risk management (if relevant)",
+              counts: true
+            },
+            {
+              title: "List of references/bibliography (B11, separate appendix)",
+              counts: false,
+              refs: true
+            }
+          ],
+          limits: {
+            mainChars: 15e3,
+            mainScope: "Project description incl. figures, tables, spaces, captions and formulas; references excluded (separate appendix B11)",
+            captionsCount: true,
+            pages: 5
+          },
+          notes: "Call for proposals 2026 (deadline 12 May 2026). Section list is DFF's 'must account for' list (10.6), not mandatory headings. e-grant's character count decides; over-length = administrative rejection. Applicant CV (B20) max 3 pages and track record (B21) max 3 pages on mandatory DFF templates."
+        },
+        {
+          id: "research-project-2",
+          name: "DFF-Research Project2 - Project description (B10)",
+          abstract: null,
+          sections: [
+            {
+              title: "Objective, research question and hypotheses",
+              counts: true
+            },
+            {
+              title: "Scientific and societal perspectives and relevance",
+              counts: true
+            },
+            {
+              title: "Theoretical foundation, state of the art and your qualifications",
+              counts: true
+            },
+            {
+              title: "Methods (if relevant)",
+              counts: true
+            },
+            {
+              title: "Research plan: feasibility, work plan and time schedule",
+              counts: true
+            },
+            {
+              title: "Sub-projects, synergy, project management and organisation",
+              counts: true
+            },
+            {
+              title: "Practical framework (facilities, staff, data access)",
+              counts: true
+            },
+            {
+              title: "Publication and dissemination",
+              counts: true
+            },
+            {
+              title: "Risk management (if relevant)",
+              counts: true
+            },
+            {
+              title: "List of references/bibliography (B11, separate appendix)",
+              counts: false,
+              refs: true
+            }
+          ],
+          limits: {
+            mainChars: 21e3,
+            mainScope: "Project description incl. figures, tables, spaces, captions and formulas; references excluded (separate appendix B11)",
+            captionsCount: true,
+            pages: 7
+          },
+          notes: "Call for proposals 2026 (deadline 7 October 2026). DFF | Natural Sciences funds RP2 only when the goal cannot be reached with an RP1. Description must cover synergy between sub-projects, management/organisation and publication plans. CV and track record max 3 pages each."
+        },
+        {
+          id: "sapere-aude-research-leader",
+          name: "Sapere Aude: DFF-Research Leader - Project description (B10)",
+          abstract: null,
+          sections: [
+            {
+              title: "Objective, research question and hypotheses",
+              counts: true
+            },
+            {
+              title: "Scientific and societal perspectives and relevance",
+              counts: true
+            },
+            {
+              title: "Theoretical foundation, state of the art and your qualifications",
+              counts: true
+            },
+            {
+              title: "Methods (if relevant)",
+              counts: true
+            },
+            {
+              title: "Research plan, sub-projects (incl. PhD/postdoc projects), work plan and time schedule",
+              counts: true
+            },
+            {
+              title: "Research leadership development",
+              counts: true
+            },
+            {
+              title: "International activities",
+              counts: true
+            },
+            {
+              title: "Roles of project participants and recruitment",
+              counts: true
+            },
+            {
+              title: "Practical framework, publication and dissemination, risks",
+              counts: true
+            },
+            {
+              title: "List of references/bibliography (B11, separate appendix)",
+              counts: false,
+              refs: true
+            }
+          ],
+          limits: {
+            mainChars: 21e3,
+            mainScope: "Project description incl. figures, tables, spaces, captions and formulas; references excluded (separate appendix B11)",
+            captionsCount: true,
+            pages: 7
+          },
+          notes: "Call for proposals 2026 (deadline 7 October 2026, grants awarded 2027). Must show how the grant builds research leadership and an international profile (preparing for ERC). CV and track record max 3 pages each; shortlisted applicants are interviewed."
+        }
+      ]
+    },
+    {
+      id: "innovation-fund-denmark",
+      name: "Innovation Fund Denmark (Innovationsfonden)",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://innovationsfonden.dk/sites/default/files/2025-12/GS2026_ENG_Guidelines%20phase%201.docx_0.pdf",
+        "https://innovationsfonden.dk/sites/default/files/2026-03/GS2026_ENG_Guidelines%20phase%202.docx_0.pdf",
+        "https://innovationsfonden.dk/en/p/grand-solutions/grand-solutions-2026-quantum"
+      ],
+      verifiedWith: [],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "Phase 2 field names and character limits are only published in the e-grant form sent with the invitation, so phase 2 sections are the assessment criteria with null limits. No font/margin rules are stated (web form + mandatory IFD templates). The fund's site now redirects some files to danmarksinnovationsfond.dk and several PDFs (2024 phase 2 outline, defence call text) returned 404. 2027 calls not yet published.",
+      types: [
+        {
+          id: "grand-solutions-phase1",
+          name: "Grand Solutions - Phase 1 letter of interest",
+          abstract: {
+            words: null,
+            chars: 600,
+            label: "Short summary"
+          },
+          sections: [
+            {
+              title: "Description of the foundation and concept of idea",
+              counts: true,
+              limit: {
+                chars: 1800
+              }
+            },
+            {
+              title: "Description of quantifiable goals",
+              counts: true,
+              limit: {
+                chars: 1200
+              }
+            },
+            {
+              title: "Description of state of the art and competition",
+              counts: true,
+              limit: {
+                chars: 2400
+              }
+            },
+            {
+              title: "Description of expected impact",
+              counts: true,
+              limit: {
+                chars: 1200
+              }
+            },
+            {
+              title: "Description of applied methods",
+              counts: true,
+              limit: {
+                chars: 1800
+              }
+            },
+            {
+              title: "Contribution of core project participants (up to 5)",
+              counts: true,
+              limit: {
+                chars: 600
+              }
+            },
+            {
+              title: "Other project participants and their contribution",
+              counts: true,
+              limit: {
+                chars: 500
+              }
+            },
+            {
+              title: "Competences and experience of key persons (up to 5)",
+              counts: true,
+              limit: {
+                chars: 600
+              }
+            },
+            {
+              title: "List of references",
+              counts: true,
+              refs: true,
+              limit: {
+                chars: 1200
+              }
+            },
+            {
+              title: "Appendix A: Illustrations",
+              counts: false,
+              limit: {
+                pages: 1
+              }
+            }
+          ],
+          limits: {
+            mainScope: "e-grant form fields; whole letter about 6 pages excluding appendices",
+            display: 1,
+            titleChars: 180
+          },
+          notes: "Grand Solutions 2026 (guidelines valid from 5 Jan 2026; phase 1 deadline 3 March 2026 for most themes). Participant/key-person limits are per person. Appendix A: max 1 A4 page with max 1 illustration on the IFD template. English only."
+        },
+        {
+          id: "grand-solutions-phase2",
+          name: "Grand Solutions - Phase 2 full application",
+          abstract: null,
+          sections: [
+            {
+              title: "Quality of idea",
+              counts: true
+            },
+            {
+              title: "Impact",
+              counts: true
+            },
+            {
+              title: "Quality of execution",
+              counts: true
+            },
+            {
+              title: "Appendix A: Figures, pictures, tables, Gantt diagram (optional)",
+              counts: false,
+              limit: {
+                pages: 8
+              }
+            },
+            {
+              title: "Appendix B: Participant motivation",
+              counts: false
+            },
+            {
+              title: "Appendix C: Key persons (overview page + one-page CV per key person)",
+              counts: false
+            }
+          ],
+          limits: {
+            mainScope: "e-grant form fields; limits are given in the form sent with the phase 2 invitation",
+            titleChars: 180
+          },
+          notes: "Grand Solutions 2026 phase 2 (deadline 10 Sep 2026). Main sections follow the three assessment criteria; title and acronym must be reused from phase 1. Each key-person CV max 1 A4 page; budget on the IFD Excel template."
+        }
+      ]
+    },
+    {
+      id: "novo-nordisk-foundation",
+      name: "Novo Nordisk Foundation (Novo Nordisk Fonden)",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://novonordiskfonden.dk/app/uploads/Guidelines-NERD-Programme-2026.pdf",
+        "https://novonordiskfonden.dk/en/grant/exploratory-interdisciplinary-synergy-programme-2026/",
+        "https://novonordiskfonden.dk/app/uploads/Information-and-Guidelines-for-Exploratory-Interdisciplinary-Synergy-Programme-2026_version-2.pdf",
+        "https://novonordiskfonden.dk/en/grant/pioneer-innovator-grant/",
+        "https://novonordiskfonden.dk/app/uploads/Pioneer-Innovator-Guidelines-2026-2.pdf",
+        "https://novonordiskfonden.dk/app/uploads/Data-Science-Investigator_GuidelinesFAQ-2026_Final.pdf"
+      ],
+      verifiedWith: [],
+      format: {
+        font: null,
+        fontSizeMin: null,
+        spacing: null,
+        lineNumbers: null,
+        margins_cm: null
+      },
+      uncertain: "No natural/technical-science 'Ascending Investigator' call exists in 2026 (Ascending calls are in biotech, endocrinology, bioscience and the Data Science programme); NERD and Data Science Investigator were added instead. All NNF applications are NORMA web-form fields, so no font/margin rules apply. Pioneer Innovator guidelines do not state a maximum number of illustrations.",
+      types: [
+        {
+          id: "nerd",
+          name: "New Exploratory Research and Discovery (NERD) - Proposal",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Brief project description"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "Purpose",
+                "Background",
+                "Hypotheses",
+                "Methods",
+                "Creativity, ambition and originality",
+                "Potential future applications (life sciences, health or sustainability) - separate paragraph",
+                "List of abbreviations"
+              ],
+              limit: {
+                chars: 3e4
+              }
+            },
+            {
+              title: "Illustrations (uploads)",
+              counts: false
+            },
+            {
+              title: "Literature references",
+              counts: false,
+              refs: true,
+              limit: {
+                chars: 8e3
+              }
+            },
+            {
+              title: "Lay project description",
+              counts: false,
+              back: true,
+              limit: {
+                chars: 1e3
+              }
+            }
+          ],
+          limits: {
+            mainChars: 3e4,
+            mainScope: "Project description field, incl. spaces",
+            display: 4,
+            titleChars: 150
+          },
+          notes: "2026 call (deadline 19 Feb 2026), natural and technical sciences. Online NORMA fields; stage 1 is blinded (anonymise self-citations as 'Anonymised Reference [n]'). Applicant tab: CV 4,000 chars, publication list 5,000 chars (up to 10), summary of own research 2,000 chars."
+        },
+        {
+          id: "exploratory-interdisciplinary-synergy",
+          name: "Exploratory Interdisciplinary Synergy Programme - Proposal",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Brief project description"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "Exploratory interdisciplinary idea, timeliness and expected preliminary data",
+                "Hypotheses, work packages and methodologies",
+                "Why the combination of complementary expertise is needed (synergy)",
+                "Role of each applicant",
+                "Overall impact and benefits to each discipline",
+                "Identified risks (high-risk elements; no mitigation plan expected)",
+                "Revisions since previous submission (if resubmission)"
+              ],
+              limit: {
+                chars: 3e4
+              }
+            },
+            {
+              title: "Illustrations (uploads)",
+              counts: false
+            },
+            {
+              title: "Literature references",
+              counts: false,
+              refs: true,
+              limit: {
+                chars: 8e3
+              }
+            },
+            {
+              title: "Lay project description",
+              counts: false,
+              back: true,
+              limit: {
+                chars: 1e3
+              }
+            }
+          ],
+          limits: {
+            mainChars: 3e4,
+            mainScope: "Project description field, incl. spaces",
+            display: 4,
+            titleChars: 150
+          },
+          notes: "2026 call (deadline 3 Sep 2026; next call expected March 2027). Written jointly by the applicant group; avoid abbreviations. Per applicant: CV 4,000, publication list 5,000, research summary 2,000, supplementary information 2,000 characters."
+        },
+        {
+          id: "pioneer-innovator",
+          name: "Pioneer Innovator Grant - Proposal",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Brief project description"
+          },
+          sections: [
+            {
+              title: "Background & purpose",
+              counts: true
+            },
+            {
+              title: "State of the art and differentiation",
+              counts: true
+            },
+            {
+              title: "Methods and design",
+              counts: true
+            },
+            {
+              title: "Assessment and project outcome",
+              counts: true
+            },
+            {
+              title: "Commercialization potential",
+              counts: true
+            },
+            {
+              title: "Main applicant, team and partners",
+              counts: true
+            },
+            {
+              title: "Illustrations (uploads)",
+              counts: false
+            },
+            {
+              title: "Literature references",
+              counts: false,
+              refs: true,
+              limit: {
+                chars: 8e3
+              }
+            },
+            {
+              title: "Lay project description",
+              counts: false,
+              back: true,
+              limit: {
+                chars: 1e3
+              }
+            }
+          ],
+          limits: {
+            mainChars: 2e4,
+            mainScope: "Project description field (all six sections together), incl. spaces",
+            titleChars: 150
+          },
+          notes: "2026 autumn call (deadline 15 Sep 2026; next January 2027); Health or Sustainability track incl. quantum technologies, up to DKK 1.2 M over 1 year. Sections should be of broadly similar length. Applicant: CV 4,000, publications 5,000, summary of own research 2,000, supplementary information 2,000 characters."
+        },
+        {
+          id: "data-science-investigator",
+          name: "Data Science Investigator (Emerging / Ascending / Distinguished) - Proposal",
+          abstract: {
+            words: null,
+            chars: 2e3,
+            label: "Brief project description"
+          },
+          sections: [
+            {
+              title: "Project description",
+              counts: true,
+              sub: [
+                "Purpose",
+                "Background and Current State-of-the-art",
+                "Central hypothesis and research idea",
+                "Methods",
+                "Work plan and Implementation",
+                "Collaborations",
+                "Expected outcomes and potential future applications and impact",
+                "Scientific impact, novelty, and significance",
+                "Teaching plans for data science in Denmark",
+                "Synergy with other funded projects"
+              ],
+              limit: {
+                chars: 3e4
+              }
+            },
+            {
+              title: "Illustrations (uploads)",
+              counts: false
+            },
+            {
+              title: "Literature references",
+              counts: false,
+              refs: true,
+              limit: {
+                chars: 8e3
+              }
+            },
+            {
+              title: "Lay project description",
+              counts: false,
+              back: true,
+              limit: {
+                chars: 1e3
+              }
+            }
+          ],
+          limits: {
+            mainChars: 3e4,
+            mainScope: "Project description field, incl. spaces, line breaks and special characters",
+            display: 4,
+            titleChars: 150
+          },
+          notes: "2026 call (deadline 15 July 2026), one combined guideline for the three career levels; Ascending = associate professor level, up to DKK 14.7 M. Must cover data access and plans for teaching data science in Denmark."
+        }
+      ]
+    },
+    {
+      id: "villum",
+      name: "VILLUM FONDEN",
+      kind: "funder",
+      checked: "2026-11-27",
+      sources: [
+        "https://villumfonden.dk/en/group/channel/villum-young-investigator-1",
+        "https://villumfonden.dk/system/files/paragraph/field_downloads/application_guidelines_2026_3.pdf",
+        "https://villumfonden.dk/system/files/paragraph/field_downloads/download_cv_template_villum_young_investigator_2026.docx",
+        "https://villumfonden.dk/en/group/channel/villum-experiment-2026",
+        "https://villumfonden.dk/system/files/paragraph/field_downloads/c_proposal_guidelines_2026_0.pdf",
+        "https://villumfonden.dk/en/group/channel/villum-investigator-2026",
+        "https://villumfonden.dk/system/files/paragraph/field_downloads/application_guidelines_2026_0.pdf",
+        "https://villumfonden.dk/system/files/paragraph/field_downloads/cv_template_velux_og_villum_fonden_2025_2.docx"
+      ],
+      verifiedWith: [],
+      format: {
+        font: "Times Roman",
+        fontSizeMin: 12,
+        spacing: "1.15",
+        lineNumbers: null,
+        margins_cm: 2
+      },
+      uncertain: "Format rule (Times Roman 12 pt, 1.15 spacing, margins >= 2 cm) is stated for Young Investigator and Investigator; the Villum Experiment proposal guidelines give no font/margin rule (character count only). Young Investigator item C has no stated limit. The 2027 calls were not yet published; all numbers are from the 2026 calls.",
+      types: [
+        {
+          id: "young-investigator",
+          name: "Villum Young Investigator - Application",
+          abstract: null,
+          sections: [
+            {
+              title: "A: Your previous application (if any)",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1200
+              }
+            },
+            {
+              title: "B: Summary of the application",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 2500
+              }
+            },
+            {
+              title: "C: Important publications",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "D: Research funding",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "E: Other important issues",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "F: Planned research",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Objectives and expected significance",
+                "Relation to state of the art and key original insight",
+                "Relation to work in progress in your group and elsewhere",
+                "Competitive edge (in layman's terms)",
+                "Expected results and general impact",
+                "Effect on your profile and future career",
+                "Staffing (postdocs, PhDs, others) and its justification"
+              ],
+              limit: {
+                pages: 6
+              }
+            },
+            {
+              title: "References",
+              counts: false,
+              refs: true
+            },
+            {
+              title: "G: Leadership",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "H: Institutional affiliation and recruitment",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Planned research max 6 pages incl. figures and tables (about 3,400 characters per page); references excluded",
+            captionsCount: true
+          },
+          notes: "2026 call (deadline 3 June 2026). Character limits include spaces; text beyond the limits is not read. CV (max 2 pages, research statement max 10 lines) and Track record (max 1 page) go in a separate PDF on Villum's template, plus budget and letter of support."
+        },
+        {
+          id: "experiment",
+          name: "Villum Experiment - Proposal (anonymous, stage 2)",
+          abstract: {
+            words: null,
+            chars: 1e3,
+            label: "Abstract (stage 1 expression of interest, entered online)"
+          },
+          sections: [
+            {
+              title: "A: Project title",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "B: In a nutshell",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "C: Research idea and context",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "D: Proposed method of solution or concept",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "E: Major gains and obstacles",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "F: Appropriateness",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "G: Probable objections",
+              numbered: false,
+              counts: true
+            },
+            {
+              title: "Figure(s)",
+              counts: true
+            },
+            {
+              title: "References",
+              counts: true,
+              refs: true
+            }
+          ],
+          limits: {
+            mainChars: 1e4,
+            mainScope: "Whole proposal: 10,000 characters incl. spaces, headlines, references and figure captions (about three pages)",
+            captionsCount: true,
+            display: 2
+          },
+          notes: "2026 call. Two stages: an expression of interest (title + abstract max 1,000 characters) enters a lottery for 300 tickets; winners submit the full proposal. Fully anonymous: no names, affiliations, own-paper citations or hyperlinks; 'In a nutshell' preferably 5-10 sentences in layman's terms."
+        },
+        {
+          id: "investigator",
+          name: "Villum Investigator - Application",
+          abstract: null,
+          sections: [
+            {
+              title: "A: Summary of application (B - H)",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 2500
+              }
+            },
+            {
+              title: "B: Scientific achievements/discoveries",
+              numbered: false,
+              counts: true,
+              limit: {
+                pages: 2
+              }
+            },
+            {
+              title: "C: Project description",
+              numbered: false,
+              counts: true,
+              sub: [
+                "Six-year research plan and how it builds on current research",
+                "State of the art and your position in it",
+                "New insights, results, tools and methods",
+                "Impact on and redefinition of the field",
+                "Competitive edge",
+                "Wider significance"
+              ],
+              limit: {
+                pages: 8
+              }
+            },
+            {
+              title: "D: Leadership and Research environment",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 2500
+              }
+            },
+            {
+              title: "E: Collaborations and recruitment",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "F: Research funding",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "G: PhD students",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "H: Other important issues",
+              numbered: false,
+              counts: true,
+              limit: {
+                chars: 1500
+              }
+            },
+            {
+              title: "I: Reference list",
+              numbered: false,
+              counts: true,
+              refs: true,
+              limit: {
+                pages: 1
+              }
+            }
+          ],
+          limits: {
+            mainScope: "Project description max 8 pages incl. figures and tables; references go in item I (max 1 page)",
+            captionsCount: true
+          },
+          notes: "2026 call (deadline 20 August 2026). Character limits include spaces; no hyperlinks to extra material. Separate PDFs: CV on the Velux/Villum template (max 2 pages + track record max 1 page) plus full publication list of the last 10 years, budget, letter of support."
+        }
+      ]
+    }
+  ];
+
+  // src/core/journalstyles.js
+  var NONE = ["none", "none", "none", "none"];
+  var DECIMAL = ["1", "1", "1", "1"];
+  var ROMAN = ["I", "A", "1", "a"];
+  var FAMILIES = {
+    aps: { label: "American Physical Society", nums: ROMAN, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "aps" },
+    aip: { label: "AIP Publishing", nums: ROMAN, figLabel: "Fig.", spacing: 2, lineNumbers: false, cite: "aip" },
+    nature: { label: "Nature Portfolio", nums: NONE, figLabel: "Fig.", spacing: 2, lineNumbers: false, cite: "nature" },
+    science: { label: "Science (AAAS)", nums: NONE, figLabel: "Fig.", spacing: 2, lineNumbers: true, cite: "science" },
+    acs: { label: "American Chemical Society", nums: NONE, figLabel: "Figure", spacing: 2, lineNumbers: false, cite: "acs" },
+    iop: { label: "IOP Publishing", nums: DECIMAL, figLabel: "Figure", spacing: 1, lineNumbers: false, cite: "iop" },
+    wiley: { label: "Wiley", nums: DECIMAL, figLabel: "Figure", spacing: 2, lineNumbers: false, cite: "advmat" },
+    elsevier: { label: "Elsevier", nums: DECIMAL, figLabel: "Fig.", spacing: 2, lineNumbers: true, cite: "elsevier" },
+    rsc: { label: "Royal Society of Chemistry", nums: DECIMAL, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "rsc" },
+    pnas: { label: "PNAS", nums: NONE, figLabel: "Fig.", spacing: 1, lineNumbers: true, cite: "pnas" },
+    ieee: { label: "IEEE", nums: ROMAN, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "ieee" },
+    plain: { label: "General", nums: DECIMAL, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "aps" }
+  };
+  var LIST2 = [
+    ["plain-article", "Plain article (preprint, arXiv)", "plain"],
+    ["physical-review-letters", "Physical Review Letters", "aps"],
+    ["physical-review-b", "Physical Review B", "aps"],
+    ["physical-review-x", "Physical Review X", "aps"],
+    ["physical-review-applied", "Physical Review Applied", "aps"],
+    ["physical-review-materials", "Physical Review Materials", "aps"],
+    ["physical-review-research", "Physical Review Research", "aps"],
+    ["nature", "Nature", "nature"],
+    ["nature-nanotechnology", "Nature Nanotechnology", "nature"],
+    ["nature-materials", "Nature Materials", "nature"],
+    ["nature-physics", "Nature Physics", "nature"],
+    ["nature-electronics", "Nature Electronics", "nature"],
+    ["nature-communications", "Nature Communications", "nature"],
+    ["npj-2d-materials-and-applications", "npj 2D Materials and Applications", "nature"],
+    ["communications-physics", "Communications Physics", "nature"],
+    ["science", "Science", "science"],
+    ["science-advances", "Science Advances", "science"],
+    ["nano-letters", "Nano Letters", "acs"],
+    ["acs-nano", "ACS Nano", "acs"],
+    ["acs-applied-materials-and-interfaces", "ACS Applied Materials & Interfaces", "acs"],
+    ["acs-photonics", "ACS Photonics", "acs"],
+    ["chemistry-of-materials", "Chemistry of Materials", "acs"],
+    ["the-journal-of-physical-chemistry-c", "The Journal of Physical Chemistry C", "acs"],
+    ["applied-physics-letters", "Applied Physics Letters", "aip"],
+    ["journal-of-applied-physics", "Journal of Applied Physics", "aip"],
+    ["apl-materials", "APL Materials", "aip"],
+    ["review-of-scientific-instruments", "Review of Scientific Instruments", "aip"],
+    ["2d-materials", "2D Materials", "iop"],
+    ["nanotechnology", "Nanotechnology", "iop"],
+    ["journal-of-physics-condensed-matter", "Journal of Physics: Condensed Matter", "iop"],
+    ["new-journal-of-physics", "New Journal of Physics", "iop"],
+    ["advanced-materials", "Advanced Materials", "wiley", "advmat"],
+    ["advanced-functional-materials", "Advanced Functional Materials", "wiley", "afm"],
+    ["small", "Small", "wiley", "small"],
+    ["carbon", "Carbon", "elsevier"],
+    ["applied-surface-science", "Applied Surface Science", "elsevier"],
+    ["microelectronic-engineering", "Microelectronic Engineering", "elsevier"],
+    ["nanoscale", "Nanoscale", "rsc"],
+    ["pnas", "PNAS", "pnas"],
+    ["ieee-electron-device-letters", "IEEE Electron Device Letters", "ieee"]
+  ];
+  var JOURNALS = LIST2.map(([id2, name, family, cite]) => ({ id: id2, name, family, publisher: FAMILIES[family].label, ...FAMILIES[family], cite: cite || FAMILIES[family].cite }));
+  var journalById = (id2) => JOURNALS.find((j2) => j2.id === id2) || null;
+  var fold = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, " ").trim();
+  function searchJournals(query) {
+    const words2 = fold(query).split(" ").filter(Boolean);
+    return JOURNALS.filter((j2) => {
+      const hay = " " + fold(j2.name + " " + j2.publisher);
+      return words2.every((w2) => hay.includes(" " + w2));
+    });
+  }
+  function describeJournal(j2) {
+    const nums = j2.nums[0] === "none" ? "unnumbered sections" : j2.nums[0] === "I" ? "sections I, A, 1" : "sections 1, 1.1";
+    return [nums, "\u201C" + j2.figLabel + " 1\u201D", j2.spacing === 2 ? "double-spaced" : j2.spacing === 1.5 ? "1.5 line spacing" : "single-spaced", ...j2.lineNumbers ? ["line numbers"] : []].join(" \xB7 ");
+  }
+  function applyJournal(style, id2) {
+    const j2 = journalById(id2);
+    if (!j2) return style;
+    const out = JSON.parse(JSON.stringify(style));
+    ["h1", "h2", "h3", "h4"].forEach((k, i2) => {
+      out[k].num = j2.nums[i2];
+    });
+    out.figLabel = j2.figLabel;
+    out.spacing = j2.spacing;
+    out.lineNumbers = j2.lineNumbers;
+    out.cite = j2.cite;
+    out.journal = j2.id;
+    return out;
+  }
+
+  // src/core/venues.js
+  var VENUES = venues_default.map((v) => ({ ...v, kind: v.kind || (journalById(v.id) ? "journal" : "funder") }));
+  var JOURNAL_VENUES = VENUES.filter((v) => v.kind === "journal");
+  var FUNDER_VENUES = VENUES.filter((v) => v.kind === "funder");
+  var venueById = (id2) => VENUES.find((v) => v.id === id2) || null;
+  function venueOf(key2) {
+    if (typeof key2 !== "string") return null;
+    const [vid, tid] = key2.split("/");
+    const venue = venueById(vid);
+    if (!venue) return null;
+    const type = venue.types.find((t40) => t40.id === tid) || venue.types[0];
+    return type ? { venue, type } : null;
+  }
+  var txt = (s) => s ? [{ type: "text", text: s }] : void 0;
+  var para = () => ({ type: "paragraph" });
+  var heading = (level, title2, numbered) => ({ type: "heading", attrs: { level, numbered }, content: txt(title2) });
+  var sameTitle = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+  function venueStyle(venue, type) {
+    let st2 = JSON.parse(JSON.stringify(DEFAULT_STYLE));
+    if (journalById(venue.id)) st2 = applyJournal(st2, venue.id);
+    else {
+      const f = venue.format || {};
+      if (/arial|helvetica|calibri|sans/i.test(String(f.font || ""))) st2.font = "arial";
+      const min = Number(f.fontSizeMin) || 0;
+      st2.size = min >= 12 ? 12 : min > 11 ? 12 : 11;
+      st2.figLabel = "Figure";
+      for (const k of ["h1", "h2", "h3", "h4"]) st2[k].num = "1";
+    }
+    if (venue.format && venue.format.spacing && [1, 1.5, 2].includes(Number(venue.format.spacing))) st2.spacing = Number(venue.format.spacing);
+    if (venue.format && venue.format.lineNumbers === true) st2.lineNumbers = true;
+    st2.venue = venue.id + "/" + type.id;
+    return st2;
+  }
+  function venueDoc(venueId, typeId) {
+    const v = venueOf(venueId + "/" + (typeId || ""));
+    if (!v) return null;
+    const { venue, type } = v;
+    const content = [{ type: "title" }, { type: "authors", attrs: { list: [], affils: [] } }];
+    const abs = type.abstract;
+    if (abs && sameTitle(abs.label || "Abstract", "Abstract")) content.push({ type: "abstract", content: [para()] });
+    else if (abs) content.push(heading(1, abs.label, false), para());
+    for (const s of type.sections || []) {
+      if (s.refs) {
+        content.push({ type: "bibliography", attrs: { title: s.title || "References" } });
+        continue;
+      }
+      if (!s.title) {
+        content.push(para());
+        continue;
+      }
+      const h3 = heading(1, s.title, !s.back && s.numbered !== false);
+      if (s.appendix) h3.attrs.appendix = true;
+      content.push(h3, para());
+      for (const sub of s.sub || []) content.push(heading(2, sub, !s.back && s.numbered !== false), para());
+    }
+    return { type: "doc", attrs: { style: venueStyle(venue, type) }, content };
+  }
+  var wordsIn = (s) => (String(s).match(/\S+/g) || []).length;
+  var chars = (s) => String(s).replace(/\s+/g, " ").trim().length;
+  function plainText(node, { captions = false } = {}) {
+    let out = "";
+    node.descendants((n) => {
+      if (n.type.name === "footnote") return false;
+      if (!captions && n.type.name === "caption") return false;
+      if (n.isText) {
+        if (!n.marks.some((m) => m.type.name === "del")) out += n.text;
+      } else if (n.isBlock) out += " ";
+      return true;
+    });
+    return out;
+  }
+  function sectionsOf(doc4) {
+    const out = [{ title: null, nodes: [], index: 0, pos: 0 }];
+    doc4.forEach((n, pos, i2) => {
+      if (n.type.name === "supplement" || n.type.name === "title" || n.type.name === "authors" || n.type.name === "abstract") return;
+      if (n.type.name === "heading" && n.attrs.level === 1) out.push({ title: n.textContent.trim(), nodes: [], index: i2, pos, heading: n });
+      else out[out.length - 1].nodes.push(n);
+    });
+    return out;
+  }
+  function classify(doc4, type) {
+    const spec = type.sections || [];
+    let afterMain = false;
+    return sectionsOf(doc4).map((sec) => {
+      const s = sec.title === null ? spec.find((x3) => !x3.title && !x3.refs) || { counts: true } : spec.find((x3) => sameTitle(x3.title, sec.title));
+      let counts;
+      if (s) {
+        counts = s.counts !== false && !s.back && !s.refs;
+        if (s.title && !counts) afterMain = true;
+      } else counts = !afterMain;
+      return { ...sec, spec: s || null, counts };
+    });
+  }
+  function abstractText(doc4, type) {
+    const abs = type.abstract;
+    if (!abs) return null;
+    let a = null;
+    doc4.forEach((n) => {
+      if (n.type.name === "abstract") a = n;
+    });
+    if (a) return plainText(a);
+    const sec = sectionsOf(doc4).find((s) => sameTitle(s.title, abs.label));
+    return sec ? sec.nodes.map((n) => plainText(n)).join(" ") : "";
+  }
+  function checkLimits(doc4, info2 = {}) {
+    const st2 = doc4.attrs && doc4.attrs.style;
+    const v = venueOf(st2 && st2.venue);
+    if (!v) return null;
+    const { venue, type } = v;
+    const L2 = type.limits || {};
+    const rows = [];
+    const add = (key2, label4, value, max, unit) => {
+      if (max == null || !(max > 0) || value == null) return;
+      rows.push({ key: key2, label: label4, value, max, unit, state: value > max ? "over" : value > 0.95 * max ? "near" : "ok" });
+    };
+    const title2 = doc4.firstChild && doc4.firstChild.type.name === "title" ? plainText(doc4.firstChild) : "";
+    add("titleChars", "Title", title2.trim().length, L2.titleChars, "characters");
+    add("titleWords", "Title", wordsIn(title2), L2.titleWords, "words");
+    const abs = abstractText(doc4, type);
+    if (abs !== null) {
+      add("abstract", type.abstract.label || "Abstract", wordsIn(abs), type.abstract.words, "words");
+      add("abstractChars", type.abstract.label || "Abstract", chars(abs), type.abstract.chars, "characters");
+    }
+    const secs = classify(doc4, type);
+    let main = 0, mainChars = 0, display = 0;
+    for (const sec of secs) {
+      for (const n of sec.nodes) {
+        const isDisplay = n.type.name === "figure" || n.type.name === "table_figure";
+        if (sec.counts) {
+          main += wordsIn(plainText(n, { captions: !!L2.captionsCount }));
+          mainChars += chars(plainText(n, { captions: true }));
+          if (isDisplay && L2.figureWords) main += L2.figureWords;
+        }
+        if (isDisplay && !(sec.spec && (sec.spec.back || sec.spec.refs))) display++;
+      }
+      if (sec.counts && sec.heading) {
+        main += wordsIn(plainText(sec.heading));
+        mainChars += chars(plainText(sec.heading));
+      }
+      const lim = sec.spec && sec.spec.limit;
+      if (lim) {
+        const text2 = sec.nodes.map((n) => plainText(n, { captions: true })).join(" ");
+        add("sec:" + sec.title + ":words", sec.title, wordsIn(text2), lim.words, "words");
+        add("sec:" + sec.title + ":chars", sec.title, chars(text2), lim.chars, "characters");
+        const sp2 = info2.sectionPages && info2.sectionPages[sec.title];
+        if (sp2 != null) add("sec:" + sec.title + ":pages", sec.title, Math.round(sp2 * 10) / 10, lim.pages, "pages");
+      }
+    }
+    add("main", "Main text", main, L2.mainWords, "words");
+    add("mainChars", "Text", mainChars, L2.mainChars, "characters");
+    add("display", "Figures and tables", display, L2.display, "");
+    const refs = /* @__PURE__ */ new Set();
+    for (const c of citationsOf(doc4, "main")) for (const it2 of c.items) refs.add(it2.id);
+    add("refs", "References", refs.size, L2.refs, "");
+    if (info2.pages != null) add("pages", "Length", info2.pages, L2.pages, "pages");
+    return { venue, type, rows };
+  }
+  function pageLimitedSections(doc4) {
+    const st2 = doc4.attrs && doc4.attrs.style;
+    const v = venueOf(st2 && st2.venue);
+    return v ? (v.type.sections || []).filter((s) => s.title && s.limit && s.limit.pages).map((s) => s.title) : [];
+  }
+  function sectionPageSpans(doc4, positions, blockOf, geom) {
+    const byIndex = new Map(positions.map(([i2, page, y]) => [i2, page + (y - geom.top) / (geom.bottom - geom.top)]));
+    const starts = [];
+    let endAt = null;
+    doc4.forEach((n, _o2, k) => {
+      const at2 = blockOf[k] === void 0 ? void 0 : byIndex.get(blockOf[k]);
+      if (n.type.name === "heading" && n.attrs.level === 1 && at2 !== void 0) starts.push({ title: n.textContent.trim(), at: at2 });
+      if (at2 !== void 0) endAt = at2;
+    });
+    const lastPage = positions.reduce((m, p2) => Math.max(m, p2[1]), 1);
+    const out = {};
+    starts.forEach((s, i2) => {
+      const end = i2 + 1 < starts.length ? starts[i2 + 1].at : Math.max(endAt || s.at, lastPage + 1);
+      out[s.title] = Math.max(0, end - s.at);
+    });
+    return out;
+  }
+
+  // src/renderer/ui/templatedialog.js
+  var VENUE_LISTS = { article: { label: "Journal", list: JOURNAL_VENUES, any: "Any journal" }, proposal: { label: "Funder", list: FUNDER_VENUES, any: "Any funder" } };
   var esc5 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   function box(id2) {
     let dlg = document.getElementById(id2);
@@ -77820,25 +84395,57 @@ Waals I Si Ge GaAs`.split(/\s+/));
       mine = await api.templates("list") || [];
     } catch (_) {
     }
-    const last = app.settings && app.settings.template || DEFAULT_TEMPLATE;
-    let current = TEMPLATES.some((x3) => x3.id === last) || mine.some((m) => "user:" + m.name === last) ? last : DEFAULT_TEMPLATE;
+    const last2 = app.settings && app.settings.template || DEFAULT_TEMPLATE;
+    let current = TEMPLATES.some((x3) => x3.id === last2) || mine.some((m) => "user:" + m.name === last2) ? last2 : DEFAULT_TEMPLATE;
     const card2 = (key2, name, desc, del2) => '<button class="tpl' + (key2 === current ? " on" : "") + '" data-key="' + esc5(key2) + '"><b>' + esc5(name) + "</b><span>" + esc5(desc) + "</span>" + (del2 ? '<i class="tpl-del" data-del="' + esc5(name) + '" title="Delete this template">\xD7</i>' : "") + "</button>";
     return new Promise((resolve2) => {
       const render5 = () => {
-        dlg.innerHTML = '<div class="box" role="dialog" aria-labelledby="tpldlg-title"><h3 id="tpldlg-title">New document</h3><div class="tpl-grid">' + TEMPLATES.map((x3) => card2(x3.id, x3.name, x3.desc)).join("") + "</div>" + (mine.length ? '<h4>Your templates</h4><div class="tpl-grid">' + mine.map((m) => card2("user:" + m.name, m.name, "saved " + new Date(m.modified).toLocaleDateString(), true)).join("") + "</div>" : '<p class="hint">File \u2192 Save as template\u2026 keeps any document as a template of your own.</p>') + '<div class="buttons"><span class="grow"></span><button data-r="cancel">Cancel</button><button data-r="ok" class="primary">Create</button></div></div>';
+        dlg.innerHTML = '<div class="box" role="dialog" aria-labelledby="tpldlg-title"><h3 id="tpldlg-title">New document</h3><div class="tpl-grid">' + TEMPLATES.map((x3) => card2(x3.id, x3.name, x3.desc)).join("") + '</div><div class="tpl-venue" hidden><label><span class="vlab"></span><input class="vname" list="tpl-vlist" spellcheck="false"></label><label><span>Type</span><select class="vtype" disabled></select></label><datalist id="tpl-vlist"></datalist></div>' + (mine.length ? '<h4>Your templates</h4><div class="tpl-grid">' + mine.map((m) => card2("user:" + m.name, m.name, "saved " + new Date(m.modified).toLocaleDateString(), true)).join("") + "</div>" : '<p class="hint">File \u2192 Save as template\u2026 keeps any document as a template of your own.</p>') + '<div class="buttons"><span class="grow"></span><button data-r="cancel">Cancel</button><button data-r="ok" class="primary">Create</button></div></div>';
         const on4 = dlg.querySelector(".tpl.on");
         if (on4) on4.focus();
+        showVenue();
+      };
+      const remembered = app.settings && app.settings.templateVenue || {};
+      const showVenue = () => {
+        const row = dlg.querySelector(".tpl-venue"), spec = VENUE_LISTS[current];
+        if (!row) return;
+        row.hidden = !spec;
+        if (!spec) return;
+        row.dataset.kind = current;
+        row.querySelector(".vlab").textContent = spec.label;
+        const input = row.querySelector(".vname");
+        input.placeholder = spec.any + " \u2014 or type to pick one";
+        dlg.querySelector("#tpl-vlist").innerHTML = spec.list.map((v) => '<option value="' + esc5(v.name) + '"></option>').join("");
+        const r2 = venueOf(remembered[current]);
+        input.value = r2 && spec.list.includes(r2.venue) ? r2.venue.name : "";
+        fillTypes(r2 ? r2.type.id : null);
+      };
+      const pickedVenue = () => {
+        const row = dlg.querySelector(".tpl-venue"), spec = VENUE_LISTS[current];
+        if (!row || row.hidden || !spec) return null;
+        const name = row.querySelector(".vname").value.trim().toLowerCase();
+        return spec.list.find((v) => v.name.toLowerCase() === name) || null;
+      };
+      const fillTypes = (want) => {
+        const sel = dlg.querySelector(".vtype"), v = pickedVenue();
+        sel.innerHTML = v ? v.types.map((t40) => '<option value="' + esc5(t40.id) + '"' + (t40.id === want ? " selected" : "") + ">" + esc5(t40.name) + "</option>").join("") : "";
+        sel.disabled = !v || v.types.length < 2;
+      };
+      dlg.oninput = (e) => {
+        if (e.target.classList && e.target.classList.contains("vname")) fillTypes(null);
       };
       const done = (key2) => {
         dlg.hidden = true;
-        dlg.onclick = dlg.ondblclick = dlg.onkeydown = null;
+        dlg.onclick = dlg.ondblclick = dlg.onkeydown = dlg.oninput = null;
         if (!key2) {
           if (app.view) app.view.focus();
           return resolve2(null);
         }
-        app.settings = { ...app.settings, template: key2 };
-        api.settings("set", { template: key2 });
-        resolve2(key2.startsWith("user:") ? { user: key2.slice(5) } : { builtin: key2 });
+        const v = VENUE_LISTS[key2] ? pickedVenue() : null, vtype = v ? dlg.querySelector(".vtype").value || v.types[0].id : null;
+        const tv = VENUE_LISTS[key2] ? { ...remembered, [key2]: v ? v.id + "/" + vtype : "" } : remembered;
+        app.settings = { ...app.settings, template: key2, templateVenue: tv };
+        api.settings("set", { template: key2, templateVenue: tv });
+        resolve2(key2.startsWith("user:") ? { user: key2.slice(5) } : v ? { builtin: key2, venue: v.id, vtype } : { builtin: key2 });
       };
       dlg.onclick = async (e) => {
         if (e.target === dlg) return done(null);
@@ -77860,6 +84467,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         if (t40) {
           current = t40.dataset.key;
           dlg.querySelectorAll(".tpl").forEach((b) => b.classList.toggle("on", b === t40));
+          showVenue();
           return;
         }
         const r2 = e.target.closest("[data-r]");
@@ -77956,7 +84564,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/doc/files.js
+  // src/renderer/doc/files.js
   function loadDocument(json, path, { readOnly = false, owner = null } = {}) {
     const state2 = createState(json);
     app.readOnly = readOnly;
@@ -78008,7 +84616,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
     } else {
       clearMedia();
-      loadDocument(choice.builtin ? templateDoc(choice.builtin) : NEW_DOC, null);
+      const fromVenue = choice.venue ? venueDoc(choice.venue, choice.vtype) : null;
+      loadDocument(fromVenue || (choice.builtin ? templateDoc(choice.builtin) : NEW_DOC), null);
     }
     app.view.focus();
     return true;
@@ -78069,7 +84678,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return true;
   }
 
-  // ../DTU Science Writer/src/core/parts.js
+  // src/core/parts.js
   var hasSupplement = (doc4) => !!supplementOf(doc4);
   var PARTS = [["main", "Manuscript"], ["si", "Supplementary Information"]];
   function partAt(doc4, pos) {
@@ -78081,15 +84690,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (!sup) return { main: doc4, si: null };
     const nums = computeNumbers(doc4);
     const siIds = /* @__PURE__ */ new Set(), mainIds = /* @__PURE__ */ new Set();
-    for (const [id2, info] of nums.byId) (info.si ? siIds : mainIds).add(id2);
+    for (const [id2, info2] of nums.byId) (info2.si ? siIds : mainIds).add(id2);
     const freeze = (node, foreign) => {
       if (node.isText || node.isLeaf) return node;
       const out = [];
       let ctx = "";
       node.forEach((c) => {
-        const info = c.type.name === "xref" && foreign.has(c.attrs.target) ? nums.byId.get(c.attrs.target) : null;
-        if (info) {
-          const t40 = refText(info, ctx);
+        const info2 = c.type.name === "xref" && foreign.has(c.attrs.target) ? nums.byId.get(c.attrs.target) : null;
+        if (info2) {
+          const t40 = refText(info2, ctx);
           if (t40) out.push(schema.text(t40, c.marks));
         } else out.push(freeze(c, foreign));
         if (node.inlineContent) ctx = nextContext(ctx, c);
@@ -78121,7 +84730,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return part === "si" && si2 ? si2 : main;
   }
 
-  // ../DTU Science Writer/src/core/typst.js
+  // src/core/typst.js
   var PAGE = { paper: "a4", margin: "2.5cm" };
   var ESC = /[\\*_`$#\[\]<>@~=\-+\/.()]/g;
   function escText(s) {
@@ -78202,6 +84811,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
       for (const m of [...MARK_ORDER].reverse()) {
         if (child.marks.some((mk) => mk.type.name === m)) piece = "#" + MARK_FN[m] + "[" + piece + "]";
       }
+      const col = child.marks.find((mk) => mk.type.name === "color"), hl2 = child.marks.find((mk) => mk.type.name === "highlight");
+      if (col && /^[0-9A-F]{6}$/i.test(col.attrs.color)) piece = '#text(fill: rgb("#' + col.attrs.color + '"))[' + piece + "]";
+      if (hl2) piece = '#highlight(fill: rgb("#' + highlightHex(hl2.attrs.color) + '"))[' + piece + "]";
       out += piece;
       prevText = nextContext(prevText, child);
     });
@@ -78253,9 +84865,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
       ctx.problems.push({ kind: "xref", target, message: "reference to a missing item" });
       return "#text(fill: red)[??]";
     }
-    const info = ctx.nums.byId.get(target);
-    if (info && info.type === "heading" && !info.num) return "#link(<" + safeLabel2(target) + ">)[" + escText(info.ref) + "]";
-    if (numberOnly(info, prevText)) return "#link(<" + safeLabel2(target) + ">)[" + escText(refText(info, prevText)) + "]";
+    const info2 = ctx.nums.byId.get(target);
+    if (info2 && info2.type === "heading" && !info2.num) return "#link(<" + safeLabel2(target) + ">)[" + escText(info2.ref) + "]";
+    if (numberOnly(info2, prevText)) return "#link(<" + safeLabel2(target) + ">)[" + escText(refText(info2, prevText)) + "]";
     return "#ref(<" + safeLabel2(target) + ">)";
   }
   var safeLabel2 = (id2) => String(id2).replace(/[^A-Za-z0-9._-]/g, "_");
@@ -78405,9 +85017,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
         case "heading": {
           const lvl = Math.min(Math.max(n.attrs.level, 1), 4);
           const text2 = inlineToTypst(n, ctx);
-          const info = ctx.nums.byPos.get(ctx.pos);
-          const num = info && info.num;
-          out.push("#heading(level: " + lvl + ", numbering: " + (num ? "(..n) => " + str(num) : "none") + (info && info.appendix ? ", supplement: [Appendix]" : "") + ")[" + text2 + "]" + label2(n.attrs.id));
+          const info2 = ctx.nums.byPos.get(ctx.pos);
+          const num2 = info2 && info2.num;
+          out.push("#heading(level: " + lvl + ", numbering: " + (num2 ? "(..n) => " + str(num2) : "none") + (info2 && info2.appendix ? ", supplement: [Appendix]" : "") + ")[" + text2 + "]" + label2(n.attrs.id));
           break;
         }
         case "equation":
@@ -78488,7 +85100,102 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return { source, problems: ctx.problems, blockOf };
   }
 
-  // ../DTU Science Writer/src/renderer/doc/preview.js
+  // src/renderer/ui/limits.js
+  var esc6 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var short2 = (s) => {
+    const t40 = String(s).replace(/\s*\(.*$/, "").split(/[:–—]/)[0].trim();
+    return t40.length > 28 ? t40.slice(0, 26) + "\u2026" : t40;
+  };
+  var num = (n) => Number(n).toLocaleString("en-GB");
+  var info = { pages: null, sectionPages: null };
+  var timer = null;
+  var last = null;
+  function setPageInfo(pages, sectionPages) {
+    info.pages = pages;
+    if (sectionPages !== void 0) info.sectionPages = sectionPages;
+    refreshLimits();
+  }
+  function refreshLimits() {
+    const el4 = $("#st-limits");
+    if (!el4 || !app.view) return;
+    last = checkLimits(app.view.state.doc, info);
+    if (!last) {
+      el4.hidden = true;
+      el4.innerHTML = "";
+      closePanel();
+      return;
+    }
+    el4.hidden = false;
+    const worst = last.rows.some((r2) => r2.state === "over") ? "over" : last.rows.some((r2) => r2.state === "near") ? "near" : "ok";
+    el4.className = "lim-" + worst;
+    el4.title = "Limits of " + last.venue.name + " \xB7 " + last.type.name + " \u2014 click for details";
+    el4.innerHTML = "<b>" + esc6(last.venue.short || last.venue.name) + "</b>" + last.rows.map((r2) => ' \xB7 <span class="lim-' + r2.state + '">' + esc6(short2(r2.label)) + " " + num(r2.value) + "/" + num(r2.max) + "</span>").join("");
+    const p2 = $("#limpanel");
+    if (p2 && !p2.hidden) renderPanel(p2);
+  }
+  function closePanel() {
+    const p2 = $("#limpanel");
+    if (p2) p2.hidden = true;
+  }
+  function renderPanel(p2) {
+    const { venue, type, rows } = last;
+    const types = venue.types.length > 1 ? '<select class="lim-type">' + venue.types.map((t40) => '<option value="' + esc6(t40.id) + '"' + (t40.id === type.id ? " selected" : "") + ">" + esc6(t40.name) + "</option>").join("") + "</select>" : esc6(type.name);
+    p2.innerHTML = '<div class="lim-head"><b>' + esc6(venue.name) + "</b> \xB7 " + types + '<span class="grow"></span><button class="lim-x" title="Close">\xD7</button></div>' + (rows.length ? "<table>" + rows.map((r2) => '<tr class="lim-' + r2.state + '"><td>' + esc6(r2.label) + '</td><td class="n">' + num(r2.value) + "</td><td>of " + num(r2.max) + (r2.unit ? " " + esc6(r2.unit) : "") + "</td></tr>").join("") + "</table>" : '<p class="muted">The guide states no limits this program can count for this type.</p>') + (type.limits && type.limits.mainScope ? '<p class="small">Main text: ' + esc6(type.limits.mainScope) + "</p>" : "") + (type.notes ? '<p class="small">' + esc6(type.notes) + "</p>" : "") + (rows.some((r2) => r2.unit === "pages") ? "" : type.limits && type.limits.pages || (type.sections || []).some((s) => s.limit && s.limit.pages) ? '<p class="small muted">Page counts appear once the page preview has run.</p>' : "") + '<p class="small muted">From the ' + (venue.kind === "funder" ? "call text" : "author guide") + ", checked " + esc6(venue.checked || "?") + (venue.sources && venue.sources[0] ? ': <span class="lim-src">' + esc6(venue.sources[0]) + "</span>" : "") + '. Guides change \u2014 check the current one before you submit.</p><div class="lim-foot"><button class="lim-stop">Stop checking</button></div>';
+  }
+  function setVenue(key2) {
+    const st2 = JSON.parse(JSON.stringify(styleOf(app.view.state.doc)));
+    st2.venue = key2;
+    app.view.dispatch(app.view.state.tr.setDocAttribute("style", resolveStyle(st2)));
+  }
+  function togglePanel() {
+    let p2 = $("#limpanel");
+    if (!p2) {
+      p2 = document.createElement("div");
+      p2.id = "limpanel";
+      p2.hidden = true;
+      document.body.appendChild(p2);
+      p2.addEventListener("click", (e) => {
+        if (e.target.closest(".lim-x")) closePanel();
+        else if (e.target.closest(".lim-stop")) {
+          closePanel();
+          setVenue("");
+          app.view.focus();
+        }
+      });
+      p2.addEventListener("change", (e) => {
+        if (e.target.classList.contains("lim-type") && last) setVenue(last.venue.id + "/" + e.target.value);
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !p2.hidden) closePanel();
+      });
+    }
+    if (!p2.hidden) return closePanel();
+    if (!last) return;
+    renderPanel(p2);
+    p2.hidden = false;
+  }
+  onLoad(() => {
+    info.pages = null;
+    info.sectionPages = null;
+    refreshLimits();
+  });
+  onChange((tr2) => {
+    if (!tr2.docChanged) return;
+    clearTimeout(timer);
+    timer = setTimeout(refreshLimits, 250);
+  });
+  function wire() {
+    const el4 = $("#st-limits");
+    if (el4 && !el4.dataset.wired) {
+      el4.dataset.wired = "1";
+      el4.addEventListener("click", togglePanel);
+    }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
+  else wire();
+  var lastLimits = () => last;
+
+  // src/renderer/doc/preview.js
   var preview = { timer: null, running: false, again: false, sent: /* @__PURE__ */ new Set(), urls: [], visible: true, lastProblems: [] };
   function mediaPayload() {
     const out = [];
@@ -78532,6 +85239,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const pages = res.pages.length + (res.pages.length === 1 ? " page" : " pages");
         $("#pv-status").textContent = pages + " \xB7 " + Math.round(performance.now() - t02) + " ms";
         $("#st-pages").textContent = pages;
+        setPageInfo(res.pages.length);
       }
       if (problems.length) showProblems(problems);
     } catch (e) {
@@ -78546,12 +85254,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
   }
   async function updatePageBreaks(pages) {
-    if (!pageBreaksOn()) return;
+    const limited = (app.part || "main") === "main" && pageLimitedSections(app.view.state.doc).length > 0;
+    if (!pageBreaksOn() && !limited) return;
     try {
       const doc4 = app.view.state.doc, part = app.part || "main";
       const { source, blockOf } = docToTypst(partDoc(doc4, part), { positions: true });
       const res = await api.compile({ source, media: [], format: "query" });
-      if (res && res.positions && app.view.state.doc === doc4) setPagePositions(app.view, { part, blockOf, positions: res.positions, pages });
+      if (!(res && res.positions && app.view.state.doc === doc4)) return;
+      if (pageBreaksOn()) setPagePositions(app.view, { part, blockOf, positions: res.positions, pages });
+      if (limited) setPageInfo(pages, sectionPageSpans(partDoc(doc4, part), res.positions, blockOf, PAGE_GEOMETRY));
     } catch (e) {
       console.error(e);
     }
@@ -78604,7 +85315,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     schedulePreview(true);
   });
 
-  // ../DTU Science Writer/src/renderer/ui/zoom.js
+  // src/renderer/ui/zoom.js
   var ZOOM_MIN = 50;
   var ZOOM_MAX = 300;
   var STEPS = [50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300];
@@ -78687,7 +85398,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     zoom100: () => setZoom(100)
   });
 
-  // ../DTU Science Writer/src/renderer/ui/splitter.js
+  // src/renderer/ui/splitter.js
   var MIN_PREVIEW = 260;
   var MIN_EDITOR = 420;
   function wireSplitter() {
@@ -78739,7 +85450,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/ui/parttabs.js
+  // src/renderer/ui/parttabs.js
   var state = { scroll: { main: 0, si: 0 }, sel: { main: null, si: null } };
   var bar = null;
   var currentPart = () => app.part || "main";
@@ -78853,8 +85564,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
     paint();
   }
 
-  // ../DTU Science Writer/src/renderer/ui/settings.js
-  var esc6 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  // src/renderer/ui/settings.js
+  var esc7 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   var initialsOf = (name) => String(name || "").trim().split(/\s+/).filter(Boolean).map((w2) => w2[0].toUpperCase()).join("").slice(0, 3);
   async function loadSettings() {
     app.settings = await api.settings("get") || {};
@@ -78893,7 +85604,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         document.body.appendChild(dlg);
       }
       const s = app.settings;
-      dlg.innerHTML = '<div class="box"><h3>Settings</h3>' + (reason ? '<p class="hint">' + esc6(reason) + "</p>" : "") + '<label>Your name<input data-k="name" value="' + esc6(s.name || s.suggestedName || "") + '" placeholder="e.g. Peter B\xF8ggild"></label><label>Initials<input data-k="initials" value="' + esc6(s.initials || initialsOf(s.name || s.suggestedName)) + '" maxlength="4" style="width:6em"></label><label class="check"><input type="checkbox" data-k="eqHidePreview"' + (s.eqHidePreview !== false ? " checked" : "") + '> Hide the page preview while editing an equation <small>(room for the equation tools)</small></label><label class="check"><input type="checkbox" data-k="alwaysDocx"' + (s.alwaysDocx ? " checked" : "") + '> Always save a Word copy <small>(name.docx next to the document, replaced at every save)</small></label><label class="check"><input type="checkbox" data-k="wordZotero"' + (s.wordZotero !== false ? " checked" : "") + '> Citations in Word as Zotero fields <small>(Word co-authors with Zotero can refresh and add citations)</small></label><div class="zot"><span class="lab">Zotero</span> <span class="zst">\u2026</span><div class="zrow"><input type="password" data-k="zkey" autocomplete="off" spellcheck="false" placeholder="API key from zotero.org/settings/keys (allow write access)"><button data-act="zconnect">Connect</button><button data-act="zremove" class="quiet">Remove</button></div></div><div class="buttons"><button data-act="cancel">Cancel</button><button data-act="save" class="primary">Save</button></div></div>';
+      dlg.innerHTML = '<div class="box"><h3>Settings</h3>' + (reason ? '<p class="hint">' + esc7(reason) + "</p>" : "") + '<label>Your name<input data-k="name" value="' + esc7(s.name || s.suggestedName || "") + '" placeholder="e.g. Peter B\xF8ggild"></label><label>Initials<input data-k="initials" value="' + esc7(s.initials || initialsOf(s.name || s.suggestedName)) + '" maxlength="4" style="width:6em"></label><label class="check"><input type="checkbox" data-k="eqHidePreview"' + (s.eqHidePreview !== false ? " checked" : "") + '> Hide the page preview while editing an equation <small>(room for the equation tools)</small></label><label class="check"><input type="checkbox" data-k="alwaysDocx"' + (s.alwaysDocx ? " checked" : "") + '> Always save a Word copy <small>(name.docx next to the document, replaced at every save)</small></label><label class="check"><input type="checkbox" data-k="wordZotero"' + (s.wordZotero !== false ? " checked" : "") + '> Citations in Word as Zotero fields <small>(Word co-authors with Zotero can refresh and add citations)</small></label><div class="zot"><span class="lab">Zotero</span> <span class="zst">\u2026</span><div class="zrow"><input type="password" data-k="zkey" autocomplete="off" spellcheck="false" placeholder="API key from zotero.org/settings/keys (allow write access)"><button data-act="zconnect">Connect</button><button data-act="zremove" class="quiet">Remove</button></div></div><div class="buttons"><button data-act="cancel">Cancel</button><button data-act="save" class="primary">Save</button></div></div>';
       const name = dlg.querySelector('[data-k="name"]'), ini = dlg.querySelector('[data-k="initials"]');
       let iniTouched = !!s.initials;
       ini.oninput = () => {
@@ -78944,7 +85655,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/ui/review.js
+  // src/renderer/ui/review.js
   var MODES2 = ["all", "final", "original"];
   var mode = "all";
   var sent = "";
@@ -79022,14 +85733,14 @@ Waals I Si Ge GaAs`.split(/\s+/));
     paint2();
   });
 
-  // ../DTU Science Writer/src/core/docx.js
+  // src/core/docx.js
   var import_jszip2 = __toESM(require_jszip_min());
   var asDeleted = (xml) => xml.replace(/<w:t( |>)/g, "<w:delText$1").replace(/<\/w:t>/g, "</w:delText>").replace(/<w:instrText/g, "<w:delInstrText").replace(/<\/w:instrText>/g, "</w:delInstrText>");
   var PMARK = (n) => "<!--pmark" + n + "-->";
   var APPENDIX_NUM = 60;
-  function seqNum(kind, num, marks2) {
-    const m = /^(\D*)(\d+)$/.exec(String(num));
-    return m ? (m[1] ? run2(m[1], marks2) : "") + field("SEQ " + kind + " \\* ARABIC", m[2], marks2) : field("SEQ " + kind + " \\* ARABIC", String(num), marks2);
+  function seqNum(kind, num2, marks2) {
+    const m = /^(\D*)(\d+)$/.exec(String(num2));
+    return m ? (m[1] ? run2(m[1], marks2) : "") + field("SEQ " + kind + " \\* ARABIC", m[2], marks2) : field("SEQ " + kind + " \\* ARABIC", String(num2), marks2);
   }
   var PAGE2 = { w: 11906, h: 16838, margin: 1417 };
   var TEXT_W = PAGE2.w - 2 * PAGE2.margin;
@@ -79041,14 +85752,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
   var NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
   function rPr(marks2, extra) {
     const p2 = [];
-    for (const m of marks2 || []) {
-      const n = m.type ? m.type.name : m;
-      if (n === "bold") p2.push("<w:b/>");
-      else if (n === "italic") p2.push("<w:i/>");
-      else if (n === "underline") p2.push('<w:u w:val="single"/>');
-      else if (n === "sup") p2.push('<w:vertAlign w:val="superscript"/>');
-      else if (n === "sub") p2.push('<w:vertAlign w:val="subscript"/>');
-    }
+    const has = {};
+    for (const m of marks2 || []) has[m.type ? m.type.name : m] = m.attrs || {};
+    if (has.bold) p2.push("<w:b/>");
+    if (has.italic) p2.push("<w:i/>");
+    if (has.color && /^[0-9A-F]{6}$/i.test(has.color.color || "")) p2.push('<w:color w:val="' + has.color.color.toUpperCase() + '"/>');
+    if (has.highlight) p2.push('<w:highlight w:val="' + (HIGHLIGHT[has.highlight.color] ? has.highlight.color : "yellow") + '"/>');
+    if (has.underline) p2.push('<w:u w:val="single"/>');
+    if (has.sup) p2.push('<w:vertAlign w:val="superscript"/>');
+    else if (has.sub) p2.push('<w:vertAlign w:val="subscript"/>');
     if (extra) p2.push(extra);
     return p2.length ? "<w:rPr>" + p2.join("") + "</w:rPr>" : "";
   }
@@ -79115,8 +85827,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const lines = String(e.text || "").split(/\r?\n/);
       comments += '<w:comment w:id="' + e.num + '" w:author="' + x2(e.author || "Unknown") + '" w:date="' + wordDate(e.time) + '" w:initials="' + x2(e.initials || "") + '">';
       lines.forEach((line, i2) => {
-        const last = i2 === lines.length - 1;
-        comments += "<w:p" + (last ? ' w14:paraId="' + paraId(e.num) + '" w14:textId="77777777"' : "") + '><w:pPr><w:pStyle w:val="CommentText"/></w:pPr>' + (i2 === 0 ? '<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:annotationRef/></w:r>' : "") + run2(line) + "</w:p>";
+        const last2 = i2 === lines.length - 1;
+        comments += "<w:p" + (last2 ? ' w14:paraId="' + paraId(e.num) + '" w14:textId="77777777"' : "") + '><w:pPr><w:pStyle w:val="CommentText"/></w:pPr>' + (i2 === 0 ? '<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:annotationRef/></w:r>' : "") + run2(line) + "</w:p>";
       });
       comments += "</w:comment>";
       ext += '<w15:commentEx w15:paraId="' + paraId(e.num) + '"' + (e.parent !== null ? ' w15:paraIdParent="' + paraId(e.parent) + '"' : "") + ' w15:done="' + (e.done ? 1 : 0) + '"/>';
@@ -79178,8 +85890,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return this.bm.get(id2);
     }
     /** The number a deleted item has when the deletion is rejected (it has none in the final numbering). */
-    numOf(info, id2) {
-      if (!info.deleted) return info.num;
+    numOf(info2, id2) {
+      if (!info2.deleted) return info2.num;
       if (!this.origNums) this.origNums = computeNumbers(originalDoc(this.doc));
       const o = id2 && this.origNums.byId.get(id2);
       return o && o.num || "?";
@@ -79195,9 +85907,21 @@ Waals I Si Ge GaAs`.split(/\s+/));
         return m ? m.attrs : this.force && this.force.kind === name ? this.force : null;
       };
       const d = get2("del"), i2 = get2("ins");
+      if (/^<m:oMath[ >]/.test(xml)) {
+        if (d) xml = this.mathRev(xml, "del", d);
+        if (i2) xml = this.mathRev(xml, "ins", i2);
+        return xml;
+      }
       if (d) xml = "<w:del" + this.revAttrs(d) + ">" + asDeleted(xml) + "</w:del>";
       if (i2) xml = "<w:ins" + this.revAttrs(i2) + ">" + xml + "</w:ins>";
       return xml;
+    }
+    /** A tracked change on an equation, written as Word writes one: every run's content inside w:ins / w:del, and every
+        structure (fraction, script, root, brackets …) marked in its m:ctrlPr, so Word's Accept / Reject removes the
+        structures too. (A w:ins around the whole m:oMath is turned into this by Word on its first save anyway.) */
+    mathRev(omml, kind, attrs) {
+      const wrap3 = (inner2) => "<w:" + kind + this.revAttrs(attrs) + ">" + inner2 + "</w:" + kind + ">";
+      return omml.replace(/<m:r>([\s\S]*?)<\/m:r>/g, (m, inner2) => "<m:r>" + wrap3(inner2) + "</m:r>").replace(/<m:ctrlPr\/>/g, () => "<m:ctrlPr>" + wrap3("<w:rPr/>") + "</m:ctrlPr>");
     }
     /** Write a unit that is inserted or deleted as a whole: its runs, paragraph marks and rows are. */
     withRev(track, fn2) {
@@ -79301,25 +86025,25 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return out;
     }
     xref(target, marks2, prevText) {
-      const info = this.nums.byId.get(target);
-      if (!info) {
+      const info2 = this.nums.byId.get(target);
+      if (!info2) {
         this.problems.push({ kind: "xref", target });
         return run2("??", marks2, '<w:color w:val="C00000"/>');
       }
       const bm2 = this.bookmarkName(target);
-      if (numberOnly(info, prevText)) {
-        const f = field("REF " + bm2 + (info.type === "heading" ? " \\n" : "") + " \\h \\* Charformat", info.num, marks2);
-        return info.type === "equation" && !/\(\s*$/.test(prevText) ? run2("(", marks2) + f + run2(")", marks2) : f;
+      if (numberOnly(info2, prevText)) {
+        const f = field("REF " + bm2 + (info2.type === "heading" ? " \\n" : "") + " \\h \\* Charformat", info2.num, marks2);
+        return info2.type === "equation" && !/\(\s*$/.test(prevText) ? run2("(", marks2) + f + run2(")", marks2) : f;
       }
       const ref = (sw, result) => field("REF " + bm2 + sw + " \\h \\* Charformat", result, marks2);
-      if (info.type === "figure") return run2(this.style.figLabel + NBSP, marks2) + ref("", info.num);
-      if (info.type === "table_figure") return run2("Table\xA0", marks2) + ref("", info.num);
-      if (info.type === "equation") {
-        if (!info.num) return run2("Eq. (\u2013)", marks2);
-        return run2("Eq.\xA0(", marks2) + ref("", info.num) + run2(")", marks2);
+      if (info2.type === "figure") return run2(this.style.figLabel + NBSP, marks2) + ref("", info2.num);
+      if (info2.type === "table_figure") return run2("Table\xA0", marks2) + ref("", info2.num);
+      if (info2.type === "equation") {
+        if (!info2.num) return run2("Eq. (\u2013)", marks2);
+        return run2("Eq.\xA0(", marks2) + ref("", info2.num) + run2(")", marks2);
       }
-      if (info.num) return run2((info.appendix ? "Appendix" : "Section") + "\xA0", marks2) + ref(" \\n", info.num);
-      return run2("\u201C", marks2) + ref("", info.snippet) + run2("\u201D", marks2);
+      if (info2.num) return run2((info2.appendix ? "Appendix" : "Section") + "\xA0", marks2) + ref(" \\n", info2.num);
+      return run2("\u201C", marks2) + ref("", info2.snippet) + run2("\u201D", marks2);
     }
     /** Formatted reference text (htmlSegments) -> runs; plain text, not a field (no reference-manager plugin needed). */
     segments(segs, marks2) {
@@ -79408,7 +86132,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="' + cx + '" cy="' + cy2 + '"/><wp:docPr id="' + id2 + '" name="Figure ' + id2 + '"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="' + id2 + '" name="image' + id2 + '"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="' + rec.rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy2 + '"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>';
     }
     figure(node) {
-      const info = this.nums.byPos.get(this.pos) || { num: "?" };
+      const info2 = this.nums.byPos.get(this.pos) || { num: "?" };
       const a = node.attrs;
       const frac = Math.min(Math.max(a.width || 0.8, 0.15), 1);
       const img = node.firstChild, cap = node.lastChild;
@@ -79429,15 +86153,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
       const cm2 = this.eqMarks(node);
       const imgP = this.p("Figure", this.cmtStart(cm2) + this.rev(img && img.attrs.src ? this.drawing(img.attrs.src, imgW) : "", []) + this.cmtEnd(cm2), frame2);
-      const label4 = this.bookmark(a.id || "fig" + this.pos, seqNum("Figure", this.numOf(info, a.id), ["bold"]));
+      const label4 = this.bookmark(a.id || "fig" + this.pos, seqNum("Figure", this.numOf(info2, a.id), ["bold"]));
       const capP = this.p("Caption", this.rev(run2(this.style.figLabel + NBSP, ["bold"]) + label4 + run2(".", ["bold"]) + run2(" ", []), []) + this.inline(cap), frame2 + capInd);
       return imgP + capP;
     }
     /* Table with caption above. Booktabs borders, gridSpan / vMerge for merged cells, header rows repeat on new pages. */
     tableFigure(node) {
-      const info = this.nums.byPos.get(this.pos) || { num: "?" };
+      const info2 = this.nums.byPos.get(this.pos) || { num: "?" };
       const cap = node.firstChild, table = node.lastChild;
-      const label4 = this.bookmark(node.attrs.id || "tab" + this.pos, seqNum("Table", this.numOf(info, node.attrs.id), ["bold"]));
+      const label4 = this.bookmark(node.attrs.id || "tab" + this.pos, seqNum("Table", this.numOf(info2, node.attrs.id), ["bold"]));
       const capP = this.p("Caption", this.rev(run2("Table\xA0", ["bold"]) + label4 + run2(".", ["bold"]) + run2(" ", []), []) + this.inline(cap), "<w:keepNext/>");
       const map2 = TableMap.get(table);
       const widths = new Array(map2.width).fill(null);
@@ -79459,11 +86183,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
         if (!allHead) break;
         headerRows++;
       }
-      const last = map2.height - 1;
+      const last2 = map2.height - 1;
       const borders = (r2) => {
         const b = [];
         if (r2 === 0) b.push('<w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/>');
-        if (r2 === last) b.push('<w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>');
+        if (r2 === last2) b.push('<w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>');
         else if (headerRows && r2 === headerRows - 1) b.push('<w:bottom w:val="single" w:sz="6" w:space="0" w:color="000000"/>');
         return b.length ? "<w:tcBorders>" + b.join("") + "</w:tcBorders>" : "";
       };
@@ -79497,7 +86221,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       return capP + tbl + SPACER_AFTER_TABLE;
     }
     equation(node) {
-      const info = this.nums.byPos.get(this.pos) || {};
+      const info2 = this.nums.byPos.get(this.pos) || {};
       const omml = this.math(node.attrs.latex, true);
       const cm2 = this.eqMarks(node);
       const mathPara = this.cmtStart(cm2) + '<m:oMathPara><m:oMathParaPr><m:jc m:val="center"/></m:oMathParaPr>' + omml + "</m:oMathPara>" + this.cmtEnd(cm2);
@@ -79506,15 +86230,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const as2 = (kind, latex) => this.rev(this.math(latex, false), [{ type: { name: kind }, attrs: t40 }]);
         const formula = t40.kind === "mod" ? as2("del", t40.old && t40.old.latex || "") + as2("ins", node.attrs.latex) : this.rev(this.math(node.attrs.latex, false), []);
         const tab = "<w:r><w:tab/></w:r>";
-        const number = node.attrs.numbered ? tab + run2("(") + this.bookmark(node.attrs.id || "eq" + this.pos, seqNum("Equation", this.numOf(info, node.attrs.id) || "?")) + run2(")") : "";
+        const number = node.attrs.numbered ? tab + run2("(") + this.bookmark(node.attrs.id || "eq" + this.pos, seqNum("Equation", this.numOf(info2, node.attrs.id) || "?")) + run2(")") : "";
         const tabs = '<w:tabs><w:tab w:val="center" w:pos="' + Math.round(TEXT_W / 2) + '"/><w:tab w:val="right" w:pos="' + TEXT_W + '"/></w:tabs><w:jc w:val="left"/>';
         return this.p("Equation", this.cmtStart(cm2) + this.rev(tab, []) + formula + (t40.kind === "mod" ? number : this.rev(number, [])) + this.cmtEnd(cm2), tabs);
       }
       if (!node.attrs.numbered) return this.p("Equation", mathPara);
       const side = Math.round(TEXT_W * 0.12), mid = TEXT_W - 2 * side;
       const cell = (w2, body, jc2) => '<w:tc><w:tcPr><w:tcW w:w="' + w2 + '" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:pStyle w:val="Equation"/><w:jc w:val="' + jc2 + '"/></w:pPr>' + body + "</w:p></w:tc>";
-      const num = run2("(") + this.bookmark(node.attrs.id || "eq" + this.pos, seqNum("Equation", info.num || "?")) + run2(")");
-      return '<w:tbl><w:tblPr><w:tblW w:w="' + TEXT_W + '" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar><w:tblLook w:val="0000"/></w:tblPr><w:tblGrid><w:gridCol w:w="' + side + '"/><w:gridCol w:w="' + mid + '"/><w:gridCol w:w="' + side + '"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>' + cell(side, "", "left") + cell(mid, mathPara, "center") + cell(side, num, "right") + "</w:tr></w:tbl>";
+      const num2 = run2("(") + this.bookmark(node.attrs.id || "eq" + this.pos, seqNum("Equation", info2.num || "?")) + run2(")");
+      return '<w:tbl><w:tblPr><w:tblW w:w="' + TEXT_W + '" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar><w:tblLook w:val="0000"/></w:tblPr><w:tblGrid><w:gridCol w:w="' + side + '"/><w:gridCol w:w="' + mid + '"/><w:gridCol w:w="' + side + '"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>' + cell(side, "", "left") + cell(mid, mathPara, "center") + cell(side, num2, "right") + "</w:tr></w:tbl>";
     }
     /* Author line with superscript affiliation markers, affiliation lines, corresponding author. */
     authors(node) {
@@ -79540,8 +86264,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const lvl = Math.min(Math.max(node.attrs.level, 1), 4);
       const body = this.inline(node);
       const inner2 = node.attrs.id ? this.bookmark(node.attrs.id, body) : body;
-      const info = this.nums.byPos.get(this.pos);
-      const numOff = !node.attrs.numbered ? '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>' : info && info.appendix ? '<w:numPr><w:ilvl w:val="' + (lvl - 1) + '"/><w:numId w:val="' + APPENDIX_NUM + '"/></w:numPr>' : "";
+      const info2 = this.nums.byPos.get(this.pos);
+      const numOff = !node.attrs.numbered ? '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>' : info2 && info2.appendix ? '<w:numPr><w:ilvl w:val="' + (lvl - 1) + '"/><w:numId w:val="' + APPENDIX_NUM + '"/></w:numPr>' : "";
       return this.p("Heading" + lvl, inner2, numOff, node);
     }
     list(node, level) {
@@ -79763,7 +86487,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return { bytes, problems: w2.problems };
   }
 
-  // ../DTU Science Writer/src/core/latex.js
+  // src/core/latex.js
   var UNI = {
     "\xA0": "~",
     "\u2009": "\\,",
@@ -79869,6 +86593,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
         default:
           piece = texText(c.textContent);
       }
+      const hl2 = c.marks.find((k) => k.type.name === "highlight"), col = c.marks.find((k) => k.type.name === "color");
+      if (hl2 && c.type.name === "text" && piece.trim()) {
+        piece = "\\hlc{" + highlightHex(hl2.attrs.color) + "}{" + piece + "}";
+        ctx.usesHighlight = true;
+      }
+      if (col && /^[0-9A-F]{6}$/i.test(col.attrs.color)) {
+        piece = "\\textcolor[HTML]{" + col.attrs.color.toUpperCase() + "}{" + piece + "}";
+        ctx.usesColor = true;
+      }
       for (const m of [...MARK_ORDER2].reverse()) if (c.marks.some((k) => k.type.name === m)) piece = "\\" + MARK_CMD[m] + "{" + piece + "}";
       out += piece;
       prevText = nextContext(prevText, c);
@@ -79880,17 +86613,17 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return t40 ? "$" + t40 + "$" : "";
   };
   function xref2(target, ctx, prevText) {
-    const info = ctx.nums.byId.get(target);
-    if (!info) {
+    const info2 = ctx.nums.byId.get(target);
+    if (!info2) {
       ctx.problems.push({ kind: "xref", target });
       return "??";
     }
     const id2 = safeId(target);
-    if (info.type === "heading" && !info.num) return "``" + texText(info.snippet) + "''";
-    const only2 = numberOnly(info, prevText);
-    if (info.type === "equation") return only2 ? /\(\s*$/.test(prevText) ? "\\ref{" + id2 + "}" : "\\eqref{" + id2 + "}" : "Eq.~\\eqref{" + id2 + "}";
+    if (info2.type === "heading" && !info2.num) return "``" + texText(info2.snippet) + "''";
+    const only2 = numberOnly(info2, prevText);
+    if (info2.type === "equation") return only2 ? /\(\s*$/.test(prevText) ? "\\ref{" + id2 + "}" : "\\eqref{" + id2 + "}" : "Eq.~\\eqref{" + id2 + "}";
     if (only2) return "\\ref{" + id2 + "}";
-    const word = { figure: info.label || "Fig.", table_figure: "Table", heading: info.appendix ? "Appendix" : "Section" }[info.type];
+    const word = { figure: info2.label || "Fig.", table_figure: "Table", heading: info2.appendix ? "Appendix" : "Section" }[info2.type];
     return word + "~\\ref{" + id2 + "}";
   }
   function citation(node, ctx) {
@@ -79911,7 +86644,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
   }
   var SECTION2 = ["section", "subsection", "subsubsection", "paragraph"];
   var COUNTER_CMD = { 1: "arabic", i: "roman", I: "Roman", a: "alph", A: "Alph" };
-  function heading(n, ctx) {
+  function heading2(n, ctx) {
     const lvl = Math.min(Math.max(n.attrs.level, 1), 4);
     let pre = "";
     if (n.attrs.appendix && lvl === 1 && !ctx.appendixDone) {
@@ -80049,7 +86782,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
           if (n.content.size) out.push(inline(n, ctx));
           break;
         case "heading":
-          out.push(heading(n, ctx));
+          out.push(heading2(n, ctx));
           break;
         case "equation":
           out.push(equation2(n));
@@ -80170,6 +86903,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       "\\usepackage[labelsep=period,labelfont=bf,font=small]{caption}",
       // "Fig. 1." in bold, as in the app
       superCite ? "\\usepackage[super]{cite}" : "\\usepackage{cite}",
+      ...ctx.usesColor || ctx.usesHighlight ? ["\\usepackage{xcolor}"] : [],
+      ...ctx.usesHighlight ? ["\\usepackage{soul}", "\\newcommand{\\hlc}[2]{{\\definecolor{dswhl}{HTML}{#1}\\sethlcolor{dswhl}\\hl{#2}}}"] : [],
       "\\usepackage[hidelinks]{hyperref}",
       "\\renewcommand{\\figurename}{" + style.figLabel + "}",
       ...style.spacing > 1 ? ["\\usepackage{setspace}", style.spacing >= 2 ? "\\doublespacing" : "\\onehalfspacing"] : [],
@@ -80187,7 +86922,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return { tex, bib: toBibtex(libraryOf(doc4)), figures: [...figures].map(([src, name]) => ({ src, name })), problems: ctx.problems };
   }
 
-  // ../DTU Science Writer/src/renderer/doc/export.js
+  // src/renderer/doc/export.js
   var import_jszip3 = __toESM(require_jszip_min());
   var siPath = (p2) => p2.replace(/(\.[^.\\/]+)?$/, (ext) => "-SI" + ext);
   async function exportPdf(pathArg) {
@@ -80339,12 +87074,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return path;
   }
 
-  // ../DTU Science Writer/src/renderer/ui/refpicker.js
+  // src/renderer/ui/refpicker.js
   var TYPE = { heading: "Section", figure: "Figure", equation: "Equation", table_figure: "Table" };
   function openRefPicker() {
     const view = app.view;
     const { nums } = numberingKey.getState(view.state);
-    const items = [...nums.byId.entries()].map(([id2, info]) => ({ id: id2, ...info })).sort((a, b) => a.pos - b.pos);
+    const items = [...nums.byId.entries()].map(([id2, info2]) => ({ id: id2, ...info2 })).sort((a, b) => a.pos - b.pos);
     const dlg = $("#refpick"), list3 = $("#refpick-list"), input = $("#refpick-filter");
     let shown = [], active = 0;
     const render5 = () => {
@@ -80423,98 +87158,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
   }
   var isRefPickerOpen = () => !$("#refpick").hidden;
 
-  // ../DTU Science Writer/src/core/journalstyles.js
-  var NONE = ["none", "none", "none", "none"];
-  var DECIMAL = ["1", "1", "1", "1"];
-  var ROMAN = ["I", "A", "1", "a"];
-  var FAMILIES = {
-    aps: { label: "American Physical Society", nums: ROMAN, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "aps" },
-    aip: { label: "AIP Publishing", nums: ROMAN, figLabel: "Fig.", spacing: 2, lineNumbers: false, cite: "aip" },
-    nature: { label: "Nature Portfolio", nums: NONE, figLabel: "Fig.", spacing: 2, lineNumbers: false, cite: "nature" },
-    science: { label: "Science (AAAS)", nums: NONE, figLabel: "Fig.", spacing: 2, lineNumbers: true, cite: "science" },
-    acs: { label: "American Chemical Society", nums: NONE, figLabel: "Figure", spacing: 2, lineNumbers: false, cite: "acs" },
-    iop: { label: "IOP Publishing", nums: DECIMAL, figLabel: "Figure", spacing: 1, lineNumbers: false, cite: "iop" },
-    wiley: { label: "Wiley", nums: DECIMAL, figLabel: "Figure", spacing: 2, lineNumbers: false, cite: "advmat" },
-    elsevier: { label: "Elsevier", nums: DECIMAL, figLabel: "Fig.", spacing: 2, lineNumbers: true, cite: "elsevier" },
-    rsc: { label: "Royal Society of Chemistry", nums: DECIMAL, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "rsc" },
-    pnas: { label: "PNAS", nums: NONE, figLabel: "Fig.", spacing: 1, lineNumbers: true, cite: "pnas" },
-    ieee: { label: "IEEE", nums: ROMAN, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "ieee" },
-    plain: { label: "General", nums: DECIMAL, figLabel: "Fig.", spacing: 1, lineNumbers: false, cite: "aps" }
-  };
-  var LIST2 = [
-    ["plain-article", "Plain article (preprint, arXiv)", "plain"],
-    ["physical-review-letters", "Physical Review Letters", "aps"],
-    ["physical-review-b", "Physical Review B", "aps"],
-    ["physical-review-x", "Physical Review X", "aps"],
-    ["physical-review-applied", "Physical Review Applied", "aps"],
-    ["physical-review-materials", "Physical Review Materials", "aps"],
-    ["physical-review-research", "Physical Review Research", "aps"],
-    ["nature", "Nature", "nature"],
-    ["nature-nanotechnology", "Nature Nanotechnology", "nature"],
-    ["nature-materials", "Nature Materials", "nature"],
-    ["nature-physics", "Nature Physics", "nature"],
-    ["nature-electronics", "Nature Electronics", "nature"],
-    ["nature-communications", "Nature Communications", "nature"],
-    ["npj-2d-materials-and-applications", "npj 2D Materials and Applications", "nature"],
-    ["communications-physics", "Communications Physics", "nature"],
-    ["science", "Science", "science"],
-    ["science-advances", "Science Advances", "science"],
-    ["nano-letters", "Nano Letters", "acs"],
-    ["acs-nano", "ACS Nano", "acs"],
-    ["acs-applied-materials-and-interfaces", "ACS Applied Materials & Interfaces", "acs"],
-    ["acs-photonics", "ACS Photonics", "acs"],
-    ["chemistry-of-materials", "Chemistry of Materials", "acs"],
-    ["the-journal-of-physical-chemistry-c", "The Journal of Physical Chemistry C", "acs"],
-    ["applied-physics-letters", "Applied Physics Letters", "aip"],
-    ["journal-of-applied-physics", "Journal of Applied Physics", "aip"],
-    ["apl-materials", "APL Materials", "aip"],
-    ["review-of-scientific-instruments", "Review of Scientific Instruments", "aip"],
-    ["2d-materials", "2D Materials", "iop"],
-    ["nanotechnology", "Nanotechnology", "iop"],
-    ["journal-of-physics-condensed-matter", "Journal of Physics: Condensed Matter", "iop"],
-    ["new-journal-of-physics", "New Journal of Physics", "iop"],
-    ["advanced-materials", "Advanced Materials", "wiley", "advmat"],
-    ["advanced-functional-materials", "Advanced Functional Materials", "wiley", "afm"],
-    ["small", "Small", "wiley", "small"],
-    ["carbon", "Carbon", "elsevier"],
-    ["applied-surface-science", "Applied Surface Science", "elsevier"],
-    ["microelectronic-engineering", "Microelectronic Engineering", "elsevier"],
-    ["nanoscale", "Nanoscale", "rsc"],
-    ["pnas", "PNAS", "pnas"],
-    ["ieee-electron-device-letters", "IEEE Electron Device Letters", "ieee"]
-  ];
-  var JOURNALS = LIST2.map(([id2, name, family, cite]) => ({ id: id2, name, family, publisher: FAMILIES[family].label, ...FAMILIES[family], cite: cite || FAMILIES[family].cite }));
-  var journalById = (id2) => JOURNALS.find((j2) => j2.id === id2) || null;
-  var fold = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, " ").trim();
-  function searchJournals(query) {
-    const words2 = fold(query).split(" ").filter(Boolean);
-    return JOURNALS.filter((j2) => {
-      const hay = " " + fold(j2.name + " " + j2.publisher);
-      return words2.every((w2) => hay.includes(" " + w2));
-    });
-  }
-  function describeJournal(j2) {
-    const nums = j2.nums[0] === "none" ? "unnumbered sections" : j2.nums[0] === "I" ? "sections I, A, 1" : "sections 1, 1.1";
-    return [nums, "\u201C" + j2.figLabel + " 1\u201D", j2.spacing === 2 ? "double-spaced" : j2.spacing === 1.5 ? "1.5 line spacing" : "single-spaced", ...j2.lineNumbers ? ["line numbers"] : []].join(" \xB7 ");
-  }
-  function applyJournal(style, id2) {
-    const j2 = journalById(id2);
-    if (!j2) return style;
-    const out = JSON.parse(JSON.stringify(style));
-    ["h1", "h2", "h3", "h4"].forEach((k, i2) => {
-      out[k].num = j2.nums[i2];
-    });
-    out.figLabel = j2.figLabel;
-    out.spacing = j2.spacing;
-    out.lineNumbers = j2.lineNumbers;
-    out.cite = j2.cite;
-    out.journal = j2.id;
-    return out;
-  }
-
-  // ../DTU Science Writer/src/renderer/ui/journaldialog.js
+  // src/renderer/ui/journaldialog.js
   var BUNDLED = () => STYLES.map((s) => styleId(s[0]).split("/").pop());
-  var esc7 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var esc8 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   function setStyle(view, st2) {
     view.dispatch(view.state.tr.setDocAttribute("style", resolveStyle(st2)));
   }
@@ -80547,17 +87193,17 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     const st2 = styleOf(view.state.doc);
     const current = journalById(st2.journal);
-    dlg.innerHTML = '<div class="box"><h3>Journal style</h3><p class="msg">Current: <b>' + esc7(current ? current.name : "none chosen") + "</b> \xB7 references: " + esc7(citeStyleLabel(view.state.doc, st2.cite)) + '</p><input type="search" class="jq" placeholder="Journal name, e.g. Nano Letters, 2D Materials, Physical Review B" spellcheck="false"><div class="jlist" role="listbox"></div><h4>Other journals: reference style only</h4><p class="msg small">From the citation style repository Zotero uses (about 10 000 journals). Heading and figure formats stay as they are.</p><div class="jcsl"><span class="muted">Type a journal name above.</span></div><p class="msg small">The settings are starting points from the journals\u2019 author guidelines. Check the journal\u2019s current guide before you submit.</p><div class="buttons"><button data-act="file">Load a .csl file\u2026</button><span class="grow"></span><button data-act="close" class="primary">Close</button></div></div>';
+    dlg.innerHTML = '<div class="box"><h3>Journal style</h3><p class="msg">Current: <b>' + esc8(current ? current.name : "none chosen") + "</b> \xB7 references: " + esc8(citeStyleLabel(view.state.doc, st2.cite)) + '</p><input type="search" class="jq" placeholder="Journal name, e.g. Nano Letters, 2D Materials, Physical Review B" spellcheck="false"><div class="jlist" role="listbox"></div><h4>Other journals: reference style only</h4><p class="msg small">From the citation style repository Zotero uses (about 10 000 journals). Heading and figure formats stay as they are.</p><div class="jcsl"><span class="muted">Type a journal name above.</span></div><p class="msg small">The settings are starting points from the journals\u2019 author guidelines. Check the journal\u2019s current guide before you submit.</p><div class="buttons"><button data-act="file">Load a .csl file\u2026</button><span class="grow"></span><button data-act="close" class="primary">Close</button></div></div>';
     const q2 = dlg.querySelector(".jq"), list3 = dlg.querySelector(".jlist"), csl = dlg.querySelector(".jcsl");
     const close3 = () => {
       dlg.hidden = true;
       if (onDone) onDone();
       else view.focus();
     };
-    let timer2 = null, seq3 = 0;
+    let timer3 = null, seq3 = 0;
     const renderLocal = () => {
       const hits = searchJournals(q2.value);
-      list3.innerHTML = hits.length ? hits.map((j2) => '<button class="jitem' + (j2.id === st2.journal ? " on" : "") + '" data-j="' + j2.id + '"><b>' + esc7(j2.name) + '</b> <span class="muted">' + esc7(j2.publisher) + "</span><br><small>" + esc7(describeJournal(j2)) + "</small></button>").join("") : '<span class="muted">Not in the app\u2019s list \u2014 see below.</span>';
+      list3.innerHTML = hits.length ? hits.map((j2) => '<button class="jitem' + (j2.id === st2.journal ? " on" : "") + '" data-j="' + j2.id + '"><b>' + esc8(j2.name) + '</b> <span class="muted">' + esc8(j2.publisher) + "</span><br><small>" + esc8(describeJournal(j2)) + "</small></button>").join("") : '<span class="muted">Not in the app\u2019s list \u2014 see below.</span>';
     };
     const searchRepo = async () => {
       const text2 = q2.value.trim(), my2 = ++seq3;
@@ -80569,21 +87215,24 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const r2 = await api.refs("cslSearch", text2);
       if (my2 !== seq3) return;
       if (!r2 || r2.error) {
-        csl.innerHTML = '<span class="err">' + esc7(r2 ? r2.error : "No answer.") + "</span>";
+        csl.innerHTML = '<span class="err">' + esc8(r2 ? r2.error : "No answer.") + "</span>";
         return;
       }
-      csl.innerHTML = r2.items.length ? r2.items.slice(0, 12).map((x3) => '<button class="jitem" data-csl="' + esc7(x3.name) + '">' + esc7(x3.title) + ' <small class="muted">' + esc7(x3.format) + "</small></button>").join("") + (r2.total > 12 ? '<small class="muted">' + (r2.total - 12) + " more \u2014 type more of the name.</small>" : "") : '<span class="muted">No style found for \u201C' + esc7(text2) + "\u201D.</span>";
+      csl.innerHTML = r2.items.length ? r2.items.slice(0, 12).map((x3) => '<button class="jitem" data-csl="' + esc8(x3.name) + '">' + esc8(x3.title) + ' <small class="muted">' + esc8(x3.format) + "</small></button>").join("") + (r2.total > 12 ? '<small class="muted">' + (r2.total - 12) + " more \u2014 type more of the name.</small>" : "") : '<span class="muted">No style found for \u201C' + esc8(text2) + "\u201D.</span>";
     };
     q2.oninput = () => {
       renderLocal();
-      clearTimeout(timer2);
-      timer2 = setTimeout(searchRepo, 350);
+      clearTimeout(timer3);
+      timer3 = setTimeout(searchRepo, 350);
     };
     dlg.onclick = async (e) => {
       const b = e.target.closest("button") || e.target;
       if (e.target === dlg || b.dataset.act === "close") return close3();
       if (b.dataset.j) {
-        setStyle(view, applyJournal(styleOf(view.state.doc), b.dataset.j));
+        const ns2 = applyJournal(styleOf(view.state.doc), b.dataset.j);
+        const jv = venueById(b.dataset.j), cur = venueOf(ns2.venue);
+        ns2.venue = jv ? cur && cur.venue.id === jv.id ? ns2.venue : jv.id + "/" + jv.types[0].id : "";
+        setStyle(view, ns2);
         toast("Journal style: " + journalById(b.dataset.j).name);
         return close3();
       }
@@ -80623,7 +87272,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     q2.focus();
   }
 
-  // ../DTU Science Writer/src/renderer/ui/styledialog.js
+  // src/renderer/ui/styledialog.js
   function applyStyleToPage(doc4, page) {
     const st2 = styleOf(doc4);
     const set = (k, v) => page.style.setProperty(k, v);
@@ -80660,8 +87309,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       for (const k of LEVELS) {
         const v = st2[k];
         const lvl = k === "title" ? 0 : +k.slice(1);
-        const num = lvl ? headingLabel(st2, SAMPLE_COUNTERS, lvl) : null;
-        rows += '<tr data-level="' + k + '"><th>' + LEVEL_LABEL[k] + '</th><td><select data-f="delta">' + DELTAS.map((d) => opt(d, v.delta, (d ? "body +" + d : "body size") + " (" + (st2.size + d) + " pt)")).join("") + '</select></td><td><label><input type="checkbox" data-f="bold"' + (v.bold ? " checked" : "") + '> <b>B</b></label></td><td><label><input type="checkbox" data-f="italic"' + (v.italic ? " checked" : "") + "> <i>I</i></label></td><td>" + (lvl ? '<select data-f="num" title="Numbering">' + NUMBERINGS.map(([n, label4]) => opt(n, v.num, label4)).join("") + "</select>" : "") + '</td><td class="colors"><input type="color" data-f="color" value="' + v.color + '" title="Colour">' + SWATCHES.map(([c, n]) => '<button class="sw' + (c === v.color ? " on" : "") + '" data-color="' + c + '" title="' + n + '" style="background:' + c + '"></button>').join("") + '</td><td class="sample" style="font-family:' + FONTS[st2.font].css.replace(/"/g, "&quot;") + ";font-size:" + levelSize(st2, k) + "pt;font-weight:" + (v.bold ? 700 : 400) + ";font-style:" + (v.italic ? "italic" : "normal") + ";color:" + v.color + '">' + (lvl ? (num ? num + "&ensp;" : "") + "Results" : "Paper title") + "</td></tr>";
+        const num2 = lvl ? headingLabel(st2, SAMPLE_COUNTERS, lvl) : null;
+        rows += '<tr data-level="' + k + '"><th>' + LEVEL_LABEL[k] + '</th><td><select data-f="delta">' + DELTAS.map((d) => opt(d, v.delta, (d ? "body +" + d : "body size") + " (" + (st2.size + d) + " pt)")).join("") + '</select></td><td><label><input type="checkbox" data-f="bold"' + (v.bold ? " checked" : "") + '> <b>B</b></label></td><td><label><input type="checkbox" data-f="italic"' + (v.italic ? " checked" : "") + "> <i>I</i></label></td><td>" + (lvl ? '<select data-f="num" title="Numbering">' + NUMBERINGS.map(([n, label4]) => opt(n, v.num, label4)).join("") + "</select>" : "") + '</td><td class="colors"><input type="color" data-f="color" value="' + v.color + '" title="Colour">' + SWATCHES.map(([c, n]) => '<button class="sw' + (c === v.color ? " on" : "") + '" data-color="' + c + '" title="' + n + '" style="background:' + c + '"></button>').join("") + '</td><td class="sample" style="font-family:' + FONTS[st2.font].css.replace(/"/g, "&quot;") + ";font-size:" + levelSize(st2, k) + "pt;font-weight:" + (v.bold ? 700 : 400) + ";font-style:" + (v.italic ? "italic" : "normal") + ";color:" + v.color + '">' + (lvl ? (num2 ? num2 + "&ensp;" : "") + "Results" : "Paper title") + "</td></tr>";
       }
       dlg.innerHTML = '<div class="box"><h3>Document style</h3><div class="row"><span class="lab">Font</span>' + Object.entries(FONTS).map(([key2, f]) => '<label class="fontopt"><input type="radio" name="font" value="' + key2 + '"' + (st2.font === key2 ? " checked" : "") + '> <span style="font-family:' + f.css.replace(/"/g, "&quot;") + '">' + f.label + "</span> <small>with " + f.mathLabel + " for equations</small></label>").join("") + '</div><div class="row"><span class="lab">Body text</span><select data-body="size">' + SIZES.map((s) => opt(s, st2.size, s + " pt")).join("") + '</select><span class="lab" style="margin-left:24px">Title block</span><label><input type="radio" name="talign" value="left"' + (st2.titleAlign === "left" ? " checked" : "") + '> left</label><label><input type="radio" name="talign" value="center"' + (st2.titleAlign === "center" ? " checked" : "") + '> centred</label></div><table class="levels"><thead><tr><th></th><th>Size</th><th></th><th></th><th>Numbering</th><th>Colour</th><th></th></tr></thead><tbody>' + rows + '</tbody></table><div class="row"><span class="lab">Affiliations</span><select data-affil="marker">' + AFFIL_MARKERS.map(([m, l]) => opt(m, st2.affil.marker, l)).join("") + '</select><select data-affil="fields">' + AFFIL_FIELDS.map(([f, l]) => opt(f, st2.affil.fields, l)).join("") + '</select></div><div class="row"><span class="lab">Journal</span><span class="jname">' + (journalById(st2.journal) ? "<b>" + journalById(st2.journal).name + "</b> <small>" + describeJournal(journalById(st2.journal)) + "</small>" : '<span class="muted">none chosen</span>') + '</span><button data-act="journal">Choose journal\u2026</button></div><div class="row"><span class="lab">Layout</span><label>Line spacing <select data-lay="spacing">' + SPACINGS.map(([v, l]) => opt(v, st2.spacing, l)).join("") + '</select></label><label><input type="checkbox" data-lay="lineNumbers"' + (st2.lineNumbers ? " checked" : "") + '> Line numbers <small>(PDF, Word, LaTeX)</small></label><label>Figures <select data-lay="figLabel">' + FIG_LABELS.map((v) => opt(v, st2.figLabel, "\u201C" + v + " 1\u201D")).join("") + '</select></label></div><div class="row"><span class="lab">Citations</span><select data-cite="style">' + STYLES.map(([k, l]) => opt(k, st2.cite, l)).join("") + (st2.csl ? opt("csl:" + st2.csl.name, st2.cite, citeStyleLabel(view.state.doc, "csl:" + st2.csl.name) + " (stored in the document)") : "") + '</select><span class="lab" style="margin-left:24px">Language</span><select data-lang="lang" title="Spell-check, hyphenation in the PDF, proofing language in Word">' + LANGS.map(([k, l]) => opt(k, st2.lang, l)).join("") + '</select></div><p class="note">Saved in this document; used in the editor, the PDF and the Word export. In Word, equations use Cambria Math (co-authors have it).</p><div class="buttons"><button data-act="reset">Reset to defaults</button><button data-act="close" class="primary">Close</button></div></div>';
     };
@@ -80749,9 +87398,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (first) first.focus();
   }
 
-  // ../DTU Science Writer/src/renderer/ui/authorsdialog.js
+  // src/renderer/ui/authorsdialog.js
   var api2 = () => api;
-  var esc8 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var esc9 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var clone = (x3) => JSON.parse(JSON.stringify(x3));
   var lib = null;
   async function loadLib() {
@@ -80782,10 +87431,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     };
     const render5 = () => {
       const affilShort = (a) => affilText(a, "short") || affilText(a, "full") || "(empty affiliation)";
-      const authorRows = data.list.map((au2, i2) => '<tr data-i="' + i2 + '"><td class="num">' + (i2 + 1) + '</td><td><input data-f="name" value="' + esc8(au2.name) + '" placeholder="Full name, e.g. Peter B\xF8ggild"></td><td class="affchecks">' + (data.affils.length ? data.affils.map((a, k) => '<label title="' + esc8(affilText(a, "full")) + '"><input type="checkbox" data-aff="' + a.id + '"' + ((au2.affils || []).includes(a.id) ? " checked" : "") + "> " + (k + 1) + "</label>").join("") : '<span class="hint">add an affiliation below</span>') + '</td><td><label title="Corresponding author"><input type="checkbox" data-f="corresponding"' + (au2.corresponding ? " checked" : "") + '> \u2709</label></td><td><input data-f="email" value="' + esc8(au2.email) + '" placeholder="e-mail (corresponding)"' + (au2.corresponding ? "" : " disabled") + '></td><td class="act"><button data-act="up" title="Move up">\u2191</button><button data-act="down" title="Move down">\u2193</button><button data-act="del" title="Remove author">\u2715</button></td></tr>').join("");
-      const affilRows = data.affils.map((a, k) => '<div class="affil" data-id="' + a.id + '"><div class="affhead"><b>' + (k + 1) + "</b> <span>" + esc8(affilShort(a)) + '</span><span class="affacts">' + (lib.some((x3) => sameAffil(x3, a)) ? '<span class="saved">in library</span>' : '<button data-act="tolib">Save to library</button>') + '<button data-act="delaff" title="Remove affiliation">\u2715</button></span></div><div class="afffields">' + AFFIL_KEYS.map((key2) => "<label>" + AFFIL_LABELS[key2] + '<input data-k="' + key2 + '" value="' + esc8(a[key2]) + '"></label>').join("") + "</div></div>").join("");
-      const libOpts = lib.map((a, i2) => '<option value="' + i2 + '">' + esc8(affilText(a, "medium") || affilText(a, "full")) + "</option>").join("");
-      dlg.innerHTML = '<div class="box"><h3>Authors and affiliations</h3><table class="authors"><thead><tr><th></th><th>Name</th><th>Affiliations</th><th></th><th></th><th></th></tr></thead><tbody>' + authorRows + '</tbody></table><button data-act="addauthor">+ Author</button><h4>Affiliations <small>numbered in the order the authors use them</small></h4>' + (affilRows || '<p class="hint">No affiliations yet.</p>') + '<div class="affadd"><button data-act="addaff">+ New affiliation</button><select data-act="fromlib"><option value="">+ From library\u2026</option>' + libOpts + '</select><span class="libfile"><button data-act="libimport" title="Add the affiliations of a saved library file">Import library\u2026</button><button data-act="libexport" title="Save the library to a file you can share">Export library\u2026</button></span></div><p class="hint">Format (markers ' + esc8(st2.affil.marker) + ", " + esc8(st2.affil.fields) + ' address) is set in Style.</p><div class="buttons"><button data-act="close" class="primary">Done</button></div></div>';
+      const authorRows = data.list.map((au2, i2) => '<tr data-i="' + i2 + '"><td class="num">' + (i2 + 1) + '</td><td><input data-f="name" value="' + esc9(au2.name) + '" placeholder="Full name, e.g. Peter B\xF8ggild"></td><td class="affchecks">' + (data.affils.length ? data.affils.map((a, k) => '<label title="' + esc9(affilText(a, "full")) + '"><input type="checkbox" data-aff="' + a.id + '"' + ((au2.affils || []).includes(a.id) ? " checked" : "") + "> " + (k + 1) + "</label>").join("") : '<span class="hint">add an affiliation below</span>') + '</td><td><label title="Corresponding author"><input type="checkbox" data-f="corresponding"' + (au2.corresponding ? " checked" : "") + '> \u2709</label></td><td><input data-f="email" value="' + esc9(au2.email) + '" placeholder="e-mail (corresponding)"' + (au2.corresponding ? "" : " disabled") + '></td><td class="act"><button data-act="up" title="Move up">\u2191</button><button data-act="down" title="Move down">\u2193</button><button data-act="del" title="Remove author">\u2715</button></td></tr>').join("");
+      const affilRows = data.affils.map((a, k) => '<div class="affil" data-id="' + a.id + '"><div class="affhead"><b>' + (k + 1) + "</b> <span>" + esc9(affilShort(a)) + '</span><span class="affacts">' + (lib.some((x3) => sameAffil(x3, a)) ? '<span class="saved">in library</span>' : '<button data-act="tolib">Save to library</button>') + '<button data-act="delaff" title="Remove affiliation">\u2715</button></span></div><div class="afffields">' + AFFIL_KEYS.map((key2) => "<label>" + AFFIL_LABELS[key2] + '<input data-k="' + key2 + '" value="' + esc9(a[key2]) + '"></label>').join("") + "</div></div>").join("");
+      const libOpts = lib.map((a, i2) => '<option value="' + i2 + '">' + esc9(affilText(a, "medium") || affilText(a, "full")) + "</option>").join("");
+      dlg.innerHTML = '<div class="box"><h3>Authors and affiliations</h3><table class="authors"><thead><tr><th></th><th>Name</th><th>Affiliations</th><th></th><th></th><th></th></tr></thead><tbody>' + authorRows + '</tbody></table><button data-act="addauthor">+ Author</button><h4>Affiliations <small>numbered in the order the authors use them</small></h4>' + (affilRows || '<p class="hint">No affiliations yet.</p>') + '<div class="affadd"><button data-act="addaff">+ New affiliation</button><select data-act="fromlib"><option value="">+ From library\u2026</option>' + libOpts + '</select><span class="libfile"><button data-act="libimport" title="Add the affiliations of a saved library file">Import library\u2026</button><button data-act="libexport" title="Save the library to a file you can share">Export library\u2026</button></span></div><p class="hint">Format (markers ' + esc9(st2.affil.marker) + ", " + esc9(st2.affil.fields) + ' address) is set in Style.</p><div class="buttons"><button data-act="close" class="primary">Done</button></div></div>';
     };
     const change = () => {
       commit();
@@ -80889,7 +87538,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (first) first.focus();
   }
 
-  // ../DTU Science Writer/src/renderer/doc/safety.js
+  // src/renderer/doc/safety.js
   var AUTOSAVE_MS = 30 * 1e3;
   var RECHECK_MS = 30 * 1e3;
   var dirtySince = 0;
@@ -80961,7 +87610,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
   });
 
-  // ../DTU Science Writer/src/renderer/ui/restore.js
+  // src/renderer/ui/restore.js
   var when = (iso) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   var kb2 = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.round(n / 1024) + " kB";
   function listDialog({ title: title2, text: text2, rows, actions, empty: empty2 }) {
@@ -81079,7 +87728,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return true;
   }
 
-  // ../DTU Science Writer/src/renderer/ui/librarydialog.js
+  // src/renderer/ui/librarydialog.js
   var abbreviationOf = (it2) => journalAbbreviation(Array.isArray(it2["container-title"]) ? it2["container-title"][0] : it2["container-title"] || "") || void 0;
   var zstatus = { configured: false };
   async function addReferencesToZotero(view) {
@@ -81105,7 +87754,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     setLibrary(view, next);
     return "Zotero: " + r2.created + " added to the collection \u201C" + collection + "\u201D" + (r2.existing ? ", " + r2.existing + " already in your library (linked)" : "") + "." + leftMsg;
   }
-  var esc9 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var esc10 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var TYPES = [["article-journal", "Journal article"], ["article", "Preprint"], ["book", "Book"], ["chapter", "Book chapter"], ["paper-conference", "Conference paper"], ["thesis", "Thesis"], ["report", "Report"], ["webpage", "Web page"]];
   var FIELDS = [["title", "Title"], ["container-title", "Journal / book"], ["volume", "Volume"], ["issue", "Issue"], ["page", "Pages or article no."], ["year", "Year"], ["publisher", "Publisher"], ["DOI", "DOI"], ["URL", "URL"]];
   var namesToText = (list3) => (list3 || []).map((a) => a.literal ? a.literal : [a.family, a.given].filter(Boolean).join(", ")).join("\n");
@@ -81163,12 +87812,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const lib2 = libraryOf(view.state.doc), counts = citeCounts(view.state.doc);
       const keys3 = Object.keys(lib2).sort((a, b) => summary(lib2[a]).localeCompare(summary(lib2[b])));
       const unused = keys3.filter((k) => !counts[k]).length;
-      dlg.innerHTML = '<div class="box wide"><h3>Reference library <small>' + keys3.length + ' in this document</small></h3><div class="libwrap"><table class="lib"><thead><tr><th>Reference</th><th>Cited</th><th></th></tr></thead><tbody>' + (keys3.length ? keys3.map((k) => '<tr data-key="' + esc9(k) + '"><td><div class="sum">' + esc9(summary(lib2[k])) + (lib2[k].zotero ? ' <span class="zot" title="Linked to your Zotero library (item ' + esc9(lib2[k].zotero.key) + ')">Zotero</span>' : "") + '</div><div class="src">' + esc9([lib2[k]["container-title"], lib2[k].DOI].filter(Boolean).join(" \xB7 ")) + '</div></td><td class="n">' + (counts[k] ? counts[k] + "\xD7" : '<span class="unused">not cited</span>') + '</td><td class="act"><button data-act="edit">Edit</button><button data-act="del"' + (counts[k] ? ' disabled title="Cited in the text \u2014 remove the citations first"' : ' title="Remove from the library"') + ">\u2715</button></td></tr>").join("") : '<tr><td colspan="3" class="none">No references yet. Cite with Insert \u2192 Citation (Ctrl+Alt+C), import a BibTeX file or enter one by hand.</td></tr>') + '</tbody></table></div><div class="status lib-status"></div><div class="buttons"><button data-act="update"' + (keys3.length ? "" : " disabled") + ' title="Fetch every reference from its source \u2014 your Zotero library if linked, else doi.org by its DOI, else the matching Crossref record (title, year and first author must agree). One undo step.">\u21BB Update from Zotero / DOI</button><button data-act="zsend"' + (zstatus.configured && zstatus.canWrite && keys3.some((k) => !lib2[k].zotero) ? "" : " disabled") + ' title="' + (zstatus.configured ? zstatus.canWrite ? "Add the references that are not in Zotero yet to your Zotero library, in a collection named after this document, and link them" : "The Zotero key in Settings is read only" : "Add a Zotero API key in Settings first") + '">\u2192 Send to Zotero</button><button data-act="new">+ New reference</button><button data-act="bibfile">Import BibTeX file\u2026</button><button data-act="export"' + (keys3.length ? "" : " disabled") + '>Export .bib\u2026</button><button data-act="unused"' + (unused ? "" : " disabled") + ">Remove " + (unused || "") + ' not cited</button><span class="grow"></span><button data-act="close" class="primary">Close</button></div></div>';
+      dlg.innerHTML = '<div class="box wide"><h3>Reference library <small>' + keys3.length + ' in this document</small></h3><div class="libwrap"><table class="lib"><thead><tr><th>Reference</th><th>Cited</th><th></th></tr></thead><tbody>' + (keys3.length ? keys3.map((k) => '<tr data-key="' + esc10(k) + '"><td><div class="sum">' + esc10(summary(lib2[k])) + (lib2[k].zotero ? ' <span class="zot" title="Linked to your Zotero library (item ' + esc10(lib2[k].zotero.key) + ')">Zotero</span>' : "") + '</div><div class="src">' + esc10([lib2[k]["container-title"], lib2[k].DOI].filter(Boolean).join(" \xB7 ")) + '</div></td><td class="n">' + (counts[k] ? counts[k] + "\xD7" : '<span class="unused">not cited</span>') + '</td><td class="act"><button data-act="edit">Edit</button><button data-act="del"' + (counts[k] ? ' disabled title="Cited in the text \u2014 remove the citations first"' : ' title="Remove from the library"') + ">\u2715</button></td></tr>").join("") : '<tr><td colspan="3" class="none">No references yet. Cite with Insert \u2192 Citation (Ctrl+Alt+C), import a BibTeX file or enter one by hand.</td></tr>') + '</tbody></table></div><div class="status lib-status"></div><div class="buttons"><button data-act="update"' + (keys3.length ? "" : " disabled") + ' title="Fetch every reference from its source \u2014 your Zotero library if linked, else doi.org by its DOI, else the matching Crossref record (title, year and first author must agree). One undo step.">\u21BB Update from Zotero / DOI</button><button data-act="zsend"' + (zstatus.configured && zstatus.canWrite && keys3.some((k) => !lib2[k].zotero) ? "" : " disabled") + ' title="' + (zstatus.configured ? zstatus.canWrite ? "Add the references that are not in Zotero yet to your Zotero library, in a collection named after this document, and link them" : "The Zotero key in Settings is read only" : "Add a Zotero API key in Settings first") + '">\u2192 Send to Zotero</button><button data-act="new">+ New reference</button><button data-act="bibfile">Import BibTeX file\u2026</button><button data-act="export"' + (keys3.length ? "" : " disabled") + '>Export .bib\u2026</button><button data-act="unused"' + (unused ? "" : " disabled") + ">Remove " + (unused || "") + ' not cited</button><span class="grow"></span><button data-act="close" class="primary">Close</button></div></div>';
     };
     const renderForm = () => {
       const it2 = editing ? libraryOf(view.state.doc)[editing] : { type: "article-journal" };
       const val2 = (k) => k === "year" ? yearOf2(it2) : it2[k] || "";
-      dlg.innerHTML = '<div class="box"><h3>' + (editing ? "Edit reference <small>" + esc9(editing) + "</small>" : "New reference") + '</h3><div class="refform"><label>Type<select data-k="type">' + TYPES.map(([t40, l]) => '<option value="' + t40 + '"' + (it2.type === t40 ? " selected" : "") + ">" + l + "</option>").join("") + '</select></label><label class="tall">Authors <small>one per line: Family, Given</small><textarea data-k="author" rows="4">' + esc9(namesToText(it2.author)) + "</textarea></label>" + FIELDS.map(([k, l]) => "<label>" + l + '<input data-k="' + k + '" value="' + esc9(val2(k)) + '">' + (k === "DOI" ? '<button data-act="fill" title="Fill in the fields from the DOI or arXiv number">Look up</button>' : "") + "</label>").join("") + "</div>" + (editing && it2.zotero && zstatus.configured && zstatus.canWrite ? '<label class="zupd"><input type="checkbox" data-zupd checked> Also update it in Zotero</label>' : "") + '<div class="status"></div><div class="buttons"><button data-act="back">Cancel</button><button data-act="save" class="primary">Save</button></div></div>';
+      dlg.innerHTML = '<div class="box"><h3>' + (editing ? "Edit reference <small>" + esc10(editing) + "</small>" : "New reference") + '</h3><div class="refform"><label>Type<select data-k="type">' + TYPES.map(([t40, l]) => '<option value="' + t40 + '"' + (it2.type === t40 ? " selected" : "") + ">" + l + "</option>").join("") + '</select></label><label class="tall">Authors <small>one per line: Family, Given</small><textarea data-k="author" rows="4">' + esc10(namesToText(it2.author)) + "</textarea></label>" + FIELDS.map(([k, l]) => "<label>" + l + '<input data-k="' + k + '" value="' + esc10(val2(k)) + '">' + (k === "DOI" ? '<button data-act="fill" title="Fill in the fields from the DOI or arXiv number">Look up</button>' : "") + "</label>").join("") + "</div>" + (editing && it2.zotero && zstatus.configured && zstatus.canWrite ? '<label class="zupd"><input type="checkbox" data-zupd checked> Also update it in Zotero</label>' : "") + '<div class="status"></div><div class="buttons"><button data-act="back">Cancel</button><button data-act="save" class="primary">Save</button></div></div>';
     };
     const readForm = () => {
       const it2 = editing ? { ...libraryOf(view.state.doc)[editing] } : {};
@@ -81313,8 +87962,19 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/ui/citedialog.js
-  var esc10 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  // src/renderer/ui/citedialog.js
+  async function fillArticleNumbers(view, ids) {
+    for (const id2 of ids) {
+      const it2 = id2 && libraryOf(view.state.doc)[id2];
+      if (!it2 || !it2.DOI || it2.page || it2["article-number"]) continue;
+      const got = await api.refs("articleNumber", it2).catch(() => null);
+      const now3 = got && libraryOf(view.state.doc)[id2];
+      if (!now3 || now3.page || now3["article-number"]) continue;
+      const lib2 = { ...libraryOf(view.state.doc), [id2]: { ...now3, ...got } };
+      view.dispatch(view.state.tr.setDocAttribute("references", lib2).setMeta("addToHistory", false));
+    }
+  }
+  var esc11 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var looksLikeId = (s) => /10\.\d{4,9}\/\S+/.test(s) || /^(arxiv:\s*|https?:\/\/arxiv\.org\/(abs|pdf)\/)?(\d{4}\.\d{4,5}|[a-z-]+(\.[A-Z]{2})?\/\d{7})(v\d+)?(\.pdf)?$/i.test(s.trim());
   var GROUP2 = { library: "In this document", zotero: "Zotero", doi: "Found online", bibtex: "From BibTeX" };
   function libraryMatches(lib2, q2) {
@@ -81331,7 +87991,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const editing = sel instanceof NodeSelection && sel.node.type.name === "citation" ? sel.node : null;
     const chosen = editing ? editing.attrs.items.map((x3) => ({ id: x3.id, item: lib2()[x3.id] || { title: x3.id + " (missing)" }, locator: x3.locator || "" })) : [];
     let mode2 = editing ? editing.attrs.mode : "normal";
-    let results = [], active = 0, status = "", timer2 = null;
+    let results = [], active = 0, status = "", timer3 = null;
     let dlg = document.querySelector("#citedlg");
     if (!dlg) {
       dlg = document.createElement("div");
@@ -81357,7 +88017,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         }
         const li2 = document.createElement("li");
         li2.className = "res" + (i2 === active ? " active" : "") + (chosen.some((c) => c.item === r2.item || r2.id && c.id === r2.id) ? " picked" : "");
-        li2.innerHTML = '<span class="sum">' + esc10(summary(r2.item)) + "</span>" + (r2.item["container-title"] ? '<span class="src">' + esc10(r2.item["container-title"]) + "</span>" : "") + (r2.source !== "library" && r2.id ? '<span class="have">already in this document</span>' : "");
+        li2.innerHTML = '<span class="sum">' + esc11(summary(r2.item)) + "</span>" + (r2.item["container-title"] ? '<span class="src">' + esc11(r2.item["container-title"]) + "</span>" : "") + (r2.source !== "library" && r2.id ? '<span class="have">already in this document</span>' : "");
         li2.addEventListener("mousedown", (e) => {
           e.preventDefault();
           choose(i2);
@@ -81372,7 +88032,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       chosen.forEach((c, i2) => {
         const chip = document.createElement("span");
         chip.className = "chip";
-        chip.innerHTML = '<span class="t">' + esc10(summary(c.item).split(" \xB7 ").slice(0, 2).join(" ")) + '</span><input class="loc" placeholder="p." title="Page or other locator (optional)" value="' + esc10(c.locator) + '"><button title="Remove">\u2715</button>';
+        chip.innerHTML = '<span class="t">' + esc11(summary(c.item).split(" \xB7 ").slice(0, 2).join(" ")) + '</span><input class="loc" placeholder="p." title="Page or other locator (optional)" value="' + esc11(c.locator) + '"><button title="Remove">\u2715</button>';
         chip.querySelector(".loc").addEventListener("input", (e) => {
           c.locator = e.target.value.trim();
         });
@@ -81435,7 +88095,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     };
     const close3 = () => {
       dlg.hidden = true;
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       seq2++;
       view.focus();
     };
@@ -81459,18 +88119,19 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const items = chosen.filter((c) => c.id).map((c) => c.locator ? { id: c.id, locator: c.locator } : { id: c.id });
       close3();
       putCitation(view, items, mode2, newLib);
+      fillArticleNumbers(view, fresh.map((c) => c.id));
     };
     q2.oninput = () => {
-      clearTimeout(timer2);
-      timer2 = setTimeout(() => {
-        timer2 = null;
+      clearTimeout(timer3);
+      timer3 = setTimeout(() => {
+        timer3 = null;
         search();
       }, q2.value.trim().startsWith("@") || looksLikeId(q2.value) ? 0 : 180);
     };
     q2.onkeydown = (e) => {
-      if (e.key === "Enter" && timer2) {
-        clearTimeout(timer2);
-        timer2 = null;
+      if (e.key === "Enter" && timer3) {
+        clearTimeout(timer3);
+        timer3 = null;
         search();
       }
       if (e.key === "ArrowDown") {
@@ -81531,7 +88192,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return added;
   }
 
-  // ../DTU Science Writer/src/core/typedrefs.js
+  // src/core/typedrefs.js
   var SUPERSCRIPT_STYLES = /* @__PURE__ */ new Set(["nature", "acs", "aip", "advmat", "afm", "small", "rsc"]);
   var UNITS = /* @__PURE__ */ new Set(["cm", "mm", "nm", "pm", "km", "um", "\xB5m", "ms", "ns", "ps", "fs", "eV", "meV", "keV", "MeV", "mK", "Hz", "kHz", "MHz", "GHz", "THz", "Pa", "kPa", "Torr", "mTorr", "mbar", "mol", "mL", "sr", "rad", "cd", "lm", "lx"]);
   var PROSE = /[([]\s*refs?\.?\s*(\d+(?:\s*[–—-]\s*\d+)?(?:\s*(?:,|;|and)\s*\d+(?:\s*[–—-]\s*\d+)?)*)\s*[)\]]/gi;
@@ -81554,13 +88215,27 @@ Waals I Si Ge GaAs`.split(/\s+/));
       for (let n = a; n <= b; n++) out.push(n);
     }
     if (through) {
-      const last = out[out.length - 1], t40 = +through;
-      if (t40 <= last || t40 - last > 60) return null;
-      for (let n = last + 1; n <= t40; n++) out.push(n);
+      const last2 = out[out.length - 1], t40 = +through;
+      if (t40 <= last2 || t40 - last2 > 60) return null;
+      for (let n = last2 + 1; n <= t40; n++) out.push(n);
     }
     return [...new Set(out)];
   }
+  function withoutColour(doc4) {
+    const M4 = doc4.type.schema.marks;
+    if (!M4.highlight || !M4.color) return doc4;
+    let has = false;
+    doc4.descendants((n) => {
+      if (!has && n.marks.some((m) => m.type === M4.highlight || m.type === M4.color)) has = true;
+      return !has;
+    });
+    if (!has) return doc4;
+    const tr2 = new Transform(doc4);
+    tr2.removeMark(0, doc4.content.size, M4.highlight).removeMark(0, doc4.content.size, M4.color);
+    return tr2.doc;
+  }
   function findTypedReferences(doc4, part) {
+    doc4 = withoutColour(doc4);
     const sup = supplementOf(doc4);
     const tops = [];
     if (part === "si" && sup) sup.node.forEach((n, off) => tops.push({ n, off: sup.pos + 1 + off }));
@@ -81674,7 +88349,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return tr2;
   }
 
-  // ../DTU Science Writer/src/core/typedxrefs.js
+  // src/core/typedxrefs.js
   var SP = "[\\s\\u00a0]*";
   var KINDS = [
     { type: "figure", label: "(?:Supplementary" + SP + ")?(?:Figs?\\.?|Figures?)" },
@@ -81684,9 +88359,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
   ];
   var OBJ = "\uFFFC";
   function findTypedXrefs(doc4, nums) {
+    doc4 = withoutColour(doc4);
     nums = nums || computeNumbers(doc4);
     const byNum = /* @__PURE__ */ new Map();
-    for (const [id2, info] of nums.byId) if (info.num) byNum.set(info.type + ":" + info.num, id2);
+    for (const [id2, info2] of nums.byId) if (info2.num) byNum.set(info2.type + ":" + info2.num, id2);
     const out = [];
     doc4.descendants((block, bpos) => {
       if (!block.isTextblock) return true;
@@ -81715,9 +88391,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
             if (!n) break;
             const key2 = supplementary && !/^S/.test(n[0]) ? "S" + n[0] : n[0];
             const target = byNum.get(k.type + ":" + key2);
-            const from2 = at2[i2], last = at2[i2 + n[0].length - 1];
+            const from2 = at2[i2], last2 = at2[i2 + n[0].length - 1];
             const next = text2[i2 + n[0].length] || "";
-            if (target && from2 > 0 && last === from2 + n[0].length - 1 && !/[\d.]\d/.test(next + (text2[i2 + n[0].length + 1] || ""))) out.push({ from: from2, to: last + 1, target, type: k.type });
+            if (target && from2 > 0 && last2 === from2 + n[0].length - 1 && !/[\d.]\d/.test(next + (text2[i2 + n[0].length + 1] || ""))) out.push({ from: from2, to: last2 + 1, target, type: k.type });
             i2 += n[0].length;
             const tail = /^(?:\(?[a-z]\)?(?:\s*[–—-]\s*\(?[a-z]\)?)?)?\)?(\s*(?:,|;|and|&|or|to|–|—|-)\s*)(?=\(?S?\d)/.exec(text2.slice(i2));
             if (!tail) break;
@@ -81739,7 +88415,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return tr2;
   }
 
-  // ../DTU Science Writer/src/renderer/ui/convertrefs.js
+  // src/renderer/ui/convertrefs.js
   async function convertPart(view, part, quiet) {
     const found2 = findTypedReferences(view.state.doc, part);
     if (!found2.list) return null;
@@ -81806,10 +88482,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return res;
   }
 
-  // ../DTU Science Writer/src/core/docxin.js
+  // src/core/docxin.js
   var import_jszip4 = __toESM(require_jszip_min());
 
-  // ../DTU Science Writer/src/core/xml.js
+  // src/core/xml.js
   var ENT3 = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" };
   var decodeXml = (s) => s.replace(/&(#x[0-9a-fA-F]+|#\d+|\w+);/g, (m, e) => e[0] === "#" ? String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : +e.slice(1)) : ENT3[e] ?? m);
   function parseXml2(src) {
@@ -81863,7 +88539,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return !(v === "0" || v === "false" || v === "off");
   };
 
-  // ../DTU Science Writer/src/core/ommlin.js
+  // src/core/ommlin.js
   var CH = {
     "\xD7": "\\times",
     "\xB7": "\\cdot",
@@ -82057,7 +88733,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     return out;
   }
-  function chars(s) {
+  function chars2(s) {
     const parts = [];
     for (const ch2 of String(s)) {
       const cp2 = ch2.codePointAt(0);
@@ -82078,14 +88754,48 @@ Waals I Si Ge GaAs`.split(/\s+/));
   };
   var prOf = (el4, name) => kid(el4, name);
   var E = (el4, name) => conv2(kid(el4, name || "m:e"));
-  function run3(r2) {
-    const pr2 = kid(r2, "m:rPr");
-    let text2 = "";
-    for (const c of r2.children) {
-      if (c.name === "m:t") text2 += textOf2(c);
-      else if (c.name === "w:br") text2 += "\0";
+  var S = { view: "accept", content: 0, onObject: null };
+  var revOut = (name) => name === "w:ins" || name === "w:moveTo" ? S.view === "reject" : name === "w:del" || name === "w:moveFrom" ? S.view === "accept" : false;
+  var isRev = (name) => name === "w:ins" || name === "w:del" || name === "w:moveTo" || name === "w:moveFrom";
+  function runParts(el4, out = []) {
+    for (const c of el4.children || []) {
+      if (!c.name) continue;
+      if (isRev(c.name)) {
+        if (!revOut(c.name)) runParts(c, out);
+      } else out.push(c);
     }
-    if (!text2) return "";
+    return out;
+  }
+  function structRev(el4) {
+    const pr2 = (el4.children || []).find((c) => c.name && /^m:[A-Za-z]+Pr$/.test(c.name) && c.name !== "m:rPr");
+    const ctrl2 = kid(pr2, "m:ctrlPr") || kid(el4, "m:ctrlPr");
+    if (!ctrl2) return null;
+    const look = (e) => {
+      for (const c of e.children || []) {
+        if (c.name === "w:ins" || c.name === "w:moveTo") return "ins";
+        if (c.name === "w:del" || c.name === "w:moveFrom") return "del";
+        if (c.name === "w:rPr") {
+          const r2 = look(c);
+          if (r2) return r2;
+        }
+      }
+      return null;
+    };
+    return look(ctrl2);
+  }
+  function run3(r02) {
+    const parts = runParts(r02);
+    const r2 = { children: parts };
+    const pr2 = kid(r2, "m:rPr");
+    let text2 = "", objects = "";
+    for (const c of parts) {
+      if (c.name === "m:t" || c.name === "w:delText") text2 += textOf2(c);
+      else if (c.name === "w:br") text2 += "\0";
+      else if (c.name === "w:object" && S.onObject) objects += S.onObject(c) || "";
+    }
+    if (objects) S.content++;
+    if (!text2) return objects;
+    S.content++;
     const nl2 = text2.includes("\0");
     text2 = text2.replace(/\u0000/g, "");
     let out;
@@ -82096,7 +88806,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const t40 = text2.trim();
       if (sty === "p" && FUNCS.has(t40)) out = "\\" + t40;
       else {
-        out = chars(text2);
+        out = chars2(text2);
         const lettersOnly = /^[A-Za-z]+$/.test(text2);
         if (scr === "script") out = "\\mathcal{" + out + "}";
         else if (scr === "fraktur") out = "\\mathfrak{" + out + "}";
@@ -82109,6 +88819,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         else if (sty === "p" && /[A-Za-z]/.test(text2) && /^[A-Za-z0-9 .,Ͱ-Ͽ]+$/.test(text2)) out = "\\mathrm{" + out.replace(/ /g, "\\ ") + "}";
       }
     }
+    out += objects;
     return nl2 ? out + " \\\\ " : out;
   }
   var DELIM = { "(": "(", ")": ")", "[": "[", "]": "]", "{": "\\{", "}": "\\}", "|": "|", "\u2016": "\\|", "\u27E8": "\\langle", "\u27E9": "\\rangle", "\u3008": "\\langle", "\u3009": "\\rangle", "\u230A": "\\lfloor", "\u230B": "\\rfloor", "\u2308": "\\lceil", "\u2309": "\\rceil", "/": "/", "": "." };
@@ -82171,9 +88882,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const f = only(es2[0], "m:f");
       if (f && beg === "(" && end === ")" && mval(prOf(f, "m:fPr"), "m:type") === "noBar") return "\\binom" + arg(E(f, "m:num")) + arg(E(f, "m:den"));
     }
-    const L2 = DELIM[beg] !== void 0 ? DELIM[beg] : chars(beg), R3 = DELIM[end] !== void 0 ? DELIM[end] : chars(end);
-    const S2 = DELIM[sep] !== void 0 && sep ? " \\middle" + DELIM[sep] + " " : sep ? chars(sep) : "";
-    const inner2 = es2.map(conv2).join(S2);
+    const L2 = DELIM[beg] !== void 0 ? DELIM[beg] : chars2(beg), R3 = DELIM[end] !== void 0 ? DELIM[end] : chars2(end);
+    const S3 = DELIM[sep] !== void 0 && sep ? " \\middle" + DELIM[sep] + " " : sep ? chars2(sep) : "";
+    const inner2 = es2.map(conv2).join(S3);
     const tall = /\\(frac|sum|int|iint|oint|prod|begin|sqrt|binom|genfrac|over|under|left|dfrac|bigcup|bigcap|substack)|[_^]\{[^{}]*[_^\\]/.test(inner2);
     if (!tall && es2.length === 1 && (beg === "(" && end === ")" || beg === "[" && end === "]")) return beg + inner2 + end;
     return join2(["\\left" + L2, inner2, "\\right" + R3]);
@@ -82181,6 +88892,20 @@ Waals I Si Ge GaAs`.split(/\s+/));
   function conv2(el4) {
     if (!el4) return "";
     if (el4.text !== void 0) return "";
+    if (isRev(el4.name)) return revOut(el4.name) ? "" : join2(el4.children.filter((c) => c.name && !/Pr$/.test(c.name)).map(conv2));
+    if (el4.name !== "m:r") {
+      const sr2 = structRev(el4);
+      if (sr2 === "ins" && S.view === "reject" || sr2 === "del" && S.view === "accept") return "";
+    }
+    if (EMPTY_DROPS.has(el4.name)) {
+      const before = S.content;
+      const out = convStruct(el4);
+      return S.content === before ? "" : out;
+    }
+    return convStruct(el4);
+  }
+  var EMPTY_DROPS = /* @__PURE__ */ new Set(["m:f", "m:sSub", "m:sSup", "m:sSubSup", "m:sPre", "m:rad", "m:d", "m:func", "m:acc", "m:bar", "m:limLow", "m:limUpp", "m:groupChr", "m:m", "m:eqArr", "m:box", "m:borderBox", "m:phant"]);
+  function convStruct(el4) {
     switch (el4.name) {
       case "m:r":
         return run3(el4);
@@ -82213,7 +88938,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const chr = pr2 && kid(pr2, "m:chr") ? mval(pr2, "m:chr") : "\u222B";
         const sub = pr2 && kid(pr2, "m:subHide") && mval(pr2, "m:subHide") !== "0" ? "" : E(el4, "m:sub");
         const sup = pr2 && kid(pr2, "m:supHide") && mval(pr2, "m:supHide") !== "0" ? "" : E(el4, "m:sup");
-        return join2([(NARY2[chr] || chars(chr)) + (sub ? "_" + arg(sub) : "") + (sup ? "^" + arg(sup) : ""), E(el4)]);
+        return join2([(NARY2[chr] || chars2(chr)) + (sub ? "_" + arg(sub) : "") + (sup ? "^" + arg(sup) : ""), E(el4)]);
       }
       case "m:d":
         return delim2(el4);
@@ -82225,7 +88950,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const pr2 = prOf(el4, "m:accPr");
         const chr = pr2 && kid(pr2, "m:chr") ? mval(pr2, "m:chr") : "\u0302";
         const cmd2 = ACCENT2[chr];
-        return cmd2 ? "\\" + cmd2 + arg(E(el4)) : "\\overset{" + chars(chr || "") + "}" + arg(E(el4));
+        return cmd2 ? "\\" + cmd2 + arg(E(el4)) : "\\overset{" + chars2(chr || "") + "}" + arg(E(el4));
       }
       case "m:bar":
         return (mval(prOf(el4, "m:barPr"), "m:pos") === "bot" ? "\\underline" : "\\overline") + arg(E(el4));
@@ -82259,12 +88984,31 @@ Waals I Si Ge GaAs`.split(/\s+/));
         return join2(el4.children.filter((c) => c.name && !/Pr$/.test(c.name)).map(conv2));
     }
   }
-  function ommlToLatex(el4) {
+  function ommlToLatex(el4, opts = {}) {
     const FN = [...FUNCS].join("|");
-    return conv2(el4).replace(new RegExp("(\\\\(?:" + FN + ")(?![A-Za-z])(?:_\\{(?:[^{}]|\\{[^{}]*\\})*\\})?(?:\\^\\{(?:[^{}]|\\{[^{}]*\\})*\\})?)\\s*\\\\,", "g"), "$1 ").replace(new RegExp("\\\\,\\s*(\\\\(?:" + FN + ")(?![A-Za-z]))", "g"), "$1").replace(/\s+\\\\\s*$/, "").replace(/ {2,}/g, " ").trim();
+    S.view = opts.view === "reject" ? "reject" : "accept";
+    S.content = 0;
+    S.onObject = opts.onObject || null;
+    const tex = conv2(el4);
+    S.view = "accept";
+    S.onObject = null;
+    if (!S.content) return "";
+    return tex.replace(new RegExp("(\\\\(?:" + FN + ")(?![A-Za-z])(?:_\\{(?:[^{}]|\\{[^{}]*\\})*\\})?(?:\\^\\{(?:[^{}]|\\{[^{}]*\\})*\\})?)\\s*\\\\,", "g"), "$1 ").replace(new RegExp("\\\\,\\s*(\\\\(?:" + FN + ")(?![A-Za-z]))", "g"), "$1").replace(/\s+\\\\\s*$/, "").replace(/ {2,}/g, " ").trim();
+  }
+  function ommlRevision(el4) {
+    let best = null;
+    const walk = (e) => {
+      for (const c of e.children || []) {
+        if (!c.name) continue;
+        if (isRev(c.name) && (!best || String(c.attrs["w:date"] || "") > best.time)) best = { author: c.attrs["w:author"] || "Unknown", time: c.attrs["w:date"] || "" };
+        walk(c);
+      }
+    };
+    walk(el4);
+    return best;
   }
 
-  // ../DTU Science Writer/src/core/docxin.js
+  // src/core/docxin.js
   var TEXT_W_DEFAULT = 11906 - 2 * 1417;
   var SUPPORTED_IMG = /\.(png|jpe?g|gif|svg)$/i;
   var SYM_L = "\u03B1\u03B2\u03C7\u03B4\u03B5\u03C6\u03B3\u03B7\u03B9\u03D5\u03BA\u03BB\u03BC\u03BD\u03BF\u03C0\u03B8\u03C1\u03C3\u03C4\u03C5\u03D6\u03C9\u03BE\u03C8\u03B6";
@@ -82447,6 +89191,16 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const va2 = val(rPr2, "w:vertAlign");
         if (va2 === "superscript") m.add("sup");
         else if (va2 === "subscript") m.add("sub");
+        const hl2 = val(rPr2, "w:highlight");
+        if (hl2 !== null) {
+          for (const k of [...m]) if (k.startsWith("highlight:")) m.delete(k);
+          if (hl2 && hl2 !== "none") m.add("highlight:" + hl2);
+        }
+        const col = val(rPr2, "w:color");
+        if (col !== null) {
+          for (const k of [...m]) if (k.startsWith("color:")) m.delete(k);
+          if (/^[0-9A-Fa-f]{6}$/.test(col) && col !== "000000") m.add("color:" + col.toUpperCase());
+        }
       }
       return [...m];
     };
@@ -82461,7 +89215,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     };
     const currentRev = () => ctx.rev.del ? { kind: "del", r: ctx.rev.del } : ctx.rev.ins ? { kind: "ins", r: ctx.rev.ins } : null;
     const withMarks = (node, marks2) => {
-      const all = marks2.map((type) => ({ type }));
+      const all = marks2.map((type) => {
+        const i2 = type.indexOf(":");
+        return i2 > 0 ? { type: type.slice(0, i2), attrs: { color: type.slice(i2 + 1) } } : { type };
+      });
       if (ctx.rev.ins) all.push({ type: "ins", attrs: revAttrs(ctx.rev.ins) });
       if (ctx.rev.del) all.push({ type: "del", attrs: revAttrs(ctx.rev.del) });
       if (!ctx.rev.ins && !ctx.rev.del && !(node.type === "text" && !String(node.text).trim())) ctx.revBreak = true;
@@ -82474,6 +89231,26 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
       return all.length ? { ...node, marks: all } : node;
     };
+    const mathObjects = /* @__PURE__ */ new Map();
+    const onObject = (obj) => {
+      if (!mathObjects.has(obj)) {
+        const ole = find(obj, "o:OLEObject");
+        let tex;
+        if (ole && /equation|mathtype/i.test(ole.attrs.ProgID || "")) tex = "\\text{[MathType equation " + ++ctx.mathtype + " \u2014 retype]}";
+        else {
+          note("object", ole && ole.attrs.ProgID || "an embedded object");
+          tex = "\\text{[object]}";
+        }
+        mathObjects.set(obj, tex);
+      }
+      return mathObjects.get(obj);
+    };
+    const mathOf = (el4) => {
+      const latex = ommlToLatex(el4, { onObject });
+      const rev = keepRevisions ? ommlRevision(el4) : null;
+      if (!rev) return { latex, old: latex, rev: null };
+      return { latex, old: ommlToLatex(el4, { view: "reject", onObject }), rev };
+    };
     const text2 = (s, marks2) => {
       s = String(s).replace(/​/g, "");
       return s ? withMarks({ type: "text", text: s }, marks2) : null;
@@ -82484,7 +89261,39 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (/^TOC\b/i.test(ins)) return { type: "outline", attrs: { kind: /\\c\s+"?Fig/i.test(ins) ? "figures" : /\\c\s+"?Tab/i.test(ins) ? "tables" : "contents" } };
       return null;
     }
-    function fieldNodes(instr, result, para, marks2) {
+    const flat = (s) => String(s || "").replace(/[\s\u00a0]+/g, " ");
+    function sliceInline(nodes2, from2, to2) {
+      const out = [];
+      let pos = 0;
+      for (const n2 of nodes2) {
+        if (n2.type !== "text") {
+          if (pos >= from2 && pos < to2) out.push(n2);
+          continue;
+        }
+        const a = Math.max(from2, pos), b = Math.min(to2, pos + n2.text.length);
+        if (b > a) out.push({ ...n2, text: n2.text.slice(a - pos, b - pos) });
+        pos += n2.text.length;
+      }
+      return out;
+    }
+    function typedAroundCitation(cit, result, plain) {
+      if (typeof plain !== "string" || !plain.trim()) return [cit];
+      const shown = flat(result.map((n2) => n2.type === "text" ? n2.text : "").join(""));
+      const want = flat(plain);
+      if (shown === want || shown.trim() === want.trim()) return [cit];
+      const at2 = shown.indexOf(want.trim());
+      if (at2 < 0) {
+        note("citechanged", shown.trim() + "|" + want.trim());
+        return [cit];
+      }
+      const end = at2 + want.trim().length;
+      const before = sliceInline(result, 0, at2), after = sliceInline(result, end, shown.length);
+      const typed = before.concat(after).map((n2) => n2.text || "").join("");
+      if (!typed.trim()) return [cit];
+      note("citetyped", typed.trim());
+      return [...before, cit, ...after];
+    }
+    function fieldNodes(instr, result, para2, marks2) {
       const ins = instr.replace(/\s+/g, " ").trim();
       const word = (ins.split(" ")[0] || "").toUpperCase();
       if (word === "REF") {
@@ -82493,7 +89302,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         return [withMarks({ type: "xref", attrs: { target: "bm:" + bm2 }, fallback: result.map((n2) => n2.text || "").join("") }, [])];
       }
       if (word === "SEQ") {
-        para.seq = (ins.split(" ")[1] || "").toLowerCase();
+        para2.seq = (ins.split(" ")[1] || "").toLowerCase();
         return [{ type: "seq", text: result.map((n2) => n2.text || "").join("") }];
       }
       if (/CSL_CITATION/.test(ins)) {
@@ -82511,7 +89320,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
           }
           if (items.length) {
             count("citations");
-            return [withMarks({ type: "citation", attrs: { items, mode: (data.citationItems || []).some((c) => c["suppress-author"]) ? "suppress-author" : "normal" } }, [])];
+            const cit = withMarks({ type: "citation", attrs: { items, mode: (data.citationItems || []).some((c) => c["suppress-author"]) ? "suppress-author" : "normal" } }, []);
+            return typedAroundCitation(cit, result, data.properties && data.properties.plainCitation);
           }
         } catch (_) {
           note("citation", "a citation field could not be read");
@@ -82522,7 +89332,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (/EN\.CITE|EN\.REFLIST/.test(ins)) note("endnote", "EndNote");
       return result;
     }
-    async function inline2(p2, para, baseMarks = []) {
+    async function inline2(p2, para2, baseMarks = []) {
       const out = [];
       const push = (n2) => {
         if (!n2) return;
@@ -82575,36 +89385,48 @@ Waals I Si Ge GaAs`.split(/\s+/));
               ctx.fields.push({ instr: c.attrs["w:instr"] || "", result: inner2, phase: "result", simple: true });
               {
                 const b = blockField(c.attrs["w:instr"] || "");
-                if (b && !para.block) para.block = b;
+                if (b && !para2.block) para2.block = b;
               }
               await walk(c, marks2);
               const f = ctx.fields.pop();
-              for (const n2 of fieldNodes(f.instr, f.result, para, marks2)) push(n2);
+              for (const n2 of fieldNodes(f.instr, f.result, para2, marks2)) push(n2);
               break;
             }
             case "w:bookmarkStart":
-              if (c.attrs["w:name"] && c.attrs["w:name"] !== "_GoBack") para.bookmarks.push(c.attrs["w:name"]);
+              if (c.attrs["w:name"] && c.attrs["w:name"] !== "_GoBack") para2.bookmarks.push(c.attrs["w:name"]);
               break;
             case "w:commentRangeStart":
               ctx.comments.add(c.attrs["w:id"]);
-              para.comments.add(c.attrs["w:id"]);
+              para2.comments.add(c.attrs["w:id"]);
               break;
             case "w:commentRangeEnd":
               ctx.comments.delete(c.attrs["w:id"]);
               break;
-            case "m:oMathPara": {
-              const tex = ommlToLatex(c);
-              if (tex) {
-                para.display.push(tex);
-                push(withMarks({ type: "math_inline", attrs: { latex: tex }, display: true }, []));
-              }
-              break;
-            }
+            case "m:oMathPara":
             case "m:oMath": {
-              const tex = ommlToLatex(c);
-              if (tex) {
-                count("math");
-                push(withMarks({ type: "math_inline", attrs: { latex: tex } }, []));
+              const display = c.name === "m:oMathPara";
+              const { latex, old, rev } = mathOf(c);
+              const emit2 = (tex) => {
+                if (display) para2.display.push(tex);
+                else count("math");
+                push(withMarks({ type: "math_inline", attrs: { latex: tex }, ...display ? { display: true } : {} }, []));
+              };
+              if (latex === old) {
+                if (latex) emit2(latex);
+                break;
+              }
+              ctx.tracked++;
+              if (old) {
+                const prev = ctx.rev.del;
+                ctx.rev.del = rev;
+                emit2(old);
+                ctx.rev.del = prev;
+              }
+              if (latex) {
+                const prev = ctx.rev.ins;
+                ctx.rev.ins = rev;
+                emit2(latex);
+                ctx.rev.ins = prev;
               }
               break;
             }
@@ -82616,7 +89438,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const run5 = async (r2, base2) => {
         const rPr2 = kid(r2, "w:rPr");
         let marks2 = marksOf(rPr2, base2);
-        if (para.plainMarks) marks2 = marks2.filter((m) => m !== "bold" && m !== "underline");
+        if (para2.plainMarks) marks2 = marks2.filter((m) => m !== "bold" && m !== "underline");
         const symbolFont = rPr2 && kid(rPr2, "w:rFonts") && /^symbol$/i.test(kid(rPr2, "w:rFonts").attrs["w:ascii"] || "");
         for (const c of r2.children) {
           if (!c.name) continue;
@@ -82629,7 +89451,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
               break;
             }
             case "w:tab":
-              push(text2(para.tabAsSpace === false ? "	" : " ", marks2));
+              push(text2(para2.tabAsSpace === false ? "	" : " ", marks2));
               break;
             case "w:noBreakHyphen":
               push(text2("\u2011", marks2));
@@ -82639,7 +89461,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
               break;
             case "w:br":
             case "w:cr":
-              if (c.attrs["w:type"] === "page") para.pageBreak = true;
+              if (c.attrs["w:type"] === "page") para2.pageBreak = true;
               else if (out.length || ctx.fields.length) push({ type: "hard_break" });
               break;
             case "w:lastRenderedPageBreak":
@@ -82652,14 +89474,14 @@ Waals I Si Ge GaAs`.split(/\s+/));
                 if (f) {
                   f.phase = "result";
                   const b = blockField(f.instr);
-                  if (b && !para.block) {
-                    para.block = b;
+                  if (b && !para2.block) {
+                    para2.block = b;
                     f.block = true;
                   }
                 }
               } else if (t40 === "end") {
                 const f = ctx.fields.pop();
-                if (f) for (const n2 of fieldNodes(f.instr, f.result, para, marks2)) push(n2);
+                if (f) for (const n2 of fieldNodes(f.instr, f.result, para2, marks2)) push(n2);
               }
               break;
             }
@@ -82685,7 +89507,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
               const rId = blip ? blip.attrs["r:embed"] || blip.attrs["r:link"] : vimg ? vimg.attrs["r:id"] : null;
               const txbx = find(c, "w:txbxContent");
               if (txbx) {
-                para.textboxes.push(txbx);
+                para2.textboxes.push(txbx);
                 break;
               }
               if (!rId) {
@@ -82696,7 +89518,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
               if (!img) break;
               const ext = find(c, "wp:extent");
               const frac = ext ? Math.min(1, Math.max(0.15, +ext.attrs.cx / 635 / ctx.textW)) : 0.8;
-              para.images.push({ ...img, width: Math.round(frac * 100) / 100, anchored: !!find(c, "wp:anchor"), rev: currentRev() });
+              para2.images.push({ ...img, width: Math.round(frac * 100) / 100, anchored: !!find(c, "wp:anchor"), rev: currentRev() });
               break;
             }
             case "w:object": {
@@ -82721,8 +89543,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
         if (f.attrs["w:type"]) continue;
         const parts = [];
         for (const p2 of findAll(f, "w:p")) {
-          const para = newPara();
-          const nodes2 = await inline2(p2, para);
+          const para2 = newPara();
+          const nodes2 = await inline2(p2, para2);
           if (parts.length && nodes2.length) parts.push({ type: "text", text: " " });
           parts.push(...nodes2);
         }
@@ -82743,7 +89565,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
       return out;
     }
-    const plainText = (nodes2) => nodes2.map((n2) => n2.type === "text" || n2.type === "seq" ? n2.text : n2.type === "xref" ? n2.fallback || "" : "").join("");
+    const plainText2 = (nodes2) => nodes2.map((n2) => n2.type === "text" || n2.type === "seq" ? n2.text : n2.type === "xref" ? n2.fallback || "" : "").join("");
     const trimEnds = (nodes2, keep = {}) => {
       const out = tidy(nodes2);
       if (!keep.start) while (out.length && out[0].type === "text" && !out[0].text.trim()) out.shift();
@@ -82787,12 +89609,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
       ctx.pendingMark = null;
       if (pm2 && pm2.node && pm2.whole) pm2.node.attrs = { ...pm2.node.attrs || {}, track: pm2.track };
     };
-    const bind2 = (para, id2) => {
-      for (const b of para.bookmarks) if (!ctx.bookmarks.has(b)) ctx.bookmarks.set(b, id2);
+    const bind2 = (para2, id2) => {
+      for (const b of para2.bookmarks) if (!ctx.bookmarks.has(b)) ctx.bookmarks.set(b, id2);
     };
-    const threadIds = (para) => {
+    const threadIds = (para2) => {
       const ids = [];
-      for (const c of para.comments) {
+      for (const c of para2.comments) {
         const t40 = threadOf.get(c);
         if (t40) {
           ids.push(t40);
@@ -82809,7 +89631,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (out.length && out[0].type === "text") out[0] = { ...out[0], text: out[0].text.replace(/^\s*[.:–—-]?\s*/, "") };
       return realInline(trimEnds(out)).map((n2) => n2.marks ? { ...n2, marks: n2.marks.filter((m) => m.type !== "bold") } : n2).map((n2) => n2.marks && !n2.marks.length ? (({ marks: marks2, ...r2 }) => r2)(n2) : n2);
     }
-    const captionKind = (para, nodes2) => para.seq ? /^tab/.test(para.seq) ? "table" : /^(fig|scheme|chart)/.test(para.seq) ? "figure" : /^(eq)/.test(para.seq) ? "equation" : "figure" : /^\s*(table|tab\.)/i.test(plainText(nodes2)) ? "table" : "figure";
+    const captionKind = (para2, nodes2) => para2.seq ? /^tab/.test(para2.seq) ? "table" : /^(fig|scheme|chart)/.test(para2.seq) ? "figure" : /^(eq)/.test(para2.seq) ? "equation" : "figure" : /^\s*(table|tab\.)/i.test(plainText2(nodes2)) ? "table" : "figure";
     function figureNode(img, caption2, attrs = {}) {
       count("figures");
       return {
@@ -82839,11 +89661,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
           const content2 = [];
           let align = null;
           for (const p2 of kids(tc2, "w:p")) {
-            const para = newPara();
-            const nodes2 = realInline(trimEnds(await inline2(p2, para)));
+            const para2 = newPara();
+            const nodes2 = realInline(trimEnds(await inline2(p2, para2)));
             const jc2 = val(kid(p2, "w:pPr"), "w:jc");
             if (!align && (jc2 === "center" || jc2 === "right")) align = jc2;
-            if (para.images.length) note("cellimage", "a picture inside a table cell");
+            if (para2.images.length) note("cellimage", "a picture inside a table cell");
             content2.push(nodes2.length ? { type: "paragraph", content: nodes2 } : { type: "paragraph" });
           }
           if (kids(tc2, "w:tbl").length) {
@@ -82876,10 +89698,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (trs.length !== 1) return null;
       const maths = findAll(tbl, "m:oMath");
       if (!maths.length) return null;
-      const txt = findAll(tbl, "w:t").map(textOf2).join("").replace(/[\s​]/g, "");
-      if (!/^\(?[\dA-Z.]*\)?$/i.test(txt)) return null;
-      const para = findAll(tbl, "m:oMathPara")[0];
-      return { latex: ommlToLatex(para || maths[0]), numbered: /\d/.test(txt) || findAll(tbl, "w:instrText").some((i2) => /SEQ/i.test(textOf2(i2))) };
+      const txt2 = findAll(tbl, "w:t").map(textOf2).join("").replace(/[\s​]/g, "");
+      if (!/^\(?[\dA-Z.]*\)?$/i.test(txt2)) return null;
+      const para2 = findAll(tbl, "m:oMathPara")[0];
+      return { ...mathOf(para2 || maths[0]), numbered: /\d/.test(txt2) || findAll(tbl, "w:instrText").some((i2) => /SEQ/i.test(textOf2(i2))) };
     }
     const SECTION_NAMES = /^(abstract|introduction|background|results|discussion|results and discussion|conclusions?|summary|outlook|methods|materials and methods|experimental( section| methods| details)?|methods and materials|theory|theoretical (model|methods)|acknowledge?ments?|references|bibliography|supporting information|supplementary (information|material)|associated content|author information|author contributions|data availability|code availability|competing interests|conflicts? of interest|notes|funding|appendix)$/i;
     if (ctx.plainHeadings === void 0) {
@@ -82887,8 +89709,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
       ctx.plainHeadings = !findAll(bodyEl, "w:pStyle").some((ps2) => styleKind(ps2.attrs["w:val"]).kind === "heading");
     }
     const unshout = (t40) => t40.toLowerCase().replace(/^\s*\p{L}/u, (c) => c.toUpperCase());
-    function plainHeading(txt, nodes2, numId, hasImages) {
-      const t40 = txt.trim();
+    function plainHeading(txt2, nodes2, numId, hasImages) {
+      const t40 = txt2.trim();
       if (!ctx.plainHeadings || numId || hasImages || !t40 || t40.length > 90 || /[.,;]$/.test(t40)) return null;
       const words2 = t40.replace(/[:]$/, "");
       if (SECTION_NAMES.test(words2)) return { level: 1, caps: words2 === words2.toUpperCase() };
@@ -82931,13 +89753,13 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const pPr = kid(p2, "w:pPr");
       const styleIdOf = pPr ? val(pPr, "w:pStyle") : null;
       const sk = styleKind(styleIdOf);
-      const para = newPara();
-      para.plainMarks = sk.kind === "heading" || sk.kind === "title";
+      const para2 = newPara();
+      para2.plainMarks = sk.kind === "heading" || sk.kind === "title";
       const wasOpen = ctx.fields.length > 0;
-      const nodes2 = await inline2(p2, para);
+      const nodes2 = await inline2(p2, para2);
       const stillOpen = ctx.fields.length > 0;
-      if (para.block) {
-        if (para.block.type === "outline") addBlock({ type: "outline", attrs: { kind: para.block.attrs.kind, title: null } });
+      if (para2.block) {
+        if (para2.block.type === "outline") addBlock({ type: "outline", attrs: { kind: para2.block.attrs.kind, title: null } });
         else {
           const prev = blocks3[blocks3.length - 1];
           let title3 = "References";
@@ -82956,23 +89778,23 @@ Waals I Si Ge GaAs`.split(/\s+/));
       }
       if (sk.kind === "toc") return;
       if (sk.kind === "partlabel") {
-        report.partLabel = plainText(nodes2).trim();
+        report.partLabel = plainText2(nodes2).trim();
         return;
       }
-      for (const tb2 of para.textboxes) {
+      for (const tb2 of para2.textboxes) {
         note("textbox", "a text box");
         for (const tp2 of findAll(tb2, "w:p")) await paragraph(tp2);
       }
-      if (para.pageBreak && !plainText(nodes2).trim() && !para.images.length) {
+      if (para2.pageBreak && !plainText2(nodes2).trim() && !para2.images.length) {
         addBlock({ type: "page_break" });
         return;
       }
-      const txt = plainText(nodes2);
+      const txt2 = plainText2(nodes2);
       const content2 = realInline(trimEnds(nodes2, { start: ctx.keepStart, end: ctx.keepEnd }));
       const numPr = pPr && kid(pPr, "w:numPr") || (styleChain(styleIdOf).find((s) => s.numPr) || {}).numPr || null;
       const numId = numPr ? val(numPr, "w:numId") : null, ilvl = numPr ? +(val(numPr, "w:ilvl") || 0) : 0;
-      if (!title2 && sk.kind === "p" && !blocks3.length && !abstract2.length && !authorsRaw.length && !numId && !para.images.length && content2.length) {
-        const t40 = txt.trim();
+      if (!title2 && sk.kind === "p" && !blocks3.length && !abstract2.length && !authorsRaw.length && !numId && !para2.images.length && content2.length) {
+        const t40 = txt2.trim();
         if (t40.length >= 10 && t40.length <= 300 && !/[.:;,]$/.test(t40) && !/^abstract\b/i.test(t40) && content2.every((n2) => n2.type === "text" || n2.type === "math_inline")) {
           title2 = content2.map((n2) => n2.marks ? (({ marks: marks2, ...r2 }) => {
             const keep = marks2.filter((m) => m.type === "sub" || m.type === "sup");
@@ -82998,25 +89820,25 @@ Waals I Si Ge GaAs`.split(/\s+/));
         const isSup = (n2) => (n2.marks || []).some((m) => m.type === "sup");
         if (!authorsRaw.length && looksLikeNames(content2.filter((n2) => !isSup(n2)).map((n2) => n2.text).join(""))) {
           authorsRaw.push(nodes2);
-          guessedAuthors = txt.trim();
+          guessedAuthors = txt2.trim();
           return;
         }
-        if (authorsRaw.length && (isSup(content2[0]) || /^\s*[*†‡]?\s*(e-?mail|corresponding author|to whom correspondence)/i.test(txt))) {
+        if (authorsRaw.length && (isSup(content2[0]) || /^\s*[*†‡]?\s*(e-?mail|corresponding author|to whom correspondence)/i.test(txt2))) {
           affilRaw.push(nodes2);
           return;
         }
       }
-      if (!blocks3.length && !numId && sk.kind !== "heading" && sk.kind !== "caption" && !para.images.length) {
-        if (/^\s*abstract\s*[.:]?\s*$/i.test(txt) && !abstract2.length) {
+      if (!blocks3.length && !numId && sk.kind !== "heading" && sk.kind !== "caption" && !para2.images.length) {
+        if (/^\s*abstract\s*[.:]?\s*$/i.test(txt2) && !abstract2.length) {
           abstractOpen = true;
           return;
         }
-        if (/^\s*key\s?words?\s*[.:]?\s*$/i.test(txt)) {
+        if (/^\s*key\s?words?\s*[.:]?\s*$/i.test(txt2)) {
           abstractOpen = false;
           keywordsNext = true;
           return;
         }
-        if (/^\s*key\s?words?\b/i.test(txt)) abstractOpen = false;
+        if (/^\s*key\s?words?\b/i.test(txt2)) abstractOpen = false;
         if (keywordsNext && content2.length) {
           keywordsNext = false;
           addBlock({ type: "paragraph", content: [{ type: "text", text: "Keywords: ", marks: [{ type: "bold" }] }, ...content2] });
@@ -83028,7 +89850,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
           return;
         }
       }
-      if (sk.kind === "abstract" || !blocks3.length && !abstract2.length && /^\s*abstract\b/i.test(txt) && txt.trim().length > 20) {
+      if (sk.kind === "abstract" || !blocks3.length && !abstract2.length && /^\s*abstract\b/i.test(txt2) && txt2.trim().length > 20) {
         const c = content2.slice();
         if (c.length && c[0].type === "text") {
           c[0] = { ...c[0], text: c[0].text.replace(/^\s*abstract\s*[.:–—-]?\s*/i, "") };
@@ -83040,7 +89862,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
         return;
       }
       if (sk.kind === "heading") {
-        if (!txt.trim()) return;
+        if (!txt2.trim()) return;
         if (!title2 && !blocks3.length && !abstract2.length && !authorsRaw.length) {
           title2 = content2.filter((n2) => n2.type === "text" || n2.type === "math_inline").map((n2) => n2.marks ? (({ marks: marks2, ...r2 }) => r2)(n2) : n2);
           return;
@@ -83054,7 +89876,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
           typedNumber = true;
         }
         const id2 = newId2("sec");
-        bind2(para, id2);
+        bind2(para2, id2);
         count("headings");
         const appendix = numbered && numId === String(opts.appendixNumId || 60) && sk.level === 1 && !ctx.appendixSeen;
         if (appendix) ctx.appendixSeen = true;
@@ -83062,8 +89884,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
         return;
       }
       if (sk.kind !== "caption" && (blocks3.length || abstract2.length || authorsRaw.length || title2)) {
-        const ph2 = plainHeading(txt, content2, numId && numId !== "0", para.images.length);
-        if (ph2 && !(ph2.level === 1 && /^abstract:?$/i.test(txt.trim()) && !blocks3.length)) {
+        const ph2 = plainHeading(txt2, content2, numId && numId !== "0", para2.images.length);
+        if (ph2 && !(ph2.level === 1 && /^abstract:?$/i.test(txt2.trim()) && !blocks3.length)) {
           abstractOpen = false;
           keywordsNext = false;
           let c = content2.filter((n2) => n2.type !== "hard_break").map((n2) => n2.marks ? (({ marks: marks2, ...r2 }) => {
@@ -83073,7 +89895,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
           if (ph2.caps) c = c.map((n2, i2) => n2.type === "text" ? { ...n2, text: i2 === 0 ? unshout(n2.text) : n2.text.toLowerCase() } : n2);
           if (c.length && c[c.length - 1].type === "text") c[c.length - 1] = { ...c[c.length - 1], text: c[c.length - 1].text.replace(/\s*:\s*$/, "") };
           const id2 = newId2("sec");
-          bind2(para, id2);
+          bind2(para2, id2);
           count("headings");
           ctx.plainHeadingCount = (ctx.plainHeadingCount || 0) + 1;
           addBlock({ type: "heading", attrs: { level: ph2.level, numbered: false, id: id2, appendix: false }, content: c });
@@ -83088,73 +89910,73 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const changed = mathNodes.length === 2 && revMark(mathNodes[0], "del") && revMark(mathNodes[1], "ins") && eqTail;
       if (changed) {
         const id2 = newId2("eq");
-        bind2(para, id2);
+        bind2(para2, id2);
         count("equations");
         const { id: tid, author, initials, time } = revMark(mathNodes[1], "ins").attrs;
-        addBlock({ type: "equation", attrs: { latex: mathNodes[1].attrs.latex, numbered: para.seq === "equation" || /\d/.test(restText), id: id2, comments: threadIds(para), track: { kind: "mod", id: tid, author, initials, time, old: { latex: mathNodes[0].attrs.latex } } } });
+        addBlock({ type: "equation", attrs: { latex: mathNodes[1].attrs.latex, numbered: para2.seq === "equation" || /\d/.test(restText), id: id2, comments: threadIds(para2), track: { kind: "mod", id: tid, author, initials, time, old: { latex: mathNodes[0].attrs.latex } } } });
         return;
       }
-      if (mathNodes.length === 1 && eqTail && (para.display.length || mathNodes[0].mathtype || nodes2[0] === mathNodes[0] || styleIdOf === "Equation")) {
+      if (mathNodes.length === 1 && eqTail && (para2.display.length || mathNodes[0].mathtype || nodes2[0] === mathNodes[0] || styleIdOf === "Equation")) {
         const d = revMark(mathNodes[0], "del"), i2 = revMark(mathNodes[0], "ins");
-        para.eqTrack = d ? { kind: "del", ...d.attrs } : i2 ? { kind: "ins", ...i2.attrs } : null;
+        para2.eqTrack = d ? { kind: "del", ...d.attrs } : i2 ? { kind: "ins", ...i2.attrs } : null;
         const punct2 = eqTail[1] || eqTail[3];
         if (punct2 && !mathNodes[0].mathtype) mathNodes[0] = { ...mathNodes[0], attrs: { latex: mathNodes[0].attrs.latex + punct2 } };
         const id2 = newId2("eq");
-        bind2(para, id2);
+        bind2(para2, id2);
         count("equations");
         if (mathNodes[0].mathtype) note("mathtype", "display");
-        addBlock({ type: "equation", attrs: { latex: mathNodes[0].attrs.latex, numbered: para.seq === "equation" || /\d/.test(restText), id: id2, comments: threadIds(para), track: para.eqTrack || null } });
+        addBlock({ type: "equation", attrs: { latex: mathNodes[0].attrs.latex, numbered: para2.seq === "equation" || /\d/.test(restText), id: id2, comments: threadIds(para2), track: para2.eqTrack || null } });
         return;
       }
       for (const m of mathNodes) if (m.mathtype) note("mathtype", "inline");
-      if (sk.kind === "caption" || para.seq && /^(fig|tab|scheme|chart)/.test(para.seq)) {
-        const kind = captionKind(para, nodes2);
+      if (sk.kind === "caption" || para2.seq && /^(fig|tab|scheme|chart)/.test(para2.seq)) {
+        const kind = captionKind(para2, nodes2);
         const cap = captionContent(nodes2);
         if (kind === "table") {
           if (lastTable && !lastTable.content[0].content.length && blocks3[blocks3.length - 1] === lastTable) {
             lastTable.content[0].content = cap;
-            bind2(para, lastTable.attrs.id);
-          } else pendingCaption = { kind, content: cap, para };
+            bind2(para2, lastTable.attrs.id);
+          } else pendingCaption = { kind, content: cap, para: para2 };
           return;
         }
-        if (para.images.length) {
-          const f = addBlock(figureNode(para.images[0], cap, { comments: threadIds(para) }));
-          bind2(para, f.attrs.id);
+        if (para2.images.length) {
+          const f = addBlock(figureNode(para2.images[0], cap, { comments: threadIds(para2) }));
+          bind2(para2, f.attrs.id);
           lastFigure = f;
           return;
         }
         if (lastFigure && !lastFigure.content[1].content.length && blocks3[blocks3.length - 1] === lastFigure) {
           lastFigure.content[1].content = cap;
-          bind2(para, lastFigure.attrs.id);
+          bind2(para2, lastFigure.attrs.id);
           return;
         }
-        pendingCaption = { kind: "figure", content: cap, para };
+        pendingCaption = { kind: "figure", content: cap, para: para2 };
         return;
       }
-      if (!para.images.length && TYPED_CAPTION.test(txt)) {
-        const isTable = /^\s*tab/i.test(txt);
-        const last = blocks3[blocks3.length - 1];
-        if (!isTable && lastFigure && last === lastFigure && !lastFigure.content[1].content.length) {
+      if (!para2.images.length && TYPED_CAPTION.test(txt2)) {
+        const isTable = /^\s*tab/i.test(txt2);
+        const last2 = blocks3[blocks3.length - 1];
+        if (!isTable && lastFigure && last2 === lastFigure && !lastFigure.content[1].content.length) {
           lastFigure.content[1].content = captionContent(nodes2);
-          bind2(para, lastFigure.attrs.id);
+          bind2(para2, lastFigure.attrs.id);
           return;
         }
-        if (isTable && lastTable && last === lastTable && !lastTable.content[0].content.length) {
+        if (isTable && lastTable && last2 === lastTable && !lastTable.content[0].content.length) {
           lastTable.content[0].content = captionContent(nodes2);
-          bind2(para, lastTable.attrs.id);
+          bind2(para2, lastTable.attrs.id);
           return;
         }
       }
-      if (para.images.length) {
-        let hasText = txt.trim().length > 0;
-        const ownCaption = hasText && para.images.length === 1 && TYPED_CAPTION.test(txt) && !(pendingCaption && pendingCaption.kind === "figure") ? captionContent(nodes2) : null;
+      if (para2.images.length) {
+        let hasText = txt2.trim().length > 0;
+        const ownCaption = hasText && para2.images.length === 1 && TYPED_CAPTION.test(txt2) && !(pendingCaption && pendingCaption.kind === "figure") ? captionContent(nodes2) : null;
         if (ownCaption) {
-          const f = addBlock(figureNode(para.images[0], ownCaption, { comments: threadIds(para) }));
-          bind2(para, f.attrs.id);
+          const f = addBlock(figureNode(para2.images[0], ownCaption, { comments: threadIds(para2) }));
+          bind2(para2, f.attrs.id);
           lastFigure = f;
           return;
         }
-        for (const img of para.images) {
+        for (const img of para2.images) {
           if (img.unsupported) {
           }
           const cap = pendingCaption ? pendingCaption : null;
@@ -83162,12 +89984,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
             note("tableimage", "a table pasted as a picture");
             cap.content = [{ type: "text", text: "Table: " }, ...cap.content];
           }
-          const f = addBlock(figureNode(img, cap ? cap.content : [], { comments: threadIds(para) }));
+          const f = addBlock(figureNode(img, cap ? cap.content : [], { comments: threadIds(para2) }));
           if (cap) {
             bind2(cap.para, f.attrs.id);
             pendingCaption = null;
           }
-          bind2(para, f.attrs.id);
+          bind2(para2, f.attrs.id);
           lastFigure = f;
         }
         if (!hasText) return;
@@ -83179,11 +90001,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
         pendingCaption = null;
       }
       if (numId && numId !== "0") {
-        const info = listInfo(numId, ilvl);
+        const info2 = listInfo(numId, ilvl);
         while (listStack.length && listStack[listStack.length - 1].ilvl > ilvl) listStack.pop();
         let top = listStack[listStack.length - 1];
         if (!top || top.ilvl < ilvl || top.numId !== numId) {
-          const node = info.ordered ? { type: "ordered_list", attrs: { order: info.start }, content: [] } : { type: "bullet_list", content: [] };
+          const node = info2.ordered ? { type: "ordered_list", attrs: { order: info2.start }, content: [] } : { type: "bullet_list", content: [] };
           if (top && top.ilvl < ilvl && top.node.content.length) top.node.content[top.node.content.length - 1].content.push(node);
           else {
             listStack.length = 0;
@@ -83212,15 +90034,24 @@ Waals I Si Ge GaAs`.split(/\s+/));
           if (ctx.fields.length || ctx.inBlockField) continue;
           const eq = equationTable(c);
           if (eq) {
-            const para = newPara();
-            for (const b of findAll(c, "w:bookmarkStart")) para.bookmarks.push(b.attrs["w:name"]);
-            for (const s of findAll(c, "w:commentRangeStart")) para.comments.add(s.attrs["w:id"]);
+            const para2 = newPara();
+            for (const b of findAll(c, "w:bookmarkStart")) para2.bookmarks.push(b.attrs["w:name"]);
+            for (const s of findAll(c, "w:commentRangeStart")) para2.comments.add(s.attrs["w:id"]);
             for (const s of findAll(c, "w:commentRangeStart")) ctx.comments.add(s.attrs["w:id"]);
             for (const s of findAll(c, "w:commentRangeEnd")) ctx.comments.delete(s.attrs["w:id"]);
             const id2 = newId2("eq");
-            bind2(para, id2);
+            bind2(para2, id2);
             count("equations");
-            addBlock({ type: "equation", attrs: { latex: eq.latex, numbered: eq.numbered, id: id2, comments: threadIds(para) } });
+            let track = null, latex = eq.latex;
+            if (eq.rev && eq.old !== eq.latex) {
+              ctx.tracked++;
+              ctx.revBreak = true;
+              const a = revAttrs(eq.rev);
+              ctx.revBreak = true;
+              track = !eq.old ? { kind: "ins", ...a } : !eq.latex ? { kind: "del", ...a } : { kind: "mod", ...a, old: { latex: eq.old } };
+              if (!eq.latex) latex = eq.old;
+            }
+            addBlock({ type: "equation", attrs: { latex, numbered: eq.numbered, id: id2, comments: threadIds(para2), track } });
             continue;
           }
           const table = await tableNode(c);
@@ -83431,6 +90262,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (n("lonecaption")) report.notes.push(n("lonecaption") + " caption" + (n("lonecaption") > 1 ? "s" : "") + " had no picture or table next to " + (n("lonecaption") > 1 ? "them" : "it") + " and stayed as text where " + (n("lonecaption") > 1 ? "they were" : "it was") + ".");
     if (n("nested")) report.notes.push(n("nested") + " table" + (n("nested") > 1 ? "s" : "") + " inside a table cell became plain text.");
     if (n("endnote")) report.notes.push("EndNote citations were kept as the text Word showed. Format \u2192 Convert typed references turns them into real citations.");
+    if (n("citetyped")) report.notes.push(n("citetyped") + " citation" + (n("citetyped") > 1 ? "s" : "") + " had text typed into " + (n("citetyped") > 1 ? "them" : "it") + " in Word (\u201C" + noteCounts.citetyped.slice(0, 3).join("\u201D, \u201C") + "\u201D): the text was kept beside the citation \u2014 check it, and use Insert \u2192 Citation for a reference that was added by typing.");
+    if (n("citechanged")) report.notes.push(n("citechanged") + " citation" + (n("citechanged") > 1 ? "s were" : " was") + " changed by hand in Word (" + noteCounts.citechanged.slice(0, 3).map((x3) => {
+      const [a, b] = x3.split("|");
+      return "\u201C" + a + "\u201D where the citation reads \u201C" + b + "\u201D";
+    }).join("; ") + "): the citation was kept as it was in the reference data \u2014 check " + (n("citechanged") > 1 ? "them" : "it") + ".");
     if (n("citation")) report.notes.push(n("citation") + " citation field" + (n("citation") > 1 ? "s" : "") + " could not be read and stayed as text.");
     report.counts.references = Object.keys(library).length;
     if (!content.length) content = [{ type: "paragraph" }];
@@ -83449,8 +90285,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return { json, media, report };
   }
 
-  // ../DTU Science Writer/src/renderer/doc/importword.js
-  var esc11 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // src/renderer/doc/importword.js
+  var esc12 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   var LABEL = {
     headings: "headings",
     paragraphs: "paragraphs",
@@ -83626,7 +90462,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     }
     const typed = !!findTypedReferences(app.view.state.doc, opts.si ? "si" : "main").list || findTypedXrefs(app.view.state.doc).length > 0;
     const counts = Object.entries(LABEL).filter(([k]) => report.counts[k]).map(([k, l]) => "<li><b>" + report.counts[k] + "</b> " + l + "</li>").join("");
-    dlg.innerHTML = '<div class="box"><h3>Imported ' + esc11(name) + '</h3><p class="msg">' + (opts.si ? "It is now the Supplementary Information of this paper (the second tab) \u2014 the Word file is unchanged. Its figures, tables and equations are numbered S1, S2, \u2026" : "It is a new document \u2014 the Word file is unchanged. Save it to keep it.") + '</p><ul class="imp-counts">' + counts + "</ul>" + ((opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).length ? '<h4>To check</h4><ul class="imp-notes">' + (opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).map((n) => "<li>" + esc11(n) + "</li>").join("") + "</ul>" : '<p class="msg">Everything in the file was converted.</p>') + (typed ? '<p class="msg">Citations and references like \u201CFig. 2\u201D are typed text here. <b>Convert typed references</b> looks each reference up and makes citations and cross-references live.</p>' : "") + '<div class="buttons"><span class="grow"></span>' + (typed ? '<button data-act="convert">Convert typed references</button>' : "") + '<button data-act="close" class="primary">OK</button></div></div>';
+    dlg.innerHTML = '<div class="box"><h3>Imported ' + esc12(name) + '</h3><p class="msg">' + (opts.si ? "It is now the Supplementary Information of this paper (the second tab) \u2014 the Word file is unchanged. Its figures, tables and equations are numbered S1, S2, \u2026" : "It is a new document \u2014 the Word file is unchanged. Save it to keep it.") + '</p><ul class="imp-counts">' + counts + "</ul>" + ((opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).length ? '<h4>To check</h4><ul class="imp-notes">' + (opts.si ? report.notes.filter((n) => !/author list|Affiliations were read|which author belongs|read as the title/.test(n)) : report.notes).map((n) => "<li>" + esc12(n) + "</li>").join("") + "</ul>" : '<p class="msg">Everything in the file was converted.</p>') + (typed ? '<p class="msg">Citations and references like \u201CFig. 2\u201D are typed text here. <b>Convert typed references</b> looks each reference up and makes citations and cross-references live.</p>' : "") + '<div class="buttons"><span class="grow"></span>' + (typed ? '<button data-act="convert">Convert typed references</button>' : "") + '<button data-act="close" class="primary">OK</button></div></div>';
     const close3 = () => {
       dlg.hidden = true;
       if (app.view) app.view.focus();
@@ -83649,11 +90485,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
     dlg.querySelector('[data-act="close"]').focus();
   }
 
-  // ../DTU Science Writer/src/renderer/ui/help.js
+  // src/renderer/ui/help.js
   var GUIDE = [
     ["Start here", [
       ["What it is", "A writing program for scientific papers. What you see is the paper: no codes. The page preview on the right is the exact PDF."],
       ["Templates", "<b>New</b> (<kbd>Ctrl+N</kbd>) asks what to start from: article, lecture notes, thesis, report, notes, proposal or a blank page. File \u2192 <b>Save as template\u2026</b> keeps the open document \u2014 style, text and figures \u2014 as a template of your own; New offers it under \u201CYour templates\u201D (hover a card and click \xD7 to delete it)."],
+      ["For a journal or a funder", "Under <b>Article</b>, type the journal; under <b>Proposal</b>, the funder and the call. The document starts with their sections in their order, their style, and their limits. The status bar then counts as you write \u2014 abstract and main-text words, figures and tables, references, pages \u2014 amber near a limit, red over it; click it for the details, the source and the date the guide was checked. Format \u2192 Journal style switches the limits on for a paper started without them."],
       ["A new paper", "<b>New</b>, pick Article, then type the title, click the author line to add authors and affiliations, and write. Headings: the style box in the toolbar, or <kbd>Ctrl+Alt+1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>."],
       ["Practise", "Help \u2192 <b>Tutorial</b> opens a short document that asks you to try each thing once."],
       ["Files", "One file per paper, <code>name.dtusw</code>: text, figures, references, comments and changes are all inside it."]
@@ -83701,7 +90538,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
     ]],
     ["From a Word manuscript", [
       ["Import", "File \u2192 Import Word document\u2026: a new paper here; the Word file is not changed. A report lists what arrived and what to check."],
-      ["Typed references", "Format \u2192 <b>Convert typed references</b>: \u201C[1]\u201D, superscript numbers and a typed reference list become real citations (each one looked up and verified); typed \u201CFig. 2\u201D becomes a live reference."]
+      ["Typed references", "Format \u2192 <b>Convert typed references</b>: \u201C[1]\u201D, superscript numbers and a typed reference list become real citations (each one looked up and verified); typed \u201CFig. 2\u201D becomes a live reference."],
+      ["Back and forth with Word", "Comments, replies, tracked changes (also inside equations), highlight and coloured text travel both ways. What a Word file cannot carry \u2014 the document style, drawings on figures \u2014 stays in your <code>.dtusw</code>; a Word file you get back opens as a new document."]
+    ]],
+    ["Highlight and colour", [
+      ["Highlight", "Format \u2192 <b>Highlight</b> (<kbd>Ctrl+Shift+H</kbd>) marks the selection in yellow; Format \u2192 <b>Remove highlight</b>. Shown in the PDF, and in Word."],
+      ["Text colour", "Format \u2192 <b>Text colour</b>: red, blue, green, or automatic. A revised manuscript or a response letter from Word keeps its marked changes."]
     ]],
     ["Look and layout", [
       ["Document style", "<b>Style</b>: font, sizes, heading formats, line spacing, line numbers, language."],
@@ -83762,7 +90604,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     q2.focus();
   }
 
-  // ../DTU Science Writer/src/renderer/tutorial.js
+  // src/renderer/tutorial.js
   async function plot() {
     const c = document.createElement("canvas");
     c.width = 900;
@@ -83862,7 +90704,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     };
   }
 
-  // ../DTU Science Writer/src/renderer/sample.js
+  // src/renderer/sample.js
   async function canvasPng(w2, h3, draw) {
     const c = document.createElement("canvas");
     c.width = w2;
@@ -84057,7 +90899,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     return doc4;
   }
 
-  // ../DTU Science Writer/src/renderer/ui/toolbar.js
+  // src/renderer/ui/toolbar.js
   var run4 = (c) => () => {
     c(app.view.state, app.view.dispatch, app.view);
     app.view.focus();
@@ -84115,6 +90957,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
     underline: run4(cmd.underline),
     sup: run4(cmd.sup),
     sub: run4(cmd.sub),
+    highlight: run4(cmd.highlight),
+    removeHighlight: run4(cmd.removeHighlight),
+    colorRed: run4(cmd.colorRed),
+    colorBlue: run4(cmd.colorBlue),
+    colorGreen: run4(cmd.colorGreen),
+    colorNone: run4(cmd.colorNone),
     bullets: run4(cmd.bullets),
     numbers: run4(cmd.numbers),
     inlineMath: run4(cmd.inlineMath),
@@ -84189,7 +91037,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/ui/eqtools.js
+  // src/renderer/ui/eqtools.js
   var B2 = (latex, label4, title2) => ({ latex, label: label4 || latex, title: title2 || latex });
   var LEFT = [
     ["Structures", [
@@ -84418,7 +91266,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
   mathEvents.addEventListener("mode", showModes);
   mathEvents.addEventListener("close", hide);
 
-  // ../DTU Science Writer/src/renderer/ui/figviewer.js
+  // src/renderer/ui/figviewer.js
   var TOOLS = [
     ["look", "\u2B09 Select", "Select: click a mark to select it (Delete removes it), click a typed text to edit it, click a comment box to read it (V)", "v"],
     ["comment", "\u25AD Comment", "Comment box: drag a box around what the comment is about, then type it (C)", "c"],
@@ -84426,10 +91274,10 @@ Waals I Si Ge GaAs`.split(/\s+/));
     ["pen", "\u270E Pen", "Pen: draw (P)", "p"],
     ["marker", "\u25AE Marker", "Marker: highlight (M)", "m"]
   ];
-  var esc12 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  var esc13 = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   var now = () => (/* @__PURE__ */ new Date()).toISOString();
   var r42 = (v) => Math.round(v * 1e4) / 1e4;
-  var S = null;
+  var S2 = null;
   function findFigure(state2, id2) {
     let out = null;
     state2.doc.descendants((n, pos) => {
@@ -84456,12 +91304,12 @@ Waals I Si Ge GaAs`.split(/\s+/));
   };
   var me2 = () => ({ author: app.settings && app.settings.name || "", initials: app.settings && app.settings.initials || "", time: now() });
   var currentList = () => {
-    const f = S && findFigure(S.view.state, S.figId);
+    const f = S2 && findFigure(S2.view.state, S2.figId);
     return f ? annotationsOf(f.node) : [];
   };
   var byId = (id2) => currentList().find((a) => a.id === id2);
   function changeFigure(fn2) {
-    const { view, figId } = S;
+    const { view, figId } = S2;
     const f = findFigure(view.state, figId);
     if (!f) return;
     const r2 = fn2(f.node);
@@ -84476,7 +91324,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     changeFigure((node) => {
       const list3 = annotationsOf(node);
       const gone = new Set(list3.filter((a) => set.has(a.id) && a.kind === "comment").map((a) => a.thread));
-      let threads = threadsOf(S.view.state.doc);
+      let threads = threadsOf(S2.view.state.doc);
       for (const t40 of gone) threads = withThread({ attrs: { comments: threads } }, t40, null);
       return { attrs: { annotations: list3.filter((a) => !set.has(a.id)), comments: (node.attrs.comments || []).filter((t40) => !gone.has(t40)) }, threads: gone.size ? threads : null };
     });
@@ -84491,9 +91339,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
     closeFigureViewer();
     const el4 = document.createElement("div");
     el4.id = "figview";
-    el4.innerHTML = '<div class="fv-bar"><span class="fv-title"></span><div class="fv-tools">' + TOOLS.map(([k, label4, title2]) => '<button data-tool="' + k + '" title="' + esc12(title2) + '">' + label4 + "</button>").join("") + '<span class="fv-colors"></span><label class="fv-size" title="Text size"><span>Size</span><input type="range" min="' + TEXT_SIZE_MIN + '" max="' + TEXT_SIZE_MAX + '" step="0.002"></label><button data-act="delete" title="Delete the selected mark (Delete)">\u{1F5D1} Delete</button><button data-act="undo" title="Undo (Ctrl+Z)">\u21B6 Undo</button></div><span class="grow"></span><button data-act="clear" class="quiet-danger" title="Remove every mark and comment box on this figure (Ctrl+Z brings them back)">Remove annotations</button><button data-act="close" class="primary" title="Close (Esc)">Close</button></div><div class="fv-main"><div class="fv-stage"><img alt=""><div class="fv-ann"></div><svg class="fv-live" preserveAspectRatio="none"></svg><div class="fv-input"></div></div><aside class="fv-notes"></aside></div><div class="fv-hint"></div>';
+    el4.innerHTML = '<div class="fv-bar"><span class="fv-title"></span><div class="fv-tools">' + TOOLS.map(([k, label4, title2]) => '<button data-tool="' + k + '" title="' + esc13(title2) + '">' + label4 + "</button>").join("") + '<span class="fv-colors"></span><label class="fv-size" title="Text size"><span>Size</span><input type="range" min="' + TEXT_SIZE_MIN + '" max="' + TEXT_SIZE_MAX + '" step="0.002"></label><button data-act="delete" title="Delete the selected mark (Delete)">\u{1F5D1} Delete</button><button data-act="undo" title="Undo (Ctrl+Z)">\u21B6 Undo</button></div><span class="grow"></span><button data-act="clear" class="quiet-danger" title="Remove every mark and comment box on this figure (Ctrl+Z brings them back)">Remove annotations</button><button data-act="close" class="primary" title="Close (Esc)">Close</button></div><div class="fv-main"><div class="fv-stage"><img alt=""><div class="fv-ann"></div><svg class="fv-live" preserveAspectRatio="none"></svg><div class="fv-input"></div></div><aside class="fv-notes"></aside></div><div class="fv-hint"></div>';
     document.body.appendChild(el4);
-    S = {
+    S2 = {
       view,
       figId: f.node.attrs.id,
       tool: "look",
@@ -84516,111 +91364,111 @@ Waals I Si Ge GaAs`.split(/\s+/));
         main: el4.querySelector(".fv-main")
       }
     };
-    S.el.img.src = mediaUrl(f.node.firstChild.attrs.src);
-    S.el.img.onload = layout;
-    wire();
+    S2.el.img.src = mediaUrl(f.node.firstChild.attrs.src);
+    S2.el.img.onload = layout;
+    wire2();
     render2();
     layout();
     el4.focus();
   }
   function closeFigureViewer() {
-    if (!S) return;
-    const v = S.view;
+    if (!S2) return;
+    const v = S2.view;
     commitOpenText();
     window.removeEventListener("resize", layout);
-    S.el.root.remove();
-    S = null;
+    S2.el.root.remove();
+    S2 = null;
     v.focus();
   }
   function layout() {
-    if (!S) return;
-    const f = findFigure(S.view.state, S.figId);
+    if (!S2) return;
+    const f = findFigure(S2.view.state, S2.figId);
     if (!f) return;
     const aspect = aspectOf(f);
-    const box2 = S.el.main.getBoundingClientRect();
-    const notesW = S.el.notes.offsetWidth ? S.el.notes.offsetWidth + 16 : 0;
+    const box2 = S2.el.main.getBoundingClientRect();
+    const notesW = S2.el.notes.offsetWidth ? S2.el.notes.offsetWidth + 16 : 0;
     const availW = Math.max(200, box2.width - notesW - 32), availH = Math.max(150, box2.height - 24);
     const w2 = Math.min(availW, availH / aspect);
-    S.el.stage.style.width = Math.round(w2) + "px";
-    S.el.stage.style.height = Math.round(w2 * aspect) + "px";
-    S.el.live.setAttribute("viewBox", "0 0 1000 " + Math.round(1e3 * aspect));
+    S2.el.stage.style.width = Math.round(w2) + "px";
+    S2.el.stage.style.height = Math.round(w2 * aspect) + "px";
+    S2.el.live.setAttribute("viewBox", "0 0 1000 " + Math.round(1e3 * aspect));
   }
   function render2() {
-    if (!S) return;
-    const { view } = S;
-    const f = findFigure(view.state, S.figId);
+    if (!S2) return;
+    const { view } = S2;
+    const f = findFigure(view.state, S2.figId);
     if (!f) {
       closeFigureViewer();
       return;
     }
     const list3 = annotationsOf(f.node), threads = threadsOf(view.state.doc);
-    if (S.selected && !list3.some((a) => a.id === S.selected)) S.selected = null;
-    const info = numberingKey.getState(view.state).nums.byId.get(S.figId);
+    if (S2.selected && !list3.some((a) => a.id === S2.selected)) S2.selected = null;
+    const info2 = numberingKey.getState(view.state).nums.byId.get(S2.figId);
     const cap = f.node.lastChild.textContent;
-    S.el.title.textContent = "Fig. " + (info && info.num || "?") + (cap ? " \u2014 " + (cap.length > 70 ? cap.slice(0, 70) + "\u2026" : cap) : "");
-    const shown = S.editing ? list3.filter((a) => a.id !== S.editing) : list3;
-    S.el.ann.innerHTML = annotationsSvg(shown, aspectOf(f), { threads, active: S.selected, hit: true });
+    S2.el.title.textContent = "Fig. " + (info2 && info2.num || "?") + (cap ? " \u2014 " + (cap.length > 70 ? cap.slice(0, 70) + "\u2026" : cap) : "");
+    const shown = S2.editing ? list3.filter((a) => a.id !== S2.editing) : list3;
+    S2.el.ann.innerHTML = annotationsSvg(shown, aspectOf(f), { threads, active: S2.selected, hit: true });
     const ro2 = app.readOnly;
-    S.el.root.querySelectorAll("[data-tool]").forEach((b) => {
-      b.classList.toggle("on", b.dataset.tool === S.tool);
+    S2.el.root.querySelectorAll("[data-tool]").forEach((b) => {
+      b.classList.toggle("on", b.dataset.tool === S2.tool);
       b.disabled = ro2 && b.dataset.tool !== "look";
     });
-    S.el.root.querySelector('[data-act="clear"]').disabled = ro2 || !list3.length;
-    S.el.root.querySelector('[data-act="undo"]').disabled = ro2;
-    S.el.root.querySelector('[data-act="delete"]').disabled = ro2 || !S.selected;
-    S.el.stage.dataset.tool = S.tool;
-    const sel = S.selected ? list3.find((a) => a.id === S.selected) : null;
-    const ckey = sel && sel.kind !== "comment" ? sel.kind === "marker" ? "marker" : sel.kind : S.tool === "marker" ? "marker" : S.tool === "pen" || S.tool === "text" ? S.tool : null;
-    const cur = sel && sel.kind !== "comment" ? sel.color : ckey && S.colors[ckey];
-    S.el.colors.innerHTML = ckey ? (ckey === "marker" ? MARKER_COLORS : PEN_COLORS).map((c) => '<button class="sw' + (c === cur ? " on" : "") + '" data-color="' + c + '" style="background:' + c + '" title="Colour"></button>').join("") : "";
-    const showSize = S.tool === "text" || sel && sel.kind === "text" || !!S.editing;
-    S.el.size.hidden = !showSize;
-    if (showSize) S.el.size.querySelector("input").value = String(sel && sel.kind === "text" ? textSize(sel) : S.size);
+    S2.el.root.querySelector('[data-act="clear"]').disabled = ro2 || !list3.length;
+    S2.el.root.querySelector('[data-act="undo"]').disabled = ro2;
+    S2.el.root.querySelector('[data-act="delete"]').disabled = ro2 || !S2.selected;
+    S2.el.stage.dataset.tool = S2.tool;
+    const sel = S2.selected ? list3.find((a) => a.id === S2.selected) : null;
+    const ckey = sel && sel.kind !== "comment" ? sel.kind === "marker" ? "marker" : sel.kind : S2.tool === "marker" ? "marker" : S2.tool === "pen" || S2.tool === "text" ? S2.tool : null;
+    const cur = sel && sel.kind !== "comment" ? sel.color : ckey && S2.colors[ckey];
+    S2.el.colors.innerHTML = ckey ? (ckey === "marker" ? MARKER_COLORS : PEN_COLORS).map((c) => '<button class="sw' + (c === cur ? " on" : "") + '" data-color="' + c + '" style="background:' + c + '" title="Colour"></button>').join("") : "";
+    const showSize = S2.tool === "text" || sel && sel.kind === "text" || !!S2.editing;
+    S2.el.size.hidden = !showSize;
+    if (showSize) S2.el.size.querySelector("input").value = String(sel && sel.kind === "text" ? textSize(sel) : S2.size);
     const nums = commentNumbers(list3);
     const boxes = list3.filter((a) => a.kind === "comment" && threads[a.thread]).sort((a, b) => nums.get(a.id) - nums.get(b.id));
-    S.el.notes.innerHTML = boxes.length ? "<h4>Comments on this figure</h4>" + boxes.map((a) => {
+    S2.el.notes.innerHTML = boxes.length ? "<h4>Comments on this figure</h4>" + boxes.map((a) => {
       const t40 = threads[a.thread];
-      return '<div class="fv-note' + (a.id === S.selected ? " active" : "") + (t40.resolved ? " resolved" : "") + '" data-id="' + esc12(a.id) + '"><b>' + nums.get(a.id) + '</b> <span class="who">' + esc12(t40.author || "") + '</span><div class="txt">' + esc12(t40.text) + "</div>" + ((t40.replies || []).length ? '<div class="rep">' + t40.replies.length + " repl" + (t40.replies.length > 1 ? "ies" : "y") + "</div>" : "") + (t40.resolved ? '<div class="rep">resolved</div>' : "") + "</div>";
+      return '<div class="fv-note' + (a.id === S2.selected ? " active" : "") + (t40.resolved ? " resolved" : "") + '" data-id="' + esc13(a.id) + '"><b>' + nums.get(a.id) + '</b> <span class="who">' + esc13(t40.author || "") + '</span><div class="txt">' + esc13(t40.text) + "</div>" + ((t40.replies || []).length ? '<div class="rep">' + t40.replies.length + " repl" + (t40.replies.length > 1 ? "ies" : "y") + "</div>" : "") + (t40.resolved ? '<div class="rep">resolved</div>' : "") + "</div>";
     }).join("") + '<p class="fv-small">Reply and resolve in the comment column after closing.</p>' : "";
-    S.el.notes.hidden = !boxes.length;
-    S.el.hint.textContent = ro2 ? "Read-only: someone else is editing this document. You can look, not annotate." : sel ? sel.kind === "text" ? "Selected text: click it again to edit, Delete to remove; the size slider and colours change it." : "Selected: Delete removes it; a colour recolours it." : { look: "Click a mark to select it, a typed text to edit it. Marks are review marks: saved with the document, not printed.", comment: "Drag a box around what your comment is about.", text: "Click where the text should go, or click a text to edit it. Enter to finish, Shift+Enter for a new line.", pen: "Draw with the mouse or a pen.", marker: "Highlight with the mouse or a pen." }[S.tool];
+    S2.el.notes.hidden = !boxes.length;
+    S2.el.hint.textContent = ro2 ? "Read-only: someone else is editing this document. You can look, not annotate." : sel ? sel.kind === "text" ? "Selected text: click it again to edit, Delete to remove; the size slider and colours change it." : "Selected: Delete removes it; a colour recolours it." : { look: "Click a mark to select it, a typed text to edit it. Marks are review marks: saved with the document, not printed.", comment: "Drag a box around what your comment is about.", text: "Click where the text should go, or click a text to edit it. Enter to finish, Shift+Enter for a new line.", pen: "Draw with the mouse or a pen.", marker: "Highlight with the mouse or a pen." }[S2.tool];
     layout();
   }
   function norm(e) {
-    const r2 = S.el.stage.getBoundingClientRect();
+    const r2 = S2.el.stage.getBoundingClientRect();
     return [Math.min(1, Math.max(0, (e.clientX - r2.left) / r2.width)), Math.min(1, Math.max(0, (e.clientY - r2.top) / r2.height))];
   }
   function setTool(t40) {
-    if (!S || app.readOnly && t40 !== "look") return;
+    if (!S2 || app.readOnly && t40 !== "look") return;
     commitOpenText();
-    S.tool = t40;
-    S.selected = null;
+    S2.tool = t40;
+    S2.selected = null;
     render2();
   }
   var markAt = (e) => {
     const m = e.target.closest && e.target.closest(".fv-ann [data-id]");
     return m ? byId(m.dataset.id) : null;
   };
-  function wire() {
-    const { root, stage, live } = S.el;
+  function wire2() {
+    const { root, stage, live } = S2.el;
     root.tabIndex = -1;
     root.addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (b && b.dataset.tool) return setTool(b.dataset.tool);
       if (b && b.dataset.color) return pickColor(b.dataset.color);
       if (b && b.dataset.act === "close") return closeFigureViewer();
-      if (b && b.dataset.act === "undo") return cmd.undo(S.view.state, S.view.dispatch);
+      if (b && b.dataset.act === "undo") return cmd.undo(S2.view.state, S2.view.dispatch);
       if (b && b.dataset.act === "delete") return deleteSelected();
       if (b && b.dataset.act === "clear") return clearAll();
       const note = e.target.closest(".fv-note");
       if (note) {
-        S.selected = note.dataset.id === S.selected ? null : note.dataset.id;
+        S2.selected = note.dataset.id === S2.selected ? null : note.dataset.id;
         render2();
       }
     });
-    S.el.size.querySelector("input").addEventListener("input", (e) => setSize(+e.target.value));
-    S.el.size.querySelector("input").addEventListener("change", () => {
-      const ta2 = S.el.input.querySelector("textarea.fv-text");
+    S2.el.size.querySelector("input").addEventListener("input", (e) => setSize(+e.target.value));
+    S2.el.size.querySelector("input").addEventListener("change", () => {
+      const ta2 = S2.el.input.querySelector("textarea.fv-text");
       if (ta2) ta2.focus();
     });
     root.addEventListener("keydown", (e) => {
@@ -84628,25 +91476,25 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (e.target.tagName === "INPUT") return;
       if (e.key === "Escape") {
         e.preventDefault();
-        if (S.selected) {
-          S.selected = null;
+        if (S2.selected) {
+          S2.selected = null;
           render2();
         } else closeFigureViewer();
         return;
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && S.selected) {
+      if ((e.key === "Delete" || e.key === "Backspace") && S2.selected) {
         e.preventDefault();
         deleteSelected();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        cmd.undo(S.view.state, S.view.dispatch);
+        cmd.undo(S2.view.state, S2.view.dispatch);
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
         e.preventDefault();
-        cmd.redo(S.view.state, S.view.dispatch);
+        cmd.redo(S2.view.state, S2.view.dispatch);
         return;
       }
       const t40 = !e.ctrlKey && !e.altKey && !e.metaKey && TOOLS.find((x3) => x3[3] === e.key.toLowerCase());
@@ -84658,22 +91506,22 @@ Waals I Si Ge GaAs`.split(/\s+/));
     window.addEventListener("resize", layout);
     let drag = null;
     stage.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0 || !S || e.target.closest(".fv-input")) return;
+      if (e.button !== 0 || !S2 || e.target.closest(".fv-input")) return;
       const p2 = norm(e);
       const hit = markAt(e);
-      if (S.tool === "look" || S.tool === "text" && hit && hit.kind === "text") {
+      if (S2.tool === "look" || S2.tool === "text" && hit && hit.kind === "text") {
         e.preventDefault();
-        if (hit && hit.kind === "text" && !app.readOnly && (S.tool === "text" || S.selected === hit.id)) {
+        if (hit && hit.kind === "text" && !app.readOnly && (S2.tool === "text" || S2.selected === hit.id)) {
           openTextInput([hit.x, hit.y], hit);
           return;
         }
-        S.selected = hit ? hit.id : null;
+        S2.selected = hit ? hit.id : null;
         render2();
         return;
       }
       if (app.readOnly) return;
       e.preventDefault();
-      if (S.tool === "text") {
+      if (S2.tool === "text") {
         openTextInput(p2, null);
         return;
       }
@@ -84687,14 +91535,14 @@ Waals I Si Ge GaAs`.split(/\s+/));
       if (!drag) return;
       const p2 = norm(e);
       const H4 = Math.round(1e3 * (stage.offsetHeight / stage.offsetWidth));
-      if (S.tool === "comment") {
+      if (S2.tool === "comment") {
         const [x02, y02] = drag.start;
         live.innerHTML = '<rect x="' + Math.min(x02, p2[0]) * 1e3 + '" y="' + Math.min(y02, p2[1]) * H4 + '" width="' + Math.abs(p2[0] - x02) * 1e3 + '" height="' + Math.abs(p2[1] - y02) * H4 + '" fill="none" stroke="#e0a100" stroke-width="3" stroke-dasharray="10 6"/>';
         drag.end = p2;
       } else {
         drag.pts.push(p2);
-        const marker2 = S.tool === "marker";
-        live.innerHTML = '<path d="' + drag.pts.map(([x3, y], i2) => (i2 ? "L" : "M") + (x3 * 1e3).toFixed(1) + " " + (y * H4).toFixed(1)).join(" ") + '" fill="none" stroke="' + S.colors[marker2 ? "marker" : "pen"] + '" stroke-width="' + (marker2 ? 22 : 4) + '" stroke-linecap="round" stroke-linejoin="round"' + (marker2 ? ' stroke-opacity="0.42"' : "") + "/>";
+        const marker2 = S2.tool === "marker";
+        live.innerHTML = '<path d="' + drag.pts.map(([x3, y], i2) => (i2 ? "L" : "M") + (x3 * 1e3).toFixed(1) + " " + (y * H4).toFixed(1)).join(" ") + '" fill="none" stroke="' + S2.colors[marker2 ? "marker" : "pen"] + '" stroke-width="' + (marker2 ? 22 : 4) + '" stroke-linecap="round" stroke-linejoin="round"' + (marker2 ? ' stroke-opacity="0.42"' : "") + "/>";
       }
     });
     const finish = () => {
@@ -84702,9 +91550,9 @@ Waals I Si Ge GaAs`.split(/\s+/));
       const d = drag;
       drag = null;
       live.innerHTML = "";
-      if (S.tool === "pen" || S.tool === "marker") {
-        addAnnotation({ id: newAnnotationId(), kind: S.tool, color: S.colors[S.tool], pts: simplify(d.pts), ...me2() });
-      } else if (S.tool === "comment") {
+      if (S2.tool === "pen" || S2.tool === "marker") {
+        addAnnotation({ id: newAnnotationId(), kind: S2.tool, color: S2.colors[S2.tool], pts: simplify(d.pts), ...me2() });
+      } else if (S2.tool === "comment") {
         let [x02, y02] = d.start, [x1, y1] = d.end || d.start;
         if (Math.abs(x1 - x02) < 0.02 || Math.abs(y1 - y02) < 0.02) {
           x02 -= 0.08;
@@ -84722,14 +91570,14 @@ Waals I Si Ge GaAs`.split(/\s+/));
     stage.addEventListener("pointercancel", finish);
   }
   function pickColor(c) {
-    const sel = S.selected && byId(S.selected);
+    const sel = S2.selected && byId(S2.selected);
     if (sel && sel.kind !== "comment") {
       replaceAnnotation(sel.id, (a) => ({ ...a, color: c }));
       return;
     }
-    const k = S.tool === "marker" ? "marker" : S.tool;
-    S.colors[k] = c;
-    const ta2 = S.el.input.querySelector("textarea.fv-text");
+    const k = S2.tool === "marker" ? "marker" : S2.tool;
+    S2.colors[k] = c;
+    const ta2 = S2.el.input.querySelector("textarea.fv-text");
     if (ta2) {
       ta2.style.color = c;
       ta2.focus();
@@ -84738,44 +91586,44 @@ Waals I Si Ge GaAs`.split(/\s+/));
   }
   function setSize(v) {
     const size = Math.min(TEXT_SIZE_MAX, Math.max(TEXT_SIZE_MIN, v));
-    const ta2 = S.el.input.querySelector("textarea.fv-text");
+    const ta2 = S2.el.input.querySelector("textarea.fv-text");
     if (ta2) {
-      S.size = size;
-      ta2.style.fontSize = (size * S.el.stage.offsetWidth).toFixed(1) + "px";
+      S2.size = size;
+      ta2.style.fontSize = (size * S2.el.stage.offsetWidth).toFixed(1) + "px";
       return;
     }
-    const sel = S.selected && byId(S.selected);
+    const sel = S2.selected && byId(S2.selected);
     if (sel && sel.kind === "text") {
       replaceAnnotation(sel.id, (a) => ({ ...a, size: r42(size) }));
       return;
     }
-    S.size = size;
+    S2.size = size;
   }
   function deleteSelected() {
-    if (!S.selected || app.readOnly) return;
-    removeAnnotations([S.selected]);
-    S.selected = null;
+    if (!S2.selected || app.readOnly) return;
+    removeAnnotations([S2.selected]);
+    S2.selected = null;
     render2();
   }
   function closeInput() {
-    if (S) {
-      S.el.input.innerHTML = "";
-      S.editing = null;
+    if (S2) {
+      S2.el.input.innerHTML = "";
+      S2.editing = null;
     }
   }
   var commitOpenText = () => {
   };
   function openTextInput([x3, y], existing) {
     commitOpenText();
-    const stage = S.el.stage, box2 = S.el.input;
-    const size = existing ? textSize(existing) : S.size;
+    const stage = S2.el.stage, box2 = S2.el.input;
+    const size = existing ? textSize(existing) : S2.size;
     if (existing) {
-      S.size = size;
-      S.colors.text = existing.color || S.colors.text;
-      S.editing = existing.id;
-      S.selected = null;
+      S2.size = size;
+      S2.colors.text = existing.color || S2.colors.text;
+      S2.editing = existing.id;
+      S2.selected = null;
     }
-    const color2 = S.colors.text;
+    const color2 = S2.colors.text;
     const px = size * stage.offsetWidth;
     box2.innerHTML = '<textarea class="fv-text" rows="1" placeholder="Type\u2026" style="left:' + x3 * 100 + "%;top:calc(" + y * 100 + "% - " + (px * 0.95).toFixed(0) + "px);font-size:" + px.toFixed(1) + "px;color:" + color2 + ";font-family:" + ANN_FONT + '"></textarea>';
     const ta2 = box2.querySelector("textarea");
@@ -84790,7 +91638,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       commitOpenText = () => {
       };
       const text2 = ta2.value.replace(/\s+$/, "");
-      const col = S.colors.text, sz = r42(S.size);
+      const col = S2.colors.text, sz = r42(S2.size);
       closeInput();
       if (existing) {
         if (!keep) {
@@ -84823,7 +91671,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
       ta2.rows = Math.max(1, ta2.value.split("\n").length);
     });
     ta2.addEventListener("blur", (e) => {
-      if (!e.relatedTarget || !S.el.root.contains(e.relatedTarget) || !e.relatedTarget.closest(".fv-tools")) commit(true);
+      if (!e.relatedTarget || !S2.el.root.contains(e.relatedTarget) || !e.relatedTarget.closest(".fv-tools")) commit(true);
     });
     setTimeout(() => {
       ta2.focus();
@@ -84832,27 +91680,27 @@ Waals I Si Ge GaAs`.split(/\s+/));
     render2();
   }
   function openCommentInput(r2) {
-    const box2 = S.el.input;
+    const box2 = S2.el.input;
     const left2 = Math.min(r2.x + r2.w, 0.7) * 100, top = Math.min(r2.y, 0.75) * 100;
     box2.innerHTML = '<div class="fv-cmt" style="left:' + left2 + "%;top:" + top + '%"><textarea rows="3" placeholder="Comment\u2026 (Ctrl+Enter to post)"></textarea><div class="row"><button data-c="cancel">Cancel</button><button data-c="post" class="primary">Post</button></div></div>';
-    const H4 = Math.round(1e3 * (S.el.stage.offsetHeight / S.el.stage.offsetWidth));
-    S.el.live.innerHTML = '<rect x="' + r2.x * 1e3 + '" y="' + r2.y * H4 + '" width="' + r2.w * 1e3 + '" height="' + r2.h * H4 + '" fill="rgba(255,200,0,0.08)" stroke="#e0a100" stroke-width="3" stroke-dasharray="10 6"/>';
+    const H4 = Math.round(1e3 * (S2.el.stage.offsetHeight / S2.el.stage.offsetWidth));
+    S2.el.live.innerHTML = '<rect x="' + r2.x * 1e3 + '" y="' + r2.y * H4 + '" width="' + r2.w * 1e3 + '" height="' + r2.h * H4 + '" fill="rgba(255,200,0,0.08)" stroke="#e0a100" stroke-width="3" stroke-dasharray="10 6"/>';
     const ta2 = box2.querySelector("textarea");
     const cancel = () => {
       closeInput();
-      S.el.live.innerHTML = "";
+      S2.el.live.innerHTML = "";
     };
     const post = async () => {
       const text2 = ta2.value.trim();
       if (!text2) return;
       const user = await ensureUserName();
-      if (!user || !S) return;
+      if (!user || !S2) return;
       cancel();
       const id2 = newCommentId(), time = now();
       const thread = { id: id2, author: user.name, initials: user.initials, time, text: text2, resolved: false, replies: [] };
       const ann = { id: newAnnotationId(), kind: "comment", x: r42(r2.x), y: r42(r2.y), w: r42(r2.w), h: r42(r2.h), thread: id2, author: user.name, initials: user.initials, time };
-      changeFigure((node) => ({ attrs: { annotations: [...annotationsOf(node), ann], comments: [...node.attrs.comments || [], id2] }, threads: withThread(S.view.state.doc, id2, thread) }));
-      S.selected = ann.id;
+      changeFigure((node) => ({ attrs: { annotations: [...annotationsOf(node), ann], comments: [...node.attrs.comments || [], id2] }, threads: withThread(S2.view.state.doc, id2, thread) }));
+      S2.selected = ann.id;
       render2();
     };
     box2.querySelector('[data-c="cancel"]').onclick = cancel;
@@ -84874,15 +91722,15 @@ Waals I Si Ge GaAs`.split(/\s+/));
     const list3 = currentList();
     if (!list3.length) return;
     removeAnnotations(list3.map((a) => a.id));
-    S.selected = null;
+    S2.selected = null;
     toast("Removed " + list3.length + " annotation" + (list3.length > 1 ? "s" : "") + " \u2014 Ctrl+Z brings them back.");
   }
   onChange(() => {
-    if (S) render2();
+    if (S2) render2();
   });
   registerCommands({ figureView: () => openFigureViewer(app.view) });
 
-  // ../DTU Science Writer/src/renderer/ui/status.js
+  // src/renderer/ui/status.js
   function refreshTitle() {
     const dirty = isDirty();
     api.setTitle((dirty ? "\u25CF " : "") + fileName() + " \u2014 DTU Science Writer");
@@ -84944,7 +91792,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
   onLoad(refreshAll);
   onSaved(refreshTitle);
 
-  // ../DTU Science Writer/src/core/commentops.js
+  // src/core/commentops.js
   var LEAF = "\uFFFC";
   function describeAnchor(doc4, id2) {
     let eq = null;
@@ -85023,11 +91871,11 @@ Waals I Si Ge GaAs`.split(/\s+/));
   }
   var newReplyId = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-  // ../DTU Science Writer/src/renderer/doc/sharedcomments.js
+  // src/renderer/doc/sharedcomments.js
   var MERGE_MS = 30 * 1e3;
   var seen = /* @__PURE__ */ new Map();
   var merged = [];
-  var timer = null;
+  var timer2 = null;
   var localShared = false;
   var now2 = () => (/* @__PURE__ */ new Date()).toISOString();
   var reading = () => app.readOnly && !!app.path;
@@ -85100,8 +91948,8 @@ Waals I Si Ge GaAs`.split(/\s+/));
     merged = [];
   }
   function restart() {
-    clearInterval(timer);
-    timer = app.path ? setInterval(() => {
+    clearInterval(timer2);
+    timer2 = app.path ? setInterval(() => {
       mergeNow().catch((e) => console.error("shared comments", e));
     }, MERGE_MS) : null;
   }
@@ -85127,7 +91975,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (!app.readOnly) clearMerged();
   });
 
-  // ../DTU Science Writer/src/renderer/ui/commentspane.js
+  // src/renderer/ui/commentspane.js
   var COLORS2 = ["#1f4e79", "#990000", "#2f6b3a", "#7a4a00", "#5b2a86", "#0f6e72", "#7a1f5c"];
   var colorOf = (name) => {
     let h3 = 0;
@@ -85349,13 +92197,13 @@ Waals I Si Ge GaAs`.split(/\s+/));
     if (el4 && app.view && commentUi(app.view.state).hidden) setCommentUi(app.view, { hidden: false });
   });
 
-  // ../DTU Science Writer/src/renderer/ui/updatebar.js
+  // src/renderer/ui/updatebar.js
   function wireUpdateBar() {
-    api.onUpdate((info) => {
-      info = info || {};
-      $("#uptext").textContent = info.version ? info.download ? "DTU Science Writer " + info.version + " is out." : "DTU Science Writer " + info.version + " is ready to install." : "A newer version of DTU Science Writer is ready.";
-      $("#upgo").textContent = info.download ? "Download" : "Restart now";
-      $("#upgo").dataset.download = info.download || "";
+    api.onUpdate((info2) => {
+      info2 = info2 || {};
+      $("#uptext").textContent = info2.version ? info2.download ? "DTU Science Writer " + info2.version + " is out." : "DTU Science Writer " + info2.version + " is ready to install." : "A newer version of DTU Science Writer is ready.";
+      $("#upgo").textContent = info2.download ? "Download" : "Restart now";
+      $("#upgo").dataset.download = info2.download || "";
       $("#updatebar").hidden = false;
     });
     $("#upgo").addEventListener("click", async () => {
@@ -85373,7 +92221,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     });
   }
 
-  // ../DTU Science Writer/src/renderer/ui/lockbar.js
+  // src/renderer/ui/lockbar.js
   function render4() {
     const bar2 = $("#lockbar");
     if (!app.readOnly) {
@@ -85393,7 +92241,7 @@ Waals I Si Ge GaAs`.split(/\s+/));
     onReadOnly(render4);
   }
 
-  // ../DTU Science Writer/src/renderer/testhook.js
+  // src/renderer/testhook.js
   window.DSW = {
     app,
     COMMANDS: commands,
@@ -85445,10 +92293,14 @@ Waals I Si Ge GaAs`.split(/\s+/));
     labels: () => [...numberingKey.getState(app.view.state).nums.byId.entries()].map(([id2, i2]) => [id2, i2.ref]),
     pm: { TextSelection, NodeSelection, CellSelection },
     chooseTemplate,
-    saveAsTemplate
+    saveAsTemplate,
+    lastLimits,
+    refreshLimits,
+    setPageInfo,
+    venues: { VENUES, JOURNAL_VENUES, FUNDER_VENUES, venueById }
   };
 
-  // ../DTU Science Writer/src/renderer/app.js
+  // src/renderer/app.js
   (async function boot() {
     app.info = await api.boot();
     await loadSettings();

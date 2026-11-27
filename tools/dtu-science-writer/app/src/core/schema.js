@@ -202,6 +202,18 @@ export const marks = {
     parseDOM: [{ tag: 'u' }, { style: 'text-decoration', getAttrs: (v) => /underline/.test(v) && null }],
     toDOM: () => ['u', 0],
   },
+  /* Highlight (color: one of Word's highlighter names, HIGHLIGHT) and text colour (color: 'RRGGBB'). They come in from
+     Word — a revised manuscript or a response letter marks its changes so — and go out to PDF, Word and LaTeX. */
+  highlight: {
+    attrs: { color: { default: 'yellow' } },
+    parseDOM: [{ tag: 'mark', getAttrs: (d) => ({ color: HIGHLIGHT[d.getAttribute('data-color')] ? d.getAttribute('data-color') : 'yellow' }) }],
+    toDOM: (m) => ['mark', { class: 'hl', 'data-color': m.attrs.color, style: 'background:#' + highlightHex(m.attrs.color) }, 0],
+  },
+  color: {
+    attrs: { color: { default: 'C00000' } },
+    parseDOM: [{ tag: 'span.fgc', getAttrs: (d) => ({ color: /^[0-9A-F]{6}$/i.test(d.getAttribute('data-color') || '') ? d.getAttribute('data-color').toUpperCase() : 'C00000' }) }],
+    toDOM: (m) => ['span', { class: 'fgc', 'data-color': m.attrs.color, style: 'color:#' + m.attrs.color }, 0],
+  },
   sup: { excludes: 'sub', parseDOM: [{ tag: 'sup' }], toDOM: () => ['sup', 0] },
   sub: { excludes: 'sup', parseDOM: [{ tag: 'sub' }], toDOM: () => ['sub', 0] },
   /* Anchor of a comment thread (comments.js). Several may overlap; typing next to one does not extend it. */
@@ -216,6 +228,12 @@ export const marks = {
 };
 
 export const schema = new Schema({ nodes, marks });
+
+/** Word's highlighter colours (w:highlight values) and their RGB. */
+export const HIGHLIGHT = { yellow: 'FFFF00', green: '00FF00', cyan: '00FFFF', magenta: 'FF00FF', blue: '0000FF', red: 'FF0000',
+  darkBlue: '000080', darkCyan: '008080', darkGreen: '008000', darkMagenta: '800080', darkRed: '800000', darkYellow: '808000',
+  darkGray: '808080', lightGray: 'C0C0C0', black: '000000', white: 'FFFFFF' };
+export function highlightHex(name) { return HIGHLIGHT[name] || HIGHLIGHT.yellow; }
 
 /** Node types that carry a referenceable id. */
 export const LABELLED = new Set(['heading', 'figure', 'equation', 'table_figure']);

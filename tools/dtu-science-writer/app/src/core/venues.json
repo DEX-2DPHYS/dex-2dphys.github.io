@@ -1,0 +1,6239 @@
+[
+ {
+  "id": "physical-review-letters",
+  "name": "Physical Review Letters",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://journals.aps.org/prl/authors",
+   "https://journals.aps.org/authors/length-guide",
+   "https://journals.aps.org/prl/authors/style-basics",
+   "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+  ],
+  "verifiedWith": [
+   "10.1103/5kfl-11m1",
+   "10.1103/8gx2-rbns"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit is 600 characters (APS style guide), which the schema cannot hold in \"words\", so words = null. figureWords depends on each figure's aspect ratio and width; 170 is the square single-column value. No figure-count, reference or title-length limit stated. \"Conflicts of Interest\"/\"AI Use Disclosure\" headings from the Feb 2026 style guide not seen in recent papers; left out. Exact position of Data Availability relative to End Matter taken from the papers checked (before References).",
+  "types": [
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": null,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "run-in heads chosen by the author, e.g. \"Model—\", \"Experiment—\""
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data Availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "End Matter",
+      "counts": false,
+      "sub": [
+       "Appendix A—"
+      ]
+     }
+    ],
+    "limits": {
+     "mainWords": 3750,
+     "mainScope": "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI. End Matter (up to two pages, after the references) does not count.",
+     "captionsCount": true,
+     "figureWords": 170
+    },
+    "notes": "Abstract max 600 characters including spaces (not words). No freestanding headings: italic run-in heads with an em dash (\"Introduction—Text\"). Appendixes go in End Matter after the references, max two pages, not counted. Title in title case. figureWords = 170 is 150/aspect + 20 for a single-column figure of aspect ratio 1."
+   }
+  ]
+ },
+ {
+  "id": "physical-review-b",
+  "name": "Physical Review B",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://journals.aps.org/prb/authors",
+   "https://journals.aps.org/authors/length-guide",
+   "https://journals.aps.org/prl/authors/style-basics",
+   "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+  ],
+  "verifiedWith": [
+   "10.1103/j28r-4nht"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit is \"about 5% of article length and < 500 words\" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places \"Conflicts of Interest\" and \"AI Use Disclosure\" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. Only a Regular Article was checked for headings; no open-access PRB Letter checked.",
+  "types": [
+   {
+    "id": "regular-article",
+    "name": "Regular Article",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Model / Experimental details"
+      ]
+     },
+     {
+      "title": "Results",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No length limit for Regular Articles."
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "optional run-in heads, e.g. \"Model. ...\", \"Experiment. ...\""
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4500,
+     "mainScope": "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+     "captionsCount": true,
+     "figureWords": 170
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads (\"Introduction. Text...\"). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more. Letters get priority handling; justify the format in the cover letter."
+   }
+  ]
+ },
+ {
+  "id": "physical-review-x",
+  "name": "Physical Review X",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://journals.aps.org/prx/authors",
+   "https://journals.aps.org/authors/length-guide",
+   "https://journals.aps.org/prl/authors/style-basics",
+   "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+  ],
+  "verifiedWith": [
+   "10.1103/84g7-fmcv"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit is \"about 5% of article length and < 500 words\" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places \"Conflicts of Interest\" and \"AI Use Disclosure\" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. The length guide gives PRX figures as 170 words (single-column) / 340 (two-column), but PRX Research Articles have no length limit, so figureWords is left null.",
+  "types": [
+   {
+    "id": "regular-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Model / Experimental details"
+      ]
+     },
+     {
+      "title": "Results",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No length limit for Regular Articles."
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references. A Popular Summary (max 150 words, for non-specialists, no math) is required before publication. PRX has no Letter type. Title in title case."
+   }
+  ]
+ },
+ {
+  "id": "physical-review-applied",
+  "name": "Physical Review Applied",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://journals.aps.org/prapplied/authors",
+   "https://journals.aps.org/authors/length-guide",
+   "https://journals.aps.org/prl/authors/style-basics",
+   "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+  ],
+  "verifiedWith": [
+   "10.1103/3146-fgdw"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit is \"about 5% of article length and < 500 words\" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places \"Conflicts of Interest\" and \"AI Use Disclosure\" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. The paper checked had a METHODS section after the conclusion; Methods placement is the authors' choice. No open-access PRApplied Letter checked.",
+  "types": [
+   {
+    "id": "regular-article",
+    "name": "Regular Article",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Model / Experimental details"
+      ]
+     },
+     {
+      "title": "Results",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No length limit for Regular Articles."
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references. A 100-word justification is required at submission (cover letter, not the paper). Appendixes preferred over Supplemental Material."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "optional run-in heads, e.g. \"Model. ...\", \"Experiment. ...\""
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4500,
+     "mainScope": "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+     "captionsCount": true,
+     "figureWords": 170
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads (\"Introduction. Text...\"). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more. A 100-word justification is required at submission."
+   }
+  ]
+ },
+ {
+  "id": "physical-review-materials",
+  "name": "Physical Review Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://journals.aps.org/prmaterials/authors",
+   "https://journals.aps.org/authors/length-guide",
+   "https://journals.aps.org/prl/authors/style-basics",
+   "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+  ],
+  "verifiedWith": [
+   "10.1103/d9pn-bys3"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit is \"about 5% of article length and < 500 words\" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places \"Conflicts of Interest\" and \"AI Use Disclosure\" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. Research Updates (10,000 words) and Review Articles (30,000) not included as research types. No open-access PRMaterials Letter checked.",
+  "types": [
+   {
+    "id": "regular-article",
+    "name": "Regular Article",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Model / Experimental details"
+      ]
+     },
+     {
+      "title": "Results",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No length limit for Regular Articles."
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "optional run-in heads, e.g. \"Model. ...\", \"Experiment. ...\""
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4500,
+     "mainScope": "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+     "captionsCount": true,
+     "figureWords": 170
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads (\"Introduction. Text...\"). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more. A 100-word justification is required at submission."
+   }
+  ]
+ },
+ {
+  "id": "physical-review-research",
+  "name": "Physical Review Research",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://journals.aps.org/prresearch/authors",
+   "https://journals.aps.org/authors/length-guide",
+   "https://journals.aps.org/prl/authors/style-basics",
+   "https://res.cloudinary.com/apsphysics/image/upload/APS_Journals_Style_Guide_Authors022326_rwlapn.pdf"
+  ],
+  "verifiedWith": [
+   "10.1103/sxcl-yqs7"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit is \"about 5% of article length and < 500 words\" (APS Journals Style Guide, Feb 2026), stored as 500. APS gives no figure, reference or title limit. The style guide (Feb 2026) also places \"Conflicts of Interest\" and \"AI Use Disclosure\" headings after Data Availability, but the Sept-Nov 2026 papers checked do not show them, so they are left out of the skeleton. Body section names (Methods, Results...) vary by paper; only INTRODUCTION/CONCLUSION and the back matter are fixed by the papers checked. No open-access PRResearch Letter checked.",
+  "types": [
+   {
+    "id": "regular-article",
+    "name": "Regular Article",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Model / Experimental details"
+      ]
+     },
+     {
+      "title": "Results",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No length limit for Regular Articles."
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph. Numbered principal headings in capitals (I. INTRODUCTION), subheadings A., 1., a.; body section names are the authors' choice. Data Availability Statement required; Acknowledgments, then an unheaded author-contribution paragraph, then DATA AVAILABILITY, then appendixes, then references. Avoid \"Note Added\" sections."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 500,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "optional run-in heads, e.g. \"Model. ...\", \"Experiment. ...\""
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4500,
+     "mainScope": "Total = text (incl. figure/table captions, footnotes/endnotes) + displayed math (16 words per row single-column, 32 two-column) + figures (single-column: 150/aspect ratio + 20 words; two-column: 300/(0.5 x aspect ratio) + 40; aspect = width/height) + tables (single-column 13 + 6.5 per line; two-column 26 + 13 per line). Excludes title, authors/affiliations, abstract, references, acknowledgments, PhySH, DOI.",
+     "captionsCount": true,
+     "figureWords": 170
+    },
+    "notes": "Abstract must be under 500 words (about 5% of the article), one paragraph, no displayed math or numbered references. Section headings are optional in Letters; if used, they are italic run-in heads (\"Introduction. Text...\"). figureWords = 170 is the single-column formula 150/aspect + 20 at aspect ratio 1; a wider figure counts less, a two-column figure more."
+   }
+  ]
+ },
+ {
+  "id": "nature",
+  "name": "Nature",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/nature/for-authors/formatting-guide",
+   "https://www.nature.com/nature/for-authors/initial-submission"
+  ],
+  "verifiedWith": [
+   "10.1038/s41586-026-11272-2",
+   "10.1038/s41586-026-11268-y"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": "double",
+   "lineNumbers": true,
+   "margins_cm": null
+  },
+  "uncertain": "Word counts are stated as typical lengths per print page budget, not hard limits; mainWords/display use the 6-page physical-sciences figures. Legend limit conflicts: formatting guide says <300 words, initial-submission page says <250 words. 12-pt Times New Roman is 'preferred', not required. Reference order in the manuscript: main references follow the main text; Methods references continue the numbering after Methods (modelled here as one References entry after the main text).",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 200,
+     "label": "Summary paragraph"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Topical subheading (up to 40 characters)"
+      ]
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Short bold method headings",
+       "Statistics"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Funding",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 2500,
+     "mainScope": "summary paragraph plus body text (typical 6-page physical-sciences Article with 4 modest display items); excludes title, authors, Methods, references, acknowledgements",
+     "captionsCount": false,
+     "display": 4,
+     "refs": 50,
+     "titleChars": 75,
+     "pages": 6
+    },
+    "notes": "Guide figures, not hard caps: 6 pages ~2,500 words + 4 display items (physical sciences); 8 pages ~4,300 words + 5-6 display items. The summary paragraph (~200 words) is fully referenced and counts in the word total. Methods typically <=3,000 words (online only, own references); figure legends <300 words each; no 'Results'/'Discussion' headings in the published style, only topical subheadings."
+   }
+  ]
+ },
+ {
+  "id": "nature-nanotechnology",
+  "name": "Nature Nanotechnology",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/nnano/content",
+   "https://www.nature.com/nnano/submission-guidelines/aip-and-formatting",
+   "https://www.nature.com/nnano/submission-guidelines/initial-formatting",
+   "https://www.nature.com/nnano/submission-guidelines/preparing-your-submission"
+  ],
+  "verifiedWith": [
+   "10.1038/s41565-026-02267-1",
+   "10.1038/s41565-026-02268-0"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Letters are no longer listed as a content type (only Article and Analysis carry primary research). No title length or figure-legend word limit stated on the journal pages ('legend must not exceed the word limit of the article type', but none is given). Initial submissions need no special formatting. Order of back-matter statements is taken from the Nature-portfolio AIP guide and published papers, not stated explicitly.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Topical section heading (fewer than 60 characters)"
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "main text; excludes abstract, Methods, references and figure legends",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 50
+    },
+    "notes": "4 to 6 sections with topical headings; avoid 'Introduction', 'Results', 'Discussion'; the last heading must be 'Conclusions'. Abstract unreferenced. Methods up to 3,000 additional words (online only); up to 10 Extended Data items; references 'up to 50' is a guideline."
+   },
+   {
+    "id": "analysis",
+    "name": "Analysis",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Topical section heading (fewer than 60 characters)"
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "main text; excludes abstract, Methods, references and figure legends",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 50
+    },
+    "notes": "Same format as Article (comparative study of existing or new data). Methods up to 3,000 additional words."
+   }
+  ]
+ },
+ {
+  "id": "nature-materials",
+  "name": "Nature Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/nmat/content",
+   "https://www.nature.com/nmat/submission-guidelines/aip-and-formatting",
+   "https://www.nature.com/nmat/submission-guidelines/initial-formatting"
+  ],
+  "verifiedWith": [
+   "10.1038/s41563-026-02779-0",
+   "10.1038/s41563-026-02783-4"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "No Methods word limit, title length or figure-legend limit stated on the Nature Materials pages. Published Articles (e.g. 10.1038/s41563-026-02783-4) often show topical headings and an 'Outlook'/'Conclusions' instead of literal 'Results'/'Discussion' after editing. Back-matter order from the portfolio AIP guide and published papers.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "main text; excludes abstract, Methods, references and figure legends",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 50
+    },
+    "notes": "Introduction has no heading; Results and Methods use topical subheadings; Discussion has no subheadings. Abstract unreferenced. Methods appear online only."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 150,
+     "label": "Introductory paragraph (referenced; not an abstract)"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 2000,
+     "mainScope": "main text; excludes the introductory paragraph, online Methods, references and figure legends",
+     "captionsCount": false,
+     "display": 4,
+     "refs": 30
+    },
+    "notes": "Letters have no headings except in the online Methods. The 150-word introductory paragraph is referenced and is part of the main text. 3-4 display items; references 'up to 30' is a guideline."
+   }
+  ]
+ },
+ {
+  "id": "nature-physics",
+  "name": "Nature Physics",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/nphys/content",
+   "https://www.nature.com/nphys/submission-guidelines/aip-and-formatting",
+   "https://www.nature.com/nphys/submission-guidelines/initial-formatting"
+  ],
+  "verifiedWith": [
+   "10.1038/s41567-026-03433-x",
+   "10.1038/s41567-026-03397-y"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Article is the only primary research format (Letters discontinued). No title length stated. Initial submissions need no special formatting. Back-matter order from the portfolio AIP guide and published papers.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Topical section heading (fewer than 60 characters)"
+      ]
+     },
+     {
+      "title": "Methods",
+      "counts": false
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "main text; excludes abstract, Methods, references and figure captions",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 50
+    },
+    "notes": "Avoid generic headings ('Introduction', 'Results', 'Discussion'); concluding paragraphs that only summarize are not permitted. Abstract unreferenced. Figure captions <350 words each. Methods up to 3,000 additional words (online only); up to 10 Extended Data items."
+   }
+  ]
+ },
+ {
+  "id": "nature-electronics",
+  "name": "Nature Electronics",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/natelectron/content",
+   "https://www.nature.com/natelectron/submission-guidelines/aip-and-formatting",
+   "https://www.nature.com/natelectron/submission-guidelines/initial-formatting"
+  ],
+  "verifiedWith": [
+   "10.1038/s41928-026-01705-1",
+   "10.1038/s41928-026-01593-5"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "No Methods word limit, title length or figure-legend limit stated. Initial submissions need no special formatting. Back-matter order from the portfolio AIP guide and published papers.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Short topical heading"
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3500,
+     "mainScope": "main text; excludes abstract, Methods, references and figure legends",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 50
+    },
+    "notes": "Introduction without heading, a few short topical headings, then Conclusions and Methods. Main text 'typically up to 3,500 words'; abstract 'approximately 150 words', unreferenced; references up to 50 as a guideline."
+   },
+   {
+    "id": "analysis",
+    "name": "Analysis",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Short topical heading"
+      ]
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3500,
+     "mainScope": "main text; excludes abstract, Methods, references and figure legends",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 50
+    },
+    "notes": "Same format as Article (comparative study of existing or new data)."
+   }
+  ]
+ },
+ {
+  "id": "nature-communications",
+  "name": "Nature Communications",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/ncomms/submit/article",
+   "https://www.nature.com/ncomms/submit/how-to-submit"
+  ],
+  "verifiedWith": [
+   "10.1038/s41467-026-79580-9"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "The journal says it is flexible about initial-submission format; limits are 'ideally'/'as a guide'. Final-version text is double-spaced, single column, unjustified with numbered pages (not set as a submission requirement here). Placement of Data/Code availability (end of Methods vs after it) taken from published papers; the manuscript-order list names only References, Acknowledgements, Author Contributions, Competing Interests, Figure Legends, Tables.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 5000,
+     "mainScope": "main text; excludes Abstract, Methods, References and figure legends",
+     "captionsCount": false,
+     "display": 10,
+     "refs": 70,
+     "titleWords": 15
+    },
+    "notes": "Abstract unreferenced. Discussion is succinct with no subheadings. Methods typically <3,000 words; figure legends <=350 words each; display items scale with length (fewer than 2,000 words: at most 4). No footnotes."
+   }
+  ]
+ },
+ {
+  "id": "npj-2d-materials-and-applications",
+  "name": "npj 2D Materials and Applications",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/npj2dmaterials/content-types",
+   "https://www.nature.com/npj2dmaterials/for-authors-and-referees/submission-guidelines"
+  ],
+  "verifiedWith": [
+   "10.1038/s41699-026-00744-8"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "No display-item limit stated for either type. Figure legends go after References in the manuscript file. Only one recent OA research article with machine-readable headings was checked (the other candidate had no sections in the PMC XML).",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "captionsCount": false,
+     "refs": 60,
+     "titleWords": 15
+    },
+    "notes": "No strict word or page limits (online only). Introduction and Discussion have no subheadings; no separate limitations or conclusions sections; funding goes in Acknowledgements. Figure legends <=350 words; references limited to 60 'though not strictly enforced'."
+   },
+   {
+    "id": "brief-communication",
+    "name": "Brief Communication",
+    "abstract": {
+     "words": 70,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 1500,
+     "mainScope": "main text; excludes abstract, Methods, references and figure legends",
+     "captionsCount": false,
+     "refs": 20,
+     "titleWords": 15
+    },
+    "notes": "Main text has no subheadings and should be 1,000-1,500 words. Around 20 references as a guide; figure legends <=350 words."
+   }
+  ]
+ },
+ {
+  "id": "communications-physics",
+  "name": "Communications Physics",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.nature.com/commsphys/submit/content-types",
+   "https://www.nature.com/commsphys/submit/formatting-guidelines",
+   "https://www.nature.com/commsphys/submit/guide-to-authors"
+  ],
+  "verifiedWith": [
+   "10.1038/s42005-026-02788-0",
+   "10.1038/s42005-026-02526-6"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": 12,
+   "spacing": null,
+   "lineNumbers": true,
+   "margins_cm": null
+  },
+  "uncertain": "Word, display and reference numbers are recommendations ('as a guide', '~70'). Line numbers and a minimum 12 pt font appear under 'style suggestions' but are worded as requests ('please provide line numbers'). Order of the back-matter statements is not stated in the guide; taken from published papers.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Code availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainWords": 5000,
+     "mainScope": "main text; excludes Methods (Methods length not limited)",
+     "captionsCount": false,
+     "display": 10,
+     "refs": 70,
+     "titleWords": 15
+    },
+    "notes": "Abstract 150-250 words, no citations. Introduction, Results, Discussion, Methods is the usual order (Introduction, Methods, Results, Discussion also allowed; a joint 'Results and Discussion' and an optional 'Conclusions' after Discussion are allowed). Legends <350 words, placed after References; about 5 display items for ~2,500 words."
+   }
+  ]
+ },
+ {
+  "id": "science",
+  "name": "Science",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.science.org/content/page/science-information-authors",
+   "https://www.science.org/cms/asset/af4a2b0b-7e56-47f7-be10-dfb4b7441d06/science_manuscript_word_template_december2025.docx"
+  ],
+  "verifiedWith": [
+   "10.1126/science.aec6299",
+   "10.1126/science.ady0339"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "The 'Instructions for preparing an initial manuscript' page refused automated access (403 / bot check); abstract (125 words) and title (96 characters) come from Science's own Word template (December 2025), linked from the Information for authors page. The current Information for authors lists only Research Articles as peer-reviewed research (no separate 'Report' category), so Reports are not included. Page numbers are required and line numbers encouraged (template). Acknowledgments sub-paragraphs (Funding etc.) are bold run-in paragraphs, not numbered sections.",
+  "types": [
+   {
+    "id": "research-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 125,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Brief topic-specific subheading"
+      ]
+     },
+     {
+      "title": "References and Notes",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Funding",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data, code, and materials availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Supplementary Materials",
+      "counts": false,
+      "sub": [
+       "Materials and Methods",
+       "Supplementary Text",
+       "Figs. S1 to S#",
+       "Tables S1 to S#"
+      ]
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "main text; excludes abstract, references, figure legends, acknowledgments and Supplementary Materials",
+     "captionsCount": false,
+     "display": 5,
+     "refs": 50,
+     "titleChars": 96
+    },
+    "notes": "Abstract 100-125 words, one paragraph. Main text: 1-2 paragraph introduction (no heading before the first paragraph), then subheadings (required). Materials and Methods go in the Supplementary Materials file. 3-5 display items, about 50 main-text references (SM-only references not counted)."
+   },
+   {
+    "id": "research-article-extended",
+    "name": "Research Article (extended online format)",
+    "abstract": {
+     "words": 125,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true,
+      "sub": [
+       "Brief topic-specific subheading"
+      ]
+     },
+     {
+      "title": "References and Notes",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Funding",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data, code, and materials availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Supplementary Materials",
+      "counts": false,
+      "sub": [
+       "Materials and Methods",
+       "Supplementary Text",
+       "Figs. S1 to S#",
+       "Tables S1 to S#"
+      ]
+     }
+    ],
+    "limits": {
+     "mainWords": 6000,
+     "mainScope": "main text; excludes abstract, references, figure legends, acknowledgments and Supplementary Materials",
+     "captionsCount": false,
+     "display": 6,
+     "refs": 100,
+     "titleChars": 96
+    },
+    "notes": "Allowed for a few Research Articles presented online; the cover letter must justify the extra length. Display items may include videos."
+   }
+  ]
+ },
+ {
+  "id": "science-advances",
+  "name": "Science Advances",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.science.org/content/page/science-advances-information-authors",
+   "https://www.science.org/cms/asset/3a36745b-78e6-476a-8c5d-6f3349bc8231/advances_ms_template_07_2026.docx"
+  ],
+  "verifiedWith": [
+   "10.1126/sciadv.aeh5101"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Conflict between sources: the Information for authors page says up to 15,000 words and an abstract of no more than 150 words; the July 2026 manuscript template says up to 17,000 words 'not including the reference list' and an abstract of <=250 words. The web page values are used here. Whether figure legends count toward the word limit is not stated. No required format for initial submission.",
+  "types": [
+   {
+    "id": "research-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "Short descriptive subheading (under 10 words)"
+      ]
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Materials and Methods",
+      "counts": true,
+      "sub": [
+       "Short subheading"
+      ]
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Funding",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Competing interests",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data, code, and materials availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Supplementary Materials",
+      "counts": false
+     }
+    ],
+    "limits": {
+     "mainWords": 15000,
+     "mainScope": "whole article text including Materials and Methods; excludes the reference list",
+     "display": 10,
+     "refs": 80,
+     "titleChars": 135
+    },
+    "notes": "Short title up to 50 characters. Abstract a single paragraph for a general reader, no citations. Up to 10 figures and/or tables combined; table legends <=250 words; 80 main-text references (SM-only references not counted). Discussion should include a limitations paragraph."
+   }
+  ]
+ },
+ {
+  "id": "nano-letters",
+  "name": "Nano Letters",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://researcher-resources.acs.org/publish/author_guidelines?coden=nalefd",
+   "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=nalefd"
+  ],
+  "verifiedWith": [
+   "10.1021/acs.nanolett.6c03884",
+   "10.1021/acs.nanolett.6c03925"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "pubs.acs.org author page refused automated access (Cloudflare 403); read the official ACS Researcher Resources copy (last updated 2026-10-15). Figure limit conflicts within the guide: Letters 'preferred ... 3-6 figures in total, including schemes' vs editorial policy 'no more than 5 figures' (5 used). Author Information and Notes headings are taken from the published layout, not the guide. Keywords: guide silent (published Letters carry 4-6).",
+  "types": [
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4000,
+     "mainScope": "guide: 'less than 4000 words' (preferred 1500-4000); it does not say what is excluded",
+     "display": 5
+    },
+    "notes": "No subsection titles: one continuous text (introduction, integrated results and discussion, concluding remarks); experimental details go to the Supporting Information. TOC/abstract graphic required; the Supporting Information description must come before Acknowledgments and References."
+   }
+  ]
+ },
+ {
+  "id": "acs-nano",
+  "name": "ACS Nano",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://researcher-resources.acs.org/publish/author_guidelines?coden=ancac3",
+   "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=ancac3"
+  ],
+  "verifiedWith": [
+   "10.1021/acsnano.6c17796",
+   "10.1021/acsnano.6c07558"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-10-05). Abstract limits are stated as '~250' (Articles) in one place and '250 words' in the Abstract section. Author Information and Notes headings come from the published layout, not the guide. The PMC XML of the two check papers labels the first section 'Introduction' although the guide says the introduction is unheaded (followed the guide). Review/Perspective skeletons beyond the introduction are not prescribed; the guide says Results and/or Discussion, Conclusions and Methods or Experimental are 'required in all article type manuscripts', which cannot sensibly apply to Reviews.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": false
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "Unheaded introduction of at most 1000 words; Methods (or Experimental Section) is the last text section; 5-7 lowercase keywords and a TOC graphic. No references in the abstract; no claims of novelty; title in title case, no acronyms except RNA, DNA, 2D, 3D."
+   },
+   {
+    "id": "review",
+    "name": "Review",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Vocabulary",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "Usually by invitation (or after an accepted proposal). Length flexible (6-20 or more pages); informative topical headings; ~8-10 keywords and a Vocabulary of 5-7 defined terms; TOC graphic."
+   },
+   {
+    "id": "perspective",
+    "name": "Perspective",
+    "abstract": {
+     "words": 120,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "Generally by invitation; abstract ~120 words; TOC graphic required."
+   }
+  ]
+ },
+ {
+  "id": "acs-applied-materials-and-interfaces",
+  "name": "ACS Applied Materials & Interfaces",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://researcher-resources.acs.org/publish/author_guidelines?coden=aamick",
+   "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=aamick"
+  ],
+  "verifiedWith": [
+   "10.1021/acsami.6c08717",
+   "10.1021/acsami.6c02463"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-11-09). The guide gives no section order, keywords, title limit or figure limit for Articles; the skeleton follows the guide's named sections plus the two check papers (Experimental Section/Materials and Methods after Introduction). The guide says '6 types of papers' but lists seven. Review abstract limit not stated. Author Information and Notes headings from the published layout.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental Section",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "The Introduction must be a separate section; no length limit, 'as concise as possible'. Choose a journal section (subject area) at submission; TOC graphic per ACS TOC guidelines."
+   },
+   {
+    "id": "review",
+    "name": "Review",
+    "abstract": {
+     "words": null,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "10 journal pages including tables, figures and references (~50 double-spaced manuscript pages)",
+     "captionsCount": true,
+     "pages": 10
+    },
+    "notes": "Usually invited, or after an accepted proposal; written for a general materials audience, with a focus on application."
+   }
+  ]
+ },
+ {
+  "id": "acs-photonics",
+  "name": "ACS Photonics",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://researcher-resources.acs.org/publish/author_guidelines?coden=apchd5",
+   "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=apchd5"
+  ],
+  "verifiedWith": [
+   "10.1021/acsphotonics.6c01684",
+   "10.1021/acsphotonics.6c01355"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-10-08). The guide lists components as 'Introduction, Experimental Section or Methods, Results, Discussion, Conclusion' but both check papers put Methods/Experimental Section after the conclusions (followed the papers; position is the author's choice). Limits are 'fewer than 250/150 words' (stored as 250/150). No reference or title limit stated. Author Information and Notes headings from the published layout.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "display": 10
+    },
+    "notes": "Unreferenced abstract of fewer than 250 words, no specialized abbreviations; up to 10 display items (figures/tables/schemes); up to six keywords and a TOC graphic. Methods may also be called Experimental Section and may come after the Introduction."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "'approximately 3,000 words or less in length'; guide does not say what is excluded",
+     "display": 4
+    },
+    "notes": "Generally by invitation. Unheaded introduction and combined results and discussion, then a headed Methods section (subsections allowed); abstract fewer than 150 words; up to six keywords and a TOC graphic."
+   }
+  ]
+ },
+ {
+  "id": "chemistry-of-materials",
+  "name": "Chemistry of Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://researcher-resources.acs.org/publish/author_guidelines?coden=cmatex",
+   "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=cmatex"
+  ],
+  "verifiedWith": [
+   "10.1021/acs.chemmater.6c02062",
+   "10.1021/acs.chemmater.6c01542"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "pubs.acs.org refused automated access; read the ACS Researcher Resources copy (last updated 2026-10-15). No abstract, title, word, figure or reference limits are stated for Articles. The guide's 'preferred order' lists Acknowledgements BEFORE the Supporting Information description, while the same guide says the SI description 'should appear before the Acknowledgement and Reference sections'; the Article skeleton follows the published layout (SI first), Methods/Protocols keeps the guide's order verbatim. One check paper put the Experimental section after Conclusions ('Experimental Methods'). Communications are not offered as a type in the current guide. Author Information and Notes headings from the published layout.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": null,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental Section",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Table of Contents Graphic",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {},
+    "notes": "Full Articles must contain a detailed Experimental Section; Results and Discussion may be separate or combined. Pages numbered consecutively from the title page; the TOC/abstract graphic goes at the end."
+   },
+   {
+    "id": "methods-protocols",
+    "name": "Methods/Protocols",
+    "abstract": {
+     "words": null,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Materials or Theory Used",
+      "counts": true
+     },
+     {
+      "title": "Procedure",
+      "counts": true
+     },
+     {
+      "title": "Troubleshooting and Safety",
+      "counts": true
+     },
+     {
+      "title": "Characterization",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Table of Contents Graphic",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {},
+    "notes": "No set length; starts with a short review of the area, then detailed procedures (videos and photographs of apparatus encouraged)."
+   }
+  ]
+ },
+ {
+  "id": "the-journal-of-physical-chemistry-c",
+  "name": "The Journal of Physical Chemistry C",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://researcher-resources.acs.org/publish/author_guidelines?coden=jpccck",
+   "https://researcher-resources.acs.org/publish/author_guidelines/pdf?coden=jpccck"
+  ],
+  "verifiedWith": [
+   "10.1021/acs.jpcc.6c05759",
+   "10.1021/acs.jpcc.6c00839"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "pubs.acs.org refused automated access; read the ACS Researcher Resources guide shared by J. Phys. Chem. A/B/C (last updated 2026-10-05). Abstract is given as a range '100-200 words' (stored 200); one check paper's abstract has ~238 words, so it may not be enforced. The guide says there is no separate Author Information section (corresponding author marked on the title page). Featured Article and Perspective body headings are not prescribed. No word, figure or reference limits for Articles.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental and/or Theoretical Methods",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Table of Contents Graphic",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {},
+    "notes": "One-paragraph abstract of 100-200 words on its own labeled page. Methods may be named Experimental Section, Theory or Computational Details; Results and Discussion may be separate or combined. TOC image required at the end. Letters/Communications go to J. Phys. Chem. Lett."
+   },
+   {
+    "id": "featured-article",
+    "name": "Featured Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Table of Contents Graphic",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Biographies",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainScope": "~8 printed pages (~40 double-spaced pages with figures and tables), excluding references",
+     "captionsCount": true,
+     "pages": 8
+    },
+    "notes": "Usually by invitation; a critical status report of the field plus the author's own contribution; biography (and photo) for each author."
+   },
+   {
+    "id": "perspective",
+    "name": "Perspective",
+    "abstract": {
+     "words": 150,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     },
+     {
+      "title": "Table of Contents Graphic",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Biographies",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainScope": "approximately 4-6 journal pages (~20-30 double-spaced pages)",
+     "captionsCount": true,
+     "pages": 6
+    },
+    "notes": "Primarily by invitation; references should draw on work from the last two years; brief biography for each author."
+   }
+  ]
+ },
+ {
+  "id": "applied-physics-letters",
+  "name": "Applied Physics Letters",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://pubs.aip.org/aip/apl/pages/policies",
+   "https://pubs.aip.org/aip/apl/pages/manuscript",
+   "https://pubs.aip.org/pages/author-instructions"
+  ],
+  "verifiedWith": [
+   "10.1063/5.0330381",
+   "10.1063/5.0328217"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "figureWords = 0 because APL excludes figures, tables and equations from the count (captions count). Five figures is encouragement, so display = null. titleChars 100 is advisory. In both papers checked the acknowledgments were printed without a heading. Abstract \"one paragraph of (approximately) 250 words\".",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Supplementary material",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author declarations",
+      "counts": false,
+      "back": true,
+      "sub": [
+       "Conflict of Interest",
+       "Author Contributions",
+       "Ethics Approval"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "Text including figure and table captions; excludes title, author list, abstract, acknowledgments, data availability statement, references, and non-text items (figures, tables, equations). Absolute maximum 3500 words; longer papers are normally returned.",
+     "captionsCount": true,
+     "titleChars": 100
+    },
+    "notes": "No section headings in the main text (continuous text). Up to five figures encouraged (not a hard limit). Title \"on the order of 100 characters including spaces\" is encouraged, not required. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+   }
+  ]
+ },
+ {
+  "id": "journal-of-applied-physics",
+  "name": "Journal of Applied Physics",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://pubs.aip.org/aip/jap/pages/policies",
+   "https://pubs.aip.org/aip/jap/pages/manuscript",
+   "https://pubs.aip.org/pages/author-instructions"
+  ],
+  "verifiedWith": [
+   "10.1063/5.0336473"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "JAP has no section of its own in the AIP author instructions; limits come from the JAP policies/manuscript pages, which state none. Methods articles (a separate JAP type) not included. Abstract \"approximately 250 words\". Body section names vary by paper.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Subheading",
+       "Sub-subheading"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Supplementary material",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author declarations",
+      "counts": false,
+      "back": true,
+      "sub": [
+       "Conflict of Interest",
+       "Author Contributions",
+       "Ethics Approval"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No word or page limit; editors judge whether length suits the content (equations, tables, figures and captions are considered)."
+    },
+    "notes": "Numbered capital headings (I. INTRODUCTION, A., 1.). Footnotes in text not permitted. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+   }
+  ]
+ },
+ {
+  "id": "apl-materials",
+  "name": "APL Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://pubs.aip.org/aip/apm/pages/policies",
+   "https://pubs.aip.org/pages/author-instructions"
+  ],
+  "verifiedWith": [
+   "10.1063/5.0333757"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "The 3500-word figure is a guideline read from the APL Materials section of the AIP author instructions (summarised by the fetch tool, not quoted verbatim); it is stated alongside \"no article length restrictions\", so mainWords = null. Abstract length from the general AIP rule (250 words).",
+  "types": [
+   {
+    "id": "research-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Supplementary material",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author declarations",
+      "counts": false,
+      "back": true,
+      "sub": [
+       "Conflict of Interest",
+       "Author Contributions",
+       "Ethics Approval"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No article length restrictions; as a guideline the main text of a regular article is about 3500 words excluding title and references."
+    },
+    "notes": "Guideline (not a limit): main text about 3500 words excluding title and references. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+   }
+  ]
+ },
+ {
+  "id": "review-of-scientific-instruments",
+  "name": "Review of Scientific Instruments",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://pubs.aip.org/aip/rsi/pages/policies",
+   "https://pubs.aip.org/pages/author-instructions"
+  ],
+  "verifiedWith": [
+   "10.1063/5.0350333"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "RSI states limits only for Conference Articles; regular Articles have none. Whether captions count is not stated. Abstract length from the general AIP rule (250 words). Body section names vary by instrument paper.",
+  "types": [
+   {
+    "id": "article",
+    "name": "Article",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Technical description",
+      "counts": true,
+      "sub": [
+       "Overview of instrument"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Supplementary material",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author declarations",
+      "counts": false,
+      "back": true,
+      "sub": [
+       "Conflict of Interest",
+       "Author Contributions",
+       "Ethics Approval"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "No length limit stated for regular contributed articles."
+    },
+    "notes": "Physical data demonstrating instrument performance are needed in almost all cases. Cost may not appear in the title and prices may not be quoted. Order: text, conclusion, supplementary material section, acknowledgments, author declarations (Conflict of Interest required; Ethics Approval if needed; CRediT author contributions required), data availability statement, appendixes, references. Abstract one paragraph, no displayed equations, footnotes, references, graphics or tables."
+   },
+   {
+    "id": "conference-article",
+    "name": "Conference Article (contributed)",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Technical description",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Supplementary material",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author declarations",
+      "counts": false,
+      "back": true,
+      "sub": [
+       "Conflict of Interest",
+       "Author Contributions",
+       "Ethics Approval"
+      ]
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Appendix",
+      "appendix": true,
+      "counts": false
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4000,
+     "mainScope": "Total = text + figures + tables + equations. Average single-column figure 260 words, double-column 550; tables 5 words per line + 13 (single-column) or 13 per line + 26 (double-column); equations 7 words per line (single-column) or 13 (double-column). TeX users: max 5 pages.",
+     "figureWords": 260,
+     "pages": 5
+    },
+    "notes": "Invited Conference Articles: 7500 words or 9 pages."
+   }
+  ]
+ },
+ {
+  "id": "2d-materials",
+  "name": "2D Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://publishingsupport.iopscience.iop.org/journals/2d-materials/about-2d-materials/",
+   "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+   "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+   "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+  ],
+  "verifiedWith": [
+   "10.1088/2053-1583/ae3c33",
+   "10.1088/2053-1583/adac6e"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit (300 words) is IOP's general rule, not stated on the 2D Materials page. Word-count scope, title length, figure and reference limits are not stated. A data availability statement is 'strongly encouraged' (required only for a few IOP journals); IOP places it after Acknowledgments, before References. Published papers vary ('Experimental methods', 'Conclusion', methods placed last).",
+  "types": [
+   {
+    "id": "paper",
+    "name": "Paper",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "IOP does not state what the word count includes"
+    },
+    "notes": "Research Papers are 'articles of unlimited length'. IOP abstracts should not normally exceed 300 words."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 5000,
+     "mainScope": "IOP does not state what the word count includes",
+     "pages": 6
+    },
+    "notes": "A Letter should not normally be more than six journal pages (5000 words)."
+   },
+   {
+    "id": "topical-review",
+    "name": "Topical Review",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Main sections (by topic)",
+      "counts": true
+     },
+     {
+      "title": "Summary and outlook",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 15000,
+     "mainScope": "typical length 10 000-15 000 words (guidance, not a hard cap)"
+    },
+    "notes": "Typical length 10 000-15 000 words."
+   }
+  ]
+ },
+ {
+  "id": "nanotechnology",
+  "name": "Nanotechnology",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://publishingsupport.iopscience.iop.org/journals/nanotechnology/about-nanotechnology/",
+   "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+   "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+   "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+  ],
+  "verifiedWith": [
+   "10.1088/1361-6528/ae8860"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit (300 words) is IOP's general rule. Word-count scope, title, figure and reference limits not stated. Only one recent CC-BY paper checked (Introduction, Experimental, Results and discussion, Conclusion, Data availability statement).",
+  "types": [
+   {
+    "id": "paper",
+    "name": "Research Paper",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 8500,
+     "mainScope": "IOP does not state what the word count includes",
+     "pages": 10
+    },
+    "notes": "Not normally more than 8500 words (10 journal pages)."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 5000,
+     "mainScope": "IOP does not state what the word count includes"
+    },
+    "notes": "Fewer than 5000 words; a justification statement is required at submission."
+   },
+   {
+    "id": "topical-review",
+    "name": "Topical Review",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Main sections (by topic)",
+      "counts": true
+     },
+     {
+      "title": "Summary and outlook",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 12500,
+     "mainScope": "generally 10 000-12 500 words"
+    },
+    "notes": "Invited; generally 10 000-12 500 words."
+   }
+  ]
+ },
+ {
+  "id": "journal-of-physics-condensed-matter",
+  "name": "Journal of Physics: Condensed Matter",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://publishingsupport.iopscience.iop.org/?p=3530",
+   "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+   "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+   "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+  ],
+  "verifiedWith": [
+   "10.1088/1361-648x/ae191c"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit (300 words) is IOP's general rule. Word-count scope, title, figure and reference limits not stated. The verified paper also has a 'Funding' heading after the data availability statement.",
+  "types": [
+   {
+    "id": "paper",
+    "name": "Paper",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 8500,
+     "mainScope": "IOP does not state what the word count includes"
+    },
+    "notes": "Normally not more than 8500 words."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4500,
+     "mainScope": "IOP does not state what the word count includes",
+     "pages": 6
+    },
+    "notes": "Length limit six pages (4500 words); justify why rapid publication is needed."
+   },
+   {
+    "id": "topical-review",
+    "name": "Topical Review",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Main sections (by topic)",
+      "counts": true
+     },
+     {
+      "title": "Summary and outlook",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 15000,
+     "mainScope": "should be between 10 000 and 15 000 words"
+    },
+    "notes": "Should be between 10 000 and 15 000 words."
+   }
+  ]
+ },
+ {
+  "id": "new-journal-of-physics",
+  "name": "New Journal of Physics",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://publishingsupport.iopscience.iop.org/journals/new-journal-of-physics/about-new-journal-physics/",
+   "https://publishingsupport.iopscience.iop.org/questions/structure-and-format-of-your-journal-article/",
+   "https://publishingsupport.iopscience.iop.org/questions/length-journal-article-submissions/",
+   "https://publishingsupport.iopscience.iop.org/iop-publishing-standard-data-policy"
+  ],
+  "verifiedWith": [
+   "10.1088/1367-2630/ae4acc"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract limit (300 words) is IOP's general rule; NJP only asks for short, non-technical titles and abstracts. Letter pages given as 'approximately 9-10', so pages left null. The verified paper used Introduction, Results, Discussion, Materials and methods, then Acknowledgments, Data availability statement, Funding, Author contributions.",
+  "types": [
+   {
+    "id": "paper",
+    "name": "Paper",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 18000,
+     "mainScope": "no rigid limit; articles should normally stay under 18 000 words (about 900 words per journal page)"
+    },
+    "notes": "No rigid length restriction; normally under 18 000 words. Title, abstract, introduction and conclusions should be readable by non-specialists."
+   },
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Methods",
+      "counts": true,
+      "sub": [
+       "Sample fabrication",
+       "Measurements"
+      ]
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 5000,
+     "mainScope": "IOP does not state what the word count includes"
+    },
+    "notes": "Not to exceed 5000 words (about 9-10 journal pages); a justification statement is required."
+   },
+   {
+    "id": "topical-review",
+    "name": "Topical Review",
+    "abstract": {
+     "words": 300,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Main sections (by topic)",
+      "counts": true
+     },
+     {
+      "title": "Summary and outlook",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 18000,
+     "mainScope": "typical length 12 000-18 000 words"
+    },
+    "notes": "Typical length 12 000-18 000 words."
+   }
+  ]
+ },
+ {
+  "id": "advanced-materials",
+  "name": "Advanced Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://advanced.onlinelibrary.wiley.com/hub/journal/15214095/author-guidelines"
+  ],
+  "verifiedWith": [
+   "10.1002/adma.202508889",
+   "10.1002/adma.202511039"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Wiley's author-guideline pages refuse automated access (HTTP 403); numbers taken from search-engine extracts of the official page. Title length and reference limits not found. Back-matter order follows Wiley house style seen in published papers (via Europe PMC XML, where the order of Conflict of Interest / Author Contributions / Acknowledgements is not reliable). The current guidelines list Research Articles, Reviews, Perspectives and Correspondence; 'Communication' appears only in old guides (about 3000 words, 3 display items) and no current Communication type was found, so it is omitted. Reviews: typical 10 000-20 000 words, 5-15 display items.",
+  "types": [
+   {
+    "id": "research-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Experimental Section",
+      "counts": true,
+      "sub": [
+       "Statistical Analysis"
+      ]
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Conflict of Interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data Availability Statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "typical Research Article about 3000-8000 words in its entirety with 3-8 display items; any length if the science justifies it"
+    },
+    "notes": "Abstract max 200 words plus 3-7 keywords. Typical length 3000-8000 words (whole article) with 3-8 display items, not a hard cap. A 'Statistical Analysis' subsection ends the Experimental Section."
+   }
+  ]
+ },
+ {
+  "id": "advanced-functional-materials",
+  "name": "Advanced Functional Materials",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://advanced.onlinelibrary.wiley.com/hub/journal/16163028/author-guidelines"
+  ],
+  "verifiedWith": [
+   "10.1002/adfm.202523042",
+   "10.1002/adfm.202506063"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Wiley's author-guideline pages refuse automated access (HTTP 403); numbers taken from search-engine extracts of the official page. Title length and reference limits not found. Back-matter order follows Wiley house style seen in published papers (via Europe PMC XML, where the order of Conflict of Interest / Author Contributions / Acknowledgements is not reliable). An older Wiley-hosted PDF guide (at least 5000 words, up to 12 display items, max five keywords) conflicts with the current page; the current page was used.",
+  "types": [
+   {
+    "id": "research-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Experimental Section",
+      "counts": true,
+      "sub": [
+       "Statistical Analysis"
+      ]
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Conflict of Interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data Availability Statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "typical Research Article about 3000-8000 words in its entirety with 3-8 display items; any length if the science justifies it"
+    },
+    "notes": "Abstract max 200 words plus 3-7 keywords. Typical length 3000-8000 words (whole article) with 3-8 display items, not a hard cap. A 'Statistical Analysis' subsection ends the Experimental Section."
+   }
+  ]
+ },
+ {
+  "id": "small",
+  "name": "Small",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://onlinelibrary.wiley.com/page/journal/16136829/homepage/author-guidelines"
+  ],
+  "verifiedWith": [
+   "10.1002/smll.202511454",
+   "10.1002/smll.202511646"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Wiley's author-guideline pages refuse automated access (HTTP 403); numbers taken from search-engine extracts of the official page. Title length and reference limits not found. Back-matter order follows Wiley house style seen in published papers (via Europe PMC XML, where the order of Conflict of Interest / Author Contributions / Acknowledgements is not reliable). No separate short Communication type found in the current guidelines.",
+  "types": [
+   {
+    "id": "research-article",
+    "name": "Research Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Experimental Section",
+      "counts": true,
+      "sub": [
+       "Statistical Analysis"
+      ]
+     },
+     {
+      "title": "Supporting Information",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Conflict of Interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Author Contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data Availability Statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "typical Research Article about 3000-8000 words in its entirety with 3-8 display items; any length if the science justifies it"
+    },
+    "notes": "Abstract max 200 words plus 3-7 keywords. Typical length 3000-8000 words (whole article) with 3-8 display items, not a hard cap. A 'Statistical Analysis' subsection ends the Experimental Section."
+   }
+  ]
+ },
+ {
+  "id": "carbon",
+  "name": "Carbon",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.sciencedirect.com/journal/carbon/publish/guide-for-authors"
+  ],
+  "verifiedWith": [
+   "10.1016/j.carbon.2025.121159"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "The current guide lists no article types and no length, figure or reference limits; no Letter type is described, so it is omitted. Word files must be single-column. Data must be deposited or a reason given (Elsevier option C); 'Data availability' placed before Acknowledgements because the guide puts Acknowledgements directly before References. Only one open-access paper checked (Introduction, Methods and materials, Results and discussion, Conclusion, Acknowledgements, Data availability).",
+  "types": [
+   {
+    "id": "research-paper",
+    "name": "Research paper",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Materials and methods",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "CRediT authorship contribution statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Declaration of competing interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "Abstract max 250 words; 1-6 keywords; highlights required (3-5 bullets, max 85 characters each incl. spaces); graphical abstract required. Conclusion must be a stand-alone section; Acknowledgements directly before the reference list."
+   }
+  ]
+ },
+ {
+  "id": "applied-surface-science",
+  "name": "Applied Surface Science",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.sciencedirect.com/journal/applied-surface-science/publish/guide-for-authors"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "The journal-specific text says abstracts of up to 200 words, while the generic Elsevier section of the same guide says 250; 200 used. Full Length Article has no stated length limit. The Short Communication limit is in double-spaced manuscript pages, not typeset pages. No ScienceDirect article page could be opened (bot block) and none is in Europe PMC, so headings follow Elsevier's standard structure, unverified.",
+  "types": [
+   {
+    "id": "full-length-article",
+    "name": "Full Length Article",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "CRediT authorship contribution statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Declaration of competing interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "Abstract up to 200 words and a Conclusions section required; 1-7 keywords; highlights required (3-5 bullets, max 85 characters)."
+   },
+   {
+    "id": "short-communication",
+    "name": "Short Communication",
+    "abstract": {
+     "words": 200,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "CRediT authorship contribution statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Declaration of competing interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "pages": 6
+    },
+    "notes": "No longer than six double-spaced typed manuscript pages (not typeset pages); given priority in refereeing and production."
+   }
+  ]
+ },
+ {
+  "id": "microelectronic-engineering",
+  "name": "Microelectronic Engineering",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.sciencedirect.com/journal/microelectronic-engineering/publish/guide-for-authors"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Word counts are given as 'typically', page counts as maxima. How a double-column figure counts against 'single column figures or equivalent' is not spelled out. Highlights encouraged (not required); 1-7 keywords. No ScienceDirect article page could be opened (bot block) and none is in Europe PMC, so headings follow Elsevier's standard structure, unverified.",
+  "types": [
+   {
+    "id": "regular-paper",
+    "name": "Regular paper",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "CRediT authorship contribution statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Declaration of competing interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 5000,
+     "mainScope": "typically 5000 words plus up to 6 single-column figures/tables or equivalent",
+     "display": 6
+    },
+    "notes": "Typically 5000 words plus up to 6 single-column (8 x 8 cm) figures and/or tables or equivalent; exceptions by agreement with an Editor."
+   },
+   {
+    "id": "accelerated-publication",
+    "name": "Accelerated Publication (Letter)",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "CRediT authorship contribution statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Declaration of competing interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "typically 3000 words plus 3 single-column figures/tables or equivalent",
+     "display": 3,
+     "pages": 4
+    },
+    "notes": "Research breakthroughs; maximum 4 journal pages, typically 3000 words plus 3 single-column figures/tables."
+   },
+   {
+    "id": "short-communication",
+    "name": "Short Communication",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "CRediT authorship contribution statement",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Declaration of competing interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 3000,
+     "mainScope": "typically 3000 words with up to 3 single-column figures/tables or equivalent",
+     "display": 3,
+     "pages": 4
+    },
+    "notes": "Concise but complete description of a limited investigation or industrial R&D; maximum 4 journal pages."
+   }
+  ]
+ },
+ {
+  "id": "nanoscale",
+  "name": "Nanoscale",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.rsc.org/publishing/publish-with-us/publish-a-journal-article/nanoscale",
+   "https://www.rsc.org/publishing/journals/processes-and-policies/author-responsibilities",
+   "https://www.rsc.org/publishing/publish-with-us/publish-a-journal-article/rsc-advances"
+  ],
+  "verifiedWith": [
+   "10.1039/d6nr02308h",
+   "10.1039/d6nr03456j"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "rsc.org and pubs.rsc.org refused automated access (HTTP 403); Nanoscale facts come from search-engine extracts of the official RSC guideline page (indexed ~2025, so possibly outdated), and the back-matter order from RSC's author-responsibilities and RSC Advances pages. Abstract is 'around 50-250 words' (stored 250). Headings checked in the Europe PMC XML of two 2026 Papers (PMC reorders back matter, so the back-matter order follows RSC's stated rules, not the XML). Experimental may also be titled 'Materials and methods' and its position varies. No Communication was available for checking; its skeleton (and Experimental at the end) is an assumption. Reviews/Minireviews omitted (no length rules found).",
+  "types": [
+   {
+    "id": "paper",
+    "name": "Paper",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Conflicts of interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes and references",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "No formal page limit. Single-paragraph abstract of ~50-250 words. Table of contents entry (graphic max 8 cm x 4 cm, 1-2 sentences, max 250 characters) at revision. A Conflicts of interest statement is required; Data availability statement after it, before Acknowledgements."
+   },
+   {
+    "id": "communication",
+    "name": "Communication",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Results and discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusions",
+      "counts": true
+     },
+     {
+      "title": "Experimental",
+      "counts": true
+     },
+     {
+      "title": "Author contributions",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Conflicts of interest",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Data availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgements",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Notes and references",
+      "refs": true
+     }
+    ],
+    "limits": {},
+    "notes": "For urgent, significant findings; no formal page limit but expected to be concise; explain the urgency in the cover letter."
+   }
+  ]
+ },
+ {
+  "id": "pnas",
+  "name": "PNAS",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.overleaf.com/latex/templates/template-for-preparing-your-research-report-submission-to-pnas-using-overleaf-2025/whbdryzwztnd"
+  ],
+  "verifiedWith": [
+   "10.1073/pnas.2627324123",
+   "10.1073/pnas.2628364123"
+  ],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "The PNAS Author Center (pnas.org) refused automated access (403 / bot check); all numbers come from PNAS's official Overleaf template (2025, listed as official, by the National Academy of Sciences). No title length, figure-legend limit or Brief Report abstract limit found; Brief Report section skeleton and display-item limit not stated. Placement of the Significance Statement relative to the abstract follows the PNAS template (it is a separate front item, not main text).",
+  "types": [
+   {
+    "id": "research-report",
+    "name": "Research Report",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Significance Statement",
+      "counts": false
+     },
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Results",
+      "counts": true,
+      "sub": [
+       "Topical subheading"
+      ]
+     },
+     {
+      "title": "Discussion",
+      "counts": true
+     },
+     {
+      "title": "Materials and Methods",
+      "counts": true
+     },
+     {
+      "title": "Data, Materials, and Software Availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 4000,
+     "mainScope": "approximate words of a standard 6-page article; PNAS counts length in typeset pages, with figures, tables and equations taking page space",
+     "display": 4,
+     "refs": 50,
+     "pages": 12
+    },
+    "notes": "Standard article is 6 pages (~4,000 words, 50 references, 4 medium-size figures/tables); maximum 12 pages. Significance Statement 50-120 words, for an undergraduate-level scientist outside the field. Introduction has no heading; other orders and headings are permitted. 3-5 keywords."
+   },
+   {
+    "id": "brief-report",
+    "name": "Brief Report",
+    "abstract": {
+     "words": null,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": null,
+      "counts": true
+     },
+     {
+      "title": "Materials and Methods",
+      "counts": true
+     },
+     {
+      "title": "Data, Materials, and Software Availability",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "Acknowledgments",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainWords": 1600,
+     "mainScope": "approximate words of a 3-page Brief Report",
+     "refs": 15,
+     "pages": 3
+    },
+    "notes": "Limited to 3 pages (~1,600 words, 15 references). No Significance Statement."
+   }
+  ]
+ },
+ {
+  "id": "ieee-electron-device-letters",
+  "name": "IEEE Electron Device Letters",
+  "kind": "journal",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://eds.ieee.org/publications/electron-device-letters/information-for-authors"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": "IEEE two-column template; font sizes and line spacing must not be altered",
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Abstract also has a minimum of 150 words (schema holds only the maximum). The image limits are rules 'going in place on August 1, 2026'. Middle section titles (Device Fabrication, Results and Discussion) are typical IEEE practice, not prescribed; no open-access EDL paper was checked (IEEE Xplore not readable by script). An older EDS PDF stated a three-page limit; the current page says four.",
+  "types": [
+   {
+    "id": "letter",
+    "name": "Letter",
+    "abstract": {
+     "words": 250,
+     "label": "Abstract"
+    },
+    "sections": [
+     {
+      "title": "Introduction",
+      "counts": true
+     },
+     {
+      "title": "Device Fabrication",
+      "counts": true
+     },
+     {
+      "title": "Results and Discussion",
+      "counts": true
+     },
+     {
+      "title": "Conclusion",
+      "counts": true
+     },
+     {
+      "title": "Acknowledgment",
+      "counts": false,
+      "back": true
+     },
+     {
+      "title": "References",
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainScope": "text excluding references max 2 2/3 pages (new submission), 3 pages (revision), in the IEEE two-column template",
+     "display": 9,
+     "pages": 4
+    },
+    "notes": "Accepted paper max 4 pages, the 4th reserved for references; text excluding references max 2 2/3 pages at submission (3 at revision). Abstract 150-250 words, one paragraph, no abbreviations or references, followed by Index Terms. Max 9 independent images at submission (+1 benchmarking graph), 11 (+1) in the final paper; a literature-comparison table or graph is required for state-of-the-art claims."
+   }
+  ]
+ },
+ {
+  "id": "carlsberg",
+  "name": "Carlsberg Foundation (Carlsbergfondet)",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://carlsbergfondet.dk/en/applicant/semper-ardens-advance",
+   "https://carlsbergfondet.dk/en/applicant/semper-ardens-accelerate",
+   "https://carlsbergfondet.dk/en/applicant/semper-ardens-accomplish",
+   "https://carlsbergfondet.dk/en/applicant/research-infrastructure",
+   "https://carlsbergfondet.dk/en/news/autumn-call-2026-funding-for-independent-basic-research-with-application/"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": "Times New Roman",
+   "fontSizeMin": 12,
+   "spacing": "1.5",
+   "lineNumbers": null,
+   "margins_cm": 2
+  },
+  "uncertain": "Carlsberg's guideline pages were read through a summarising fetch, not the raw text. Accomplish rules are from the 2025 call and will be updated in 2027. The Accomplish page does not state a 1-page cap on references (Advance, Accelerate and Infrastructure do). Carlsberg has no general natural-science project grant besides these.",
+  "types": [
+   {
+    "id": "semper-ardens-advance",
+    "name": "Semper Ardens: Advance",
+    "abstract": {
+     "words": null,
+     "chars": 1200,
+     "label": "Popularised description: What / Why / How (max 400 characters each, entered online)"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "Overarching goal",
+       "Potential impact"
+      ],
+      "limit": {
+       "pages": 5
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Description of research group, project organisation and networks",
+      "counts": false,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Curriculum vitae",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     },
+     {
+      "title": "List of publications",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Project description incl. figures and tables; references (max 1 page) follow directly after",
+     "captionsCount": true
+    },
+    "notes": "Autumn Call 2026 (deadline 1 Sep 2026; held every other year, next expected 2028). DKK 15-25 M over 5 years, single professors or teams of 2-4. Group description is 2 pages for teams. Publication list: bibliometric summary + up to 10 papers with relevance notes (more than 10 = inadmissible). Budget on template, max 1 page."
+   },
+   {
+    "id": "semper-ardens-accomplish",
+    "name": "Semper Ardens: Accomplish",
+    "abstract": {
+     "words": null,
+     "chars": 1200,
+     "label": "Popularised description: What / Why / How (max 400 characters each, entered online)"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "Overarching goal",
+       "Potential impact",
+       "Time commitments of any concurrent career grant (if applicable)"
+      ],
+      "limit": {
+       "pages": 5
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Research group description",
+      "counts": false,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Curriculum vitae",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     },
+     {
+      "title": "List of publications",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Project description incl. figures and tables; references excluded and follow directly after",
+     "captionsCount": true
+    },
+    "notes": "Rules of the 2025 call (held every other year; next call opens 31 May 2027, deadline 1 Sep 2027, guidelines to be updated then). For professors appointed max 4 years; DKK 10-13 M over 5 years."
+   },
+   {
+    "id": "semper-ardens-accelerate",
+    "name": "Semper Ardens: Accelerate",
+    "abstract": {
+     "words": null,
+     "chars": 1200,
+     "label": "Popularised description: What / Why / How (max 400 characters each, entered online)"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "Overarching goal",
+       "Potential impact"
+      ],
+      "limit": {
+       "pages": 3
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Description of the research group, project organisation and networks",
+      "counts": false,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Curriculum vitae",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     },
+     {
+      "title": "List of publications",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Project description incl. figures and tables; references (max 1 page) follow directly after",
+     "captionsCount": true
+    },
+    "notes": "Autumn Call 2026 rules (yearly; next deadline 1 Sep 2027). Newly tenured associate professors (max 2 years), up to DKK 7 M over 3-5 years. Group description 2 pages for teams."
+   },
+   {
+    "id": "research-infrastructure",
+    "name": "Research Infrastructure",
+    "abstract": {
+     "words": null,
+     "chars": 1200,
+     "label": "Popularised description: What / Why / How (max 400 characters each, entered online)"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "The infrastructure",
+       "The scientific project it is essential for",
+       "Need, incl. availability of similar infrastructure"
+      ],
+      "limit": {
+       "pages": 2
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Description of other Danish research groups using the infrastructure",
+      "counts": false,
+      "limit": {
+       "pages": 1
+      }
+     },
+     {
+      "title": "Curriculum vitae",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     },
+     {
+      "title": "List of publications",
+      "counts": false,
+      "limit": {
+       "pages": 2
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Project description incl. figures and tables; references (max 1 page) follow directly after",
+     "captionsCount": true
+    },
+    "notes": "Autumn Call 2026 rules (yearly; next deadline 1 Sep 2027). Equipment or access to international facilities, min DKK 300,000; no salaries. Page limits apply regardless of number of applicants."
+   }
+  ]
+ },
+ {
+  "id": "erc",
+  "name": "European Research Council (ERC)",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://www.eubuero.de/files/ERC_StG_2027_B1_Final.rtf",
+   "https://www.eubuero.de/files/ERC_StG_2027_B2_Final.rtf",
+   "https://www.eubuero.de/files/ERC_COG_2026_B1_final.rtf",
+   "https://www.eubuero.de/files/ERC_COG_2026_B2_final.rtf",
+   "https://www.eubuero.de/files/ERC_ADG_2026_B1_final.rtf",
+   "https://www.eubuero.de/files/ERC_ADG_2026_B2_final.rtf",
+   "https://erc.europa.eu/news-events/news/changes-2026-and-2027-work-programmes"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": "Times New Roman, Arial or similar",
+   "fontSizeMin": 11,
+   "spacing": "single",
+   "lineNumbers": null,
+   "margins_cm": {
+    "top": 1.5,
+    "bottom": 1.5,
+    "left": 2,
+    "right": 2
+   }
+  },
+  "uncertain": "Templates read from the German NCP mirror (eubuero.de) because erc.europa.eu serves them only inside the submission system; the official Information for Applicants 2027 PDF could not be fetched (404 on mirrors). CoG 2027 B1/B2 templates were not found online; CoG uses the 2026 templates, which match StG 2027. AdG figures are from the 2026 call. ERC states no overall B1 page total beyond the 5 + 4 page parts.",
+  "types": [
+   {
+    "id": "stg-b1",
+    "name": "Starting Grant - Part B1 (Part I + CV and Track Record)",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Proposal summary (identical to the Part A abstract)"
+    },
+    "sections": [
+     {
+      "title": "Part I of the Scientific Proposal",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Current state of knowledge",
+       "Scientific question and objectives",
+       "Overall approach / research strategy"
+      ],
+      "limit": {
+       "pages": 5
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Curriculum vitae and Track Record",
+      "counts": true,
+      "sub": [
+       "Personal details",
+       "Research achievements (up to ten research outputs)",
+       "Peer recognition",
+       "Additional information: career breaks, diverse career paths and major life events",
+       "Other contributions to the research community"
+      ],
+      "limit": {
+       "pages": 4
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Part I max 5 pages (references excluded); CV and Track Record max 4 pages"
+    },
+    "notes": "ERC 2027 call template (Information for Applicants to the StG and CoG 2027 Calls). Part I + references + CV/Track Record must be ONE document; only B1 is read at Step 1. Cover page: full title, acronym, PI name, host institution, duration."
+   },
+   {
+    "id": "stg-b2",
+    "name": "Starting Grant - Part B2 (Part II of the Scientific Proposal)",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Part II of the Scientific Proposal",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Research methodology",
+       "Work plan",
+       "Risk assessment and mitigating measures"
+      ],
+      "limit": {
+       "pages": 7
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Appendix: All current grants and on-going / submitted grant applications of the PI (Funding ID)",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainScope": "Part II only; references and Funding ID appendix excluded"
+    },
+    "notes": "ERC 2027 call template. Evaluated at Step 2 only. Do not include the budget table (it is in Part A); the 7-page limit was introduced with the 2026 calls (was 14 pages)."
+   },
+   {
+    "id": "cog-b1",
+    "name": "Consolidator Grant - Part B1 (Part I + CV and Track Record)",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Proposal summary (identical to the Part A abstract)"
+    },
+    "sections": [
+     {
+      "title": "Part I of the Scientific Proposal",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Current state of knowledge",
+       "Scientific question and objectives",
+       "Overall approach / research strategy"
+      ],
+      "limit": {
+       "pages": 5
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Curriculum vitae and Track Record",
+      "counts": true,
+      "sub": [
+       "Personal details",
+       "Research achievements (up to ten research outputs)",
+       "Peer recognition",
+       "Additional information: career breaks, diverse career paths and major life events",
+       "Other contributions to the research community"
+      ],
+      "limit": {
+       "pages": 4
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Part I max 5 pages (references excluded); CV and Track Record max 4 pages"
+    },
+    "notes": "Checked against the CoG 2026 template; StG and CoG share the 2027 Information for Applicants and the StG 2027 template is identical in structure. One single PDF, read at Step 1."
+   },
+   {
+    "id": "cog-b2",
+    "name": "Consolidator Grant - Part B2 (Part II of the Scientific Proposal)",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Part II of the Scientific Proposal",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Research methodology",
+       "Work plan",
+       "Risk assessment and mitigating measures"
+      ],
+      "limit": {
+       "pages": 7
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Appendix: All current grants and on-going / submitted grant applications of the PI (Funding ID)",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainScope": "Part II only; references and Funding ID appendix excluded"
+    },
+    "notes": "From the CoG 2026 B2 template (same as StG 2027 B2). Step 2 only; budget table belongs in Part A."
+   },
+   {
+    "id": "adg-b1",
+    "name": "Advanced Grant - Part B1 (Part I + CV and Track Record)",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Proposal summary (identical to the Part A abstract)"
+    },
+    "sections": [
+     {
+      "title": "Part I of the Scientific Proposal",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Current state of knowledge",
+       "Scientific question and objectives",
+       "Overall approach / research strategy"
+      ],
+      "limit": {
+       "pages": 5
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Curriculum vitae and Track Record",
+      "counts": true,
+      "sub": [
+       "Personal details",
+       "Research achievements (up to ten research outputs)",
+       "Peer recognition",
+       "Additional information",
+       "Other contributions to the research community"
+      ],
+      "limit": {
+       "pages": 4
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Part I max 5 pages (references excluded); CV and Track Record max 4 pages"
+    },
+    "notes": "ERC AdG 2026 call template (the 2027 AdG call has not opened; WP 2027 announces no structural change). One single PDF read at Step 1."
+   },
+   {
+    "id": "adg-b2",
+    "name": "Advanced Grant - Part B2 (Part II of the Scientific Proposal)",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Part II of the Scientific Proposal",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Research methodology",
+       "Work plan",
+       "Risk assessment and mitigating measures"
+      ],
+      "limit": {
+       "pages": 7
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "Appendix: All current grants and on-going / submitted grant applications of the PI (Funding ID)",
+      "counts": false,
+      "back": true
+     }
+    ],
+    "limits": {
+     "mainScope": "Part II only; references and Funding ID appendix excluded"
+    },
+    "notes": "ERC AdG 2026 B2 template. Step 2 only; no budget table or resources description in B2."
+   }
+  ]
+ },
+ {
+  "id": "horizon-europe",
+  "name": "Horizon Europe (European Commission)",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/temp-form/af/af_he-ria-ia_en.pdf",
+   "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/temp-form/af/af_he-msca-pf_en.pdf"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": "Times New Roman (reference font; Times or Nimbus Roman No. 9 L on Apple/Linux)",
+   "fontSizeMin": 11,
+   "spacing": "single (minimum), standard character spacing",
+   "lineNumbers": null,
+   "margins_cm": 1.5
+  },
+  "uncertain": "Section 9 title in MSCA B-2 is truncated in the extracted PDF text after 'Letter of commitment from the'; the rest of the title is an inference. Headers, footnotes, captions and formulas may be smaller than 11 pt if legible. Margins are 15 mm minimum, A4, not including headers/footers.",
+  "types": [
+   {
+    "id": "ria-part-b",
+    "name": "Research and Innovation Action (RIA/IA) - Part B technical description",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "1. Excellence",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "1.1 Objectives and ambition",
+       "1.2 Methodology"
+      ]
+     },
+     {
+      "title": "2. Impact",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "2.1 Project's pathways towards impact",
+       "2.2 Measures to maximise impact - Dissemination, exploitation and communication",
+       "2.3 Summary (optional key-element table)"
+      ]
+     },
+     {
+      "title": "3. Quality and efficiency of the implementation",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "3.1 Work plan and resources",
+       "3.2 Capacity of participants and consortium as a whole"
+      ]
+     }
+    ],
+    "limits": {
+     "mainScope": "Title, list of participants and sections 1-3 together, including all tables, figures and references",
+     "captionsCount": true,
+     "pages": 40
+    },
+    "notes": "HE RIA/IA application form V5.1 (22.01.2026), adapted to WP 2026-2027: 40 pages for actual-cost topics, 45 pages for lump-sum topics; excess pages are watermarked. Per-section page counts are only indicative: 1.1 ~4, 1.2 ~14 (an older line still says ~10), 2.1 ~3, 2.2 + 2.3 ~3, 3.1 ~12 (17 lump sum), 3.2 ~3."
+   },
+   {
+    "id": "msca-pf-b1",
+    "name": "MSCA Postdoctoral Fellowships - Part B-1",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "1. Excellence",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "1.1 Quality and pertinence of the project's research and innovation objectives (and the extent to which they are ambitious, and go beyond the state of the art)",
+       "1.2 Soundness of the proposed methodology (including interdisciplinary approaches, consideration of the gender dimension and other diversity aspects if relevant for the research project, and the quality of open science practices)",
+       "1.3 Quality of the supervision, training and of the two-way transfer of knowledge between the researcher and the host",
+       "1.4 Quality and appropriateness of the researcher's professional experience, competences and skills"
+      ]
+     },
+     {
+      "title": "2. Impact",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "2.1 Credibility of the measures to enhance the career perspectives and employability of the researcher and contribution to his/her skills development",
+       "2.2 Suitability and quality of the measures to maximise expected outcomes and impacts, as set out in the dissemination and exploitation plan, including communication activities",
+       "2.3 The magnitude and importance of the project's contribution to the expected scientific, societal and economic impacts"
+      ]
+     },
+     {
+      "title": "3. Quality and Efficiency of the Implementation",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "3.1 Quality and effectiveness of the work plan, assessment of risks and appropriateness of the effort assigned to work packages",
+       "3.2 Quality and capacity of the host institutions and participating organisations, including hosting arrangements"
+      ]
+     }
+    ],
+    "limits": {
+     "mainScope": "Sections 1-3 together, including tables, figures and references; no cover page or table of contents",
+     "captionsCount": true,
+     "pages": 10
+    },
+    "notes": "HE MSCA PF application form V5.0 (27.03.2026), call HORIZON-MSCA-2025-PF-01 (PF 2026). Part B is uploaded as two files: B-1 (10-page limit) and B-2 (no overall limit)."
+   },
+   {
+    "id": "msca-pf-b2",
+    "name": "MSCA Postdoctoral Fellowships - Part B-2",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "4. CV of the researcher",
+      "numbered": false,
+      "counts": false
+     },
+     {
+      "title": "5. Capacity of the Participating Organisation(s)",
+      "numbered": false,
+      "counts": false,
+      "sub": [
+       "5.1 Overview of Participating Organisations (table)",
+       "5.2 Capacity of the Participating Organisations (table)"
+      ]
+     },
+     {
+      "title": "6. Additional ethics information",
+      "numbered": false,
+      "counts": false
+     },
+     {
+      "title": "7. Additional information on security screening",
+      "numbered": false,
+      "counts": false
+     },
+     {
+      "title": "8. Environmental considerations in light of the MSCA Green Charter",
+      "numbered": false,
+      "counts": false,
+      "limit": {
+       "pages": 0.5
+      }
+     },
+     {
+      "title": "9. Required for Global Fellowships only: Letter of commitment from the associated partner for the outgoing phase",
+      "numbered": false,
+      "counts": false
+     }
+    ],
+    "limits": {
+     "mainScope": "No overall page limit for B-2"
+    },
+    "notes": "Same V5.0 form. CV of the researcher has an indicative length of 5 pages; section 8 max 1/2 page."
+   }
+  ]
+ },
+ {
+  "id": "dff",
+  "name": "Independent Research Fund Denmark (Danmarks Frie Forskningsfond, DFF)",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://dff.dk/media/1yjno2gi/call-for-proposals-for-independent-research-2026.pdf",
+   "https://dff.dk/en/apply-for-funding/see-what-you-can-apply-for/current-funding-opportunities/instruments/2026/april/dff-research-project1-f26",
+   "https://dff.dk/en/apply-for-funding/see-what-you-can-apply-for/current-funding-opportunities/instruments/2026/oktober/sapere-aude-dff-research-leader-e26/"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": "Times New Roman",
+   "fontSizeMin": 12,
+   "spacing": "1.5 (main text); min 10 pt and 1.0 spacing allowed in tables, figures, captions, footnotes",
+   "lineNumbers": null,
+   "margins_cm": 2
+  },
+  "uncertain": "The section list is built from DFF's required-content list (section 10.6 + instrument-specific requirements); DFF prescribes no headings. The recommended 'DFF-Project description' template itself was not opened. A 2027 call had not been published on 2026-11-27.",
+  "types": [
+   {
+    "id": "research-project-1",
+    "name": "DFF-Research Project1 - Project description (B10)",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Objective, research question and hypotheses",
+      "counts": true
+     },
+     {
+      "title": "Scientific and societal perspectives and relevance",
+      "counts": true
+     },
+     {
+      "title": "Theoretical foundation, state of the art and your qualifications",
+      "counts": true
+     },
+     {
+      "title": "Methods (if relevant)",
+      "counts": true
+     },
+     {
+      "title": "Empirical material (if relevant)",
+      "counts": true
+     },
+     {
+      "title": "Research plan: feasibility, work plan and time schedule",
+      "counts": true
+     },
+     {
+      "title": "Practical framework (facilities, staff, data access)",
+      "counts": true
+     },
+     {
+      "title": "Publication and dissemination",
+      "counts": true
+     },
+     {
+      "title": "Risk management (if relevant)",
+      "counts": true
+     },
+     {
+      "title": "List of references/bibliography (B11, separate appendix)",
+      "counts": false,
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainChars": 15000,
+     "mainScope": "Project description incl. figures, tables, spaces, captions and formulas; references excluded (separate appendix B11)",
+     "captionsCount": true,
+     "pages": 5
+    },
+    "notes": "Call for proposals 2026 (deadline 12 May 2026). Section list is DFF's 'must account for' list (10.6), not mandatory headings. e-grant's character count decides; over-length = administrative rejection. Applicant CV (B20) max 3 pages and track record (B21) max 3 pages on mandatory DFF templates."
+   },
+   {
+    "id": "research-project-2",
+    "name": "DFF-Research Project2 - Project description (B10)",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Objective, research question and hypotheses",
+      "counts": true
+     },
+     {
+      "title": "Scientific and societal perspectives and relevance",
+      "counts": true
+     },
+     {
+      "title": "Theoretical foundation, state of the art and your qualifications",
+      "counts": true
+     },
+     {
+      "title": "Methods (if relevant)",
+      "counts": true
+     },
+     {
+      "title": "Research plan: feasibility, work plan and time schedule",
+      "counts": true
+     },
+     {
+      "title": "Sub-projects, synergy, project management and organisation",
+      "counts": true
+     },
+     {
+      "title": "Practical framework (facilities, staff, data access)",
+      "counts": true
+     },
+     {
+      "title": "Publication and dissemination",
+      "counts": true
+     },
+     {
+      "title": "Risk management (if relevant)",
+      "counts": true
+     },
+     {
+      "title": "List of references/bibliography (B11, separate appendix)",
+      "counts": false,
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainChars": 21000,
+     "mainScope": "Project description incl. figures, tables, spaces, captions and formulas; references excluded (separate appendix B11)",
+     "captionsCount": true,
+     "pages": 7
+    },
+    "notes": "Call for proposals 2026 (deadline 7 October 2026). DFF | Natural Sciences funds RP2 only when the goal cannot be reached with an RP1. Description must cover synergy between sub-projects, management/organisation and publication plans. CV and track record max 3 pages each."
+   },
+   {
+    "id": "sapere-aude-research-leader",
+    "name": "Sapere Aude: DFF-Research Leader - Project description (B10)",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Objective, research question and hypotheses",
+      "counts": true
+     },
+     {
+      "title": "Scientific and societal perspectives and relevance",
+      "counts": true
+     },
+     {
+      "title": "Theoretical foundation, state of the art and your qualifications",
+      "counts": true
+     },
+     {
+      "title": "Methods (if relevant)",
+      "counts": true
+     },
+     {
+      "title": "Research plan, sub-projects (incl. PhD/postdoc projects), work plan and time schedule",
+      "counts": true
+     },
+     {
+      "title": "Research leadership development",
+      "counts": true
+     },
+     {
+      "title": "International activities",
+      "counts": true
+     },
+     {
+      "title": "Roles of project participants and recruitment",
+      "counts": true
+     },
+     {
+      "title": "Practical framework, publication and dissemination, risks",
+      "counts": true
+     },
+     {
+      "title": "List of references/bibliography (B11, separate appendix)",
+      "counts": false,
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainChars": 21000,
+     "mainScope": "Project description incl. figures, tables, spaces, captions and formulas; references excluded (separate appendix B11)",
+     "captionsCount": true,
+     "pages": 7
+    },
+    "notes": "Call for proposals 2026 (deadline 7 October 2026, grants awarded 2027). Must show how the grant builds research leadership and an international profile (preparing for ERC). CV and track record max 3 pages each; shortlisted applicants are interviewed."
+   }
+  ]
+ },
+ {
+  "id": "innovation-fund-denmark",
+  "name": "Innovation Fund Denmark (Innovationsfonden)",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://innovationsfonden.dk/sites/default/files/2025-12/GS2026_ENG_Guidelines%20phase%201.docx_0.pdf",
+   "https://innovationsfonden.dk/sites/default/files/2026-03/GS2026_ENG_Guidelines%20phase%202.docx_0.pdf",
+   "https://innovationsfonden.dk/en/p/grand-solutions/grand-solutions-2026-quantum"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "Phase 2 field names and character limits are only published in the e-grant form sent with the invitation, so phase 2 sections are the assessment criteria with null limits. No font/margin rules are stated (web form + mandatory IFD templates). The fund's site now redirects some files to danmarksinnovationsfond.dk and several PDFs (2024 phase 2 outline, defence call text) returned 404. 2027 calls not yet published.",
+  "types": [
+   {
+    "id": "grand-solutions-phase1",
+    "name": "Grand Solutions - Phase 1 letter of interest",
+    "abstract": {
+     "words": null,
+     "chars": 600,
+     "label": "Short summary"
+    },
+    "sections": [
+     {
+      "title": "Description of the foundation and concept of idea",
+      "counts": true,
+      "limit": {
+       "chars": 1800
+      }
+     },
+     {
+      "title": "Description of quantifiable goals",
+      "counts": true,
+      "limit": {
+       "chars": 1200
+      }
+     },
+     {
+      "title": "Description of state of the art and competition",
+      "counts": true,
+      "limit": {
+       "chars": 2400
+      }
+     },
+     {
+      "title": "Description of expected impact",
+      "counts": true,
+      "limit": {
+       "chars": 1200
+      }
+     },
+     {
+      "title": "Description of applied methods",
+      "counts": true,
+      "limit": {
+       "chars": 1800
+      }
+     },
+     {
+      "title": "Contribution of core project participants (up to 5)",
+      "counts": true,
+      "limit": {
+       "chars": 600
+      }
+     },
+     {
+      "title": "Other project participants and their contribution",
+      "counts": true,
+      "limit": {
+       "chars": 500
+      }
+     },
+     {
+      "title": "Competences and experience of key persons (up to 5)",
+      "counts": true,
+      "limit": {
+       "chars": 600
+      }
+     },
+     {
+      "title": "List of references",
+      "counts": true,
+      "refs": true,
+      "limit": {
+       "chars": 1200
+      }
+     },
+     {
+      "title": "Appendix A: Illustrations",
+      "counts": false,
+      "limit": {
+       "pages": 1
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "e-grant form fields; whole letter about 6 pages excluding appendices",
+     "display": 1,
+     "titleChars": 180
+    },
+    "notes": "Grand Solutions 2026 (guidelines valid from 5 Jan 2026; phase 1 deadline 3 March 2026 for most themes). Participant/key-person limits are per person. Appendix A: max 1 A4 page with max 1 illustration on the IFD template. English only."
+   },
+   {
+    "id": "grand-solutions-phase2",
+    "name": "Grand Solutions - Phase 2 full application",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "Quality of idea",
+      "counts": true
+     },
+     {
+      "title": "Impact",
+      "counts": true
+     },
+     {
+      "title": "Quality of execution",
+      "counts": true
+     },
+     {
+      "title": "Appendix A: Figures, pictures, tables, Gantt diagram (optional)",
+      "counts": false,
+      "limit": {
+       "pages": 8
+      }
+     },
+     {
+      "title": "Appendix B: Participant motivation",
+      "counts": false
+     },
+     {
+      "title": "Appendix C: Key persons (overview page + one-page CV per key person)",
+      "counts": false
+     }
+    ],
+    "limits": {
+     "mainScope": "e-grant form fields; limits are given in the form sent with the phase 2 invitation",
+     "titleChars": 180
+    },
+    "notes": "Grand Solutions 2026 phase 2 (deadline 10 Sep 2026). Main sections follow the three assessment criteria; title and acronym must be reused from phase 1. Each key-person CV max 1 A4 page; budget on the IFD Excel template."
+   }
+  ]
+ },
+ {
+  "id": "novo-nordisk-foundation",
+  "name": "Novo Nordisk Foundation (Novo Nordisk Fonden)",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://novonordiskfonden.dk/app/uploads/Guidelines-NERD-Programme-2026.pdf",
+   "https://novonordiskfonden.dk/en/grant/exploratory-interdisciplinary-synergy-programme-2026/",
+   "https://novonordiskfonden.dk/app/uploads/Information-and-Guidelines-for-Exploratory-Interdisciplinary-Synergy-Programme-2026_version-2.pdf",
+   "https://novonordiskfonden.dk/en/grant/pioneer-innovator-grant/",
+   "https://novonordiskfonden.dk/app/uploads/Pioneer-Innovator-Guidelines-2026-2.pdf",
+   "https://novonordiskfonden.dk/app/uploads/Data-Science-Investigator_GuidelinesFAQ-2026_Final.pdf"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": null,
+   "fontSizeMin": null,
+   "spacing": null,
+   "lineNumbers": null,
+   "margins_cm": null
+  },
+  "uncertain": "No natural/technical-science 'Ascending Investigator' call exists in 2026 (Ascending calls are in biotech, endocrinology, bioscience and the Data Science programme); NERD and Data Science Investigator were added instead. All NNF applications are NORMA web-form fields, so no font/margin rules apply. Pioneer Innovator guidelines do not state a maximum number of illustrations.",
+  "types": [
+   {
+    "id": "nerd",
+    "name": "New Exploratory Research and Discovery (NERD) - Proposal",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Brief project description"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "Purpose",
+       "Background",
+       "Hypotheses",
+       "Methods",
+       "Creativity, ambition and originality",
+       "Potential future applications (life sciences, health or sustainability) - separate paragraph",
+       "List of abbreviations"
+      ],
+      "limit": {
+       "chars": 30000
+      }
+     },
+     {
+      "title": "Illustrations (uploads)",
+      "counts": false
+     },
+     {
+      "title": "Literature references",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "chars": 8000
+      }
+     },
+     {
+      "title": "Lay project description",
+      "counts": false,
+      "back": true,
+      "limit": {
+       "chars": 1000
+      }
+     }
+    ],
+    "limits": {
+     "mainChars": 30000,
+     "mainScope": "Project description field, incl. spaces",
+     "display": 4,
+     "titleChars": 150
+    },
+    "notes": "2026 call (deadline 19 Feb 2026), natural and technical sciences. Online NORMA fields; stage 1 is blinded (anonymise self-citations as 'Anonymised Reference [n]'). Applicant tab: CV 4,000 chars, publication list 5,000 chars (up to 10), summary of own research 2,000 chars."
+   },
+   {
+    "id": "exploratory-interdisciplinary-synergy",
+    "name": "Exploratory Interdisciplinary Synergy Programme - Proposal",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Brief project description"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "Exploratory interdisciplinary idea, timeliness and expected preliminary data",
+       "Hypotheses, work packages and methodologies",
+       "Why the combination of complementary expertise is needed (synergy)",
+       "Role of each applicant",
+       "Overall impact and benefits to each discipline",
+       "Identified risks (high-risk elements; no mitigation plan expected)",
+       "Revisions since previous submission (if resubmission)"
+      ],
+      "limit": {
+       "chars": 30000
+      }
+     },
+     {
+      "title": "Illustrations (uploads)",
+      "counts": false
+     },
+     {
+      "title": "Literature references",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "chars": 8000
+      }
+     },
+     {
+      "title": "Lay project description",
+      "counts": false,
+      "back": true,
+      "limit": {
+       "chars": 1000
+      }
+     }
+    ],
+    "limits": {
+     "mainChars": 30000,
+     "mainScope": "Project description field, incl. spaces",
+     "display": 4,
+     "titleChars": 150
+    },
+    "notes": "2026 call (deadline 3 Sep 2026; next call expected March 2027). Written jointly by the applicant group; avoid abbreviations. Per applicant: CV 4,000, publication list 5,000, research summary 2,000, supplementary information 2,000 characters."
+   },
+   {
+    "id": "pioneer-innovator",
+    "name": "Pioneer Innovator Grant - Proposal",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Brief project description"
+    },
+    "sections": [
+     {
+      "title": "Background & purpose",
+      "counts": true
+     },
+     {
+      "title": "State of the art and differentiation",
+      "counts": true
+     },
+     {
+      "title": "Methods and design",
+      "counts": true
+     },
+     {
+      "title": "Assessment and project outcome",
+      "counts": true
+     },
+     {
+      "title": "Commercialization potential",
+      "counts": true
+     },
+     {
+      "title": "Main applicant, team and partners",
+      "counts": true
+     },
+     {
+      "title": "Illustrations (uploads)",
+      "counts": false
+     },
+     {
+      "title": "Literature references",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "chars": 8000
+      }
+     },
+     {
+      "title": "Lay project description",
+      "counts": false,
+      "back": true,
+      "limit": {
+       "chars": 1000
+      }
+     }
+    ],
+    "limits": {
+     "mainChars": 20000,
+     "mainScope": "Project description field (all six sections together), incl. spaces",
+     "titleChars": 150
+    },
+    "notes": "2026 autumn call (deadline 15 Sep 2026; next January 2027); Health or Sustainability track incl. quantum technologies, up to DKK 1.2 M over 1 year. Sections should be of broadly similar length. Applicant: CV 4,000, publications 5,000, summary of own research 2,000, supplementary information 2,000 characters."
+   },
+   {
+    "id": "data-science-investigator",
+    "name": "Data Science Investigator (Emerging / Ascending / Distinguished) - Proposal",
+    "abstract": {
+     "words": null,
+     "chars": 2000,
+     "label": "Brief project description"
+    },
+    "sections": [
+     {
+      "title": "Project description",
+      "counts": true,
+      "sub": [
+       "Purpose",
+       "Background and Current State-of-the-art",
+       "Central hypothesis and research idea",
+       "Methods",
+       "Work plan and Implementation",
+       "Collaborations",
+       "Expected outcomes and potential future applications and impact",
+       "Scientific impact, novelty, and significance",
+       "Teaching plans for data science in Denmark",
+       "Synergy with other funded projects"
+      ],
+      "limit": {
+       "chars": 30000
+      }
+     },
+     {
+      "title": "Illustrations (uploads)",
+      "counts": false
+     },
+     {
+      "title": "Literature references",
+      "counts": false,
+      "refs": true,
+      "limit": {
+       "chars": 8000
+      }
+     },
+     {
+      "title": "Lay project description",
+      "counts": false,
+      "back": true,
+      "limit": {
+       "chars": 1000
+      }
+     }
+    ],
+    "limits": {
+     "mainChars": 30000,
+     "mainScope": "Project description field, incl. spaces, line breaks and special characters",
+     "display": 4,
+     "titleChars": 150
+    },
+    "notes": "2026 call (deadline 15 July 2026), one combined guideline for the three career levels; Ascending = associate professor level, up to DKK 14.7 M. Must cover data access and plans for teaching data science in Denmark."
+   }
+  ]
+ },
+ {
+  "id": "villum",
+  "name": "VILLUM FONDEN",
+  "kind": "funder",
+  "checked": "2026-11-27",
+  "sources": [
+   "https://villumfonden.dk/en/group/channel/villum-young-investigator-1",
+   "https://villumfonden.dk/system/files/paragraph/field_downloads/application_guidelines_2026_3.pdf",
+   "https://villumfonden.dk/system/files/paragraph/field_downloads/download_cv_template_villum_young_investigator_2026.docx",
+   "https://villumfonden.dk/en/group/channel/villum-experiment-2026",
+   "https://villumfonden.dk/system/files/paragraph/field_downloads/c_proposal_guidelines_2026_0.pdf",
+   "https://villumfonden.dk/en/group/channel/villum-investigator-2026",
+   "https://villumfonden.dk/system/files/paragraph/field_downloads/application_guidelines_2026_0.pdf",
+   "https://villumfonden.dk/system/files/paragraph/field_downloads/cv_template_velux_og_villum_fonden_2025_2.docx"
+  ],
+  "verifiedWith": [],
+  "format": {
+   "font": "Times Roman",
+   "fontSizeMin": 12,
+   "spacing": "1.15",
+   "lineNumbers": null,
+   "margins_cm": 2
+  },
+  "uncertain": "Format rule (Times Roman 12 pt, 1.15 spacing, margins >= 2 cm) is stated for Young Investigator and Investigator; the Villum Experiment proposal guidelines give no font/margin rule (character count only). Young Investigator item C has no stated limit. The 2027 calls were not yet published; all numbers are from the 2026 calls.",
+  "types": [
+   {
+    "id": "young-investigator",
+    "name": "Villum Young Investigator - Application",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "A: Your previous application (if any)",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1200
+      }
+     },
+     {
+      "title": "B: Summary of the application",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 2500
+      }
+     },
+     {
+      "title": "C: Important publications",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "D: Research funding",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "E: Other important issues",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "F: Planned research",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Objectives and expected significance",
+       "Relation to state of the art and key original insight",
+       "Relation to work in progress in your group and elsewhere",
+       "Competitive edge (in layman's terms)",
+       "Expected results and general impact",
+       "Effect on your profile and future career",
+       "Staffing (postdocs, PhDs, others) and its justification"
+      ],
+      "limit": {
+       "pages": 6
+      }
+     },
+     {
+      "title": "References",
+      "counts": false,
+      "refs": true
+     },
+     {
+      "title": "G: Leadership",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "H: Institutional affiliation and recruitment",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Planned research max 6 pages incl. figures and tables (about 3,400 characters per page); references excluded",
+     "captionsCount": true
+    },
+    "notes": "2026 call (deadline 3 June 2026). Character limits include spaces; text beyond the limits is not read. CV (max 2 pages, research statement max 10 lines) and Track record (max 1 page) go in a separate PDF on Villum's template, plus budget and letter of support."
+   },
+   {
+    "id": "experiment",
+    "name": "Villum Experiment - Proposal (anonymous, stage 2)",
+    "abstract": {
+     "words": null,
+     "chars": 1000,
+     "label": "Abstract (stage 1 expression of interest, entered online)"
+    },
+    "sections": [
+     {
+      "title": "A: Project title",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "B: In a nutshell",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "C: Research idea and context",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "D: Proposed method of solution or concept",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "E: Major gains and obstacles",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "F: Appropriateness",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "G: Probable objections",
+      "numbered": false,
+      "counts": true
+     },
+     {
+      "title": "Figure(s)",
+      "counts": true
+     },
+     {
+      "title": "References",
+      "counts": true,
+      "refs": true
+     }
+    ],
+    "limits": {
+     "mainChars": 10000,
+     "mainScope": "Whole proposal: 10,000 characters incl. spaces, headlines, references and figure captions (about three pages)",
+     "captionsCount": true,
+     "display": 2
+    },
+    "notes": "2026 call. Two stages: an expression of interest (title + abstract max 1,000 characters) enters a lottery for 300 tickets; winners submit the full proposal. Fully anonymous: no names, affiliations, own-paper citations or hyperlinks; 'In a nutshell' preferably 5-10 sentences in layman's terms."
+   },
+   {
+    "id": "investigator",
+    "name": "Villum Investigator - Application",
+    "abstract": null,
+    "sections": [
+     {
+      "title": "A: Summary of application (B - H)",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 2500
+      }
+     },
+     {
+      "title": "B: Scientific achievements/discoveries",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "pages": 2
+      }
+     },
+     {
+      "title": "C: Project description",
+      "numbered": false,
+      "counts": true,
+      "sub": [
+       "Six-year research plan and how it builds on current research",
+       "State of the art and your position in it",
+       "New insights, results, tools and methods",
+       "Impact on and redefinition of the field",
+       "Competitive edge",
+       "Wider significance"
+      ],
+      "limit": {
+       "pages": 8
+      }
+     },
+     {
+      "title": "D: Leadership and Research environment",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 2500
+      }
+     },
+     {
+      "title": "E: Collaborations and recruitment",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "F: Research funding",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "G: PhD students",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "H: Other important issues",
+      "numbered": false,
+      "counts": true,
+      "limit": {
+       "chars": 1500
+      }
+     },
+     {
+      "title": "I: Reference list",
+      "numbered": false,
+      "counts": true,
+      "refs": true,
+      "limit": {
+       "pages": 1
+      }
+     }
+    ],
+    "limits": {
+     "mainScope": "Project description max 8 pages incl. figures and tables; references go in item I (max 1 page)",
+     "captionsCount": true
+    },
+    "notes": "2026 call (deadline 20 August 2026). Character limits include spaces; no hyperlinks to extra material. Separate PDFs: CV on the Velux/Villum template (max 2 pages + track record max 1 page) plus full publication list of the last 10 years, budget, letter of support."
+   }
+  ]
+ }
+]

@@ -34,12 +34,25 @@ const M = schema.marks, N = schema.nodes;
 export const cmd = {
   bold: toggleMark(M.bold), italic: toggleMark(M.italic), underline: toggleMark(M.underline),
   sup: toggleMark(M.sup), sub: toggleMark(M.sub),
+  highlight: toggleMark(M.highlight, { color: 'yellow' }),
+  colorRed: textColor('C00000'), colorBlue: textColor('1F5FBF'), colorGreen: textColor('2E7D32'), colorNone: textColor(null),
+  removeHighlight: (state, dispatch) => { const { from, to, empty } = state.selection; if (empty) return false; if (dispatch) dispatch(state.tr.removeMark(from, to, M.highlight)); return true; },
   paragraph: setBlockType(N.paragraph),
   h1: setBlockType(N.heading, { level: 1 }), h2: setBlockType(N.heading, { level: 2 }), h3: setBlockType(N.heading, { level: 3 }), h4: setBlockType(N.heading, { level: 4 }),
   bullets: wrapInList(N.bullet_list), numbers: wrapInList(N.ordered_list),
   inlineMath: insertMath(false), equation: insertMath(true),
   undo, redo,
 };
+
+/** Text colour of the selection (hex 'RRGGBB'), or automatic (null). */
+function textColor(hex) {
+  return (state, dispatch) => {
+    const { from, to, empty } = state.selection;
+    if (empty) return false;
+    if (dispatch) { let tr = state.tr.removeMark(from, to, M.color); if (hex) tr = tr.addMark(from, to, M.color.create({ color: hex })); dispatch(tr); }
+    return true;
+  };
+}
 
 /** Toggle numbering of the heading or equation at the selection. */
 export function toggleNumbered(state, dispatch) {
@@ -76,7 +89,7 @@ function exitCaption(state, dispatch) {
 function keys() {
   return {
     'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo,
-    'Mod-b': cmd.bold, 'Mod-i': cmd.italic, 'Mod-u': cmd.underline,
+    'Mod-b': cmd.bold, 'Mod-i': cmd.italic, 'Mod-u': cmd.underline, 'Mod-Shift-h': cmd.highlight,
     'Mod-Shift-=': cmd.sup, 'Mod-Shift-+': cmd.sup, 'Mod-=': cmd.sub,
     'Mod-m': cmd.inlineMath, 'Mod-Shift-m': cmd.equation, 'Mod-Shift-M': cmd.equation,
     'Mod-Alt-0': cmd.paragraph, 'Mod-Alt-1': cmd.h1, 'Mod-Alt-2': cmd.h2, 'Mod-Alt-3': cmd.h3, 'Mod-Alt-4': cmd.h4,

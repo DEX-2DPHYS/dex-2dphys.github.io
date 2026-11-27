@@ -13,7 +13,7 @@
    Returns { json, media: [{ name, bytes }], report: { counts, notes } }. */
 import JSZip from 'jszip';
 import { parseXml, kids, kid, find, findAll, textOf, val, on } from './xml.js';
-import { ommlToLatex } from './ommlin.js';
+import { ommlToLatex, ommlRevision } from './ommlin.js';
 import { addToLibrary, STYLES, styleId } from './references.js';
 import { SIZES, LANGS } from './style.js';
 
@@ -161,6 +161,10 @@ export async function docxToDocument(bytes, opts = {}) {
       if (kid(rPr, 'w:i')) { if (on(rPr, 'w:i')) m.add('italic'); else m.delete('italic'); }
       const u = kid(rPr, 'w:u'); if (u) { if (u.attrs['w:val'] && u.attrs['w:val'] !== 'none') m.add('underline'); else m.delete('underline'); }
       const va = val(rPr, 'w:vertAlign'); if (va === 'superscript') m.add('sup'); else if (va === 'subscript') m.add('sub');
+      const hl = val(rPr, 'w:highlight');
+      if (hl !== null) { for (const k of [...m]) if (k.startsWith('highlight:')) m.delete(k); if (hl && hl !== 'none') m.add('highlight:' + hl); }
+      const col = val(rPr, 'w:color');
+      if (col !== null) { for (const k of [...m]) if (k.startsWith('color:')) m.delete(k); if (/^[0-9A-Fa-f]{6}$/.test(col) && col !== '000000') m.add('color:' + col.toUpperCase()); }
     }
     return [...m];
   };
@@ -177,12 +181,32 @@ export async function docxToDocument(bytes, opts = {}) {
   };
   const currentRev = () => (ctx.rev.del ? { kind: 'del', r: ctx.rev.del } : ctx.rev.ins ? { kind: 'ins', r: ctx.rev.ins } : null);
   const withMarks = (node, marks) => {
-    const all = marks.map(type => ({ type }));
+    const all = marks.map(type => { const i = type.indexOf(':'); return i > 0 ? { type: type.slice(0, i), attrs: { color: type.slice(i + 1) } } : { type }; });
     if (ctx.rev.ins) all.push({ type: 'ins', attrs: revAttrs(ctx.rev.ins) });
     if (ctx.rev.del) all.push({ type: 'del', attrs: revAttrs(ctx.rev.del) });
     if (!ctx.rev.ins && !ctx.rev.del && !(node.type === 'text' && !String(node.text).trim())) ctx.revBreak = true;
     for (const c of ctx.comments) { const t = threadOf.get(c); if (t) { all.push({ type: 'comment', attrs: { id: t } }); ctx.usedThreads.add(t); } }
     return all.length ? { ...node, marks: all } : node;
+  };
+  /* Word equations. A tracked change inside one (Word keeps it inside the math) makes the equation a change of its
+     own: the old version (Reject) as a deletion, the new one (Accept) as an insertion — for a display equation that is
+     one "changed equation" suggestion. MathType objects inside a Word equation become the usual placeholder. */
+  const mathObjects = new Map();
+  const onObject = (obj) => {
+    if (!mathObjects.has(obj)) {
+      const ole = find(obj, 'o:OLEObject');
+      let tex;
+      if (ole && /equation|mathtype/i.test(ole.attrs.ProgID || '')) tex = '\\text{[MathType equation ' + (++ctx.mathtype) + ' — retype]}';
+      else { note('object', (ole && ole.attrs.ProgID) || 'an embedded object'); tex = '\\text{[object]}'; }
+      mathObjects.set(obj, tex);
+    }
+    return mathObjects.get(obj);
+  };
+  const mathOf = (el) => {
+    const latex = ommlToLatex(el, { onObject });
+    const rev = keepRevisions ? ommlRevision(el) : null;
+    if (!rev) return { latex, old: latex, rev: null };
+    return { latex, old: ommlToLatex(el, { view: 'reject', onObject }), rev };
   };
   const text = (s, marks) => { s = String(s).replace(/​/g, ''); return s ? withMarks({ type: 'text', text: s }, marks) : null; };
 
@@ -195,6 +219,35 @@ export async function docxToDocument(bytes, opts = {}) {
   }
 
   /* a finished field -> inline nodes */
+  /* A citation's text in Word is the field result; what the citation itself reads is in the field (plainCitation).
+     When a Word author typed into the result ("1" -> "1, 45"), the typed text is kept beside the citation (with its
+     tracked-change marks); a change that is not an addition before or after is reported. */
+  const flat = (s) => String(s || '').replace(/[\s\u00a0]+/g, ' ');
+  function sliceInline(nodes, from, to) {
+    const out = []; let pos = 0;
+    for (const n of nodes) {
+      if (n.type !== 'text') { if (pos >= from && pos < to) out.push(n); continue; }
+      const a = Math.max(from, pos), b = Math.min(to, pos + n.text.length);
+      if (b > a) out.push({ ...n, text: n.text.slice(a - pos, b - pos) });
+      pos += n.text.length;
+    }
+    return out;
+  }
+  function typedAroundCitation(cit, result, plain) {
+    if (typeof plain !== 'string' || !plain.trim()) return [cit];
+    const shown = flat(result.map(n => (n.type === 'text' ? n.text : '')).join(''));
+    const want = flat(plain);
+    if (shown === want || shown.trim() === want.trim()) return [cit];
+    const at = shown.indexOf(want.trim());
+    if (at < 0) { note('citechanged', shown.trim() + '|' + want.trim()); return [cit]; }
+    const end = at + want.trim().length;
+    const before = sliceInline(result, 0, at), after = sliceInline(result, end, shown.length);
+    const typed = (before.concat(after)).map(n => n.text || '').join('');
+    if (!typed.trim()) return [cit];
+    note('citetyped', typed.trim());
+    return [...before, cit, ...after];
+  }
+
   function fieldNodes(instr, result, para, marks) {
     const ins = instr.replace(/\s+/g, ' ').trim();
     const word = (ins.split(' ')[0] || '').toUpperCase();
@@ -217,7 +270,11 @@ export async function docxToDocument(bytes, opts = {}) {
           library = r.library;
           if (r.keys[0]) items.push({ id: r.keys[0], ...(ci.locator ? { locator: String(ci.locator) } : {}) });
         }
-        if (items.length) { count('citations'); return [withMarks({ type: 'citation', attrs: { items, mode: (data.citationItems || []).some(c => c['suppress-author']) ? 'suppress-author' : 'normal' } }, [])]; }
+        if (items.length) {
+          count('citations');
+          const cit = withMarks({ type: 'citation', attrs: { items, mode: (data.citationItems || []).some(c => c['suppress-author']) ? 'suppress-author' : 'normal' } }, []);
+          return typedAroundCitation(cit, result, data.properties && data.properties.plainCitation);
+        }
       } catch (_) { note('citation', 'a citation field could not be read'); }
       return result;
     }
@@ -269,8 +326,16 @@ export async function docxToDocument(bytes, opts = {}) {
           case 'w:bookmarkStart': if (c.attrs['w:name'] && c.attrs['w:name'] !== '_GoBack') para.bookmarks.push(c.attrs['w:name']); break;
           case 'w:commentRangeStart': ctx.comments.add(c.attrs['w:id']); para.comments.add(c.attrs['w:id']); break;
           case 'w:commentRangeEnd': ctx.comments.delete(c.attrs['w:id']); break;
-          case 'm:oMathPara': { const tex = ommlToLatex(c); if (tex) { para.display.push(tex); push(withMarks({ type: 'math_inline', attrs: { latex: tex }, display: true }, [])); } break; }
-          case 'm:oMath': { const tex = ommlToLatex(c); if (tex) { count('math'); push(withMarks({ type: 'math_inline', attrs: { latex: tex } }, [])); } break; }
+          case 'm:oMathPara': case 'm:oMath': {
+            const display = c.name === 'm:oMathPara';
+            const { latex, old, rev } = mathOf(c);
+            const emit = (tex) => { if (display) para.display.push(tex); else count('math'); push(withMarks({ type: 'math_inline', attrs: { latex: tex }, ...(display ? { display: true } : {}) }, [])); };
+            if (latex === old) { if (latex) emit(latex); break; }
+            ctx.tracked++;
+            if (old) { const prev = ctx.rev.del; ctx.rev.del = rev; emit(old); ctx.rev.del = prev; }
+            if (latex) { const prev = ctx.rev.ins; ctx.rev.ins = rev; emit(latex); ctx.rev.ins = prev; }
+            break;
+          }
           default: break;
         }
       }
@@ -484,7 +549,7 @@ export async function docxToDocument(bytes, opts = {}) {
     const txt = findAll(tbl, 'w:t').map(textOf).join('').replace(/[\s​]/g, '');
     if (!/^\(?[\dA-Z.]*\)?$/i.test(txt)) return null;       // only an equation number beside the math
     const para = findAll(tbl, 'm:oMathPara')[0];
-    return { latex: ommlToLatex(para || maths[0]), numbered: /\d/.test(txt) || findAll(tbl, 'w:instrText').some(i => /SEQ/i.test(textOf(i))) };
+    return { ...mathOf(para || maths[0]), numbered: /\d/.test(txt) || findAll(tbl, 'w:instrText').some(i => /SEQ/i.test(textOf(i))) };
   }
 
   /* Manuscripts typed without Word's heading styles ("INTRODUCTION" in capitals, "Acknowledgments" on a line):
@@ -733,7 +798,16 @@ export async function docxToDocument(bytes, opts = {}) {
           const id = newId('eq');
           bind(para, id);
           count('equations');
-          addBlock({ type: 'equation', attrs: { latex: eq.latex, numbered: eq.numbered, id, comments: threadIds(para) } });
+          let track = null, latex = eq.latex;
+          if (eq.rev && eq.old !== eq.latex) {
+            ctx.tracked++;
+            ctx.revBreak = true;
+            const a = revAttrs(eq.rev);
+            ctx.revBreak = true;
+            track = !eq.old ? { kind: 'ins', ...a } : !eq.latex ? { kind: 'del', ...a } : { kind: 'mod', ...a, old: { latex: eq.old } };
+            if (!eq.latex) latex = eq.old;
+          }
+          addBlock({ type: 'equation', attrs: { latex, numbered: eq.numbered, id, comments: threadIds(para), track } });
           continue;
         }
         const table = await tableNode(c);
@@ -907,6 +981,8 @@ export async function docxToDocument(bytes, opts = {}) {
   if (n('lonecaption')) report.notes.push(n('lonecaption') + ' caption' + (n('lonecaption') > 1 ? 's' : '') + ' had no picture or table next to ' + (n('lonecaption') > 1 ? 'them' : 'it') + ' and stayed as text where ' + (n('lonecaption') > 1 ? 'they were' : 'it was') + '.');
   if (n('nested')) report.notes.push(n('nested') + ' table' + (n('nested') > 1 ? 's' : '') + ' inside a table cell became plain text.');
   if (n('endnote')) report.notes.push('EndNote citations were kept as the text Word showed. Format → Convert typed references turns them into real citations.');
+  if (n('citetyped')) report.notes.push(n('citetyped') + ' citation' + (n('citetyped') > 1 ? 's' : '') + ' had text typed into ' + (n('citetyped') > 1 ? 'them' : 'it') + ' in Word (“' + noteCounts.citetyped.slice(0, 3).join('”, “') + '”): the text was kept beside the citation — check it, and use Insert → Citation for a reference that was added by typing.');
+  if (n('citechanged')) report.notes.push(n('citechanged') + ' citation' + (n('citechanged') > 1 ? 's were' : ' was') + ' changed by hand in Word (' + noteCounts.citechanged.slice(0, 3).map(x => { const [a, b] = x.split('|'); return '“' + a + '” where the citation reads “' + b + '”'; }).join('; ') + '): the citation was kept as it was in the reference data — check ' + (n('citechanged') > 1 ? 'them' : 'it') + '.');
   if (n('citation')) report.notes.push(n('citation') + ' citation field' + (n('citation') > 1 ? 's' : '') + ' could not be read and stayed as text.');
   report.counts.references = Object.keys(library).length;
 

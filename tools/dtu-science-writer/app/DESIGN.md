@@ -60,7 +60,8 @@ edited visually. The output (PDF, Word, LaTeX) is typeset by an engine, not hand
 
 - Paragraph styles: Body, Heading 1–4, Abstract, Quote, List item (bulleted, numbered),
   Caption (inside figures and tables only), Footnote.
-- Inline: **bold**, *italic*, underline, superscript, subscript, small caps, monospace (code).
+- Inline: **bold**, *italic*, underline, superscript, subscript, small caps, monospace (code), highlight and text
+  colour (added 2026-11-27: Word manuscripts and response letters mark their changes with them).
 - Fonts: a template chooses one serif, one sans and one mono family (section 10). No per-word font
   choice beyond those families.
 - Footnotes.
@@ -250,7 +251,8 @@ Block nodes:
 Inline nodes: `text`, `math_inline` (latex), `citation` (items[{id, locator, prefix, suffix}], mode),
 `xref` (target label, form), `footnote` (inline content), `hard_break`.
 
-Marks: `bold`, `italic`, `underline`, `sup`, `sub`, `smallcaps`, `code`, `link` (href),
+Marks: `bold`, `italic`, `underline`, `sup`, `sub`, `smallcaps`, `code`, `link` (href), `highlight` (color: a Word
+highlighter name), `color` (color: RRGGBB),
 `comment` (thread id; may overlap).
 
 Labels are stable generated ids (e.g. `fig-7k2q`), editable as a friendly name in an advanced field.
@@ -339,8 +341,20 @@ fields → citations with their library, comment replies and resolved state).
   - Comments with replies and resolved state, anchored to the same words; comments on equations and figures.
   - Tracked changes: accepted (insertions kept, deletions dropped) and counted in the report; step 8 imports them as
     suggestions.
+  - **Tracked changes inside equations** (2026-11-27). Word keeps them inside the math: a run's content in w:ins /
+    w:del, a structure inserted or deleted as a whole marked in its m:ctrlPr. `ommlin.js` reads an equation in two
+    views (accept / reject); when they differ the import makes it a change — a display equation becomes one
+    "changed equation" suggestion (track.kind 'mod'; 'ins' / 'del' when one view is empty), inline math a deleted old
+    and an inserted new piece. Structures left empty in a view are dropped. Our export writes such changes the way
+    Word does (`docx.js` mathRev: inside every run and every m:ctrlPr), so Word's Accept / Reject remove whole
+    fractions and roots. Before this, any equation typed or edited in Word with tracking on, and our own tracked
+    equations once Word had saved the file, came back empty (WORD-ROUNDTRIP-2026-11-27.md).
+  - Highlight (w:highlight) and font colour (w:color, not auto/black) → marks; written back the same way.
+  - Text typed into a citation in Word (the field result differs from the field's plainCitation): an addition before
+    or after is kept beside the citation with its revision marks, anything else reported.
   - **MathType** equations are OLE objects, not Word equations: each becomes a placeholder equation
-    "[MathType equation n — retype]" and the report says how many. (In Word, MathType → Convert Equations to "Office
+    "[MathType equation n — retype]" and the report says how many; a MathType object inside a Word equation gets the
+    placeholder inside the LaTeX. (In Word, MathType → Convert Equations to "Office
     Math" before importing converts them all; a built-in MTEF reader is a possible later addition.)
   - Anything not understood (charts, text boxes, nested tables, pictures in cells) is kept as text where possible and
     always named in the report; nothing is dropped silently.

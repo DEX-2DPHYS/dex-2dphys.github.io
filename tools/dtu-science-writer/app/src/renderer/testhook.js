@@ -22,6 +22,8 @@ import { siPath } from './doc/export.js';
 import { convertXrefs } from './ui/convertrefs.js';
 import { offerRecovery, openBackups } from './ui/restore.js';
 import { chooseTemplate, saveAsTemplate } from './ui/templatedialog.js';
+import { lastLimits, refreshLimits, setPageInfo } from './ui/limits.js';
+import { VENUES, JOURNAL_VENUES, FUNDER_VENUES, venueById } from '../core/venues.js';
 
 window.DSW = {
   app, COMMANDS: commands, preview, commentsKey,
@@ -52,5 +54,6 @@ window.DSW = {
   importWordFile: async (p) => importWord({ name: p.split(/[\\/]/).pop(), bytes: await api.readFile(p) }),
   labels: () => [...numberingKey.getState(app.view.state).nums.byId.entries()].map(([id, i]) => [id, i.ref]),
   pm: { TextSelection, NodeSelection, CellSelection },
-  chooseTemplate, saveAsTemplate,
+  chooseTemplate, saveAsTemplate, lastLimits, refreshLimits, setPageInfo,
+  venues: { VENUES, JOURNAL_VENUES, FUNDER_VENUES, venueById },
 };

@@ -136,6 +136,7 @@ function registerIpc() {
     if (op === 'lookup') return refs.lookup(q);
     if (op === 'zotero') return refs.zotero(q);
     if (op === 'match') return refs.match(q);
+    if (op === 'articleNumber') return refs.articleNumber(q);
     if (op === 'matchText') return refs.matchText(q);
     // the Zotero web library (main/zotero.js): key, add items, update an item
     if (op === 'zoteroStatus') return zweb.status();

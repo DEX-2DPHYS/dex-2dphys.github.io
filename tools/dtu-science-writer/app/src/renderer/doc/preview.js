@@ -4,6 +4,9 @@ import { partDoc } from '../../core/parts.js';
 import { setPagePositions, pageBreaksOn } from '../editor/pageview.js';
 import { usedMedia } from '../../core/fileformat.js';
 import { getMedia } from '../../core/media.js';
+import { pageLimitedSections, sectionPageSpans } from '../../core/venues.js';
+import { PAGE_GEOMETRY } from '../../core/pages.js';
+import { setPageInfo } from '../ui/limits.js';
 import { app, api, $, onChange, onLoad } from '../context.js';
 
 export const preview = { timer: null, running: false, again: false, sent: new Set(), urls: [], visible: true, lastProblems: [] };
@@ -47,6 +50,7 @@ async function runPreview() {
       const pages = res.pages.length + (res.pages.length === 1 ? ' page' : ' pages');
       $('#pv-status').textContent = pages + ' · ' + Math.round(performance.now() - t0) + ' ms';
       $('#st-pages').textContent = pages;
+      setPageInfo(res.pages.length);                                  // journal / funder page limits (ui/limits.js)
     }
     if (problems.length) showProblems(problems);
   } catch (e) {
@@ -60,12 +64,16 @@ async function runPreview() {
 
 /** Ask Typst where every block starts and hand it to the editor (only while View → Page breaks in the text is on). */
 async function updatePageBreaks(pages) {
-  if (!pageBreaksOn()) return;
+  // also asked when the funder sets page limits per section (core/venues.js), to measure them
+  const limited = (app.part || 'main') === 'main' && pageLimitedSections(app.view.state.doc).length > 0;
+  if (!pageBreaksOn() && !limited) return;
   try {
     const doc = app.view.state.doc, part = app.part || 'main';
     const { source, blockOf } = docToTypst(partDoc(doc, part), { positions: true });
     const res = await api.compile({ source, media: [], format: 'query' });
-    if (res && res.positions && app.view.state.doc === doc) setPagePositions(app.view, { part, blockOf, positions: res.positions, pages });
+    if (!(res && res.positions && app.view.state.doc === doc)) return;
+    if (pageBreaksOn()) setPagePositions(app.view, { part, blockOf, positions: res.positions, pages });
+    if (limited) setPageInfo(pages, sectionPageSpans(partDoc(doc, part), res.positions, blockOf, PAGE_GEOMETRY));
   } catch (e) { console.error(e); }
 }
 

@@ -4,6 +4,10 @@
 import { TEMPLATES, DEFAULT_TEMPLATE } from '../../core/templates.js';
 import { packDocument } from '../../core/fileformat.js';
 import { app, api, baseName, toast } from '../context.js';
+import { JOURNAL_VENUES, FUNDER_VENUES, venueOf } from '../../core/venues.js';
+
+/* Article and Proposal can start from a journal's or a funder's own skeleton and limits (core/venues.js). */
+const VENUE_LISTS = { article: { label: 'Journal', list: JOURNAL_VENUES, any: 'Any journal' }, proposal: { label: 'Funder', list: FUNDER_VENUES, any: 'Any funder' } };
 
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
@@ -13,7 +17,7 @@ function box(id) {
   return dlg;
 }
 
-/** Resolves { builtin: id } | { user: name }, or null when cancelled. */
+/** Resolves { builtin: id, venue?, vtype? } | { user: name }, or null when cancelled. */
 export async function chooseTemplate() {
   const dlg = box('tpldlg');
   let mine = [];
@@ -28,18 +32,50 @@ export async function chooseTemplate() {
     const render = () => {
       dlg.innerHTML = '<div class="box" role="dialog" aria-labelledby="tpldlg-title"><h3 id="tpldlg-title">New document</h3>'
         + '<div class="tpl-grid">' + TEMPLATES.map(x => card(x.id, x.name, x.desc)).join('') + '</div>'
+        + '<div class="tpl-venue" hidden><label><span class="vlab"></span><input class="vname" list="tpl-vlist" spellcheck="false"></label><label><span>Type</span><select class="vtype" disabled></select></label><datalist id="tpl-vlist"></datalist></div>'
         + (mine.length ? '<h4>Your templates</h4><div class="tpl-grid">' + mine.map(m => card('user:' + m.name, m.name, 'saved ' + new Date(m.modified).toLocaleDateString(), true)).join('') + '</div>'
           : '<p class="hint">File → Save as template… keeps any document as a template of your own.</p>')
         + '<div class="buttons"><span class="grow"></span><button data-r="cancel">Cancel</button><button data-r="ok" class="primary">Create</button></div></div>';
       const on = dlg.querySelector('.tpl.on');
       if (on) on.focus();
+      showVenue();
     };
+    // the journal / funder row under the cards, for Article and Proposal
+    const remembered = (app.settings && app.settings.templateVenue) || {};
+    const showVenue = () => {
+      const row = dlg.querySelector('.tpl-venue'), spec = VENUE_LISTS[current];
+      if (!row) return;
+      row.hidden = !spec;
+      if (!spec) return;
+      row.dataset.kind = current;
+      row.querySelector('.vlab').textContent = spec.label;
+      const input = row.querySelector('.vname');
+      input.placeholder = spec.any + ' — or type to pick one';
+      dlg.querySelector('#tpl-vlist').innerHTML = spec.list.map(v => '<option value="' + esc(v.name) + '"></option>').join('');
+      const r = venueOf(remembered[current]);
+      input.value = r && spec.list.includes(r.venue) ? r.venue.name : '';
+      fillTypes(r ? r.type.id : null);
+    };
+    const pickedVenue = () => {
+      const row = dlg.querySelector('.tpl-venue'), spec = VENUE_LISTS[current];
+      if (!row || row.hidden || !spec) return null;
+      const name = row.querySelector('.vname').value.trim().toLowerCase();
+      return spec.list.find(v => v.name.toLowerCase() === name) || null;
+    };
+    const fillTypes = (want) => {
+      const sel = dlg.querySelector('.vtype'), v = pickedVenue();
+      sel.innerHTML = v ? v.types.map(t => '<option value="' + esc(t.id) + '"' + (t.id === want ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('') : '';
+      sel.disabled = !v || v.types.length < 2;
+    };
+    dlg.oninput = (e) => { if (e.target.classList && e.target.classList.contains('vname')) fillTypes(null); };
     const done = (key) => {
-      dlg.hidden = true; dlg.onclick = dlg.ondblclick = dlg.onkeydown = null;
+      dlg.hidden = true; dlg.onclick = dlg.ondblclick = dlg.onkeydown = dlg.oninput = null;
       if (!key) { if (app.view) app.view.focus(); return resolve(null); }
-      app.settings = { ...app.settings, template: key };
-      api.settings('set', { template: key });
-      resolve(key.startsWith('user:') ? { user: key.slice(5) } : { builtin: key });
+      const v = VENUE_LISTS[key] ? pickedVenue() : null, vtype = v ? (dlg.querySelector('.vtype').value || v.types[0].id) : null;
+      const tv = VENUE_LISTS[key] ? { ...remembered, [key]: v ? v.id + '/' + vtype : '' } : remembered;
+      app.settings = { ...app.settings, template: key, templateVenue: tv };
+      api.settings('set', { template: key, templateVenue: tv });
+      resolve(key.startsWith('user:') ? { user: key.slice(5) } : v ? { builtin: key, venue: v.id, vtype } : { builtin: key });
     };
     dlg.onclick = async (e) => {
       if (e.target === dlg) return done(null);
@@ -55,7 +91,7 @@ export async function chooseTemplate() {
         return render();
       }
       const t = e.target.closest('.tpl');
-      if (t) { current = t.dataset.key; dlg.querySelectorAll('.tpl').forEach(b => b.classList.toggle('on', b === t)); return; }
+      if (t) { current = t.dataset.key; dlg.querySelectorAll('.tpl').forEach(b => b.classList.toggle('on', b === t)); showVenue(); return; }
       const r = e.target.closest('[data-r]');
       if (r) done(r.dataset.r === 'ok' ? current : null);
     };

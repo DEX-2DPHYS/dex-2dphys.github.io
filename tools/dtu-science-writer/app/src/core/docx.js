@@ -7,6 +7,7 @@ import { TableMap } from 'prosemirror-tables';
 import { hasSupplement, splitParts } from './parts.js';
 import { finalDoc, originalDoc } from './track.js';
 import { computeNumbers, numberOnly, NBSP, nextContext, outlineEntries, OUTLINE_TITLE } from './numbering.js';
+import { HIGHLIGHT } from './schema.js';
 
 /* Tracked changes are written as Word revisions: runs inside <w:ins> / <w:del> (deleted text as w:delText, deleted
    field codes as w:delInstrText), an inserted / deleted paragraph mark as <w:ins/> / <w:del/> in the paragraph's rPr,
@@ -45,14 +46,16 @@ const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/mai
 
 function rPr(marks, extra) {
   const p = [];
-  for (const m of marks || []) {
-    const n = m.type ? m.type.name : m;
-    if (n === 'bold') p.push('<w:b/>');
-    else if (n === 'italic') p.push('<w:i/>');
-    else if (n === 'underline') p.push('<w:u w:val="single"/>');
-    else if (n === 'sup') p.push('<w:vertAlign w:val="superscript"/>');
-    else if (n === 'sub') p.push('<w:vertAlign w:val="subscript"/>');
-  }
+  const has = {};
+  for (const m of marks || []) has[m.type ? m.type.name : m] = m.attrs || {};
+  // in the order Word's schema wants: b, i, color, highlight, u, vertAlign
+  if (has.bold) p.push('<w:b/>');
+  if (has.italic) p.push('<w:i/>');
+  if (has.color && /^[0-9A-F]{6}$/i.test(has.color.color || '')) p.push('<w:color w:val="' + has.color.color.toUpperCase() + '"/>');
+  if (has.highlight) p.push('<w:highlight w:val="' + (HIGHLIGHT[has.highlight.color] ? has.highlight.color : 'yellow') + '"/>');
+  if (has.underline) p.push('<w:u w:val="single"/>');
+  if (has.sup) p.push('<w:vertAlign w:val="superscript"/>');
+  else if (has.sub) p.push('<w:vertAlign w:val="subscript"/>');
   if (extra) p.push(extra);
   return p.length ? '<w:rPr>' + p.join('') + '</w:rPr>' : '';
 }
@@ -219,9 +222,22 @@ class Writer {
     if (!xml) return xml;
     const get = (name) => { const m = (marks || []).find(k => k.type && k.type.name === name); return m ? m.attrs : (this.force && this.force.kind === name ? this.force : null); };
     const d = get('del'), i = get('ins');
+    if (/^<m:oMath[ >]/.test(xml)) {
+      if (d) xml = this.mathRev(xml, 'del', d);
+      if (i) xml = this.mathRev(xml, 'ins', i);
+      return xml;
+    }
     if (d) xml = '<w:del' + this.revAttrs(d) + '>' + asDeleted(xml) + '</w:del>';
     if (i) xml = '<w:ins' + this.revAttrs(i) + '>' + xml + '</w:ins>';
     return xml;
+  }
+  /** A tracked change on an equation, written as Word writes one: every run's content inside w:ins / w:del, and every
+      structure (fraction, script, root, brackets …) marked in its m:ctrlPr, so Word's Accept / Reject removes the
+      structures too. (A w:ins around the whole m:oMath is turned into this by Word on its first save anyway.) */
+  mathRev(omml, kind, attrs) {
+    const wrap = (inner) => '<w:' + kind + this.revAttrs(attrs) + '>' + inner + '</w:' + kind + '>';
+    return omml.replace(/<m:r>([\s\S]*?)<\/m:r>/g, (m, inner) => '<m:r>' + wrap(inner) + '</m:r>')
+      .replace(/<m:ctrlPr\/>/g, () => '<m:ctrlPr>' + wrap('<w:rPr/>') + '</m:ctrlPr>');
   }
   /** Write a unit that is inserted or deleted as a whole: its runs, paragraph marks and rows are. */
   withRev(track, fn) {

@@ -4,6 +4,7 @@ import { TableMap } from 'prosemirror-tables';
 import { latexToTypst } from './mathconv.js';
 import { FONTS, styleOf, levelSize } from './style.js';
 import { computeNumbers, numberOnly, refText, OUTLINE_TITLE, firstSentence, nextContext } from './numbering.js';
+import { highlightHex } from './schema.js';
 import { hasSupplement, splitParts } from './parts.js';
 import { finalWithMapping } from './track.js';
 import { formatAuthors } from './authors.js';
@@ -87,6 +88,9 @@ export function inlineToTypst(node, ctx) {
     for (const m of [...MARK_ORDER].reverse()) {
       if (child.marks.some(mk => mk.type.name === m)) piece = '#' + MARK_FN[m] + '[' + piece + ']';
     }
+    const col = child.marks.find(mk => mk.type.name === 'color'), hl = child.marks.find(mk => mk.type.name === 'highlight');
+    if (col && /^[0-9A-F]{6}$/i.test(col.attrs.color)) piece = '#text(fill: rgb("#' + col.attrs.color + '"))[' + piece + ']';
+    if (hl) piece = '#highlight(fill: rgb("#' + highlightHex(hl.attrs.color) + '"))[' + piece + ']';
     out += piece;
     prevText = nextContext(prevText, child);
   });

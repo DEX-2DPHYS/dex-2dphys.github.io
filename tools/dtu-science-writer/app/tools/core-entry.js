@@ -6,7 +6,7 @@ export { latexToTypst, latexToOmml, latexToMathML, normalizeLatex } from '../src
 export { computeNumbers, missingIds, outlineEntries } from '../src/core/numbering.js';
 export { packDocument, unpackDocument } from '../src/core/fileformat.js';
 export { putMedia, addImage, getMedia } from '../src/core/media.js';
-export { formatReferences, parseBibtex, addToLibrary, htmlSegments, STYLES, toBibtex, findSame, referencesFor } from '../src/core/references.js';
+export { formatReferences, parseBibtex, addToLibrary, htmlSegments, STYLES, toBibtex, findSame, referencesFor, updatedItem } from '../src/core/references.js';
 export { docToLatex, texText } from '../src/core/latex.js';
 export { latexToBlocks, looksLikeLatex } from '../src/core/latexin.js';
 export { journalAbbreviation } from '../src/core/journals.js';

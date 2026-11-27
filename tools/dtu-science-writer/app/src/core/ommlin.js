@@ -87,14 +87,44 @@ const mval = (el, name) => { const c = kid(el, name); return c ? c.attrs['m:val'
 const prOf = (el, name) => kid(el, name);
 const E = (el, name) => conv(kid(el, name || 'm:e'));
 
-function run(r) {
-  const pr = kid(r, 'm:rPr');
-  let text = '';
-  for (const c of r.children) {
-    if (c.name === 'm:t') text += textOf(c);
-    else if (c.name === 'w:br') text += '\u0000';         // a line break inside an equation
+/* Tracked changes inside an equation. Word keeps them inside the math: a run's content wrapped in w:ins / w:del
+   (<m:r><w:ins …><m:rPr/><m:t>x</m:t></w:ins></m:r>), and a structure (fraction, script, delimiter…) inserted or deleted
+   as a whole is marked in its m:ctrlPr. An equation is read in one of two views: 'accept' (insertions kept, deletions
+   left out — what Accept All gives) or 'reject' (the other way round). */
+const S = { view: 'accept', content: 0, onObject: null };
+const revOut = (name) => (name === 'w:ins' || name === 'w:moveTo') ? S.view === 'reject' : (name === 'w:del' || name === 'w:moveFrom') ? S.view === 'accept' : false;
+const isRev = (name) => name === 'w:ins' || name === 'w:del' || name === 'w:moveTo' || name === 'w:moveFrom';
+/** The children of a run with the revision wrappers opened (or left out, by the view). */
+function runParts(el, out = []) {
+  for (const c of el.children || []) {
+    if (!c.name) continue;
+    if (isRev(c.name)) { if (!revOut(c.name)) runParts(c, out); }
+    else out.push(c);
   }
-  if (!text) return '';
+  return out;
+}
+/** 'ins' | 'del' | null: a structure inserted or deleted as a whole (its m:ctrlPr carries the revision). */
+function structRev(el) {
+  const pr = (el.children || []).find(c => c.name && /^m:[A-Za-z]+Pr$/.test(c.name) && c.name !== 'm:rPr');
+  const ctrl = kid(pr, 'm:ctrlPr') || kid(el, 'm:ctrlPr');
+  if (!ctrl) return null;
+  const look = (e) => { for (const c of e.children || []) { if (c.name === 'w:ins' || c.name === 'w:moveTo') return 'ins'; if (c.name === 'w:del' || c.name === 'w:moveFrom') return 'del'; if (c.name === 'w:rPr') { const r = look(c); if (r) return r; } } return null; };
+  return look(ctrl);
+}
+
+function run(r0) {
+  const parts = runParts(r0);
+  const r = { children: parts };
+  const pr = kid(r, 'm:rPr');
+  let text = '', objects = '';
+  for (const c of parts) {
+    if (c.name === 'm:t' || c.name === 'w:delText') text += textOf(c);
+    else if (c.name === 'w:br') text += '\u0000';         // a line break inside an equation
+    else if (c.name === 'w:object' && S.onObject) objects += S.onObject(c) || '';      // MathType inside a Word equation
+  }
+  if (objects) S.content++;
+  if (!text) return objects;
+  S.content++;
   const nl = text.includes('\u0000');
   text = text.replace(/\u0000/g, '');
   let out;
@@ -119,6 +149,7 @@ function run(r) {
       else if (sty === 'p' && /[A-Za-z]/.test(text) && /^[A-Za-z0-9 .,Ͱ-Ͽ]+$/.test(text)) out = '\\mathrm{' + out.replace(/ /g, '\\ ') + '}';   // units: kΩ, eV
     }
   }
+  out += objects;
   return nl ? out + ' \\\\ ' : out;
 }
 
@@ -168,6 +199,14 @@ function delim(d) {
 function conv(el) {
   if (!el) return '';
   if (el.text !== undefined) return '';
+  if (isRev(el.name)) return revOut(el.name) ? '' : join(el.children.filter(c => c.name && !/Pr$/.test(c.name)).map(conv));
+  if (el.name !== 'm:r') { const sr = structRev(el); if ((sr === 'ins' && S.view === 'reject') || (sr === 'del' && S.view === 'accept')) return ''; }
+  // a structure with nothing left in it (its content deleted, the structure not marked) is left out, not drawn empty
+  if (EMPTY_DROPS.has(el.name)) { const before = S.content; const out = convStruct(el); return S.content === before ? '' : out; }
+  return convStruct(el);
+}
+const EMPTY_DROPS = new Set(['m:f', 'm:sSub', 'm:sSup', 'm:sSubSup', 'm:sPre', 'm:rad', 'm:d', 'm:func', 'm:acc', 'm:bar', 'm:limLow', 'm:limUpp', 'm:groupChr', 'm:m', 'm:eqArr', 'm:box', 'm:borderBox', 'm:phant']);
+function convStruct(el) {
   switch (el.name) {
     case 'm:r': return run(el);
     case 'm:f': {
@@ -231,12 +270,35 @@ function conv(el) {
   }
 }
 
-/** An m:oMath or m:oMathPara element (parsed with xml.js) -> LaTeX. */
-export function ommlToLatex(el) {
+/**
+ * An m:oMath or m:oMathPara element (parsed with xml.js) -> LaTeX.
+ * opts.view: 'accept' (default) or 'reject' — how tracked changes inside the equation are read; an equation with nothing
+ * left in that view (all of it inserted, or all deleted) gives ''. opts.onObject(el): LaTeX for an embedded object
+ * (w:object, e.g. MathType) inside the equation.
+ */
+export function ommlToLatex(el, opts = {}) {
   const FN = [...FUNCS].join('|');
-  return conv(el)
+  S.view = opts.view === 'reject' ? 'reject' : 'accept'; S.content = 0; S.onObject = opts.onObject || null;
+  const tex = conv(el);
+  S.view = 'accept'; S.onObject = null;
+  if (!S.content) return '';
+  return tex
     .replace(new RegExp('(\\\\(?:' + FN + ')(?![A-Za-z])(?:_\\{(?:[^{}]|\\{[^{}]*\\})*\\})?(?:\\^\\{(?:[^{}]|\\{[^{}]*\\})*\\})?)\\s*\\\\,', 'g'), '$1 ')
     .replace(new RegExp('\\\\,\\s*(\\\\(?:' + FN + ')(?![A-Za-z]))', 'g'), '$1')          // … and before one
     .replace(/\s+\\\\\s*$/, '').replace(/ {2,}/g, ' ').trim();
 }
 export { find as findXml };
+
+/** The newest tracked change inside an equation: { author, time }, or null when there is none. */
+export function ommlRevision(el) {
+  let best = null;
+  const walk = (e) => {
+    for (const c of e.children || []) {
+      if (!c.name) continue;
+      if (isRev(c.name) && (!best || String(c.attrs['w:date'] || '') > best.time)) best = { author: c.attrs['w:author'] || 'Unknown', time: c.attrs['w:date'] || '' };
+      walk(c);
+    }
+  };
+  walk(el);
+  return best;
+}

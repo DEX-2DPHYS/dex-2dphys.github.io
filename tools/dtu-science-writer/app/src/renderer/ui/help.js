@@ -8,6 +8,7 @@ export const GUIDE = [
   ['Start here', [
     ['What it is', 'A writing program for scientific papers. What you see is the paper: no codes. The page preview on the right is the exact PDF.'],
     ['Templates', '<b>New</b> (<kbd>Ctrl+N</kbd>) asks what to start from: article, lecture notes, thesis, report, notes, proposal or a blank page. File → <b>Save as template…</b> keeps the open document — style, text and figures — as a template of your own; New offers it under “Your templates” (hover a card and click × to delete it).'],
+    ['For a journal or a funder', 'Under <b>Article</b>, type the journal; under <b>Proposal</b>, the funder and the call. The document starts with their sections in their order, their style, and their limits. The status bar then counts as you write — abstract and main-text words, figures and tables, references, pages — amber near a limit, red over it; click it for the details, the source and the date the guide was checked. Format → Journal style switches the limits on for a paper started without them.'],
     ['A new paper', '<b>New</b>, pick Article, then type the title, click the author line to add authors and affiliations, and write. Headings: the style box in the toolbar, or <kbd>Ctrl+Alt+1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>.'],
     ['Practise', 'Help → <b>Tutorial</b> opens a short document that asks you to try each thing once.'],
     ['Files', 'One file per paper, <code>name.dtusw</code>: text, figures, references, comments and changes are all inside it.'],
@@ -56,6 +57,11 @@ export const GUIDE = [
   ['From a Word manuscript', [
     ['Import', 'File → Import Word document…: a new paper here; the Word file is not changed. A report lists what arrived and what to check.'],
     ['Typed references', 'Format → <b>Convert typed references</b>: “[1]”, superscript numbers and a typed reference list become real citations (each one looked up and verified); typed “Fig. 2” becomes a live reference.'],
+    ['Back and forth with Word', 'Comments, replies, tracked changes (also inside equations), highlight and coloured text travel both ways. What a Word file cannot carry — the document style, drawings on figures — stays in your <code>.dtusw</code>; a Word file you get back opens as a new document.'],
+  ]],
+  ['Highlight and colour', [
+    ['Highlight', 'Format → <b>Highlight</b> (<kbd>Ctrl+Shift+H</kbd>) marks the selection in yellow; Format → <b>Remove highlight</b>. Shown in the PDF, and in Word.'],
+    ['Text colour', 'Format → <b>Text colour</b>: red, blue, green, or automatic. A revised manuscript or a response letter from Word keeps its marked changes.'],
   ]],
   ['Look and layout', [
     ['Document style', '<b>Style</b>: font, sizes, heading formats, line spacing, line numbers, language.'],

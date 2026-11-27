@@ -12,6 +12,7 @@ import { togglePageBreaks } from './ui/toolbar.js';
 import './ui/eqtools.js';
 import './ui/figviewer.js';
 import './ui/status.js';
+import './ui/limits.js';
 import './ui/commentspane.js';
 import { wireToolbar } from './ui/toolbar.js';
 import { wireUpdateBar } from './ui/updatebar.js';

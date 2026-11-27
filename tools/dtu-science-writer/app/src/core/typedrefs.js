@@ -3,6 +3,7 @@
    convertTypedReferences replaces every marker by a citation node and the typed list by the automatic reference list,
    in one transaction. Looking the entries up (Crossref, main/refs.js matchText) is the caller's job. */
 import { Fragment } from 'prosemirror-model';
+import { Transform } from 'prosemirror-transform';
 import { supplementOf } from './numbering.js';
 
 const SUPERSCRIPT_STYLES = new Set(['nature', 'acs', 'aip', 'advmat', 'afm', 'small', 'rsc']);
@@ -40,7 +41,22 @@ function expand(spec, through) {
  * The list: a heading "References" (or Bibliography …) followed by a numbered list or numbered paragraphs — or, without
  * such a heading, numbered paragraphs "[1] …" at the end of the document.
  */
+/** The same document without highlight and text colour, for searching typed text: those marks split runs of text
+    ("refs. 21, 43" in two pieces, in a manuscript that marks its changes) and mean nothing to a search. Marks take no
+    positions, so what is found here is at the same place in the real document. */
+export function withoutColour(doc) {
+  const M = doc.type.schema.marks;
+  if (!M.highlight || !M.color) return doc;
+  let has = false;
+  doc.descendants((n) => { if (!has && n.marks.some(m => m.type === M.highlight || m.type === M.color)) has = true; return !has; });
+  if (!has) return doc;
+  const tr = new Transform(doc);
+  tr.removeMark(0, doc.content.size, M.highlight).removeMark(0, doc.content.size, M.color);
+  return tr.doc;
+}
+
 export function findTypedReferences(doc, part) {
+  doc = withoutColour(doc);
   // the manuscript and the Supplementary Information each have their own typed list and numbers: one part at a time
   const sup = supplementOf(doc);
   const tops = [];

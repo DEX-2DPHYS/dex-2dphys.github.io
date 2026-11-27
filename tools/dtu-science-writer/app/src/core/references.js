@@ -112,6 +112,12 @@ export function makeKey(item, taken) {
   return base + '-' + Math.random().toString(36).slice(2, 6);
 }
 
+/* Crossref's own type names, which doi.org also delivers in CSL-JSON ("journal-article"), mapped to
+   the CSL names the styles know: with an unknown type a style formats the paper as a generic item ("Scientific Reports
+   vol. 14 3163"), and the article number is not printed where the page goes. */
+const CSL_TYPE = { 'journal-article': 'article-journal', 'proceedings-article': 'paper-conference', 'book-chapter': 'chapter', 'book-section': 'chapter', 'book-part': 'chapter', 'posted-content': 'article', 'dissertation': 'thesis', 'monograph': 'book', 'edited-book': 'book', 'reference-book': 'book', 'book-set': 'book', 'reference-entry': 'entry-encyclopedia', 'report-component': 'report' };
+export const cslType = (t) => CSL_TYPE[t] || t;
+
 /** Clean a CSL item for the library; returns null when it has nothing to cite. */
 export function normalizeItem(it) {
   if (!it || typeof it !== 'object') return null;
@@ -119,7 +125,7 @@ export function normalizeItem(it) {
   delete out._graph; delete out.reference; delete out['reference-count'];   // bulky fields from Crossref
   if (Array.isArray(out.title)) out.title = out.title[0];
   if (Array.isArray(out['container-title'])) out['container-title'] = out['container-title'][0];
-  if (!out.type) out.type = 'article-journal';
+  out.type = out.type ? cslType(out.type) : 'article-journal';
   if (!out.title && !out.author) return null;
   return out;
 }
@@ -159,7 +165,9 @@ export function updatedItem(old, fresh) {
   const it = normalizeItem(fresh);
   if (!it) return null;
   const zotero = (fresh && fresh.zotero) || old.zotero;
-  return { ...it, id: old.id, ...(zotero ? { zotero } : {}) };
+  // a record without page or article number (often Zotero's) keeps the article number the item already had
+  const keep = !it.page && !it['article-number'] && old['article-number'] ? { 'article-number': old['article-number'] } : {};
+  return { ...it, ...keep, id: old.id, ...(zotero ? { zotero } : {}) };
 }
 
 /** One-line summary of an item (picker lists). */
@@ -262,6 +270,7 @@ export function toBibtex(library) {
 export function forFormatting(it) {
   if (!it) return it;
   let out = it;
+  if (CSL_TYPE[it.type]) out = { ...out, type: CSL_TYPE[it.type] };          // stored before the mapping above existed
   // the official journal abbreviation (core/journals.js) wins over a delivered one, which is often wrong
   const abbr = it['container-title'] && journalAbbreviation(it['container-title']);
   if (abbr && abbr !== it['container-title-short']) out = { ...out, 'container-title-short': abbr, journalAbbreviation: abbr };
@@ -271,7 +280,7 @@ export function forFormatting(it) {
     if (t !== it.title) out = { ...out, title: t };
   }
   if (!it.page) {
-    const an = it['article-number'] || (it.type === 'article-journal' && it.number && !/^arxiv:/i.test(String(it.number)) ? it.number : null);
+    const an = it['article-number'] || (out.type === 'article-journal' && it.number && !/^arxiv:/i.test(String(it.number)) ? it.number : null);
     if (an) out = { ...out, page: String(an) };
   }
   return out;

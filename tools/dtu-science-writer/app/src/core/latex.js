@@ -10,6 +10,7 @@
 import { TableMap } from 'prosemirror-tables';
 import { normalizeLatex } from './mathconv.js';
 import { computeNumbers, numberOnly, refText, firstSentence, nextContext } from './numbering.js';
+import { highlightHex } from './schema.js';
 import { hasSupplement, splitParts } from './parts.js';
 import { finalDoc } from './track.js';
 import { styleOf } from './style.js';
@@ -59,6 +60,9 @@ function inline(node, ctx) {
       case 'footnote': piece = '\\footnote{' + inline(c, ctx) + '}'; break;
       default: piece = texText(c.textContent);
     }
+    const hl = c.marks.find(k => k.type.name === 'highlight'), col = c.marks.find(k => k.type.name === 'color');
+    if (hl && c.type.name === 'text' && piece.trim()) { piece = '\\hlc{' + highlightHex(hl.attrs.color) + '}{' + piece + '}'; ctx.usesHighlight = true; }
+    if (col && /^[0-9A-F]{6}$/i.test(col.attrs.color)) { piece = '\\textcolor[HTML]{' + col.attrs.color.toUpperCase() + '}{' + piece + '}'; ctx.usesColor = true; }
     for (const m of [...MARK_ORDER].reverse()) if (c.marks.some(k => k.type.name === m)) piece = '\\' + MARK_CMD[m] + '{' + piece + '}';
     out += piece;
     prevText = nextContext(prevText, c);
@@ -325,6 +329,8 @@ export function docToLatex(doc, opts = {}) {
     '\\usepackage{textcomp}', '\\usepackage{authblk}',
     '\\usepackage[labelsep=period,labelfont=bf,font=small]{caption}',        // "Fig. 1." in bold, as in the app
     superCite ? '\\usepackage[super]{cite}' : '\\usepackage{cite}',
+    ...(ctx.usesColor || ctx.usesHighlight ? ['\\usepackage{xcolor}'] : []),
+    ...(ctx.usesHighlight ? ['\\usepackage{soul}', '\\newcommand{\\hlc}[2]{{\\definecolor{dswhl}{HTML}{#1}\\sethlcolor{dswhl}\\hl{#2}}}'] : []),
     '\\usepackage[hidelinks]{hyperref}',
     '\\renewcommand{\\figurename}{' + style.figLabel + '}',
     ...(style.spacing > 1 ? ['\\usepackage{setspace}', style.spacing >= 2 ? '\\doublespacing' : '\\onehalfspacing'] : []),

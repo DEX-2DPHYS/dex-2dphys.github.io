@@ -81,6 +81,19 @@ function sameWork(a, b) {
   return titleOk && yearOk && authorOk;
 }
 
+/** A journal article with a DOI but neither page range nor article number (Zotero often keeps none): both from
+    doi.org, as { page, 'article-number' } (only what was found), or null. */
+async function articleNumber(it) {
+  if (!it || !it.DOI || it.page || it['article-number']) return null;
+  const r = await lookup(it.DOI).catch(() => null);
+  const f = r && r.items && r.items[0];
+  if (!f) return null;
+  const out = {};
+  if (f.page) out.page = String(f.page);
+  if (f['article-number']) out['article-number'] = String(f['article-number']);
+  return Object.keys(out).length ? out : null;
+}
+
 /**
  * The full, current record for a library item: from Zotero when it is linked (and Zotero runs), else from doi.org by its
  * DOI, else the best Crossref match — accepted only when title, year and first author agree.
@@ -92,10 +105,10 @@ async function match(it) {
     try {
       const j = await getJson(ZOTERO_URL() + '/api/users/0/items/' + encodeURIComponent(it.zotero.key) + '?format=csljson', { 'Zotero-API-Version': '3' });
       const z = Array.isArray(j) ? j[0] : (j && j.items ? j.items[0] : j);
-      if (z && z.title) return { item: { ...z, zotero: it.zotero }, source: 'zotero' };
+      if (z && z.title) return { item: { ...z, ...(await articleNumber(z)), zotero: it.zotero }, source: 'zotero' };
     } catch (_) { /* Zotero not running: the online library, else the DOI */ }
     if (zweb.status().configured) {
-      try { const z = await zweb.item(it.zotero.key); if (z && z.title) return { item: { ...z, zotero: it.zotero }, source: 'zotero' }; } catch (_) { /* not online / not in this library */ }
+      try { const z = await zweb.item(it.zotero.key); if (z && z.title) return { item: { ...z, ...(await articleNumber(z)), zotero: it.zotero }, source: 'zotero' }; } catch (_) { /* not online / not in this library */ }
     }
   }
   let doi = it.DOI;
@@ -150,4 +163,4 @@ async function pickBibtex() {
   return fs.readFileSync(r.filePaths[0], 'utf8');
 }
 
-module.exports = { lookup, zotero, match, matchText, pickBibtex, doiOf, sameWork };
+module.exports = { lookup, zotero, match, matchText, pickBibtex, doiOf, sameWork, articleNumber };

@@ -37,6 +37,7 @@ export const DEFAULT_STYLE = {
   lineNumbers: false,   // continuous line numbers in the margin (PDF, Word, LaTeX; not shown while editing)
   figLabel: 'Fig.',     // "Fig. 3" or "Figure 3", in captions and references
   journal: '',          // the journal style last applied (journalstyles.js), shown in the Style dialog
+  venue: '',            // journal or funding call + type whose limits the status bar checks (venues.js): 'nature-communications/article'
 };
 export const SPACINGS = [[1, 'single'], [1.5, '1.5 lines'], [2, 'double']];
 export const FIG_LABELS = ['Fig.', 'Figure'];
@@ -79,6 +80,7 @@ export function resolveStyle(raw) {
   // a reference style stored in the document (references.js); kept as it is
   if (s.csl && typeof s.csl === 'object' && typeof s.csl.xml === 'string' && typeof s.csl.name === 'string' && isCslKey('csl:' + s.csl.name)) out.csl = { name: s.csl.name, title: String(s.csl.title || s.csl.name), xml: s.csl.xml };
   if (isCslKey(out.cite) && !(out.csl && 'csl:' + out.csl.name === out.cite)) out.cite = DEFAULT_STYLE.cite;
+  out.venue = typeof s.venue === 'string' && /^[a-z0-9-]{1,60}\/[a-z0-9-]{1,60}$/.test(s.venue) ? s.venue : '';
   out.journal = typeof s.journal === 'string' && /^[a-z0-9-]{1,60}$/.test(s.journal) ? s.journal : '';
   out.lang = oneOf(s.lang, LANGS, DEFAULT_STYLE.lang);
   out.affil = { marker: oneOf(a.marker, AFFIL_MARKERS, DEFAULT_STYLE.affil.marker), fields: oneOf(a.fields, AFFIL_FIELDS, DEFAULT_STYLE.affil.fields) };

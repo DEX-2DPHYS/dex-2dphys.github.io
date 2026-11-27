@@ -8,6 +8,7 @@ import { bundledKeyFor, cslInfo, citeStyleLabel, STYLES, styleId } from '../../c
 
 const BUNDLED = () => STYLES.map(s => styleId(s[0]).split('/').pop());
 import { styleOf, resolveStyle } from '../../core/style.js';
+import { venueById, venueOf } from '../../core/venues.js';
 import { api, toast } from '../context.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -69,7 +70,11 @@ export function openJournalDialog(view, onDone) {
     const b = e.target.closest('button') || e.target;
     if (e.target === dlg || b.dataset.act === 'close') return close();
     if (b.dataset.j) {
-      setStyle(view, applyJournal(styleOf(view.state.doc), b.dataset.j));
+      const ns = applyJournal(styleOf(view.state.doc), b.dataset.j);
+      // its limits (core/venues.js) follow the journal; the article type stays if the journal is the same
+      const jv = venueById(b.dataset.j), cur = venueOf(ns.venue);
+      ns.venue = jv ? (cur && cur.venue.id === jv.id ? ns.venue : jv.id + '/' + jv.types[0].id) : '';
+      setStyle(view, ns);
       toast('Journal style: ' + journalById(b.dataset.j).name);
       return close();
     }

@@ -7,6 +7,7 @@
 import { Fragment } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
 import { computeNumbers } from './numbering.js';
+import { withoutColour } from './typedrefs.js';
 
 const SP = '[\\s\\u00a0]*';
 const KINDS = [
@@ -19,6 +20,7 @@ const OBJ = '￼';        // stands for a non-text inline node in the flattened 
 
 /** [{ from, to, target, type }] — the numbers to replace, in document order. */
 export function findTypedXrefs(doc, nums) {
+  doc = withoutColour(doc);
   nums = nums || computeNumbers(doc);
   const byNum = new Map();
   for (const [id, info] of nums.byId) if (info.num) byNum.set(info.type + ':' + info.num, id);

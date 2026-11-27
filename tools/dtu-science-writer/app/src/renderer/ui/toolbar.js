@@ -74,6 +74,8 @@ registerCommands({
   exportPdf: () => exportPdf(), exportDocx: () => exportDocx(), exportLatex: () => exportLatex(),
   undo: run(cmd.undo), redo: run(cmd.redo),
   bold: run(cmd.bold), italic: run(cmd.italic), underline: run(cmd.underline), sup: run(cmd.sup), sub: run(cmd.sub),
+  highlight: run(cmd.highlight), removeHighlight: run(cmd.removeHighlight),
+  colorRed: run(cmd.colorRed), colorBlue: run(cmd.colorBlue), colorGreen: run(cmd.colorGreen), colorNone: run(cmd.colorNone),
   bullets: run(cmd.bullets), numbers: run(cmd.numbers),
   inlineMath: run(cmd.inlineMath), equation: run(cmd.equation), numbered: run(toggleNumbered),
   figure: pickFigure, ref: openRefPicker,
